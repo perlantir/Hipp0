@@ -64,22 +64,14 @@ export function mapDbError(err: unknown): never {
   throw err;
 }
 
-// Embedding helper
+// Re-export embedding from core (uses centralized LLM config)
+import { generateEmbedding as coreGenerateEmbedding } from '@nexus/core/decision-graph/embeddings.js';
+
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
   try {
-    const res = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: text }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { data: Array<{ embedding: number[] }> };
-    return data.data[0]?.embedding ?? null;
+    const embedding = await coreGenerateEmbedding(text);
+    const isZero = embedding.every((v) => v === 0);
+    return isZero ? null : embedding;
   } catch {
     return null;
   }

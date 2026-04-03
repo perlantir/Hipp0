@@ -31,6 +31,18 @@
     "./config/llm.js": {
       "import": "./dist/config/llm.js",
       "types": "./dist/config/llm.d.ts"
+    },
+    "./distillery/index.js": {
+      "import": "./dist/distillery/index.js",
+      "types": "./dist/distillery/index.d.ts"
+    },
+    "./distillery/extractor.js": {
+      "import": "./dist/distillery/extractor.js",
+      "types": "./dist/distillery/extractor.d.ts"
+    },
+    "./decision-graph/embeddings.js": {
+      "import": "./dist/decision-graph/embeddings.js",
+      "types": "./dist/decision-graph/embeddings.d.ts"
     }
   },
   "scripts": {
