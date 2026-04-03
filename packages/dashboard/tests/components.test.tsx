@@ -1,22 +1,17 @@
 /**
  * Dashboard component tests
  *
- * Each component gets a describe block with 3 tests:
- *   1. Renders without crashing with mock data
- *   2. Renders empty state (no data)
+ * Each component gets 3 tests:
+ *   1. Renders with mock data
+ *   2. Renders empty state
  *   3. Renders loading state
  *
- * Components: DecisionGraph, Timeline, Contradictions, ContextComparison,
- *             Search, ImpactAnalysis, SessionHistory, NotificationFeed,
- *             ProjectStats  (9 × 3 = 27 tests)
+ * All renders wrapped in act() with waitFor() for async state settlement.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import { vi, describe, it, beforeEach, expect } from 'vitest';
-
-/* ------------------------------------------------------------------ */
-/*  Mock: useApi                                                       */
-/* ------------------------------------------------------------------ */
 
 const mockGet = vi.fn();
 const mockPost = vi.fn();
@@ -33,43 +28,33 @@ vi.mock('../src/hooks/useApi', () => ({
   }),
 }));
 
-/* ------------------------------------------------------------------ */
-/*  Mock: useProject (from App)                                        */
-/* ------------------------------------------------------------------ */
-
 vi.mock('../src/App', () => ({
   useProject: () => ({ projectId: 'test-project-1', setProjectId: vi.fn() }),
 }));
 
-/* ------------------------------------------------------------------ */
-/*  Mock: D3 (DecisionGraph relies heavily on D3 DOM mutations)       */
-/* ------------------------------------------------------------------ */
+const mockChain: Record<string, Function> = {};
+const chainProxy = (): Record<string, Function> =>
+  new Proxy({} as Record<string, Function>, {
+    get: () => chainProxy,
+  });
 
 vi.mock('d3', () => ({
-  select: () => ({
-    append: () => ({ attr: () => ({ attr: () => ({}) }) }),
-    selectAll: () => ({ data: () => ({ enter: () => ({ append: () => ({}) }) }) }),
-  }),
-  forceSimulation: () => ({
-    nodes: () => ({ force: () => ({ links: () => ({}) }) }),
-    force: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    stop: vi.fn(),
-  }),
-  forceLink: () => ({ id: () => ({}) }),
-  forceManyBody: () => ({ strength: () => ({}) }),
-  forceCenter: () => ({}),
-  forceCollide: () => ({ radius: () => ({}) }),
-  zoom: () => ({ scaleExtent: () => ({ on: () => ({}) }) }),
-  drag: () => ({ on: () => ({ on: () => ({}) }) }),
+  select: () => chainProxy(),
+  selectAll: () => chainProxy(),
+  forceSimulation: () => chainProxy(),
+  forceLink: () => chainProxy(),
+  forceManyBody: () => chainProxy(),
+  forceCenter: () => chainProxy(),
+  forceCollide: () => chainProxy(),
+  zoom: () => chainProxy(),
+  drag: () => chainProxy(),
   zoomTransform: () => ({ k: 1, x: 0, y: 0 }),
+  zoomIdentity: { k: 1, x: 0, y: 0 },
 }));
 
 vi.mock('d3-force', () => ({}));
 
-/* ------------------------------------------------------------------ */
-/*  Shared test fixtures                                               */
-/* ------------------------------------------------------------------ */
+// --- Fixtures ---
 
 const MOCK_DECISION = {
   id: 'dec-001',
@@ -189,9 +174,7 @@ const MOCK_CONTEXT_RESULT = {
   decisions: [{ decision: MOCK_DECISION, score: 0.95 }],
 };
 
-/* ------------------------------------------------------------------ */
-/*  Helper to set mock return values before each test                 */
-/* ------------------------------------------------------------------ */
+// --- Helpers ---
 
 function mockApiNeverResolve() {
   mockGet.mockReturnValue(new Promise(() => {}));
@@ -205,311 +188,339 @@ function resetMocks() {
   mockDel.mockReset();
 }
 
-/* ------------------------------------------------------------------ */
-/*  1. DecisionGraph                                                   */
-/* ------------------------------------------------------------------ */
+// --- DecisionGraph ---
 
 describe('DecisionGraph', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock data', async () => {
+  it('renders with mock data', async () => {
     mockGet.mockResolvedValue([MOCK_DECISION, MOCK_DECISION_2]);
     const { DecisionGraph } = await import('../src/components/DecisionGraph');
-    const { container } = render(<DecisionGraph />);
-    // DecisionGraph renders a top-level container div
-    expect(container.firstChild).toBeTruthy();
+    let container: HTMLElement;
+    await act(async () => {
+      ({ container } = render(<DecisionGraph />));
+    });
+    await waitFor(() => {
+      expect(container!.firstChild).toBeTruthy();
+    });
   });
 
-  it('renders empty state when no decisions returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
     const { DecisionGraph } = await import('../src/components/DecisionGraph');
-    render(<DecisionGraph />);
-    // Component renders its container — D3 handles the graph internals
-    // Just verify it mounts without crashing
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<DecisionGraph />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
     const { DecisionGraph } = await import('../src/components/DecisionGraph');
-    render(<DecisionGraph />);
-    // Loading spinner or text should appear
-    const spinner =
-      document.querySelector('.animate-spin') ||
-      screen.queryByText(/loading/i);
+    await act(async () => {
+      render(<DecisionGraph />);
+    });
+    const spinner = document.querySelector('.animate-spin') || screen.queryByText(/loading/i);
     expect(spinner || document.body).toBeTruthy();
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  2. Timeline                                                        */
-/* ------------------------------------------------------------------ */
+// --- Timeline ---
 
 describe('Timeline', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock data', async () => {
+  it('renders with mock data', async () => {
     mockGet.mockResolvedValue([MOCK_DECISION, MOCK_DECISION_2]);
     const { Timeline } = await import('../src/components/Timeline');
-    render(<Timeline />);
-    // Loading spinner shows first since fetch is async
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Timeline />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no decisions returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
     const { Timeline } = await import('../src/components/Timeline');
-    render(<Timeline />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Timeline />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
     const { Timeline } = await import('../src/components/Timeline');
-    render(<Timeline />);
+    await act(async () => {
+      render(<Timeline />);
+    });
     expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  3. Contradictions                                                  */
-/* ------------------------------------------------------------------ */
+// --- Contradictions ---
 
 describe('Contradictions', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock data', async () => {
+  it('renders with mock data', async () => {
     mockGet.mockResolvedValue([MOCK_CONTRADICTION]);
     const { Contradictions } = await import('../src/components/Contradictions');
-    render(<Contradictions />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Contradictions />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no contradictions returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
     const { Contradictions } = await import('../src/components/Contradictions');
-    render(<Contradictions />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Contradictions />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
     const { Contradictions } = await import('../src/components/Contradictions');
-    render(<Contradictions />);
+    await act(async () => {
+      render(<Contradictions />);
+    });
     expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  4. ContextComparison                                               */
-/* ------------------------------------------------------------------ */
+// --- ContextComparison ---
 
 describe('ContextComparison', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock data', async () => {
+  it('renders with mock data', async () => {
     mockPost.mockResolvedValue([MOCK_CONTEXT_RESULT]);
-    const { ContextComparison } = await import(
-      '../src/components/ContextComparison'
-    );
-    render(<ContextComparison />);
-    // ContextComparison renders a form/search UI by default (no auto-fetch)
-    expect(document.body).toBeTruthy();
+    const { ContextComparison } = await import('../src/components/ContextComparison');
+    await act(async () => {
+      render(<ContextComparison />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty / initial state when no comparison run yet', async () => {
+  it('renders initial state', async () => {
     mockPost.mockResolvedValue([]);
-    const { ContextComparison } = await import(
-      '../src/components/ContextComparison'
-    );
-    render(<ContextComparison />);
-    // Should show the compare form
-    expect(document.body).toBeTruthy();
+    const { ContextComparison } = await import('../src/components/ContextComparison');
+    await act(async () => {
+      render(<ContextComparison />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while comparison is in flight', async () => {
+  it('renders loading state', async () => {
     mockPost.mockReturnValue(new Promise(() => {}));
-    const { ContextComparison } = await import(
-      '../src/components/ContextComparison'
-    );
-    render(<ContextComparison />);
-    // On initial render, loading=false; just verify component mounts
-    expect(document.body).toBeTruthy();
+    const { ContextComparison } = await import('../src/components/ContextComparison');
+    await act(async () => {
+      render(<ContextComparison />);
+    });
+    expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  5. Search                                                          */
-/* ------------------------------------------------------------------ */
+// --- Search ---
 
 describe('Search', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock search results', async () => {
+  it('renders with mock search results', async () => {
     mockPost.mockResolvedValue([MOCK_SEARCH_RESULT]);
     const { Search } = await import('../src/components/Search');
-    render(<Search />);
-    // Search renders an input field on mount
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Search />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no results returned', async () => {
+  it('renders empty state', async () => {
     mockPost.mockResolvedValue([]);
     const { Search } = await import('../src/components/Search');
-    render(<Search />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Search />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while search is in flight', async () => {
+  it('renders loading state', async () => {
     mockPost.mockReturnValue(new Promise(() => {}));
     const { Search } = await import('../src/components/Search');
-    render(<Search />);
-    // Before submitting, no loading indicator; component should still mount
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<Search />);
+    });
+    expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  6. ImpactAnalysis                                                  */
-/* ------------------------------------------------------------------ */
+// --- ImpactAnalysis ---
 
 describe('ImpactAnalysis', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock impact data', async () => {
+  it('renders with mock impact data', async () => {
     mockGet.mockResolvedValue([MOCK_DECISION, MOCK_DECISION_2]);
     mockPost.mockResolvedValue(MOCK_IMPACT_RESULT);
     const { ImpactAnalysis } = await import('../src/components/ImpactAnalysis');
-    render(<ImpactAnalysis />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<ImpactAnalysis />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no decisions returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
     mockPost.mockResolvedValue(null);
     const { ImpactAnalysis } = await import('../src/components/ImpactAnalysis');
-    render(<ImpactAnalysis />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<ImpactAnalysis />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while decisions list is loading', async () => {
+  it('renders loading state', async () => {
     mockGet.mockReturnValue(new Promise(() => {}));
     const { ImpactAnalysis } = await import('../src/components/ImpactAnalysis');
-    render(<ImpactAnalysis />);
-    // ImpactAnalysis shows a disabled input with placeholder "Loading decisions…"
-    // while decisions are being fetched — assert via placeholder attribute
-    const input = screen.queryByPlaceholderText(/loading decisions/i);
-    expect(input || document.body.innerHTML.length > 0).toBeTruthy();
+    await act(async () => {
+      render(<ImpactAnalysis />);
+    });
+    expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  7. SessionHistory                                                  */
-/* ------------------------------------------------------------------ */
+// --- SessionHistory ---
 
 describe('SessionHistory', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock session data', async () => {
+  it('renders with mock session data', async () => {
     mockGet.mockResolvedValue([MOCK_SESSION]);
     const { SessionHistory } = await import('../src/components/SessionHistory');
-    render(<SessionHistory />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<SessionHistory />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no sessions returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
     const { SessionHistory } = await import('../src/components/SessionHistory');
-    render(<SessionHistory />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<SessionHistory />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
     const { SessionHistory } = await import('../src/components/SessionHistory');
-    render(<SessionHistory />);
+    await act(async () => {
+      render(<SessionHistory />);
+    });
     expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  8. NotificationFeed                                                */
-/* ------------------------------------------------------------------ */
+// --- NotificationFeed ---
 
 describe('NotificationFeed', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock notifications', async () => {
+  it('renders with mock notifications', async () => {
     mockGet.mockResolvedValue([MOCK_NOTIFICATION]);
-    const { NotificationFeed } = await import(
-      '../src/components/NotificationFeed'
-    );
-    render(<NotificationFeed />);
-    expect(document.body).toBeTruthy();
+    const { NotificationFeed } = await import('../src/components/NotificationFeed');
+    await act(async () => {
+      render(<NotificationFeed />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when no notifications returned', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue([]);
-    const { NotificationFeed } = await import(
-      '../src/components/NotificationFeed'
-    );
-    render(<NotificationFeed />);
-    expect(document.body).toBeTruthy();
+    const { NotificationFeed } = await import('../src/components/NotificationFeed');
+    await act(async () => {
+      render(<NotificationFeed />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
-    const { NotificationFeed } = await import(
-      '../src/components/NotificationFeed'
-    );
-    render(<NotificationFeed />);
+    const { NotificationFeed } = await import('../src/components/NotificationFeed');
+    await act(async () => {
+      render(<NotificationFeed />);
+    });
     expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/*  9. ProjectStats                                                    */
-/* ------------------------------------------------------------------ */
+// --- ProjectStats ---
 
 describe('ProjectStats', () => {
-  beforeEach(() => {
-    resetMocks();
-  });
+  beforeEach(resetMocks);
 
-  it('renders without crashing with mock stats data', async () => {
+  it('renders with mock stats data', async () => {
     mockGet.mockResolvedValue(MOCK_STATS);
     const { ProjectStats } = await import('../src/components/ProjectStats');
-    render(<ProjectStats />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<ProjectStats />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders empty state when stats returns null/no data', async () => {
+  it('renders empty state', async () => {
     mockGet.mockResolvedValue(null);
     const { ProjectStats } = await import('../src/components/ProjectStats');
-    render(<ProjectStats />);
-    expect(document.body).toBeTruthy();
+    await act(async () => {
+      render(<ProjectStats />);
+    });
+    await waitFor(() => {
+      expect(document.body.innerHTML.length).toBeGreaterThan(0);
+    });
   });
 
-  it('renders loading state while fetch is pending', async () => {
+  it('renders loading state', async () => {
     mockApiNeverResolve();
     const { ProjectStats } = await import('../src/components/ProjectStats');
-    render(<ProjectStats />);
+    await act(async () => {
+      render(<ProjectStats />);
+    });
     expect(document.body.innerHTML.length).toBeGreaterThan(0);
   });
 });
