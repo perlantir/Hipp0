@@ -77,7 +77,16 @@ Drop-in integrations for LangChain/LangGraph, CrewAI, AutoGen, and OpenAI Agents
 git clone https://github.com/perlantir/nexus.git
 cd nexus
 cp .env.example .env
-# Edit .env — add OPENAI_API_KEY and/or ANTHROPIC_API_KEY
+```
+
+Edit `.env` — add your preferred LLM provider:
+
+```bash
+# Pick one:
+OPENROUTER_API_KEY=sk-or-your-key    # Recommended: one key, all features
+# OPENAI_API_KEY=sk-your-key          # Alternative: OpenAI direct
+# ANTHROPIC_API_KEY=sk-ant-your-key   # Alternative: Anthropic direct
+# Or leave all blank — Nexus works without LLM keys
 ```
 
 ### 2. Start everything with Docker Compose

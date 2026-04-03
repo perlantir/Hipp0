@@ -16,7 +16,7 @@ This guide walks you from zero to a working Nexus setup with your first decision
 | OpenAI API key | — | for embeddings (`text-embedding-3-small`) |
 | Anthropic API key (optional) | — | for the Distillery LLM pipeline |
 
-If you prefer OpenAI for the Distillery instead of Anthropic, that works too — set `DISTILLERY_PROVIDER=openai` in `.env`.
+Nexus is provider-agnostic. Set one env var (e.g., `OPENROUTER_API_KEY`) and both features work. See [self-hosting.md](self-hosting.md) for all provider options.
 
 ---
 
@@ -34,33 +34,29 @@ This installs all workspace packages: `core`, `server`, `sdk`, `mcp`, `cli`, and
 
 ## Step 2 — Configure Environment
 
+Copy the example environment file:
+
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in the required values:
+Edit `.env` and add your LLM provider key. Pick one:
 
+**OpenRouter (recommended — one key for everything):**
 ```dotenv
-# Database
-DATABASE_URL=postgresql://nexus:nexus_dev@localhost:5432/nexus
+OPENROUTER_API_KEY=sk-or-your-key
+```
+Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
 
-# Embeddings (required for semantic search and scoring)
-EMBEDDING_PROVIDER=openai
-OPENAI_API_KEY=nx_...
-
-# Distillery LLM (for auto-extracting decisions from conversations)
-DISTILLERY_PROVIDER=anthropic
-ANTHROPIC_API_KEY=nx_...
-
-# Server
-PORT=3100
-NEXUS_API_KEY=change-me-in-production
-
-# Dashboard
-VITE_API_URL=http://localhost:3100
+**OpenAI + Anthropic (direct):**
+```dotenv
+OPENAI_API_KEY=sk-your-key
+ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
-The minimum required key is `OPENAI_API_KEY` for embeddings. The Distillery is disabled gracefully if no LLM key is provided.
+**No keys (Nexus still works):**
+Skip this step. Semantic search falls back to text matching.
+Auto-extraction is disabled — agents record decisions manually.
 
 ---
 

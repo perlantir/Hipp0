@@ -1,6 +1,9 @@
 // --- Types ---
 export * from './types.js';
 
+// --- LLM Config ---
+export * from './config/llm.js';
+
 // --- Roles ---
 export {
   ROLE_TEMPLATES,

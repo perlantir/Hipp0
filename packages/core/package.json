@@ -27,6 +27,10 @@
     "./roles.js": {
       "import": "./dist/roles.js",
       "types": "./dist/roles.d.ts"
+    },
+    "./config/llm.js": {
+      "import": "./dist/config/llm.js",
+      "types": "./dist/config/llm.d.ts"
     }
   },
   "scripts": {

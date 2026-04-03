@@ -316,7 +316,7 @@ Topics are matched against decision `tags` using an exact-match lookup. When a d
 
 ## Layer 4: Distillery
 
-The Distillery processes raw conversation text through an LLM pipeline to extract structured decisions.
+The Distillery processes raw conversation text through an LLM pipeline to extract structured decisions. Nexus is provider-agnostic: all LLM calls (embeddings and chat completions) route through a centralized configuration module (`packages/core/src/config/llm.ts`) that supports any OpenAI-compatible API. A single `OPENROUTER_API_KEY` enables both features, or users can point to Ollama, Together AI, Groq, Azure OpenAI, or any other endpoint via explicit URL/key overrides. Without any LLM keys configured, Nexus functions fully — semantic search falls back to PostgreSQL text matching and decisions are recorded manually.
 
 ### Pipeline
 

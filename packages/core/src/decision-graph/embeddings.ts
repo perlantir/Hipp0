@@ -1,41 +1,35 @@
-// Generates vector embeddings for text using OpenAI text-embedding-3-small
-// or a mock zero-vector when no API key is configured.
+import { resolveLLMConfig, createLLMClient } from '../config/llm.js';
+import type { LLMEndpoint } from '../config/llm.js';
+import type OpenAI from 'openai';
 
-import OpenAI from 'openai';
-
-const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIM = 1536;
 
-let _openai: OpenAI | null = null;
+let _client: OpenAI | null = null;
+let _endpoint: LLMEndpoint | null | undefined;
 
-function getOpenAIClient(): OpenAI | null {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  if (!_openai) {
-    _openai = new OpenAI({ apiKey: key });
+function getEmbeddingClient(): { client: OpenAI; model: string } | null {
+  if (_endpoint === undefined) {
+    _endpoint = resolveLLMConfig().embeddings;
   }
-  return _openai;
+  if (!_endpoint) return null;
+  if (!_client) {
+    _client = createLLMClient(_endpoint);
+  }
+  return { client: _client, model: _endpoint.model };
 }
 
-/**
- * Generate a vector embedding for the given text.
- *
- * Returns a 1536-dimension float array. If OPENAI_API_KEY is not set,
- * returns a zero-vector so the rest of the pipeline can proceed in
- * test/development environments without making external API calls.
- */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const client = getOpenAIClient();
+  const ctx = getEmbeddingClient();
 
-  if (!client) {
-    console.warn('[nexus:embeddings] OPENAI_API_KEY not set — returning zero-vector embedding.');
+  if (!ctx) {
+    console.warn('[nexus:embeddings] No embedding provider configured — returning zero-vector.');
     return new Array(EMBEDDING_DIM).fill(0) as number[];
   }
 
   try {
-    const response = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: text.slice(0, 8191), // token safety ceiling
+    const response = await ctx.client.embeddings.create({
+      model: ctx.model,
+      input: text.slice(0, 8191),
     });
     return response.data[0]?.embedding ?? (new Array(EMBEDDING_DIM).fill(0) as number[]);
   } catch (err) {
@@ -44,10 +38,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   }
 }
 
-/**
- * Compute cosine similarity between two vectors.
- * Returns a value in [-1, 1]; identical vectors return 1.0.
- */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;

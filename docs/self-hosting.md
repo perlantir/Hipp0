@@ -362,12 +362,10 @@ DATABASE_URL=postgresql://nexus:your_password@localhost:5432/nexus
 DATABASE_POOL_MIN=2
 DATABASE_POOL_MAX=10
 
-# AI Providers
-EMBEDDING_PROVIDER=openai
-OPENAI_API_KEY=sk-...          # Required for embeddings
-
-DISTILLERY_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...   # Required for LLM extraction
+# LLM Provider (optional — pick one)
+OPENROUTER_API_KEY=sk-or-...   # Recommended: one key, all features
+# OPENAI_API_KEY=sk-...         # Alternative: OpenAI direct
+# ANTHROPIC_API_KEY=sk-ant-...  # Alternative: Anthropic direct
 
 # Server
 PORT=3100
@@ -413,6 +411,140 @@ LOCAL_EMBEDDING_MODEL=nomic-embed-text
 DISTILLERY_PROVIDER=openai
 OPENAI_DISTILLERY_MODEL=gpt-4o-mini
 ```
+
+---
+
+## LLM Provider Configuration
+
+Nexus makes two types of optional LLM calls internally:
+
+| Feature | What it does | Without a key |
+|---------|-------------|---------------|
+| Embeddings | Converts decisions to vectors for semantic search | Falls back to text search (PostgreSQL ILIKE) |
+| Distillery | Extracts structured decisions from conversation transcripts | Agents record decisions manually via API |
+
+The core product — decision graph, context compilation, change propagation, notifications, and dashboard — works with zero LLM keys.
+
+### Quick Setup
+
+Most users need one line in `.env`:
+
+```dotenv
+OPENROUTER_API_KEY=sk-or-your-key
+```
+
+This routes embedding requests through OpenAI (via OpenRouter) and extraction requests through Anthropic Claude (via OpenRouter). One key, both features, 200+ models available.
+
+### Provider Examples
+
+**OpenRouter (recommended)**
+```dotenv
+OPENROUTER_API_KEY=sk-or-your-key
+```
+
+**OpenAI direct**
+```dotenv
+OPENAI_API_KEY=sk-your-key
+```
+Enables embeddings and distillery (using GPT-4o-mini for extraction).
+
+**Anthropic direct**
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-your-key
+```
+Enables distillery only. Embeddings fall back to text search (Anthropic does not offer an embeddings API).
+
+**OpenAI + Anthropic**
+```dotenv
+OPENAI_API_KEY=sk-your-key
+ANTHROPIC_API_KEY=sk-ant-your-key
+```
+Embeddings via OpenAI, distillery via Anthropic Claude.
+
+**Ollama (local, free, private)**
+```dotenv
+NEXUS_EMBEDDINGS_URL=http://localhost:11434/v1
+NEXUS_EMBEDDINGS_KEY=ollama
+NEXUS_EMBEDDINGS_MODEL=nomic-embed-text
+NEXUS_LLM_URL=http://localhost:11434/v1
+NEXUS_LLM_KEY=ollama
+NEXUS_LLM_MODEL=llama3
+```
+Requires Ollama running locally with the models pulled.
+
+**Together AI**
+```dotenv
+NEXUS_EMBEDDINGS_URL=https://api.together.xyz/v1
+NEXUS_EMBEDDINGS_KEY=your-together-key
+NEXUS_EMBEDDINGS_MODEL=togethercomputer/m2-bert-80M-8k-retrieval
+NEXUS_LLM_URL=https://api.together.xyz/v1
+NEXUS_LLM_KEY=your-together-key
+NEXUS_LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
+```
+
+**Groq (fast inference)**
+```dotenv
+NEXUS_LLM_URL=https://api.groq.com/openai/v1
+NEXUS_LLM_KEY=gsk_your-groq-key
+NEXUS_LLM_MODEL=llama-3.3-70b-versatile
+```
+Note: Groq does not offer embeddings. Use with a separate embeddings provider or rely on text search.
+
+**Azure OpenAI**
+```dotenv
+NEXUS_EMBEDDINGS_URL=https://your-resource.openai.azure.com/openai/deployments/your-embedding-deployment
+NEXUS_EMBEDDINGS_KEY=your-azure-key
+NEXUS_EMBEDDINGS_MODEL=text-embedding-3-small
+NEXUS_LLM_URL=https://your-resource.openai.azure.com/openai/deployments/your-chat-deployment
+NEXUS_LLM_KEY=your-azure-key
+NEXUS_LLM_MODEL=gpt-4o-mini
+```
+
+**LiteLLM Proxy**
+```dotenv
+NEXUS_EMBEDDINGS_URL=http://localhost:4000/v1
+NEXUS_EMBEDDINGS_KEY=your-litellm-key
+NEXUS_EMBEDDINGS_MODEL=text-embedding-3-small
+NEXUS_LLM_URL=http://localhost:4000/v1
+NEXUS_LLM_KEY=your-litellm-key
+NEXUS_LLM_MODEL=claude-haiku-4-5-20251001
+```
+
+### Verifying Your Configuration
+
+After starting Nexus, check the logs:
+```bash
+docker compose logs server | grep nexus
+```
+
+You should see:
+```
+[nexus] Embeddings: openai/text-embedding-3-small via openrouter
+[nexus] Distillery: anthropic/claude-haiku-4-5-20251001 via openrouter
+```
+
+Or if no keys are configured:
+```
+[nexus] Embeddings: disabled (text search fallback)
+[nexus] Distillery: disabled (manual recording only)
+```
+
+### Priority Order
+
+If multiple keys are set, Nexus uses this priority:
+
+**Embeddings:**
+1. `NEXUS_EMBEDDINGS_URL` + `NEXUS_EMBEDDINGS_KEY` (explicit override)
+2. `OPENROUTER_API_KEY`
+3. `OPENAI_API_KEY`
+4. Text search fallback
+
+**Distillery:**
+1. `NEXUS_LLM_URL` + `NEXUS_LLM_KEY` (explicit override)
+2. `OPENROUTER_API_KEY`
+3. `ANTHROPIC_API_KEY` (direct Anthropic SDK)
+4. `OPENAI_API_KEY`
+5. Manual recording only
 
 ---
 

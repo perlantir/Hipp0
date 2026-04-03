@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { getPool, closePool } from '@nexus/core/db/pool.js';
+import { resolveLLMConfig, logLLMConfig } from '@nexus/core';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -13,10 +14,12 @@ async function main() {
     const result = await pool.query('SELECT 1 as ok');
     if (result.rows[0]?.ok !== 1) throw new Error('Health check query returned unexpected result');
     console.warn('[nexus] Database connected');
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[nexus] FATAL: Cannot connect to database:', (err as Error).message);
     process.exit(1);
   }
+
+  logLLMConfig(resolveLLMConfig());
 
   const app = createApp();
 
