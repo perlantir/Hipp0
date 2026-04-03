@@ -4,6 +4,7 @@ import { parseDecision, parseEdge } from '@nexus/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@nexus/core/types.js';
 import type { Decision, DecisionEdge, NotificationType } from '@nexus/core/types.js';
 import { propagateChange } from '@nexus/core/change-propagator/index.js';
+import { checkForContradictions } from '@nexus/core/contradiction-detector/index.js';
 import {
   requireUUID,
   requireString,
@@ -101,6 +102,10 @@ export function registerDecisionRoutes(app: Hono): void {
 
       propagateChange(decision, 'decision_created').catch((err) =>
         console.error('[nexus] Change propagation failed:', (err as Error).message),
+      );
+
+      checkForContradictions(decision).catch((err) =>
+        console.error('[nexus] Contradiction check failed:', (err as Error).message),
       );
 
       return c.json(decision, 201);

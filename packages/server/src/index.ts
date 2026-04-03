@@ -21,6 +21,23 @@ async function main() {
 
   logLLMConfig(resolveLLMConfig());
 
+  // Log auto-discovery config
+  const openclawPath = process.env.NEXUS_OPENCLAW_PATH;
+  const watchDir = process.env.NEXUS_WATCH_DIR;
+  if (openclawPath) {
+    const interval = process.env.NEXUS_DISCOVERY_INTERVAL || '30000';
+    console.warn(`[nexus] Auto-discovery: openclaw connector watching ${openclawPath} (${parseInt(interval)/1000}s interval)`);
+  } else if (watchDir) {
+    const interval = process.env.NEXUS_DISCOVERY_INTERVAL || '30000';
+    const pattern = process.env.NEXUS_WATCH_PATTERN || '*.md';
+    console.warn(`[nexus] Auto-discovery: directory connector watching ${watchDir} (${pattern}, ${parseInt(interval)/1000}s interval)`);
+  } else {
+    console.warn('[nexus] Auto-discovery: no connectors configured (set NEXUS_OPENCLAW_PATH or NEXUS_WATCH_DIR)');
+  }
+
+  // Log contradiction detection
+  console.warn('[nexus] Contradiction detection: enabled (semantic threshold: 0.75)');
+
   const app = createApp();
 
   const server = serve(

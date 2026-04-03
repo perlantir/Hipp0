@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  Upload,
+  Settings,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -23,6 +25,10 @@ import { ImpactAnalysis } from './components/ImpactAnalysis';
 import { SessionHistory } from './components/SessionHistory';
 import { NotificationFeed } from './components/NotificationFeed';
 import { ProjectStats } from './components/ProjectStats';
+import { Wizard } from './components/Wizard';
+import { Import } from './components/Import';
+import { Connectors } from './components/Connectors';
+import { useApi } from './hooks/useApi';
 
 /* ------------------------------------------------------------------ */
 /*  Project context                                                    */
@@ -55,7 +61,10 @@ type View =
   | 'impact'
   | 'sessions'
   | 'notifications'
-  | 'stats';
+  | 'stats'
+  | 'import'
+  | 'connectors'
+  | 'wizard';
 
 const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
   { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} /> },
@@ -67,6 +76,8 @@ const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
   { id: 'sessions', label: 'Sessions', icon: <History size={18} /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={18} /> },
   { id: 'stats', label: 'Project Stats', icon: <BarChart3 size={18} /> },
+  { id: 'import', label: 'Import', icon: <Upload size={18} /> },
+  { id: 'connectors', label: 'Connectors', icon: <Settings size={18} /> },
 ];
 
 function getViewFromHash(): View {
@@ -99,6 +110,10 @@ function ViewContent({ view }: { view: View }) {
       return <NotificationFeed />;
     case 'stats':
       return <ProjectStats />;
+    case 'import':
+      return <Import />;
+    case 'connectors':
+      return <Connectors />;
     default:
       return <DecisionGraph />;
   }
@@ -109,12 +124,62 @@ function ViewContent({ view }: { view: View }) {
 /* ------------------------------------------------------------------ */
 
 export default function App() {
+  const { get } = useApi();
+
   const [view, setView] = useState<View>(getViewFromHash);
   const [collapsed, setCollapsed] = useState(false);
   const [dark, setDark] = useState(true);
   const [projectId, setProjectId] = useState('default');
 
-  // Sync hash → view
+  // First-run detection
+  const [showWizard, setShowWizard] = useState(false);
+  const [projectsChecked, setProjectsChecked] = useState(false);
+
+  // Unresolved contradictions badge count
+  const [unresolvedCount, setUnresolvedCount] = useState<number | null>(null);
+
+  /* ---- Check for first run -------------------------------------- */
+  useEffect(() => {
+    get<Array<{ id: string }>>('/api/projects')
+      .then((projects) => {
+        if (Array.isArray(projects) && projects.length === 0) {
+          setShowWizard(true);
+        } else if (Array.isArray(projects) && projects.length > 0) {
+          // Use the first project if projectId is still the placeholder
+          if (projectId === 'default' && projects[0]?.id) {
+            setProjectId(projects[0].id);
+          }
+        }
+        setProjectsChecked(true);
+      })
+      .catch(() => {
+        // If the API is unreachable, skip wizard and show dashboard
+        setProjectsChecked(true);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  /* ---- Fetch unresolved contradiction count --------------------- */
+  useEffect(() => {
+    if (!projectsChecked || showWizard || projectId === 'default') return;
+
+    let cancelled = false;
+    get<Array<{ id: string }>>(`/api/projects/${projectId}/contradictions?status=unresolved`)
+      .then((data) => {
+        if (!cancelled) {
+          setUnresolvedCount(Array.isArray(data) ? data.length : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setUnresolvedCount(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [get, projectId, projectsChecked, showWizard]);
+
+  /* ---- Sync hash → view ---------------------------------------- */
   useEffect(() => {
     function onHash() {
       setView(getViewFromHash());
@@ -123,17 +188,53 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  // Navigate
+  /* ---- Navigate ------------------------------------------------- */
   function navigate(v: View) {
     window.location.hash = v;
     setView(v);
   }
 
-  // Theme toggle
+  /* ---- Theme toggle -------------------------------------------- */
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
+  /* ---- Wizard complete ----------------------------------------- */
+  function handleWizardComplete(newProjectId: string) {
+    setProjectId(newProjectId);
+    setShowWizard(false);
+    navigate('graph');
+  }
+
+  /* ---- Loading splash (waiting for first-run check) ------------ */
+  if (!projectsChecked) {
+    return (
+      <ProjectContext.Provider value={{ projectId, setProjectId }}>
+        <div
+          className={`flex items-center justify-center h-screen ${
+            dark ? 'bg-nexus-bg-dark' : 'bg-nexus-bg-light'
+          }`}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <GitBranch size={16} className="text-white" />
+            </div>
+          </div>
+        </div>
+      </ProjectContext.Provider>
+    );
+  }
+
+  /* ---- Wizard -------------------------------------------------- */
+  if (showWizard) {
+    return (
+      <ProjectContext.Provider value={{ projectId, setProjectId }}>
+        <Wizard onComplete={handleWizardComplete} />
+      </ProjectContext.Provider>
+    );
+  }
+
+  /* ---- Main dashboard ------------------------------------------ */
   return (
     <ProjectContext.Provider value={{ projectId, setProjectId }}>
       <div className="flex h-screen overflow-hidden">
@@ -161,6 +262,12 @@ export default function App() {
           <nav className="flex-1 flex flex-col gap-0.5 px-2 py-2 overflow-y-auto scrollbar-thin">
             {NAV_ITEMS.map((item) => {
               const active = view === item.id;
+              const isContradictions = item.id === 'contradictions';
+              const showBadge =
+                isContradictions &&
+                unresolvedCount !== null &&
+                unresolvedCount > 0;
+
               return (
                 <button
                   key={item.id}
@@ -174,8 +281,22 @@ export default function App() {
                         : 'text-nexus-text-muted-light hover:text-nexus-text-light hover:bg-black/5'
                   }`}
                 >
-                  <span className="shrink-0">{item.icon}</span>
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  <span className="shrink-0 relative">
+                    {item.icon}
+                    {/* Badge dot for collapsed sidebar */}
+                    {showBadge && collapsed && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-400" />
+                    )}
+                  </span>
+                  {!collapsed && (
+                    <span className="truncate flex-1">{item.label}</span>
+                  )}
+                  {/* Numeric badge for expanded sidebar */}
+                  {!collapsed && showBadge && (
+                    <span className="shrink-0 ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                      {unresolvedCount! > 99 ? '99+' : unresolvedCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

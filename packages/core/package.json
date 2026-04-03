@@ -47,6 +47,10 @@
     "./change-propagator/index.js": {
       "import": "./dist/change-propagator/index.js",
       "types": "./dist/change-propagator/index.d.ts"
+    },
+    "./contradiction-detector/index.js": {
+      "import": "./dist/contradiction-detector/index.js",
+      "types": "./dist/contradiction-detector/index.d.ts"
     }
   },
   "scripts": {

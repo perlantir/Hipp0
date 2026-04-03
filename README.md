@@ -9,6 +9,14 @@
 
 # Nexus — The shared brain for multi-agent AI teams
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/perlantir/nexus/main/install.sh | bash
+```
+
+Or clone and run manually — see the [Getting Started Guide](docs/getting-started.md).
+
 [![CI](https://github.com/perlantir/nexus/actions/workflows/ci.yml/badge.svg)](https://github.com/perlantir/nexus/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Node 22+](https://img.shields.io/badge/node-22%2B-green)](https://nodejs.org)
