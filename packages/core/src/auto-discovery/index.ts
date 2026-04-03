@@ -1,4 +1,4 @@
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { distill } from '../distillery/index.js';
 import type { ConversationChunk } from '../connectors/types.js';
 
@@ -14,10 +14,11 @@ export async function isAlreadyProcessed(
   projectId: string,
   sourceId: string,
 ): Promise<boolean> {
-  const result = await query<{ exists: boolean }>(
+  const db = getDb();
+  const result = await db.query<{ exists: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM processed_sources
-       WHERE project_id = $1 AND source_id = $2
+       WHERE project_id = ? AND source_id = ?
      ) AS exists`,
     [projectId, sourceId],
   );
@@ -36,10 +37,11 @@ export async function markProcessed(
   decisionsExtracted: number,
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
-  await query(
+  const db = getDb();
+  await db.query(
     `INSERT INTO processed_sources
        (project_id, source_id, connector_name, decisions_extracted, metadata)
-     VALUES ($1, $2, $3, $4, $5)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (project_id, source_id) DO UPDATE
        SET connector_name      = EXCLUDED.connector_name,
            decisions_extracted = EXCLUDED.decisions_extracted,

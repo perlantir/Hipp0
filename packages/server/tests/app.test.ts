@@ -5,16 +5,30 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
 // ── DB Mock ───────────────────────────────────────────────────────────────────
-// We mock @nexus/core/db/pool.js before importing the app so that all
+// We mock @nexus/core/db/index.js before importing the app so that all
 // database calls in app.ts resolve to controlled values.
 
+const mockQuery = vi.fn();
+vi.mock('@nexus/core/db/index.js', () => ({
+  getDb: () => ({
+    query: mockQuery,
+    transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
+    arrayParam: (v: unknown[]) => JSON.stringify(v),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    dialect: 'sqlite' as const,
+  }),
+  initDb: vi.fn().mockResolvedValue({}),
+  closeDb: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Keep backward compat mock for any code still importing pool.js
 vi.mock('@nexus/core/db/pool.js', () => ({
-  query: vi.fn(),
-  transaction: vi.fn(),
+  query: mockQuery,
   getPool: vi.fn(),
   getClient: vi.fn(),
   closePool: vi.fn(),
   healthCheck: vi.fn().mockResolvedValue(true),
+  transaction: vi.fn().mockImplementation(async (fn: Function) => fn({ query: mockQuery })),
 }));
 
 // Also stub parsers used in app.ts
@@ -32,9 +46,7 @@ vi.mock('@nexus/core/db/parsers.js', () => ({
   parseAuditEntry: vi.fn((row: Record<string, unknown>) => row),
 }));
 
-// Import after mocking
-const { query } = await import('@nexus/core/db/pool.js');
-const mockQuery = vi.mocked(query);
+// mockQuery is defined on line 11 and shared with the vi.mock factories above.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

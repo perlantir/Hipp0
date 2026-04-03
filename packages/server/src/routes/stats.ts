@@ -1,10 +1,11 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseDecision, parseEdge, parseAuditEntry } from '@nexus/core/db/parsers.js';
 import { requireUUID } from './validation.js';
 
 export function registerStatsRoutes(app: Hono): void {
   app.get('/api/projects/:id/stats', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
 
     const [
@@ -16,28 +17,28 @@ export function registerStatsRoutes(app: Hono): void {
       edgesResult,
       auditResult,
     ] = await Promise.all([
-      query(
+      db.query(
         `SELECT
            COUNT(*) FILTER (WHERE status = 'active') AS active,
            COUNT(*) FILTER (WHERE status = 'superseded') AS superseded,
            COUNT(*) FILTER (WHERE status = 'pending') AS pending,
            COUNT(*) AS total
-         FROM decisions WHERE project_id = $1`,
+         FROM decisions WHERE project_id = ?`,
         [projectId],
       ),
-      query('SELECT COUNT(*) AS count FROM agents WHERE project_id = $1', [projectId]),
-      query('SELECT COUNT(*) AS count FROM artifacts WHERE project_id = $1', [projectId]),
-      query('SELECT COUNT(*) AS count FROM session_summaries WHERE project_id = $1', [projectId]),
-      query(
-        "SELECT COUNT(*) AS count FROM contradictions WHERE project_id = $1 AND status = 'unresolved'",
+      db.query('SELECT COUNT(*) AS count FROM agents WHERE project_id = ?', [projectId]),
+      db.query('SELECT COUNT(*) AS count FROM artifacts WHERE project_id = ?', [projectId]),
+      db.query('SELECT COUNT(*) AS count FROM session_summaries WHERE project_id = ?', [projectId]),
+      db.query(
+        "SELECT COUNT(*) AS count FROM contradictions WHERE project_id = ? AND status = 'unresolved'",
         [projectId],
       ),
-      query(
+      db.query(
         `SELECT COUNT(*) AS count FROM decision_edges e
-         JOIN decisions d ON d.id = e.source_id WHERE d.project_id = $1`,
+         JOIN decisions d ON d.id = e.source_id WHERE d.project_id = ?`,
         [projectId],
       ),
-      query('SELECT * FROM audit_log WHERE project_id = $1 ORDER BY created_at DESC LIMIT 10', [
+      db.query('SELECT * FROM audit_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 10', [
         projectId,
       ]),
     ]);
@@ -70,14 +71,15 @@ export function registerStatsRoutes(app: Hono): void {
   // Project Graph (all decisions + edges)
 
   app.get('/api/projects/:id/graph', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
 
     const [decisionsResult, edgesResult] = await Promise.all([
-      query('SELECT * FROM decisions WHERE project_id = $1 ORDER BY created_at ASC', [projectId]),
-      query(
+      db.query('SELECT * FROM decisions WHERE project_id = ? ORDER BY created_at ASC', [projectId]),
+      db.query(
         `SELECT e.* FROM decision_edges e
          JOIN decisions d ON d.id = e.source_id
-         WHERE d.project_id = $1`,
+         WHERE d.project_id = ?`,
         [projectId],
       ),
     ]);

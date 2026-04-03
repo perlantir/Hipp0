@@ -1,5 +1,5 @@
 import type { Decision, Contradiction, NotificationType } from '../types.js';
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { generateEmbedding } from '../decision-graph/embeddings.js';
 import { propagateChange } from '../change-propagator/index.js';
 import { callLLM, parseJsonSafe } from './extractor.js';
@@ -88,18 +88,19 @@ export async function detectContradictions(
 
     let similar: ExistingDecisionRow[] = [];
     try {
-      const result = await query<ExistingDecisionRow>(
+      const db = getDb();
+      const result = await db.query<ExistingDecisionRow>(
         `SELECT id, title, description,
-                1 - (embedding <=> $1::vector) AS similarity
+                1 - (embedding <=> ?) AS similarity
          FROM decisions
-         WHERE project_id = $2
+         WHERE project_id = ?
            AND status = 'active'
-           AND id != $3
+           AND id != ?
            AND embedding IS NOT NULL
-           AND 1 - (embedding <=> $1::vector) > $4
+           AND 1 - (embedding <=> ?) > ?
          ORDER BY similarity DESC
          LIMIT 10`,
-        [vectorLiteral, projectId, newDecision.id, CONTRADICTION_SIMILARITY_THRESHOLD],
+        [vectorLiteral, projectId, newDecision.id, vectorLiteral, CONTRADICTION_SIMILARITY_THRESHOLD],
       );
       similar = result.rows;
     } catch (err) {
@@ -127,10 +128,11 @@ export async function detectContradictions(
       if (!contradicts) continue;
 
       try {
-        const contradictionResult = await query<{ id: string; detected_at: Date }>(
+        const db = getDb();
+        const contradictionResult = await db.query<{ id: string; detected_at: Date }>(
           `INSERT INTO contradictions
              (project_id, decision_a_id, decision_b_id, similarity_score, conflict_description, status)
-           VALUES ($1, $2, $3, $4, $5, 'unresolved')
+           VALUES (?, ?, ?, ?, ?, 'unresolved')
            ON CONFLICT (decision_a_id, decision_b_id) DO UPDATE
              SET conflict_description = EXCLUDED.conflict_description,
                  similarity_score = EXCLUDED.similarity_score
@@ -141,10 +143,10 @@ export async function detectContradictions(
         const contradictionRow = contradictionResult.rows[0];
         if (!contradictionRow) continue;
 
-        await query(
+        await db.query(
           `INSERT INTO decision_edges
              (source_id, target_id, relationship, description, strength)
-           VALUES ($1, $2, 'contradicts', $3, $4)
+           VALUES (?, ?, 'contradicts', ?, ?)
            ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
           [newDecision.id, existingRow.id, explanation, existingRow.similarity],
         ).catch((err: unknown) => {

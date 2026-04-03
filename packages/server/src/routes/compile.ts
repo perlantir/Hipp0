@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import {
   parseDecision,
   parseArtifact,
@@ -19,6 +19,7 @@ import {
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
+    const db = getDb();
     const startTime = Date.now();
     const body = await c.req.json<{
       agent_name?: unknown;
@@ -36,8 +37,8 @@ export function registerCompileRoutes(app: Hono): void {
     const maxTokens = body.max_tokens ?? 50000;
     const includeSuperseeded = body.include_superseded ?? false;
 
-    const agentResult = await query(
-      'SELECT * FROM agents WHERE project_id = $1 AND name = $2 LIMIT 1',
+    const agentResult = await db.query(
+      'SELECT * FROM agents WHERE project_id = ? AND name = ? LIMIT 1',
       [project_id, agent_name],
     );
     if (agentResult.rows.length === 0) {
@@ -46,9 +47,9 @@ export function registerCompileRoutes(app: Hono): void {
     const agent = agentResult.rows[0] as Record<string, unknown>;
     const agentId = agent.id as string;
 
-    const notifResult = await query(
+    const notifResult = await db.query(
       `SELECT * FROM notifications
-       WHERE agent_id = $1 AND read_at IS NULL
+       WHERE agent_id = ? AND read_at IS NULL
        ORDER BY created_at DESC
        LIMIT 20`,
       [agentId],
@@ -58,11 +59,11 @@ export function registerCompileRoutes(app: Hono): void {
     );
 
     const lookbackDays = body.session_lookback_days ?? 30;
-    const sessionResult = await query(
+    const sessionResult = await db.query(
       `SELECT * FROM session_summaries
-       WHERE project_id = $1
-         AND agent_name = $2
-         AND created_at > NOW() - INTERVAL '1 day' * $3
+       WHERE project_id = ?
+         AND agent_name = ?
+         AND created_at > NOW() - INTERVAL '1 day' * ?
        ORDER BY created_at DESC
        LIMIT 5`,
       [project_id, agent_name, lookbackDays],
@@ -81,21 +82,21 @@ export function registerCompileRoutes(app: Hono): void {
         ? "status IN ('active', 'superseded', 'pending')"
         : "status = 'active'";
 
-      const decResult = await query(
-        `SELECT *, 1 - (embedding <=> $1::vector) as similarity
+      const decResult = await db.query(
+        `SELECT *, 1 - (embedding <=> ?) as similarity
          FROM decisions
-         WHERE project_id = $2 AND ${statusFilter} AND embedding IS NOT NULL
-         ORDER BY embedding <=> $1::vector
+         WHERE project_id = ? AND ${statusFilter} AND embedding IS NOT NULL
+         ORDER BY embedding <=> ?
          LIMIT 200`,
-        [`[${taskEmbedding.join(',')}]`, project_id],
+        [`[${taskEmbedding.join(',')}]`, project_id, `[${taskEmbedding.join(',')}]`],
       );
       decisionsConsidered = decResult.rows.length;
       decisions = decResult.rows.map((r) => parseDecision(r as Record<string, unknown>));
     } else {
       const statusFilter = includeSuperseeded ? '' : "AND status = 'active'";
-      const decResult = await query(
+      const decResult = await db.query(
         `SELECT * FROM decisions
-         WHERE project_id = $1 ${statusFilter}
+         WHERE project_id = ? ${statusFilter}
          ORDER BY created_at DESC
          LIMIT 100`,
         [project_id],
@@ -117,8 +118,8 @@ export function registerCompileRoutes(app: Hono): void {
       tokenCount += dTokens;
     }
 
-    const artifactResult = await query(
-      `SELECT * FROM artifacts WHERE project_id = $1 ORDER BY created_at DESC LIMIT 20`,
+    const artifactResult = await db.query(
+      `SELECT * FROM artifacts WHERE project_id = ? ORDER BY created_at DESC LIMIT 20`,
       [project_id],
     );
     const artifacts = artifactResult.rows.map((r) => parseArtifact(r as Record<string, unknown>));

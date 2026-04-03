@@ -1,4 +1,4 @@
-import { query, transaction } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseFeedback } from '../db/parsers.js';
 import type { RelevanceFeedback, RelevanceProfile, CreateFeedbackInput } from '../types.js';
 import { NotFoundError, NexusError } from '../types.js';
@@ -17,14 +17,15 @@ async function fetchAgentById(agentId: string): Promise<{
   project_id: string;
   relevance_profile: RelevanceProfile;
 }> {
-  const result = await query<{
+  const db = getDb();
+  const result = await db.query<{
     id: string;
     project_id: string;
     relevance_profile: unknown;
     decision_depth: number;
     freshness_preference: string;
     include_superseded: boolean;
-  }>(`SELECT id, project_id, relevance_profile FROM agents WHERE id = $1`, [agentId]);
+  }>(`SELECT id, project_id, relevance_profile FROM agents WHERE id = ?`, [agentId]);
 
   if (result.rows.length === 0) {
     throw new NotFoundError('Agent', agentId);
@@ -60,7 +61,8 @@ async function fetchAgentById(agentId: string): Promise<{
 }
 
 async function fetchDecisionTags(decisionId: string): Promise<string[]> {
-  const result = await query<{ tags: unknown }>(`SELECT tags FROM decisions WHERE id = $1`, [
+  const db = getDb();
+  const result = await db.query<{ tags: unknown }>(`SELECT tags FROM decisions WHERE id = ?`, [
     decisionId,
   ]);
 
@@ -71,6 +73,13 @@ async function fetchDecisionTags(decisionId: string): Promise<string[]> {
   if (typeof tags === 'string' && tags.startsWith('{')) {
     return tags.slice(1, -1).split(',').filter(Boolean);
   }
+  if (typeof tags === 'string' && tags.startsWith('[')) {
+    try {
+      return JSON.parse(tags) as string[];
+    } catch {
+      return [];
+    }
+  }
   return [];
 }
 
@@ -78,19 +87,20 @@ async function fetchDecisionTags(decisionId: string): Promise<string[]> {
  * Record a feedback event (useful / not useful) for a decision shown to an agent.
  */
 export async function recordFeedback(input: CreateFeedbackInput): Promise<RelevanceFeedback> {
+  const db = getDb();
   await fetchAgentById(input.agent_id);
 
-  const decisionCheck = await query<{ id: string }>(`SELECT id FROM decisions WHERE id = $1`, [
+  const decisionCheck = await db.query<{ id: string }>(`SELECT id FROM decisions WHERE id = ?`, [
     input.decision_id,
   ]);
   if (decisionCheck.rows.length === 0) {
     throw new NotFoundError('Decision', input.decision_id);
   }
 
-  const result = await query<Record<string, unknown>>(
+  const result = await db.query<Record<string, unknown>>(
     `INSERT INTO relevance_feedback
        (agent_id, decision_id, compile_request_id, was_useful, usage_signal)
-     VALUES ($1, $2, $3, $4, $5)
+     VALUES (?, ?, ?, ?, ?)
      RETURNING *`,
     [
       input.agent_id,
@@ -108,9 +118,10 @@ export async function recordFeedback(input: CreateFeedbackInput): Promise<Releva
  * Retrieve all feedback records for a given agent.
  */
 export async function getFeedbackForAgent(agentId: string): Promise<RelevanceFeedback[]> {
-  const result = await query<Record<string, unknown>>(
+  const db = getDb();
+  const result = await db.query<Record<string, unknown>>(
     `SELECT rf.* FROM relevance_feedback rf
-     WHERE rf.agent_id = $1
+     WHERE rf.agent_id = ?
      ORDER BY rf.created_at DESC`,
     [agentId],
   );
@@ -131,6 +142,7 @@ export async function getFeedbackForAgent(agentId: string): Promise<RelevanceFee
  * - Persist updated profile to agents table.
  */
 export async function evolveWeights(agentId: string): Promise<RelevanceProfile> {
+  const db = getDb();
   const agent = await fetchAgentById(agentId);
   const feedbackList = await getFeedbackForAgent(agentId);
 
@@ -173,11 +185,11 @@ export async function evolveWeights(agentId: string): Promise<RelevanceProfile> 
     weights: newWeights,
   };
 
-  await query(
+  await db.query(
     `UPDATE agents
-     SET relevance_profile = $2, updated_at = NOW()
-     WHERE id = $1`,
-    [agentId, JSON.stringify(updatedProfile)],
+     SET relevance_profile = ?, updated_at = NOW()
+     WHERE id = ?`,
+    [JSON.stringify(updatedProfile), agentId],
   );
 
   return updatedProfile;

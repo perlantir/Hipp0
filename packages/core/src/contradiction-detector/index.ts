@@ -11,7 +11,7 @@
  * detection cannot crash the server.
  */
 
-import { query, transaction } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseDecision, parseContradiction } from '../db/parsers.js';
 import { callLLM, scrubSecrets, INJECTION_GUARD, parseJsonSafe } from '../distillery/extractor.js';
 import { propagateChange } from '../change-propagator/index.js';
@@ -70,16 +70,17 @@ async function findSimilarDecisions(newDecision: Decision): Promise<SimilarDecis
 
   let rows: Record<string, unknown>[];
   try {
-    const result = await query<Record<string, unknown>>(
-      `SELECT *, (embedding <=> $3::vector) AS _distance
+    const db = getDb();
+    const result = await db.query<Record<string, unknown>>(
+      `SELECT *, (embedding <=> ?) AS _distance
          FROM decisions
-        WHERE project_id = $1
+        WHERE project_id = ?
           AND status = 'active'
-          AND id != $2
+          AND id != ?
           AND embedding IS NOT NULL
-        ORDER BY embedding <=> $3::vector
+        ORDER BY embedding <=> ?
         LIMIT ${VECTOR_SCAN_LIMIT}`,
-      [newDecision.project_id, newDecision.id, embeddingLiteral],
+      [embeddingLiteral, newDecision.project_id, newDecision.id, embeddingLiteral],
     );
     rows = result.rows;
   } catch (err) {
@@ -210,12 +211,13 @@ async function storeContradiction(
   let contradiction: Contradiction | null = null;
 
   try {
-    await transaction(async (client) => {
+    const db = getDb();
+    await db.transaction(async (txQuery) => {
       // 1. Insert into contradictions table
-      const contradictionResult = await client.query<Record<string, unknown>>(
+      const contradictionResult = await txQuery(
         `INSERT INTO contradictions
            (project_id, decision_a_id, decision_b_id, similarity_score, conflict_description, status)
-         VALUES ($1, $2, $3, $4, $5, 'unresolved')
+         VALUES (?, ?, ?, ?, ?, 'unresolved')
          ON CONFLICT (decision_a_id, decision_b_id) DO UPDATE
            SET conflict_description = EXCLUDED.conflict_description,
                similarity_score     = EXCLUDED.similarity_score
@@ -236,9 +238,9 @@ async function storeContradiction(
       contradiction = parseContradiction(contradictionRow);
 
       // 2. Create 'contradicts' edge between the two decisions
-      await client.query(
+      await txQuery(
         `INSERT INTO decision_edges (source_id, target_id, relationship, description, strength)
-         VALUES ($1, $2, 'contradicts', $3, 1.0)
+         VALUES (?, ?, 'contradicts', ?, 1.0)
          ON CONFLICT (source_id, target_id, relationship) DO UPDATE
            SET description = EXCLUDED.description`,
         [newDecision.id, existingDecision.id, analysis.explanation],
@@ -268,8 +270,9 @@ async function notifyGovernors(
   let notified = 0;
 
   try {
-    const agentsResult = await query<Record<string, unknown>>(
-      `SELECT id FROM agents WHERE project_id = $1 AND role = 'governor'`,
+    const db = getDb();
+    const agentsResult = await db.query<Record<string, unknown>>(
+      `SELECT id FROM agents WHERE project_id = ? AND role = 'governor'`,
       [newDecision.project_id],
     );
 
@@ -285,10 +288,10 @@ async function notifyGovernors(
     for (const agentRow of agentsResult.rows) {
       const agentId = agentRow['id'] as string;
       try {
-        await query(
+        await db.query(
           `INSERT INTO notifications
              (agent_id, decision_id, notification_type, message, role_context, urgency)
-           VALUES ($1, $2, 'contradiction_detected', $3, $4, $5)`,
+           VALUES (?, ?, 'contradiction_detected', ?, ?, ?)`,
           [agentId, newDecision.id, message, 'governor', urgency],
         );
         notified++;
@@ -407,9 +410,10 @@ export async function scanProjectContradictions(
 
   try {
     // Fetch all active decisions that have embeddings
-    const result = await query<Record<string, unknown>>(
+    const db = getDb();
+    const result = await db.query<Record<string, unknown>>(
       `SELECT * FROM decisions
-        WHERE project_id = $1
+        WHERE project_id = ?
           AND status = 'active'
           AND embedding IS NOT NULL
         ORDER BY created_at ASC`,
@@ -477,16 +481,16 @@ export async function scanProjectContradictions(
 
         // Skip pairs already tracked as unresolved contradictions
         try {
-          const existing = await query<Record<string, unknown>>(
+          const existing = await db.query<Record<string, unknown>>(
             `SELECT id FROM contradictions
-              WHERE project_id = $1
+              WHERE project_id = ?
                 AND (
-                  (decision_a_id = $2 AND decision_b_id = $3) OR
-                  (decision_a_id = $3 AND decision_b_id = $2)
+                  (decision_a_id = ? AND decision_b_id = ?) OR
+                  (decision_a_id = ? AND decision_b_id = ?)
                 )
                 AND status = 'unresolved'
               LIMIT 1`,
-            [projectId, decisionA.id, decisionB.id],
+            [projectId, decisionA.id, decisionB.id, decisionB.id, decisionA.id],
           );
 
           if ((existing.rowCount ?? 0) > 0) {

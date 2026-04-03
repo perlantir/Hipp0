@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { NexusError } from '@nexus/core/types.js';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import crypto from 'node:crypto';
 
 // API key cached at startup — never re-read per request
@@ -153,7 +153,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
 
   const fail = async (message: string) => {
     // Audit auth failure with IP — never log the key value
-    query(`INSERT INTO audit_log (event_type, details) VALUES ($1, $2)`, [
+    getDb().query(`INSERT INTO audit_log (event_type, details) VALUES (?, ?)`, [
       'auth_failure',
       JSON.stringify({ ip, path, reason: message }),
     ]).catch((e: Error) => console.error('[nexus] audit_log write error:', e.message));
@@ -212,7 +212,7 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
     }
   }
 
-  query(`INSERT INTO audit_log (event_type, project_id, details) VALUES ($1, $2, $3)`, [
+  getDb().query(`INSERT INTO audit_log (event_type, project_id, details) VALUES (?, ?, ?)`, [
     'api_request',
     projectId ?? null,
     JSON.stringify({ method, path, status, ...extra }),

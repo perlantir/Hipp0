@@ -1,26 +1,28 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseNotification, parseSubscription } from '@nexus/core/db/parsers.js';
 import { NotFoundError } from '@nexus/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
 
 export function registerNotificationRoutes(app: Hono): void {
   app.get('/api/agents/:id/notifications', async (c) => {
+    const db = getDb();
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const unreadOnly = c.req.query('unread');
 
-    let sql = 'SELECT * FROM notifications WHERE agent_id = $1';
+    let sql = 'SELECT * FROM notifications WHERE agent_id = ?';
     if (unreadOnly === 'true') sql += ' AND read_at IS NULL';
     sql += ' ORDER BY created_at DESC LIMIT 100';
 
-    const result = await query(sql, [agentId]);
+    const result = await db.query(sql, [agentId]);
     return c.json(result.rows.map((r) => parseNotification(r as Record<string, unknown>)));
   });
 
   app.patch('/api/notifications/:id/read', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query(
-      'UPDATE notifications SET read_at = NOW() WHERE id = $1 RETURNING *',
+    const result = await db.query(
+      'UPDATE notifications SET read_at = NOW() WHERE id = ? RETURNING *',
       [id],
     );
     if (result.rows.length === 0) throw new NotFoundError('Notification', id);
@@ -28,6 +30,7 @@ export function registerNotificationRoutes(app: Hono): void {
   });
 
   app.post('/api/agents/:id/subscriptions', async (c) => {
+    const db = getDb();
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const body = await c.req.json<{
       topic?: unknown;
@@ -38,16 +41,16 @@ export function registerNotificationRoutes(app: Hono): void {
     const topic = requireString(body.topic, 'topic', 200);
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO subscriptions (agent_id, topic, notify_on, priority)
-         VALUES ($1, $2, $3, $4)
+         VALUES (?, ?, ?, ?)
          ON CONFLICT (agent_id, topic) DO UPDATE
            SET notify_on = EXCLUDED.notify_on, priority = EXCLUDED.priority
          RETURNING *`,
         [
           agentId,
           topic,
-          body.notify_on ?? ['update', 'supersede', 'revert'],
+          db.arrayParam(body.notify_on ?? ['update', 'supersede', 'revert']),
           optionalString(body.priority, 'priority', 50) ?? 'medium',
         ],
       );
@@ -58,17 +61,19 @@ export function registerNotificationRoutes(app: Hono): void {
   });
 
   app.get('/api/agents/:id/subscriptions', async (c) => {
+    const db = getDb();
     const agentId = requireUUID(c.req.param('id'), 'agentId');
-    const result = await query(
-      'SELECT * FROM subscriptions WHERE agent_id = $1 ORDER BY created_at ASC',
+    const result = await db.query(
+      'SELECT * FROM subscriptions WHERE agent_id = ? ORDER BY created_at ASC',
       [agentId],
     );
     return c.json(result.rows.map((r) => parseSubscription(r as Record<string, unknown>)));
   });
 
   app.delete('/api/subscriptions/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query('DELETE FROM subscriptions WHERE id = $1 RETURNING id', [id]);
+    const result = await db.query('DELETE FROM subscriptions WHERE id = ? RETURNING id', [id]);
     if (result.rows.length === 0) throw new NotFoundError('Subscription', id);
     return c.json({ deleted: true, id });
   });

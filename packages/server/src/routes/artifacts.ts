@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseArtifact } from '@nexus/core/db/parsers.js';
 import { ValidationError } from '@nexus/core/types.js';
 import {
@@ -12,6 +12,7 @@ import {
 
 export function registerArtifactRoutes(app: Hono): void {
   app.post('/api/projects/:id/artifacts', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{
       name?: unknown;
@@ -49,12 +50,12 @@ export function registerArtifactRoutes(app: Hono): void {
     const embedding = embeddingText ? await generateEmbedding(embeddingText) : null;
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO artifacts (
            project_id, name, path, artifact_type, description,
            content_summary, content_hash, produced_by,
            related_decision_ids, metadata, embedding
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
          RETURNING *`,
         [
           projectId,
@@ -65,7 +66,7 @@ export function registerArtifactRoutes(app: Hono): void {
           optionalString(body.content_summary, 'content_summary', 10000) ?? null,
           optionalString(body.content_hash, 'content_hash', 256) ?? null,
           produced_by,
-          body.related_decision_ids ?? [],
+          db.arrayParam(body.related_decision_ids ?? []),
           JSON.stringify(body.metadata ?? {}),
           embedding ? `[${embedding.join(',')}]` : null,
         ],
@@ -77,9 +78,10 @@ export function registerArtifactRoutes(app: Hono): void {
   });
 
   app.get('/api/projects/:id/artifacts', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
-    const result = await query(
-      'SELECT * FROM artifacts WHERE project_id = $1 ORDER BY created_at DESC',
+    const result = await db.query(
+      'SELECT * FROM artifacts WHERE project_id = ? ORDER BY created_at DESC',
       [projectId],
     );
     return c.json(result.rows.map((r) => parseArtifact(r as Record<string, unknown>)));

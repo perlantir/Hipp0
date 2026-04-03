@@ -1,11 +1,12 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseFeedback } from '@nexus/core/db/parsers.js';
 import { ValidationError } from '@nexus/core/types.js';
 import { requireUUID, optionalString, mapDbError } from './validation.js';
 
 export function registerFeedbackRoutes(app: Hono): void {
   app.post('/api/feedback', async (c) => {
+    const db = getDb();
     const body = await c.req.json<{
       agent_id?: unknown;
       decision_id?: unknown;
@@ -24,9 +25,9 @@ export function registerFeedbackRoutes(app: Hono): void {
         : null;
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO relevance_feedback (agent_id, decision_id, compile_request_id, was_useful, usage_signal)
-         VALUES ($1, $2, $3, $4, $5)
+         VALUES (?, ?, ?, ?, ?)
          RETURNING *`,
         [
           agent_id,

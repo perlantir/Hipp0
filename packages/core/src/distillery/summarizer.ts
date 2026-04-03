@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { Decision, SessionSummary } from '../types.js';
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseSession } from '../db/parsers.js';
 import { generateEmbedding } from '../decision-graph/embeddings.js';
 import {
@@ -103,27 +103,28 @@ export async function createSessionSummary(
   const model = getModelIdentifier();
 
   try {
-    const insertResult = await query<Record<string, unknown>>(
+    const db = getDb();
+    const insertResult = await db.query<Record<string, unknown>>(
       `INSERT INTO session_summaries
          (project_id, agent_name, session_date, topic, summary,
           decision_ids, artifact_ids, assumptions, open_questions,
           lessons_learned, raw_conversation_hash, extraction_model,
           extraction_confidence, embedding)
        VALUES
-         ($1, $2, CURRENT_DATE, $3, $4,
-          $5::uuid[], '{}', $6::text[], $7::text[],
-          $8::text[], $9, $10,
-          $11, $12::vector)
+         (?, ?, CURRENT_DATE, ?, ?,
+          ?, '{}', ?, ?,
+          ?, ?, ?,
+          ?, ?)
        RETURNING *`,
       [
         projectId,
         agentName,
         topic,
         summaryData.summary,
-        decisionIds,
-        uniqueAssumptions,
-        uniqueOpenQuestions,
-        summaryData.lessons_learned,
+        db.arrayParam(decisionIds),
+        db.arrayParam(uniqueAssumptions),
+        db.arrayParam(uniqueOpenQuestions),
+        db.arrayParam(summaryData.lessons_learned),
         rawHash,
         model,
         decisions.length > 0 ? 0.8 : 0.5,

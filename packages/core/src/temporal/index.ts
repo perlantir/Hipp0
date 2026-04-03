@@ -1,4 +1,4 @@
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseDecision } from '../db/parsers.js';
 import type { Decision, FreshnessPreference } from '../types.js';
 import { NotFoundError } from '../types.js';
@@ -137,14 +137,15 @@ export function getTemporalFlags(decision: Decision, now?: Date): string[] {
  * Sets validated_at = NOW() and validation_source = source.
  */
 export async function validateDecision(decisionId: string, source: string): Promise<Decision> {
-  const result = await query<Record<string, unknown>>(
+  const db = getDb();
+  const result = await db.query<Record<string, unknown>>(
     `UPDATE decisions
      SET validated_at = NOW(),
-         validation_source = $2,
+         validation_source = ?,
          updated_at = NOW()
-     WHERE id = $1
+     WHERE id = ?
      RETURNING *`,
-    [decisionId, source],
+    [source, decisionId],
   );
 
   if (result.rowCount === 0 || result.rows.length === 0) {

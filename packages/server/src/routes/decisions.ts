@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { query, transaction } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseDecision, parseEdge } from '@nexus/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@nexus/core/types.js';
 import type { Decision, DecisionEdge, NotificationType } from '@nexus/core/types.js';
@@ -21,6 +21,7 @@ export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
 
   app.post('/api/projects/:id/decisions', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{
       title?: unknown;
@@ -57,17 +58,17 @@ export function registerDecisionRoutes(app: Hono): void {
     const embedding = await generateEmbedding(embeddingText);
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO decisions (
            project_id, title, description, reasoning, made_by,
            source, source_session_id, confidence, status, supersedes_id,
            alternatives_considered, affects, tags, assumptions,
            open_questions, dependencies, confidence_decay_rate, metadata, embedding
          ) VALUES (
-           $1, $2, $3, $4, $5,
-           $6, $7, $8, $9, $10,
-           $11, $12, $13, $14,
-           $15, $16, $17, $18, $19
+           ?, ?, ?, ?, ?,
+           ?, ?, ?, ?, ?,
+           ?, ?, ?, ?,
+           ?, ?, ?, ?, ?
          ) RETURNING *`,
         [
           projectId,
@@ -81,8 +82,8 @@ export function registerDecisionRoutes(app: Hono): void {
           body.status ?? 'active',
           supersedes_id,
           JSON.stringify(alternatives_considered),
-          affects,
-          tags,
+          db.arrayParam(affects),
+          db.arrayParam(tags),
           JSON.stringify(body.assumptions ?? []),
           JSON.stringify(body.open_questions ?? []),
           JSON.stringify(body.dependencies ?? []),
@@ -115,6 +116,7 @@ export function registerDecisionRoutes(app: Hono): void {
   });
 
   app.get('/api/projects/:id/decisions', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const status = c.req.query('status');
     const tagsParam = c.req.query('tags');
@@ -124,31 +126,30 @@ export function registerDecisionRoutes(app: Hono): void {
 
     const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()) : null;
 
-    const conditions: string[] = ['d.project_id = $1'];
+    const conditions: string[] = ['d.project_id = ?'];
     const params: unknown[] = [projectId];
-    let idx = 2;
 
     if (status) {
-      conditions.push(`d.status = $${idx++}`);
+      conditions.push(`d.status = ?`);
       params.push(status);
     }
     if (tags && tags.length > 0) {
-      conditions.push(`d.tags && $${idx++}::text[]`);
-      params.push(tags);
+      conditions.push(`d.tags && ?`);
+      params.push(db.arrayParam(tags));
     }
     if (madeBy) {
-      conditions.push(`d.made_by = $${idx++}`);
+      conditions.push(`d.made_by = ?`);
       params.push(madeBy);
     }
 
     params.push(limit);
     params.push(offset);
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM decisions d
        WHERE ${conditions.join(' AND ')}
        ORDER BY d.created_at DESC
-       LIMIT $${idx++} OFFSET $${idx}`,
+       LIMIT ? OFFSET ?`,
       params,
     );
 
@@ -158,13 +159,15 @@ export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Single CRUD
 
   app.get('/api/decisions/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query('SELECT * FROM decisions WHERE id = $1', [id]);
+    const result = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
     if (result.rows.length === 0) throw new NotFoundError('Decision', id);
     return c.json(parseDecision(result.rows[0] as Record<string, unknown>));
   });
 
   app.patch('/api/decisions/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
     const body = await c.req.json<
       Partial<{
@@ -187,15 +190,14 @@ export function registerDecisionRoutes(app: Hono): void {
       }>
     >();
 
-    const existing = await query('SELECT id FROM decisions WHERE id = $1', [id]);
+    const existing = await db.query('SELECT id FROM decisions WHERE id = ?', [id]);
     if (existing.rows.length === 0) throw new NotFoundError('Decision', id);
 
     const setClauses: string[] = ['updated_at = NOW()'];
     const params: unknown[] = [];
-    let idx = 1;
 
     const addField = (col: string, val: unknown, asJson = false) => {
-      setClauses.push(`${col} = $${idx++}`);
+      setClauses.push(`${col} = ?`);
       params.push(asJson ? JSON.stringify(val) : val);
     };
 
@@ -208,8 +210,8 @@ export function registerDecisionRoutes(app: Hono): void {
       addField('made_by', requireString(body.made_by, 'made_by', 200));
     if (body.confidence !== undefined) addField('confidence', body.confidence);
     if (body.status !== undefined) addField('status', body.status);
-    if (body.affects !== undefined) addField('affects', validateAffects(body.affects));
-    if (body.tags !== undefined) addField('tags', validateTags(body.tags));
+    if (body.affects !== undefined) addField('affects', db.arrayParam(validateAffects(body.affects)));
+    if (body.tags !== undefined) addField('tags', db.arrayParam(validateTags(body.tags)));
     if (body.assumptions !== undefined) addField('assumptions', body.assumptions, true);
     if (body.open_questions !== undefined) addField('open_questions', body.open_questions, true);
     if (body.dependencies !== undefined) addField('dependencies', body.dependencies, true);
@@ -227,8 +229,8 @@ export function registerDecisionRoutes(app: Hono): void {
 
     params.push(id);
 
-    const result = await query(
-      `UPDATE decisions SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+    const result = await db.query(
+      `UPDATE decisions SET ${setClauses.join(', ')} WHERE id = ? RETURNING *`,
       params,
     );
 
@@ -249,6 +251,7 @@ export function registerDecisionRoutes(app: Hono): void {
   // Supersede Decision
 
   app.post('/api/decisions/:id/supersede', async (c) => {
+    const db = getDb();
     const oldId = requireUUID(c.req.param('id'), 'id');
     const body = await c.req.json<{
       title?: unknown;
@@ -266,21 +269,21 @@ export function registerDecisionRoutes(app: Hono): void {
     const tags = validateTags(body.tags);
     const affects = validateAffects(body.affects);
 
-    const result = await transaction(async (client) => {
-      const oldResult = await client.query('SELECT * FROM decisions WHERE id = $1', [oldId]);
+    const result = await db.transaction(async (txQuery) => {
+      const oldResult = await txQuery('SELECT * FROM decisions WHERE id = ?', [oldId]);
       if (oldResult.rows.length === 0) throw new NotFoundError('Decision', oldId);
       const old = oldResult.rows[0] as Record<string, unknown>;
 
       const embeddingText = `${title}\n${description}\n${reasoning}`;
       const embedding = await generateEmbedding(embeddingText);
 
-      const newResult = await client.query(
+      const newResult = await txQuery(
         `INSERT INTO decisions (
            project_id, title, description, reasoning, made_by,
            source, confidence, status, supersedes_id,
            affects, tags, alternatives_considered, assumptions,
            open_questions, dependencies, metadata, embedding
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          RETURNING *`,
         [
           old.project_id,
@@ -292,8 +295,8 @@ export function registerDecisionRoutes(app: Hono): void {
           'high',
           'active',
           oldId,
-          affects.length ? affects : (old.affects ?? []),
-          tags.length ? tags : (old.tags ?? []),
+          db.arrayParam(affects.length ? affects : (old.affects as string[] ?? [])),
+          db.arrayParam(tags.length ? tags : (old.tags as string[] ?? [])),
           old.alternatives_considered ?? '[]',
           old.assumptions ?? '[]',
           old.open_questions ?? '[]',
@@ -303,14 +306,14 @@ export function registerDecisionRoutes(app: Hono): void {
         ],
       );
 
-      await client.query(
-        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = $1",
+      await txQuery(
+        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ?",
         [oldId],
       );
 
-      await client.query(
+      await txQuery(
         `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
-         VALUES ($1, $2, 'supersedes', 1.0)
+         VALUES (?, ?, 'supersedes', 1.0)
          ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
         [newResult.rows[0].id, oldId],
       );
@@ -337,10 +340,11 @@ export function registerDecisionRoutes(app: Hono): void {
   // Decision revert (restore superseded → active)
 
   app.post('/api/decisions/:id/revert', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
 
-    const result = await query(
-      `UPDATE decisions SET status = 'active', updated_at = NOW() WHERE id = $1 RETURNING *`,
+    const result = await db.query(
+      `UPDATE decisions SET status = 'active', updated_at = NOW() WHERE id = ? RETURNING *`,
       [id],
     );
 
@@ -359,6 +363,7 @@ export function registerDecisionRoutes(app: Hono): void {
   // Decision Graph + Impact
 
   app.get('/api/decisions/:id/graph', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
     const depth = Math.min(parseInt(c.req.query('depth') ?? '3', 10), 10);
 
@@ -376,15 +381,15 @@ export function registerDecisionRoutes(app: Hono): void {
       if (visited.has(nodeId)) continue;
       visited.add(nodeId);
 
-      const decResult = await query('SELECT * FROM decisions WHERE id = $1', [nodeId]);
+      const decResult = await db.query('SELECT * FROM decisions WHERE id = ?', [nodeId]);
       if (decResult.rows.length === 0) continue;
       nodes.push(parseDecision(decResult.rows[0] as Record<string, unknown>));
 
       if (currentDepth >= depth) continue;
 
-      const edgeResult = await query(
-        'SELECT * FROM decision_edges WHERE source_id = $1 OR target_id = $1',
-        [nodeId],
+      const edgeResult = await db.query(
+        'SELECT * FROM decision_edges WHERE source_id = ? OR target_id = ?',
+        [nodeId, nodeId],
       );
 
       for (const row of edgeResult.rows) {
@@ -403,16 +408,17 @@ export function registerDecisionRoutes(app: Hono): void {
   });
 
   app.get('/api/decisions/:id/impact', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
 
-    const decResult = await query('SELECT * FROM decisions WHERE id = $1', [id]);
+    const decResult = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
     if (decResult.rows.length === 0) throw new NotFoundError('Decision', id);
     const decision = parseDecision(decResult.rows[0] as Record<string, unknown>);
 
-    const downstreamEdges = await query(
+    const downstreamEdges = await db.query(
       `SELECT DISTINCT d.* FROM decisions d
        JOIN decision_edges e ON e.target_id = d.id
-       WHERE e.source_id = $1`,
+       WHERE e.source_id = ?`,
       [id],
     );
     const downstreamDecisions = downstreamEdges.rows.map((r) =>
@@ -421,11 +427,11 @@ export function registerDecisionRoutes(app: Hono): void {
 
     const affectedAgentIds = new Set<string>();
     if (decision.affects.length > 0) {
-      const agentResult = await query(
+      const agentResult = await db.query(
         `SELECT DISTINCT a.* FROM agents a
          JOIN subscriptions s ON s.agent_id = a.id
-         WHERE s.topic = ANY($1::text[]) AND a.project_id = $2`,
-        [decision.affects, decision.project_id],
+         WHERE s.topic = ANY(?) AND a.project_id = ?`,
+        [db.arrayParam(decision.affects), decision.project_id],
       );
       for (const row of agentResult.rows) {
         const agent = row as Record<string, unknown>;
@@ -435,16 +441,16 @@ export function registerDecisionRoutes(app: Hono): void {
 
     const affectedAgentsResult =
       affectedAgentIds.size > 0
-        ? await query(`SELECT * FROM agents WHERE id = ANY($1::uuid[])`, [
-            Array.from(affectedAgentIds),
+        ? await db.query(`SELECT * FROM agents WHERE id = ANY(?)`, [
+            db.arrayParam(Array.from(affectedAgentIds)),
           ])
         : { rows: [] };
     const affectedAgents = affectedAgentsResult.rows.map((r) => r as Record<string, unknown>);
 
-    const blockingResult = await query(
+    const blockingResult = await db.query(
       `SELECT DISTINCT d.* FROM decisions d
        JOIN decision_edges e ON e.source_id = d.id
-       WHERE e.target_id = $1 AND e.relationship = 'blocks'`,
+       WHERE e.target_id = ? AND e.relationship = 'blocks'`,
       [id],
     );
     const blockingDecisions = blockingResult.rows.map((r) =>
@@ -454,7 +460,7 @@ export function registerDecisionRoutes(app: Hono): void {
     const supersessionChain: Decision[] = [];
     let currentId: string | undefined = decision.supersedes_id;
     while (currentId) {
-      const chainResult = await query('SELECT * FROM decisions WHERE id = $1', [currentId]);
+      const chainResult = await db.query('SELECT * FROM decisions WHERE id = ?', [currentId]);
       if (chainResult.rows.length === 0) break;
       const chainDecision = parseDecision(chainResult.rows[0] as Record<string, unknown>);
       supersessionChain.push(chainDecision);
@@ -462,9 +468,9 @@ export function registerDecisionRoutes(app: Hono): void {
       if (supersessionChain.length > 20) break;
     }
 
-    const cacheResult = await query(
+    const cacheResult = await db.query(
       `SELECT COUNT(*) as count FROM context_cache
-       WHERE $1 = ANY(decision_ids_included) AND expires_at > NOW()`,
+       WHERE ? = ANY(decision_ids_included) AND expires_at > NOW()`,
       [id],
     );
     const cachedContextsInvalidated = parseInt(
@@ -490,6 +496,7 @@ export function registerDecisionRoutes(app: Hono): void {
   // Edges
 
   app.post('/api/decisions/:id/edges', async (c) => {
+    const db = getDb();
     const sourceId = requireUUID(c.req.param('id'), 'id');
     const body = await c.req.json<{
       target_id?: unknown;
@@ -521,9 +528,9 @@ export function registerDecisionRoutes(app: Hono): void {
     }
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO decision_edges (source_id, target_id, relationship, description, strength)
-         VALUES ($1, $2, $3, $4, $5)
+         VALUES (?, ?, ?, ?, ?)
          RETURNING *`,
         [
           sourceId,
@@ -540,17 +547,19 @@ export function registerDecisionRoutes(app: Hono): void {
   });
 
   app.get('/api/decisions/:id/edges', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query(
-      'SELECT * FROM decision_edges WHERE source_id = $1 OR target_id = $1 ORDER BY created_at ASC',
-      [id],
+    const result = await db.query(
+      'SELECT * FROM decision_edges WHERE source_id = ? OR target_id = ? ORDER BY created_at ASC',
+      [id, id],
     );
     return c.json(result.rows.map((r) => parseEdge(r as Record<string, unknown>)));
   });
 
   app.delete('/api/edges/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query('DELETE FROM decision_edges WHERE id = $1 RETURNING id', [id]);
+    const result = await db.query('DELETE FROM decision_edges WHERE id = ? RETURNING id', [id]);
     if (result.rows.length === 0) throw new NotFoundError('Edge', id);
     return c.json({ deleted: true, id });
   });
@@ -558,6 +567,7 @@ export function registerDecisionRoutes(app: Hono): void {
   // Semantic Search
 
   app.post('/api/projects/:id/decisions/search', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{ query?: unknown; limit?: number }>();
 
@@ -567,23 +577,23 @@ export function registerDecisionRoutes(app: Hono): void {
     const embedding = await generateEmbedding(searchQuery);
 
     if (embedding) {
-      const result = await query(
-        `SELECT *, 1 - (embedding <=> $1::vector) as similarity
+      const result = await db.query(
+        `SELECT *, 1 - (embedding <=> ?) as similarity
          FROM decisions
-         WHERE project_id = $2 AND embedding IS NOT NULL
-         ORDER BY embedding <=> $1::vector
-         LIMIT $3`,
-        [`[${embedding.join(',')}]`, projectId, limit],
+         WHERE project_id = ? AND embedding IS NOT NULL
+         ORDER BY embedding <=> ?
+         LIMIT ?`,
+        [`[${embedding.join(',')}]`, projectId, `[${embedding.join(',')}]`, limit],
       );
       return c.json(result.rows.map((r) => parseDecision(r as Record<string, unknown>)));
     } else {
-      const result = await query(
+      const result = await db.query(
         `SELECT * FROM decisions
-         WHERE project_id = $1
-           AND (title ILIKE $2 OR description ILIKE $2 OR reasoning ILIKE $2)
+         WHERE project_id = ?
+           AND (title ILIKE ? OR description ILIKE ? OR reasoning ILIKE ?)
          ORDER BY created_at DESC
-         LIMIT $3`,
-        [projectId, `%${searchQuery}%`, limit],
+         LIMIT ?`,
+        [projectId, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, limit],
       );
       return c.json(result.rows.map((r) => parseDecision(r as Record<string, unknown>)));
     }

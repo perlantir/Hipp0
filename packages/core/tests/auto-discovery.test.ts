@@ -1,9 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../src/db/pool.js');
+vi.mock('../src/db/index.js', () => {
+  const mockQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
+  const mockTransaction = vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery));
+  return {
+    getDb: () => ({
+      query: mockQuery,
+      transaction: mockTransaction,
+      arrayParam: (v: unknown[]) => JSON.stringify(v),
+      dialect: 'sqlite' as const,
+    }),
+  };
+});
 vi.mock('../src/distillery/index.js');
 
-import { query } from '../src/db/pool.js';
+import { getDb } from '../src/db/index.js';
 import { distill } from '../src/distillery/index.js';
 import {
   isAlreadyProcessed,
@@ -12,7 +23,7 @@ import {
 } from '../src/auto-discovery/index.js';
 import type { ConversationChunk } from '../src/connectors/types.js';
 
-const mockQuery = vi.mocked(query);
+const mockQuery = getDb().query as ReturnType<typeof vi.fn>;
 const mockDistill = vi.mocked(distill);
 
 // Helpers ---------------------------------------------------------------

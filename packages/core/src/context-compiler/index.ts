@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import {
   parseAgent,
   parseDecision,
@@ -177,10 +177,11 @@ interface CacheRow {
 }
 
 async function readCache(agentId: string, taskHash: string): Promise<ContextPackage | null> {
-  const result = await query<Record<string, unknown>>(
+  const db = getDb();
+  const result = await db.query<Record<string, unknown>>(
     `SELECT id, compiled_context, expires_at, decision_ids_included, artifact_ids_included, token_count
        FROM context_cache
-      WHERE agent_id = $1 AND task_hash = $2 AND expires_at > NOW()
+      WHERE agent_id = ? AND task_hash = ? AND expires_at > NOW()
       LIMIT 1`,
     [agentId, taskHash],
   );
@@ -196,10 +197,11 @@ async function writeCache(
   decisionIds: string[],
   artifactIds: string[],
 ): Promise<void> {
-  await query(
+  const db = getDb();
+  await db.query(
     `INSERT INTO context_cache
        (agent_id, task_hash, compiled_context, decision_ids_included, artifact_ids_included, token_count, compiled_at, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW() + INTERVAL '1 hour')
+     VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW() + INTERVAL '1 hour')
      ON CONFLICT (agent_id, task_hash) DO UPDATE
        SET compiled_context = EXCLUDED.compiled_context,
            decision_ids_included = EXCLUDED.decision_ids_included,
@@ -207,7 +209,7 @@ async function writeCache(
            token_count = EXCLUDED.token_count,
            compiled_at = NOW(),
            expires_at = NOW() + INTERVAL '1 hour'`,
-    [agentId, taskHash, JSON.stringify(pkg), decisionIds, artifactIds, pkg.token_count],
+    [agentId, taskHash, JSON.stringify(pkg), db.arrayParam(decisionIds), db.arrayParam(artifactIds), pkg.token_count],
   );
 }
 
@@ -250,6 +252,7 @@ async function expandGraphContext(
   maxDepth: number,
   allDecisionMap: Map<string, Decision>,
 ): Promise<ExpandedDecision[]> {
+  const db = getDb();
   const visited = new Set<string>(topDecisions.map((d) => d.id));
   const expansions: ExpandedDecision[] = [];
 
@@ -264,12 +267,12 @@ async function expandGraphContext(
     const { id, parentScore, depth } = item;
     if (depth > maxDepth) continue;
 
-    const edgeResult = await query<Record<string, unknown>>(
+    const edgeResult = await db.query<Record<string, unknown>>(
       `SELECT DISTINCT
-         CASE WHEN source_id = $1 THEN target_id ELSE source_id END AS neighbor_id
+         CASE WHEN source_id = ? THEN target_id ELSE source_id END AS neighbor_id
        FROM decision_edges
-      WHERE source_id = $1 OR target_id = $1`,
-      [id],
+      WHERE source_id = ? OR target_id = ?`,
+      [id, id, id],
     );
 
     for (const row of edgeResult.rows) {
@@ -406,9 +409,10 @@ async function writeAuditLog(
   projectId: string,
   details: Record<string, unknown>,
 ): Promise<void> {
-  await query(
+  const db = getDb();
+  await db.query(
     `INSERT INTO audit_log (event_type, agent_id, project_id, details)
-     VALUES ($1, $2, $3, $4)`,
+     VALUES (?, ?, ?, ?)`,
     ['context_compiled', agentId, projectId, JSON.stringify(details)],
   );
 }
@@ -419,13 +423,14 @@ async function writeAuditLog(
  * cache, token budget packing, and dual-format output.
  */
 export async function compileContext(request: CompileRequest): Promise<ContextPackage> {
+  const db = getDb();
   const startMs = Date.now();
   const compiledAt = new Date().toISOString();
 
   const { agent_name, project_id, task_description, session_lookback_days = 7 } = request;
 
-  const agentResult = await query<Record<string, unknown>>(
-    `SELECT * FROM agents WHERE project_id = $1 AND name = $2 LIMIT 1`,
+  const agentResult = await db.query<Record<string, unknown>>(
+    `SELECT * FROM agents WHERE project_id = ? AND name = ? LIMIT 1`,
     [project_id, agent_name],
   );
   if (agentResult.rows.length === 0) {
@@ -438,7 +443,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const cached = await readCache(agent.id, taskHash);
   if (cached) return cached;
 
-  let decisionQuery = `SELECT * FROM decisions WHERE project_id = $1`;
+  let decisionQuery = `SELECT * FROM decisions WHERE project_id = ?`;
   const queryParams: unknown[] = [project_id];
 
   if (!agent.relevance_profile.include_superseded && !request.include_superseded) {
@@ -446,7 +451,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   }
   decisionQuery += ` ORDER BY created_at DESC`;
 
-  const decisionResult = await query<Record<string, unknown>>(decisionQuery, queryParams);
+  const decisionResult = await db.query<Record<string, unknown>>(decisionQuery, queryParams);
   const allDecisions = decisionResult.rows.map(parseDecision);
 
   const allDecisionMap = new Map<string, Decision>(allDecisions.map((d) => [d.id, d]));
@@ -482,8 +487,8 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
 
   const allScored = [...scored, ...expandedScored];
 
-  const artifactResult = await query<Record<string, unknown>>(
-    `SELECT * FROM artifacts WHERE project_id = $1 ORDER BY created_at DESC`,
+  const artifactResult = await db.query<Record<string, unknown>>(
+    `SELECT * FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`,
     [project_id],
   );
   const allArtifacts = artifactResult.rows.map(parseArtifact);
@@ -501,18 +506,18 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     return { ...a, relevance_score };
   });
 
-  const notifResult = await query<Record<string, unknown>>(
+  const notifResult = await db.query<Record<string, unknown>>(
     `SELECT * FROM notifications
-      WHERE agent_id = $1 AND read_at IS NULL
+      WHERE agent_id = ? AND read_at IS NULL
       ORDER BY created_at DESC`,
     [agent.id],
   );
   const notifications = notifResult.rows.map(parseNotification);
 
-  const sessionResult = await query<Record<string, unknown>>(
+  const sessionResult = await db.query<Record<string, unknown>>(
     `SELECT * FROM session_summaries
-      WHERE project_id = $1
-        AND created_at >= NOW() - INTERVAL '1 day' * $2
+      WHERE project_id = ?
+        AND created_at >= NOW() - INTERVAL '1 day' * ?
       ORDER BY created_at DESC`,
     [project_id, session_lookback_days],
   );

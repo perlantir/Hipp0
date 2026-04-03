@@ -1,5 +1,5 @@
 import type { ExtractedDecision, Decision, NotificationType } from '../types.js';
-import { query, transaction } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseDecision } from '../db/parsers.js';
 import { generateEmbedding } from '../decision-graph/embeddings.js';
 import { propagateChange } from '../change-propagator/index.js';
@@ -42,17 +42,18 @@ export async function integrateDecisions(
 
       let supersedes_id: string | undefined;
       if (vectorLiteral) {
-        const supersedeResult = await query<SupersedeCandidate>(
+        const db = getDb();
+        const supersedeResult = await db.query<SupersedeCandidate>(
           `SELECT id,
-                  1 - (embedding <=> $1::vector) AS similarity
+                  1 - (embedding <=> ?) AS similarity
            FROM decisions
-           WHERE project_id = $2
+           WHERE project_id = ?
              AND status = 'active'
              AND embedding IS NOT NULL
-             AND 1 - (embedding <=> $1::vector) > $3
+             AND 1 - (embedding <=> ?) > ?
            ORDER BY similarity DESC
            LIMIT 1`,
-          [vectorLiteral, projectId, SUPERSEDE_SIMILARITY_THRESHOLD],
+          [vectorLiteral, projectId, vectorLiteral, SUPERSEDE_SIMILARITY_THRESHOLD],
         ).catch((err: unknown) => {
           console.warn('[nexus:distillery] Supersede candidate query failed:', err);
           return { rows: [] as SupersedeCandidate[] };
@@ -61,8 +62,9 @@ export async function integrateDecisions(
         supersedes_id = supersedeResult.rows[0]?.id;
       }
 
-      const decision = await transaction(async (client) => {
-        const insertResult = await client.query<Record<string, unknown>>(
+      const db = getDb();
+      const decision = await db.transaction(async (txQuery) => {
+        const insertResult = await txQuery(
           `INSERT INTO decisions
              (project_id, title, description, reasoning, made_by, source,
               source_session_id, confidence, status, supersedes_id,
@@ -70,11 +72,11 @@ export async function integrateDecisions(
               open_questions, dependencies, confidence_decay_rate, metadata,
               embedding)
            VALUES
-             ($1, $2, $3, $4, $5, 'auto_distilled',
-              $6, $7, 'pending', $8,
-              $9::jsonb, $10::text[], $11::text[], $12::jsonb,
-              $13::jsonb, $14::jsonb, 0, '{}',
-              $15::vector)
+             (?, ?, ?, ?, ?, 'auto_distilled',
+              ?, ?, 'pending', ?,
+              ?, ?, ?, ?,
+              ?, ?, 0, '{}',
+              ?)
            RETURNING *`,
           [
             projectId,
@@ -86,8 +88,8 @@ export async function integrateDecisions(
             ext.confidence,
             supersedes_id ?? null,
             JSON.stringify(ext.alternatives_considered),
-            ext.affects,
-            ext.tags,
+            db.arrayParam(ext.affects),
+            db.arrayParam(ext.tags),
             JSON.stringify(ext.assumptions),
             JSON.stringify(ext.open_questions),
             JSON.stringify(ext.dependencies),
@@ -100,16 +102,16 @@ export async function integrateDecisions(
         const dec = parseDecision(row);
 
         if (supersedes_id) {
-          await client.query(
+          await txQuery(
             `UPDATE decisions SET status = 'superseded', updated_at = NOW()
-             WHERE id = $1`,
+             WHERE id = ?`,
             [supersedes_id],
           );
 
-          await client.query(
+          await txQuery(
             `INSERT INTO decision_edges
                (source_id, target_id, relationship, description, strength)
-             VALUES ($1, $2, 'supersedes', 'Auto-detected supersession by distillery', 1.0)
+             VALUES (?, ?, 'supersedes', 'Auto-detected supersession by distillery', 1.0)
              ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
             [dec.id, supersedes_id],
           );

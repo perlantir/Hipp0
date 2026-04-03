@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseDecision, parseSession } from '@nexus/core/db/parsers.js';
 import type { Decision } from '@nexus/core/types.js';
 import { distill } from '@nexus/core/distillery/index.js';
@@ -38,6 +38,7 @@ export function registerDistilleryRoutes(app: Hono): void {
 
   // POST /api/projects/:id/distill/session — extract + create session summary
   app.post('/api/projects/:id/distill/session', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{
       conversation_text?: unknown;
@@ -53,18 +54,18 @@ export function registerDistilleryRoutes(app: Hono): void {
     const distillResult = await distill(projectId, conversationText, agentName);
 
     try {
-      const summaryResult = await query(
+      const summaryResult = await db.query(
         `INSERT INTO session_summaries (
            project_id, agent_name, topic, summary,
            decision_ids, extraction_model, extraction_confidence
-         ) VALUES ($1, $2, $3, $4, $5::uuid[], $6, $7)
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)
          RETURNING *`,
         [
           projectId,
           agentName,
           topic,
           `Session with ${distillResult.decisions_extracted} decisions extracted`,
-          distillResult.decisions.map((d: Decision) => d.id),
+          db.arrayParam(distillResult.decisions.map((d: Decision) => d.id)),
           getModelIdentifier(),
           0.8,
         ],
@@ -94,6 +95,7 @@ export function registerDistilleryRoutes(app: Hono): void {
 
   // POST /api/projects/:id/sessions — create session summary manually
   app.post('/api/projects/:id/sessions', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{
       agent_name?: unknown;
@@ -114,24 +116,24 @@ export function registerDistilleryRoutes(app: Hono): void {
     const summary = requireString(body.summary, 'summary', 10000);
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO session_summaries (
            project_id, agent_name, topic, summary,
            decision_ids, artifact_ids, assumptions,
            open_questions, lessons_learned,
            raw_conversation_hash, extraction_model, extraction_confidence
-         ) VALUES ($1,$2,$3,$4,$5::uuid[],$6::uuid[],$7,$8,$9,$10,$11,$12)
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
          RETURNING *`,
         [
           projectId,
           agent_name,
           topic,
           summary,
-          body.decision_ids ?? [],
-          body.artifact_ids ?? [],
-          body.assumptions ?? [],
-          body.open_questions ?? [],
-          body.lessons_learned ?? [],
+          db.arrayParam(body.decision_ids ?? []),
+          db.arrayParam(body.artifact_ids ?? []),
+          db.arrayParam(body.assumptions ?? []),
+          db.arrayParam(body.open_questions ?? []),
+          db.arrayParam(body.lessons_learned ?? []),
           optionalString(body.raw_conversation_hash, 'raw_conversation_hash', 256) ?? null,
           optionalString(body.extraction_model, 'extraction_model', 100) ?? null,
           body.extraction_confidence ?? null,
@@ -145,9 +147,10 @@ export function registerDistilleryRoutes(app: Hono): void {
 
   // GET /api/projects/:id/sessions — list session summaries
   app.get('/api/projects/:id/sessions', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
-    const result = await query(
-      'SELECT * FROM session_summaries WHERE project_id = $1 ORDER BY created_at DESC',
+    const result = await db.query(
+      'SELECT * FROM session_summaries WHERE project_id = ? ORDER BY created_at DESC',
       [projectId],
     );
     return c.json(result.rows.map((r) => parseSession(r as Record<string, unknown>)));

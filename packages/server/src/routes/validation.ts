@@ -1,4 +1,4 @@
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { ValidationError, ConflictError } from '@nexus/core/types.js';
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -88,7 +88,7 @@ export function logAudit(
   projectId: string | null,
   details: Record<string, unknown>,
 ): void {
-  query(`INSERT INTO audit_log (event_type, project_id, details) VALUES ($1, $2, $3)`, [
+  getDb().query(`INSERT INTO audit_log (event_type, project_id, details) VALUES (?, ?, ?)`, [
     eventType,
     projectId,
     JSON.stringify(details),

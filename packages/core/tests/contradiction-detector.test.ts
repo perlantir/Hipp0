@@ -1,11 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('../src/db/pool.js');
+vi.mock('../src/db/index.js', () => {
+  const mockQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
+  const mockTransaction = vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery));
+  return {
+    getDb: () => ({
+      query: mockQuery,
+      transaction: mockTransaction,
+      arrayParam: (v: unknown[]) => JSON.stringify(v),
+      dialect: 'sqlite' as const,
+    }),
+  };
+});
 vi.mock('../src/distillery/extractor.js');
 vi.mock('../src/change-propagator/index.js');
 vi.mock('../src/decision-graph/embeddings.js');
 
-import { query, transaction } from '../src/db/pool.js';
+import { getDb } from '../src/db/index.js';
 import { callLLM, scrubSecrets, parseJsonSafe } from '../src/distillery/extractor.js';
 import { propagateChange } from '../src/change-propagator/index.js';
 import {
@@ -15,8 +26,9 @@ import {
 } from '../src/contradiction-detector/index.js';
 import type { Decision } from '../src/types.js';
 
-const mockQuery = vi.mocked(query);
-const mockTransaction = vi.mocked(transaction);
+const db = getDb();
+const mockQuery = db.query as ReturnType<typeof vi.fn>;
+const mockTransaction = db.transaction as ReturnType<typeof vi.fn>;
 const mockCallLLM = vi.mocked(callLLM);
 const mockScrubSecrets = vi.mocked(scrubSecrets);
 const mockParseJsonSafe = vi.mocked(parseJsonSafe);
@@ -272,14 +284,12 @@ describe('analyzeConflict (via checkForContradictions)', () => {
     mockConflictLLM();
 
     const contradictionRow = makeContradictionRow();
+    const txQuerySpy = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [contradictionRow], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
     mockTransaction.mockImplementationOnce(async (fn) => {
-      const fakeClient = {
-        query: vi
-          .fn()
-          .mockResolvedValueOnce({ rows: [contradictionRow], rowCount: 1 })
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
-      };
-      await fn(fakeClient as any);
+      await fn(txQuerySpy);
     });
 
     mockEmptyQuery(); // governor agents query
@@ -307,14 +317,12 @@ describe('analyzeConflict (via checkForContradictions)', () => {
     mockParseJsonSafe.mockImplementationOnce((raw: string) => JSON.parse(raw) as unknown);
 
     const contradictionRow = makeContradictionRow();
+    const txQuerySpy = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [contradictionRow], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
     mockTransaction.mockImplementationOnce(async (fn) => {
-      const fakeClient = {
-        query: vi
-          .fn()
-          .mockResolvedValueOnce({ rows: [contradictionRow], rowCount: 1 })
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
-      };
-      await fn(fakeClient as any);
+      await fn(txQuerySpy);
     });
     mockEmptyQuery(); // governor agents query
 
@@ -335,22 +343,22 @@ describe('storeContradiction (via checkForContradictions)', () => {
     mockHighSimilarityQuery();
     mockConflictLLM();
 
-    const clientQuerySpy = vi
+    const txQuerySpy = vi
       .fn()
       .mockResolvedValueOnce({ rows: [makeContradictionRow()], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
     mockTransaction.mockImplementationOnce(async (fn) => {
-      await fn({ query: clientQuerySpy } as any);
+      await fn(txQuerySpy);
     });
 
     mockEmptyQuery(); // governor agents query
 
     await checkForContradictions(makeDecision());
 
-    expect(clientQuerySpy).toHaveBeenCalledTimes(2);
-    expect(clientQuerySpy.mock.calls[0]?.[0] as string).toContain('INSERT INTO contradictions');
-    expect(clientQuerySpy.mock.calls[1]?.[0] as string).toContain('INSERT INTO decision_edges');
+    expect(txQuerySpy).toHaveBeenCalledTimes(2);
+    expect(txQuerySpy.mock.calls[0]?.[0] as string).toContain('INSERT INTO contradictions');
+    expect(txQuerySpy.mock.calls[1]?.[0] as string).toContain('INSERT INTO decision_edges');
   });
 
   it('uses ON CONFLICT for duplicate contradiction pairs', async () => {
@@ -359,20 +367,20 @@ describe('storeContradiction (via checkForContradictions)', () => {
     mockHighSimilarityQuery();
     mockConflictLLM();
 
-    const clientQuerySpy = vi
+    const txQuerySpy = vi
       .fn()
       .mockResolvedValueOnce({ rows: [makeContradictionRow()], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
     mockTransaction.mockImplementationOnce(async (fn) => {
-      await fn({ query: clientQuerySpy } as any);
+      await fn(txQuerySpy);
     });
 
     mockEmptyQuery(); // governor agents query
 
     await checkForContradictions(makeDecision());
 
-    const insertSql = clientQuerySpy.mock.calls[0]?.[0] as string;
+    const insertSql = txQuerySpy.mock.calls[0]?.[0] as string;
     expect(insertSql).toContain('ON CONFLICT');
     expect(insertSql).toContain('decision_a_id, decision_b_id');
   });

@@ -1,4 +1,4 @@
-import { query, transaction } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { parseSubscription, parseNotification, parseAgent } from '../db/parsers.js';
 import { NexusError, NotFoundError, ValidationError } from '../types.js';
 import { getRoleNotificationContext } from '../roles.js';
@@ -101,6 +101,7 @@ function eventTypeMatchesNotifyOn(eventType: NotificationType, sub: Subscription
  *   - "decision:<uuid>"  — subscribe to a specific decision
  */
 export async function createSubscription(input: CreateSubscriptionInput): Promise<Subscription> {
+  const db = getDb();
   const {
     agent_id,
     topic,
@@ -112,8 +113,8 @@ export async function createSubscription(input: CreateSubscriptionInput): Promis
     throw new ValidationError('agent_id and topic are required to create a subscription');
   }
 
-  const agentCheck = await query<Record<string, unknown>>(
-    `SELECT id FROM agents WHERE id = $1 LIMIT 1`,
+  const agentCheck = await db.query<Record<string, unknown>>(
+    `SELECT id FROM agents WHERE id = ? LIMIT 1`,
     [agent_id],
   );
   if (agentCheck.rows.length === 0) {
@@ -121,14 +122,14 @@ export async function createSubscription(input: CreateSubscriptionInput): Promis
   }
 
   try {
-    const result = await query<Record<string, unknown>>(
+    const result = await db.query<Record<string, unknown>>(
       `INSERT INTO subscriptions (agent_id, topic, notify_on, priority)
-       VALUES ($1, $2, $3, $4)
+       VALUES (?, ?, ?, ?)
        ON CONFLICT (agent_id, topic) DO UPDATE
          SET notify_on = EXCLUDED.notify_on,
              priority  = EXCLUDED.priority
        RETURNING *`,
-      [agent_id, topic, notify_on, priority],
+      [agent_id, topic, db.arrayParam(notify_on), priority],
     );
 
     const row = result.rows[0];
@@ -150,8 +151,9 @@ export async function createSubscription(input: CreateSubscriptionInput): Promis
  * Retrieve all subscriptions for a given agent.
  */
 export async function getSubscriptions(agentId: string): Promise<Subscription[]> {
-  const result = await query<Record<string, unknown>>(
-    `SELECT * FROM subscriptions WHERE agent_id = $1 ORDER BY created_at ASC`,
+  const db = getDb();
+  const result = await db.query<Record<string, unknown>>(
+    `SELECT * FROM subscriptions WHERE agent_id = ? ORDER BY created_at ASC`,
     [agentId],
   );
   return result.rows.map(parseSubscription);
@@ -161,7 +163,8 @@ export async function getSubscriptions(agentId: string): Promise<Subscription[]>
  * Delete a subscription by its ID.
  */
 export async function deleteSubscription(id: string): Promise<void> {
-  const result = await query(`DELETE FROM subscriptions WHERE id = $1`, [id]);
+  const db = getDb();
+  const result = await db.query(`DELETE FROM subscriptions WHERE id = ?`, [id]);
   if ((result.rowCount ?? 0) === 0) {
     throw new NotFoundError('Subscription', id);
   }
@@ -182,14 +185,15 @@ export async function matchSubscriptions(
   decision: Decision,
   eventType: string,
 ): Promise<Array<{ subscription: Subscription; agent: Agent }>> {
-  const result = await query<Record<string, unknown>>(
+  const db = getDb();
+  const result = await db.query<Record<string, unknown>>(
     `SELECT s.*, a.id AS a_id, a.project_id AS a_project_id, a.name AS a_name,
             a.role AS a_role, a.relevance_profile AS a_relevance_profile,
             a.context_budget_tokens AS a_context_budget_tokens,
             a.created_at AS a_created_at, a.updated_at AS a_updated_at
        FROM subscriptions s
        JOIN agents a ON a.id = s.agent_id
-      WHERE a.project_id = $1`,
+      WHERE a.project_id = ?`,
     [decision.project_id],
   );
 
@@ -255,12 +259,13 @@ export async function propagateChange(
   decision: Decision,
   eventType: NotificationType,
 ): Promise<Notification[]> {
+  const db = getDb();
   const matches = await matchSubscriptions(decision, eventType);
   if (matches.length === 0) return [];
 
   const created: Notification[] = [];
 
-  await transaction(async (client) => {
+  await db.transaction(async (txQuery) => {
     for (const { subscription, agent } of matches) {
       const message = buildMessage(decision, eventType);
       const roleContext = getRoleNotificationContext(agent.role);
@@ -272,10 +277,10 @@ export async function propagateChange(
         resolvedUrgency = urgency === 'medium' || urgency === 'low' ? 'high' : urgency;
       }
 
-      const result = await client.query<Record<string, unknown>>(
+      const result = await txQuery(
         `INSERT INTO notifications
            (agent_id, decision_id, notification_type, message, role_context, urgency)
-         VALUES ($1, $2, $3, $4, $5, $6)
+         VALUES (?, ?, ?, ?, ?, ?)
          RETURNING *`,
         [agent.id, decision.id, eventType, message, roleContext, resolvedUrgency],
       );
@@ -294,9 +299,9 @@ export async function propagateChange(
   }
 
   try {
-    await query(
+    await db.query(
       `INSERT INTO audit_log (event_type, decision_id, project_id, details)
-       VALUES ($1, $2, $3, $4)`,
+       VALUES (?, ?, ?, ?)`,
       [
         'change_propagated',
         decision.id,
@@ -323,11 +328,25 @@ export async function propagateChange(
  * Returns the number of cache entries invalidated.
  */
 export async function invalidateCache(decisionId: string): Promise<number> {
-  const result = await query(
-    `DELETE FROM context_cache
-      WHERE $1 = ANY(decision_ids_included)`,
-    [decisionId],
-  );
+  const db = getDb();
+  // For SQLite: decision_ids_included is stored as JSON text, use JSON_EACH
+  // For PostgreSQL: use the native ANY() array operator
+  let result;
+  if (db.dialect === 'postgres') {
+    result = await db.query(
+      `DELETE FROM context_cache
+        WHERE ? = ANY(decision_ids_included)`,
+      [decisionId],
+    );
+  } else {
+    result = await db.query(
+      `DELETE FROM context_cache
+        WHERE EXISTS (
+          SELECT 1 FROM json_each(decision_ids_included) WHERE value = ?
+        )`,
+      [decisionId],
+    );
+  }
   return result.rowCount ?? 0;
 }
 
@@ -340,13 +359,14 @@ export async function getNotifications(
   agentId: string,
   unreadOnly = false,
 ): Promise<Notification[]> {
-  let sql = `SELECT * FROM notifications WHERE agent_id = $1`;
+  const db = getDb();
+  let sql = `SELECT * FROM notifications WHERE agent_id = ?`;
   if (unreadOnly) {
     sql += ` AND read_at IS NULL`;
   }
   sql += ` ORDER BY created_at DESC`;
 
-  const result = await query<Record<string, unknown>>(sql, [agentId]);
+  const result = await db.query<Record<string, unknown>>(sql, [agentId]);
   return result.rows.map(parseNotification);
 }
 
@@ -354,13 +374,14 @@ export async function getNotifications(
  * Mark a notification as read, recording the current timestamp.
  */
 export async function markNotificationRead(notificationId: string): Promise<void> {
-  const result = await query(
-    `UPDATE notifications SET read_at = NOW() WHERE id = $1 AND read_at IS NULL`,
+  const db = getDb();
+  const result = await db.query(
+    `UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL`,
     [notificationId],
   );
   if ((result.rowCount ?? 0) === 0) {
     // Either already read or not found — treat both gracefully
-    const check = await query(`SELECT id FROM notifications WHERE id = $1`, [notificationId]);
+    const check = await db.query(`SELECT id FROM notifications WHERE id = ?`, [notificationId]);
     if (check.rowCount === 0) {
       throw new NotFoundError('Notification', notificationId);
     }

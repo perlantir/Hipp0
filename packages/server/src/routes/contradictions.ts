@@ -1,21 +1,23 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseContradiction } from '@nexus/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@nexus/core/types.js';
 import { requireUUID, optionalString } from './validation.js';
 
 export function registerContradictionRoutes(app: Hono): void {
   app.get('/api/projects/:id/contradictions', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const status = c.req.query('status') ?? 'unresolved';
-    const result = await query(
-      'SELECT * FROM contradictions WHERE project_id = $1 AND status = $2 ORDER BY detected_at DESC',
+    const result = await db.query(
+      'SELECT * FROM contradictions WHERE project_id = ? AND status = ? ORDER BY detected_at DESC',
       [projectId, status],
     );
     return c.json(result.rows.map((r) => parseContradiction(r as Record<string, unknown>)));
   });
 
   app.patch('/api/contradictions/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
     const body = await c.req.json<{
       status?: unknown;
@@ -32,14 +34,14 @@ export function registerContradictionRoutes(app: Hono): void {
     if (!statusVal && !resolvedByVal && !resolutionVal)
       throw new ValidationError('No fields to update');
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE contradictions SET
-        status = COALESCE($1, status),
-        resolved_by = COALESCE($2, resolved_by),
-        resolution = COALESCE($3, resolution),
-        resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END
-      WHERE id = $4 RETURNING *`,
-      [statusVal, resolvedByVal, resolutionVal, id],
+        status = COALESCE(?, status),
+        resolved_by = COALESCE(?, resolved_by),
+        resolution = COALESCE(?, resolution),
+        resolved_at = CASE WHEN ? = 'resolved' THEN NOW() ELSE resolved_at END
+      WHERE id = ? RETURNING *`,
+      [statusVal, resolvedByVal, resolutionVal, statusVal, id],
     );
 
     if (result.rows.length === 0) throw new NotFoundError('Contradiction', id);

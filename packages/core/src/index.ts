@@ -15,6 +15,12 @@ export {
 export type { RoleTemplate } from './roles.js';
 
 // --- Database ---
+// New adapter API (preferred for new code)
+export { initDb, getDb, closeDb } from './db/index.js';
+export type { DatabaseAdapter, QueryResult } from './db/index.js';
+export type { DatabaseConfig } from './db/index.js';
+export { createAdapter, resolveDialect } from './db/index.js';
+// Backward-compatible pool API (legacy — prefer db/index.js for new code)
 export { getPool, query, getClient, transaction, closePool, healthCheck } from './db/pool.js';
 export { runMigrations } from './db/migrations.js';
 export * from './db/parsers.js';

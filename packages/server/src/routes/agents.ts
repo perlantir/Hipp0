@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseAgent } from '@nexus/core/db/parsers.js';
 import { NotFoundError } from '@nexus/core/types.js';
 import { getRoleProfile } from '@nexus/core/roles.js';
@@ -7,6 +7,7 @@ import { requireUUID, requireString, mapDbError } from './validation.js';
 
 export function registerAgentRoutes(app: Hono): void {
   app.post('/api/projects/:id/agents', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const body = await c.req.json<{
       name?: unknown;
@@ -18,15 +19,15 @@ export function registerAgentRoutes(app: Hono): void {
     const name = requireString(body.name, 'name', 200);
     const role = requireString(body.role, 'role', 100);
 
-    const proj = await query('SELECT id FROM projects WHERE id = $1', [projectId]);
+    const proj = await db.query('SELECT id FROM projects WHERE id = ?', [projectId]);
     if (proj.rows.length === 0) throw new NotFoundError('Project', projectId);
 
     const profile = body.relevance_profile ?? getRoleProfile(role);
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO agents (project_id, name, role, relevance_profile, context_budget_tokens)
-         VALUES ($1, $2, $3, $4, $5)
+         VALUES (?, ?, ?, ?, ?)
          RETURNING *`,
         [projectId, name, role, JSON.stringify(profile), body.context_budget_tokens ?? 50000],
       );
@@ -37,9 +38,10 @@ export function registerAgentRoutes(app: Hono): void {
   });
 
   app.get('/api/projects/:id/agents', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
-    const result = await query(
-      'SELECT * FROM agents WHERE project_id = $1 ORDER BY created_at ASC',
+    const result = await db.query(
+      'SELECT * FROM agents WHERE project_id = ? ORDER BY created_at ASC',
       [projectId],
     );
     return c.json(result.rows.map((r) => parseAgent(r as Record<string, unknown>)));

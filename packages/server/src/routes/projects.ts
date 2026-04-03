@@ -1,11 +1,12 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { parseProject } from '@nexus/core/db/parsers.js';
 import { NotFoundError } from '@nexus/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
 
 export function registerProjectRoutes(app: Hono): void {
   app.post('/api/projects', async (c) => {
+    const db = getDb();
     const body = await c.req.json<{
       name?: unknown;
       description?: unknown;
@@ -16,9 +17,9 @@ export function registerProjectRoutes(app: Hono): void {
     const description = optionalString(body.description, 'description', 10000);
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO projects (name, description, metadata)
-         VALUES ($1, $2, $3)
+         VALUES (?, ?, ?)
          RETURNING *`,
         [name, description ?? null, JSON.stringify(body.metadata ?? {})],
       );
@@ -29,8 +30,9 @@ export function registerProjectRoutes(app: Hono): void {
   });
 
   app.get('/api/projects/:id', async (c) => {
+    const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await query('SELECT * FROM projects WHERE id = $1', [id]);
+    const result = await db.query('SELECT * FROM projects WHERE id = ?', [id]);
     if (result.rows.length === 0) throw new NotFoundError('Project', id);
     return c.json(parseProject(result.rows[0] as Record<string, unknown>));
   });

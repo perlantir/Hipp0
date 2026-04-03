@@ -1,5 +1,5 @@
 import type { ExtractedDecision } from '../types.js';
-import { query } from '../db/pool.js';
+import { getDb } from '../db/index.js';
 import { generateEmbedding } from '../decision-graph/embeddings.js';
 
 const DEDUP_SIMILARITY_THRESHOLD = 0.9;
@@ -45,17 +45,18 @@ export async function deduplicateDecisions(
 
     let rows: SimilarDecisionRow[] = [];
     try {
-      const result = await query<SimilarDecisionRow>(
+      const db = getDb();
+      const result = await db.query<SimilarDecisionRow>(
         `SELECT id,
-                1 - (embedding <=> $1::vector) AS similarity
+                1 - (embedding <=> ?) AS similarity
          FROM decisions
-         WHERE project_id = $2
+         WHERE project_id = ?
            AND status = 'active'
            AND embedding IS NOT NULL
-           AND 1 - (embedding <=> $1::vector) > $3
+           AND 1 - (embedding <=> ?) > ?
          ORDER BY similarity DESC
          LIMIT 1`,
-        [vectorLiteral, projectId, DEDUP_SIMILARITY_THRESHOLD],
+        [vectorLiteral, projectId, vectorLiteral, DEDUP_SIMILARITY_THRESHOLD],
       );
       rows = result.rows;
     } catch (err) {

@@ -6,13 +6,25 @@ import { createApp } from '../src/app.js';
 
 // ── DB Mock ───────────────────────────────────────────────────────────────────
 
+const mockQuery = vi.fn();
+vi.mock('@nexus/core/db/index.js', () => ({
+  getDb: () => ({
+    query: mockQuery,
+    transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
+    arrayParam: (v: unknown[]) => JSON.stringify(v),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    dialect: 'sqlite' as const,
+  }),
+  initDb: vi.fn().mockResolvedValue({}),
+  closeDb: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@nexus/core/db/pool.js', () => ({
-  query: vi.fn(),
-  transaction: vi.fn(),
+  query: mockQuery,
   getPool: vi.fn(),
-  getClient: vi.fn(),
   closePool: vi.fn(),
   healthCheck: vi.fn().mockResolvedValue(true),
+  transaction: vi.fn().mockImplementation(async (fn: Function) => fn({ query: mockQuery })),
 }));
 
 vi.mock('@nexus/core/db/parsers.js', () => ({
@@ -40,8 +52,7 @@ vi.mock('@nexus/core/contradiction-detector/index.js', () => ({
 }));
 
 // Import mocked modules after vi.mock calls
-const { query } = await import('@nexus/core/db/pool.js');
-const mockQuery = vi.mocked(query);
+// mockQuery is defined on line 9 and shared with the vi.mock factories above.
 
 const { distill } = await import('@nexus/core/distillery/index.js');
 const mockDistill = vi.mocked(distill);

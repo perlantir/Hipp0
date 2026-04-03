@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { query } from '@nexus/core/db/pool.js';
+import { getDb } from '@nexus/core/db/index.js';
 import { distill } from '@nexus/core/distillery/index.js';
 import { scanProjectContradictions } from '@nexus/core/contradiction-detector/index.js';
 import {
@@ -160,10 +160,11 @@ export function registerDiscoveryRoutes(app: Hono): void {
 
   // GET /api/projects/:id/connectors — List configured connectors
   app.get('/api/projects/:id/connectors', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
 
-    const result = await query(
-      `SELECT * FROM connector_configs WHERE project_id = $1 ORDER BY created_at ASC`,
+    const result = await db.query(
+      `SELECT * FROM connector_configs WHERE project_id = ? ORDER BY created_at ASC`,
       [projectId],
     );
 
@@ -172,6 +173,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
 
   // POST /api/projects/:id/connectors — Add/update connector config
   app.post('/api/projects/:id/connectors', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
 
     const body = await c.req.json<{
@@ -194,9 +196,9 @@ export function registerDiscoveryRoutes(app: Hono): void {
         : {};
 
     try {
-      const result = await query(
+      const result = await db.query(
         `INSERT INTO connector_configs (project_id, connector_name, enabled, config)
-         VALUES ($1, $2, $3, $4)
+         VALUES (?, ?, ?, ?)
          ON CONFLICT (project_id, connector_name) DO UPDATE
            SET enabled = EXCLUDED.enabled,
                config = EXCLUDED.config,
@@ -218,6 +220,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
 
   // DELETE /api/projects/:id/connectors/:name — Remove connector
   app.delete('/api/projects/:id/connectors/:name', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const connectorName = c.req.param('name');
 
@@ -225,8 +228,8 @@ export function registerDiscoveryRoutes(app: Hono): void {
       return c.json({ error: 'connector name is required' }, 400);
     }
 
-    const result = await query(
-      `DELETE FROM connector_configs WHERE project_id = $1 AND connector_name = $2 RETURNING id`,
+    const result = await db.query(
+      `DELETE FROM connector_configs WHERE project_id = ? AND connector_name = ? RETURNING id`,
       [projectId, connectorName],
     );
 
@@ -241,23 +244,24 @@ export function registerDiscoveryRoutes(app: Hono): void {
 
   // GET /api/projects/:id/discovery/status — Auto-discovery health/stats
   app.get('/api/projects/:id/discovery/status', async (c) => {
+    const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
 
     const [connectorsResult, countResult, recentResult] = await Promise.all([
-      query(
+      db.query(
         `SELECT connector_name, enabled, last_poll_at
          FROM connector_configs
-         WHERE project_id = $1
+         WHERE project_id = ?
          ORDER BY connector_name ASC`,
         [projectId],
       ),
-      query(
-        `SELECT COUNT(*) AS count FROM processed_sources WHERE project_id = $1`,
+      db.query(
+        `SELECT COUNT(*) AS count FROM processed_sources WHERE project_id = ?`,
         [projectId],
       ),
-      query(
+      db.query(
         `SELECT * FROM processed_sources
-         WHERE project_id = $1
+         WHERE project_id = ?
          ORDER BY processed_at DESC
          LIMIT 20`,
         [projectId],
