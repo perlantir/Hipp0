@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "nexus-sdk"
+version = "0.1.0"
+description = "Official Python SDK for the Nexus multi-agent memory and decision platform."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Perlantir" }]
+keywords = ["nexus", "multi-agent", "memory", "decisions", "sdk"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "responses>=0.23",      # HTTP mocking
+    "mypy>=1.0",
+    "ruff>=0.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/nexus-platform/nexus"
+Documentation = "https://docs.nexus.dev"
+Repository = "https://github.com/nexus-platform/nexus"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nexus_sdk*"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

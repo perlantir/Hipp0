@@ -1,0 +1,135 @@
+import type { ExtractedDecision, Decision, NotificationType } from '../types.js';
+import { query, transaction } from '../db/pool.js';
+import { parseDecision } from '../db/parsers.js';
+import { generateEmbedding } from '../decision-graph/embeddings.js';
+import { propagateChange } from '../change-propagator/index.js';
+
+const SUPERSEDE_SIMILARITY_THRESHOLD = 0.92;
+
+interface SupersedeCandidate {
+  id: string;
+  similarity: number;
+}
+
+/**
+ * Stage 4 — Persist extracted decisions into the DB and integrate into the graph.
+ * Inserts with source='auto_distilled', status='pending'. Auto-creates a
+ * 'supersedes' edge when similarity to an existing decision exceeds threshold.
+ */
+export async function integrateDecisions(
+  projectId: string,
+  extracted: ExtractedDecision[],
+  sessionId?: string,
+): Promise<Decision[]> {
+  if (extracted.length === 0) return [];
+
+  const created: Decision[] = [];
+
+  for (const ext of extracted) {
+    try {
+      const embedding = await generateEmbedding(`${ext.title}\n${ext.description}`).catch(
+        (err: unknown) => {
+          console.warn(
+            `[nexus:distillery] integrateDecisions: embedding failed for "${ext.title}":`,
+            err,
+          );
+          return null;
+        },
+      );
+
+      const vectorLiteral =
+        embedding && !embedding.every((v) => v === 0) ? `[${embedding.join(',')}]` : null;
+
+      let supersedes_id: string | undefined;
+      if (vectorLiteral) {
+        const supersedeResult = await query<SupersedeCandidate>(
+          `SELECT id,
+                  1 - (embedding <=> $1::vector) AS similarity
+           FROM decisions
+           WHERE project_id = $2
+             AND status = 'active'
+             AND embedding IS NOT NULL
+             AND 1 - (embedding <=> $1::vector) > $3
+           ORDER BY similarity DESC
+           LIMIT 1`,
+          [vectorLiteral, projectId, SUPERSEDE_SIMILARITY_THRESHOLD],
+        ).catch((err: unknown) => {
+          console.warn('[nexus:distillery] Supersede candidate query failed:', err);
+          return { rows: [] as SupersedeCandidate[] };
+        });
+
+        supersedes_id = supersedeResult.rows[0]?.id;
+      }
+
+      const decision = await transaction(async (client) => {
+        const insertResult = await client.query<Record<string, unknown>>(
+          `INSERT INTO decisions
+             (project_id, title, description, reasoning, made_by, source,
+              source_session_id, confidence, status, supersedes_id,
+              alternatives_considered, affects, tags, assumptions,
+              open_questions, dependencies, confidence_decay_rate, metadata,
+              embedding)
+           VALUES
+             ($1, $2, $3, $4, $5, 'auto_distilled',
+              $6, $7, 'pending', $8,
+              $9::jsonb, $10::text[], $11::text[], $12::jsonb,
+              $13::jsonb, $14::jsonb, 0, '{}',
+              $15::vector)
+           RETURNING *`,
+          [
+            projectId,
+            ext.title,
+            ext.description,
+            ext.reasoning,
+            'distillery',
+            sessionId ?? null,
+            ext.confidence,
+            supersedes_id ?? null,
+            JSON.stringify(ext.alternatives_considered),
+            ext.affects,
+            ext.tags,
+            JSON.stringify(ext.assumptions),
+            JSON.stringify(ext.open_questions),
+            JSON.stringify(ext.dependencies),
+            vectorLiteral,
+          ],
+        );
+
+        const row = insertResult.rows[0];
+        if (!row) throw new Error('Insert returned no rows');
+        const dec = parseDecision(row);
+
+        if (supersedes_id) {
+          await client.query(
+            `UPDATE decisions SET status = 'superseded', updated_at = NOW()
+             WHERE id = $1`,
+            [supersedes_id],
+          );
+
+          await client.query(
+            `INSERT INTO decision_edges
+               (source_id, target_id, relationship, description, strength)
+             VALUES ($1, $2, 'supersedes', 'Auto-detected supersession by distillery', 1.0)
+             ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
+            [dec.id, supersedes_id],
+          );
+
+          console.warn(`[nexus:distillery] "${dec.title}" supersedes decision ${supersedes_id}`);
+        }
+
+        return dec;
+      });
+
+      created.push(decision);
+
+      // Fire-and-forget; errors caught inside propagateChange
+      propagateChange(decision, 'decision_created' as NotificationType).catch((err: unknown) => {
+        console.warn(`[nexus:distillery] propagateChange failed for decision ${decision.id}:`, err);
+      });
+    } catch (err) {
+      console.error(`[nexus:distillery] integrateDecisions: failed to insert "${ext.title}":`, err);
+    }
+  }
+
+  return created;
+}

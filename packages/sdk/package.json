@@ -1,0 +1,28 @@
+{
+  "name": "@nexus/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK client for Nexus API",
+  "author": "Perlantir",
+  "repository": {"type": "git", "url": "https://github.com/perlantir/nexus"},
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "nexus-crewai"
+version = "0.1.0"
+description = "CrewAI integration for the Nexus multi-agent memory platform."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Perlantir" }]
+keywords = ["nexus", "crewai", "memory", "multi-agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "nexus-sdk>=0.1.0",
+    "crewai>=0.80.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "responses>=0.23",
+    "mypy>=1.0",
+    "ruff>=0.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/nexus-platform/nexus"
+Documentation = "https://docs.nexus.dev"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nexus_crewai*"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

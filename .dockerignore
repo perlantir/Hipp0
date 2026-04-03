@@ -1,0 +1,17 @@
+.env
+.env.*
+.git
+node_modules
+dist
+*.md
+!README.md
+tests
+**/*.test.ts
+**/*.spec.ts
+.turbo
+coverage
+.github
+docs
+scripts
+integrations
+python-sdk

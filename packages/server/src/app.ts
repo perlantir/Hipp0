@@ -1,0 +1,74 @@
+import { Hono } from 'hono';
+import {
+  errorHandler,
+  authMiddleware,
+  corsMiddleware,
+  auditMiddleware,
+  requestTimer,
+  securityHeaders,
+  rateLimiter,
+  bodyLimit,
+} from './middleware/index.js';
+import { registerProjectRoutes } from './routes/projects.js';
+import { registerAgentRoutes } from './routes/agents.js';
+import { registerDecisionRoutes } from './routes/decisions.js';
+import { registerCompileRoutes } from './routes/compile.js';
+import { registerDistilleryRoutes } from './routes/distillery.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerContradictionRoutes } from './routes/contradictions.js';
+import { registerFeedbackRoutes } from './routes/feedback.js';
+import { registerAuditRoutes } from './routes/audit.js';
+import { registerStatsRoutes } from './routes/stats.js';
+import { registerArtifactRoutes } from './routes/artifacts.js';
+
+export function createApp() {
+  const app = new Hono();
+
+  // Global middleware stack
+  app.use('*', requestTimer);
+  app.use('*', securityHeaders);
+  app.use('*', corsMiddleware);
+  app.use('*', bodyLimit({ maxBytes: 2 * 1024 * 1024 }));
+  app.use('/api/*', rateLimiter({ maxRequests: 100 }));
+  app.use('/api/compile', rateLimiter({ maxRequests: 30, windowMs: 60000, namespace: 'compile' }));
+  app.use(
+    '/api/*/distill*',
+    rateLimiter({ maxRequests: 10, windowMs: 60000, namespace: 'distill' }),
+  );
+  app.use(
+    '/api/*/decisions',
+    rateLimiter({ maxRequests: 60, windowMs: 60000, namespace: 'decisions' }),
+  );
+  app.onError(errorHandler);
+
+  // Auth on all /api/* except /api/health
+  app.use('/api/*', async (c, next) => {
+    if (c.req.path === '/api/health') {
+      await next();
+      return;
+    }
+    await authMiddleware(c, next);
+  });
+
+  // Health
+  app.get('/api/health', (c) => {
+    return c.json({ status: 'ok', version: '0.1.0', timestamp: new Date().toISOString() });
+  });
+
+  // Register route modules
+  registerProjectRoutes(app);
+  registerAgentRoutes(app);
+  registerDecisionRoutes(app);
+  registerCompileRoutes(app);
+  registerDistilleryRoutes(app);
+  registerNotificationRoutes(app);
+  registerContradictionRoutes(app);
+  registerFeedbackRoutes(app);
+  registerAuditRoutes(app);
+  registerStatsRoutes(app);
+  registerArtifactRoutes(app);
+
+  return app;
+}
+
+export default createApp();

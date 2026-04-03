@@ -1,0 +1,53 @@
+{
+  "name": "@nexus/core",
+  "version": "0.1.0",
+  "description": "Core engine: decision graph, context compiler, change propagator, distillery",
+  "author": "Perlantir",
+  "repository": {"type": "git", "url": "https://github.com/perlantir/nexus"},
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./db/pool.js": {
+      "import": "./dist/db/pool.js",
+      "types": "./dist/db/pool.d.ts"
+    },
+    "./db/parsers.js": {
+      "import": "./dist/db/parsers.js",
+      "types": "./dist/db/parsers.d.ts"
+    },
+    "./types.js": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./roles.js": {
+      "import": "./dist/roles.js",
+      "types": "./dist/roles.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "pgvector": "^0.2.0",
+    "openai": "^4.73.0",
+    "@anthropic-ai/sdk": "^0.33.0",
+    "crypto-js": "^4.2.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "@types/crypto-js": "^4.2.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

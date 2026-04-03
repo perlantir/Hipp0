@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: nexus-db
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_dev
+      POSTGRES_DB: nexus
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexus_pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://nexus:nexus_dev@postgres:5432/nexus
+      PORT: 3100
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      API_KEY_SECRET: ${API_KEY_SECRET:-nexus-dev-secret}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      DISTILLERY_PROVIDER: ${DISTILLERY_PROVIDER:-anthropic}
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3100}
+    container_name: nexus-dashboard
+    depends_on:
+      - server
+    ports:
+      - "3200:80"
+    restart: unless-stopped
+
+volumes:
+  nexus_pgdata:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,uid=999,gid=999,mode=0700
+      device: ${PGDATA_PATH:-./data/pgdata}
