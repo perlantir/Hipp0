@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "Core engine: decision graph, context compiler, change propagator, distillery",
   "author": "Perlantir",
-  "repository": {"type": "git", "url": "https://github.com/perlantir/nexus"},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/perlantir/nexus"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,6 +14,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./db/index.js": {
+      "import": "./dist/db/index.js",
+      "types": "./dist/db/index.d.ts"
     },
     "./db/pool.js": {
       "import": "./dist/db/pool.js",
@@ -61,16 +68,18 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.33.0",
+    "better-sqlite3": "^12.8.0",
+    "crypto-js": "^4.2.0",
+    "openai": "^4.73.0",
     "pg": "^8.13.0",
     "pgvector": "^0.2.0",
-    "openai": "^4.73.0",
-    "@anthropic-ai/sdk": "^0.33.0",
-    "crypto-js": "^4.2.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/crypto-js": "^4.2.0",
+    "@types/pg": "^8.11.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
   }

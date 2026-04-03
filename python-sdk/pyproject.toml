@@ -39,9 +39,12 @@ Homepage = "https://github.com/nexus-platform/nexus"
 Documentation = "https://docs.nexus.dev"
 Repository = "https://github.com/nexus-platform/nexus"
 
+[project.scripts]
+nexus-memory = "nexus_memory.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nexus_sdk*"]
+include = ["nexus_sdk*", "nexus_memory*"]
 
 [tool.mypy]
 python_version = "3.10"

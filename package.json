@@ -22,7 +22,8 @@
     "validate": "tsx scripts/phase-a-validation.ts",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:build": "docker compose build"
+    "docker:build": "docker compose build",
+    "prepublish:cli": "pnpm build && cp -r packages/dashboard/dist packages/cli/dashboard"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -11,6 +11,21 @@
 
 ## Install
 
+**Try it instantly (no Docker needed):**
+
+```bash
+npx @nexus/cli init my-project
+```
+
+**Python:**
+
+```bash
+pip install nexus-memory
+nexus-memory init my-project
+```
+
+**Production (Docker + PostgreSQL):**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/perlantir/nexus/main/install.sh | bash
 ```

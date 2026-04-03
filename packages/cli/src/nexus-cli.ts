@@ -8,6 +8,7 @@ import { registerDistillCommand } from './commands/distill.js';
 import { registerAgentCommands } from './commands/agents.js';
 import { registerNotificationCommands } from './commands/notifications.js';
 import { registerStatusCommands } from './commands/status.js';
+import { registerServerCommands } from './commands/server.js';
 
 const program = new Command();
 
@@ -23,6 +24,7 @@ registerDistillCommand(program);
 registerAgentCommands(program);
 registerNotificationCommands(program);
 registerStatusCommands(program);
+registerServerCommands(program);
 
 program.parse(process.argv);
 

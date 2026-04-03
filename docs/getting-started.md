@@ -9,6 +9,22 @@ Every command is copy-paste ready. You'll need:
 
 ---
 
+## Quick Start (No Docker)
+
+The fastest way to try Nexus — no Docker, no PostgreSQL, no .env file:
+
+```bash
+npx @nexus/cli init my-project
+```
+
+This creates a SQLite database, starts the server, and opens the dashboard. All features work immediately.
+
+To stop: `Ctrl+C`. To restart: `cd my-project && npx @nexus/cli start`.
+
+For production deployment with Docker and PostgreSQL, continue to the steps below.
+
+---
+
 ## Step 1: Get an LLM API Key (Optional)
 
 Nexus works without any API key. But if you want semantic search
