@@ -213,7 +213,7 @@ export function DecisionGraph() {
       .selectAll<SVGTextElement, GraphEdge>('text')
       .data(edges)
       .join('text')
-      .text((d) => d.type.replace(/_/g, ' '))
+      .text((d) => (d.type ?? "").replace(/_/g, ' '))
       .attr('font-size', 9)
       .attr('fill', '#797876')
       .attr('text-anchor', 'middle')

@@ -292,7 +292,7 @@ export function NotificationFeed() {
 
                           {/* Type */}
                           <span className="text-2xs text-[var(--text-tertiary)] capitalize">
-                            {notification.type.replace(/_/g, ' ')}
+                            {(notification.type ?? "").replace(/_/g, ' ')}
                           </span>
 
                           {/* Mark as read */}

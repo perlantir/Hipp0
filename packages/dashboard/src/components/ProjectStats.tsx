@@ -442,7 +442,7 @@ export function ProjectStats() {
                     </div>
                   </div>
                   <span className="text-2xs text-[var(--text-tertiary)] capitalize whitespace-nowrap">
-                    {item.type.replace(/_/g, ' ')}
+                    {(item.type ?? "").replace(/_/g, ' ')}
                   </span>
                 </div>
               ))}
