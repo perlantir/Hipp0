@@ -58,6 +58,10 @@
     "./contradiction-detector/index.js": {
       "import": "./dist/contradiction-detector/index.js",
       "types": "./dist/contradiction-detector/index.d.ts"
+    },
+    "./webhooks/index.js": {
+      "import": "./dist/webhooks/index.js",
+      "types": "./dist/webhooks/index.d.ts"
     }
   },
   "scripts": {

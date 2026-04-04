@@ -10,6 +10,7 @@ import { deduplicateDecisions } from './deduplicator.js';
 import { detectContradictions } from './contradiction.js';
 import { integrateDecisions } from './graph-integrator.js';
 import { createSessionSummary } from './summarizer.js';
+import { dispatchWebhooks } from '../webhooks/index.js';
 
 // Re-export everything for consumers
 export { extractDecisions, scrubSecrets, INJECTION_GUARD, callLLM } from './extractor.js';
@@ -87,6 +88,15 @@ export async function distill(
   } catch (err) {
     console.error('[nexus:distillery] Stage 5 (session summary) failed:', err);
     sessionSummary = undefined;
+  }
+
+  // Dispatch webhooks if any decisions were extracted
+  if (extracted.length > 0) {
+    dispatchWebhooks(projectId, 'distillery_completed', {
+      decisions_extracted: extracted.length,
+      contradictions_found: contradictions.length,
+      agent_name: agentName,
+    }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
   }
 
   return {

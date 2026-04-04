@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@nexus/core/db/index.js';
 import { distill } from '@nexus/core/distillery/index.js';
 import { scanProjectContradictions } from '@nexus/core/contradiction-detector/index.js';
+import { dispatchWebhooks } from '@nexus/core/webhooks/index.js';
 import {
   requireUUID,
   requireString,
@@ -300,6 +301,11 @@ export function registerDiscoveryRoutes(app: Hono): void {
         pairs_checked: result.pairs_checked,
         contradictions_found: result.contradictions_found,
       });
+
+      dispatchWebhooks(projectId, 'scan_completed', {
+        pairs_checked: result.pairs_checked,
+        contradictions_found: result.contradictions_found,
+      }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
 
       return c.json(result);
     } catch (err) {

@@ -15,6 +15,7 @@ import { getDb } from '../db/index.js';
 import { parseDecision, parseContradiction } from '../db/parsers.js';
 import { callLLM, scrubSecrets, INJECTION_GUARD, parseJsonSafe } from '../distillery/extractor.js';
 import { propagateChange } from '../change-propagator/index.js';
+import { dispatchWebhooks } from '../webhooks/index.js';
 import { resolveLLMConfig } from '../config/llm.js';
 import type { Decision, Contradiction } from '../types.js';
 import type { ContradictionAnalysis } from './types.js';
@@ -371,6 +372,14 @@ export async function checkForContradictions(decision: Decision): Promise<Contra
           (err as Error).message,
         );
       }
+
+      // Stage 3b-ii: Dispatch webhooks (fire-and-forget)
+      dispatchWebhooks(decision.project_id, 'contradiction_detected', {
+        contradiction_id: contradiction.id,
+        decision_a_title: decision.title,
+        decision_b_title: existingDecision.title,
+        severity: analysis.severity,
+      }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
 
       // Stage 3c: Always notify governor agents regardless of subscriptions
       const governorCount = await notifyGovernors(decision, existingDecision, analysis);

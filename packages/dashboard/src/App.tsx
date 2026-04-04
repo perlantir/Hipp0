@@ -15,6 +15,7 @@ import {
   BarChart3,
   Upload,
   Settings,
+  Radio,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -28,6 +29,7 @@ import { ProjectStats } from './components/ProjectStats';
 import { Wizard } from './components/Wizard';
 import { Import } from './components/Import';
 import { Connectors } from './components/Connectors';
+import { Webhooks } from './components/Webhooks';
 import { useApi } from './hooks/useApi';
 
 /* ------------------------------------------------------------------ */
@@ -64,6 +66,7 @@ type View =
   | 'stats'
   | 'import'
   | 'connectors'
+  | 'webhooks'
   | 'wizard';
 
 const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
@@ -78,6 +81,7 @@ const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
   { id: 'stats', label: 'Project Stats', icon: <BarChart3 size={18} /> },
   { id: 'import', label: 'Import', icon: <Upload size={18} /> },
   { id: 'connectors', label: 'Connectors', icon: <Settings size={18} /> },
+  { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} /> },
 ];
 
 function getViewFromHash(): View {
@@ -114,6 +118,8 @@ function ViewContent({ view }: { view: View }) {
       return <Import />;
     case 'connectors':
       return <Connectors />;
+    case 'webhooks':
+      return <Webhooks />;
     default:
       return <DecisionGraph />;
   }

@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from '@nexus/core/types.js';
 import type { Decision, DecisionEdge, NotificationType } from '@nexus/core/types.js';
 import { propagateChange } from '@nexus/core/change-propagator/index.js';
 import { checkForContradictions } from '@nexus/core/contradiction-detector/index.js';
+import { dispatchWebhooks } from '@nexus/core/webhooks/index.js';
 import {
   requireUUID,
   requireString,
@@ -104,6 +105,12 @@ export function registerDecisionRoutes(app: Hono): void {
       propagateChange(decision, 'decision_created').catch((err) =>
         console.error('[nexus] Change propagation failed:', (err as Error).message),
       );
+
+      dispatchWebhooks(projectId, 'decision_created', {
+        decision_id: decision.id,
+        title: decision.title,
+        made_by: decision.made_by,
+      }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
 
       checkForContradictions(decision).catch((err) =>
         console.error('[nexus] Contradiction check failed:', (err as Error).message),
@@ -334,6 +341,12 @@ export function registerDecisionRoutes(app: Hono): void {
       console.error('[nexus] Change propagation failed:', (err as Error).message),
     );
 
+    dispatchWebhooks((result.newDecision as Decision).project_id, 'decision_superseded', {
+      decision_id: (result.newDecision as Decision).id,
+      title: (result.newDecision as Decision).title,
+      old_decision_id: oldId,
+    }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
+
     return c.json(result, 201);
   });
 
@@ -356,6 +369,11 @@ export function registerDecisionRoutes(app: Hono): void {
     propagateChange(decision, 'decision_reverted').catch((err) =>
       console.error('[nexus] Change propagation failed:', (err as Error).message),
     );
+
+    dispatchWebhooks(decision.project_id, 'decision_reverted', {
+      decision_id: decision.id,
+      title: decision.title,
+    }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
 
     return c.json(decision);
   });
