@@ -29,6 +29,13 @@ export function registerProjectRoutes(app: Hono): void {
     }
   });
 
+
+  app.get('/api/projects', async (c) => {
+    const db = getDb();
+    const result = await db.query('SELECT * FROM projects ORDER BY created_at DESC', []);
+    return c.json(result.rows.map((r: Record<string, unknown>) => parseProject(r)));
+  });
+
   app.get('/api/projects/:id', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
