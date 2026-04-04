@@ -19,6 +19,10 @@ export interface Decision {
   supersedes?: string;
   superseded_by?: string;
   project_id: string;
+  validated_at?: string | null;
+  validation_source?: string | null;
+  confidence?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Relationship {

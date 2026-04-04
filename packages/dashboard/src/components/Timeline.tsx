@@ -14,6 +14,117 @@ import { useProject } from '../App';
 import type { Decision, DecisionStatus } from '../types';
 
 /* ------------------------------------------------------------------ */
+/*  Validation sub-component                                           */
+/* ------------------------------------------------------------------ */
+
+const VALIDATION_SOURCES = ['manual_review', 'test_passed', 'production_verified', 'peer_reviewed', 'external'] as const;
+
+function ValidationControls({
+  decision,
+  onUpdate,
+}: {
+  decision: Decision;
+  onUpdate: () => void;
+}) {
+  const { post } = useApi();
+  const [showValidate, setShowValidate] = useState(false);
+  const [showInvalidate, setShowInvalidate] = useState(false);
+  const [source, setSource] = useState<string>('manual_review');
+  const [reason, setReason] = useState('');
+
+  const isValidated = !!decision.validated_at;
+
+  const handleValidate = async () => {
+    await post(`/api/decisions/${decision.id}/validate`, { validation_source: source });
+    setShowValidate(false);
+    onUpdate();
+  };
+
+  const handleInvalidate = async () => {
+    await post(`/api/decisions/${decision.id}/invalidate`, { reason: reason || undefined });
+    setShowInvalidate(false);
+    setReason('');
+    onUpdate();
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-nexus-border-dark">
+      {/* Status display */}
+      <div className="flex items-center gap-2 mb-2 text-xs">
+        {isValidated ? (
+          <span className="flex items-center gap-1 text-green-400">
+            <span>\u2705</span>
+            Validated via {decision.validation_source?.replace(/_/g, ' ')}
+            {decision.validated_at && (
+              <span className="text-nexus-text-muted-dark ml-1">
+                on {new Date(decision.validated_at).toLocaleDateString()}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-nexus-text-muted-dark">
+            <span>\u23F3</span> Not yet validated
+          </span>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      {decision.status === 'active' && (
+        <div className="flex gap-2">
+          {!showValidate && !showInvalidate && (
+            <>
+              <button
+                onClick={() => setShowValidate(true)}
+                className="px-2 py-1 rounded text-2xs bg-green-500/10 text-green-400 hover:bg-green-500/20"
+              >
+                Validate
+              </button>
+              {isValidated && (
+                <button
+                  onClick={() => setShowInvalidate(true)}
+                  className="px-2 py-1 rounded text-2xs bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                >
+                  Invalidate
+                </button>
+              )}
+            </>
+          )}
+
+          {showValidate && (
+            <div className="flex items-center gap-2">
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="px-2 py-1 rounded text-2xs bg-black/20 border border-nexus-border-dark"
+              >
+                {VALIDATION_SOURCES.map((s) => (
+                  <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+              <button onClick={handleValidate} className="px-2 py-1 rounded text-2xs bg-green-500/20 text-green-400">Confirm</button>
+              <button onClick={() => setShowValidate(false)} className="px-2 py-1 rounded text-2xs bg-white/5">Cancel</button>
+            </div>
+          )}
+
+          {showInvalidate && (
+            <div className="flex items-center gap-2">
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (optional)"
+                className="px-2 py-1 rounded text-2xs bg-black/20 border border-nexus-border-dark w-48"
+              />
+              <button onClick={handleInvalidate} className="px-2 py-1 rounded text-2xs bg-red-500/20 text-red-400">Confirm</button>
+              <button onClick={() => setShowInvalidate(false)} className="px-2 py-1 rounded text-2xs bg-white/5">Cancel</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -51,6 +162,12 @@ export function Timeline() {
 
   // Expanded supersession chains
   const [expandedChains, setExpandedChains] = useState<Set<string>>(new Set());
+
+  const refreshDecisions = () => {
+    get<Decision[]>(`/api/projects/${projectId}/decisions`)
+      .then((data) => setDecisions(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -250,6 +367,9 @@ export function Timeline() {
                         <h3 className="text-sm font-semibold leading-snug flex-1">
                           {decision.title}
                         </h3>
+                        {decision.validated_at && (
+                          <span className="text-green-400 text-xs" title={`Validated: ${decision.validation_source}`}>\u2705</span>
+                        )}
                         <span className={statusBadgeClass(decision.status)}>{decision.status}</span>
                       </div>
 
@@ -320,6 +440,9 @@ export function Timeline() {
                           )}
                         </div>
                       )}
+
+                      {/* Validation controls */}
+                      <ValidationControls decision={decision} onUpdate={refreshDecisions} />
                     </div>
                   </div>
                 );

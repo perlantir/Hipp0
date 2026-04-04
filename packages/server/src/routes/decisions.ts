@@ -616,4 +616,182 @@ export function registerDecisionRoutes(app: Hono): void {
       return c.json(result.rows.map((r) => parseDecision(r as Record<string, unknown>)));
     }
   });
+
+  // ── Decision Validation ─────────────────────────────────────────────────
+
+  const VALID_SOURCES = ['manual_review', 'test_passed', 'production_verified', 'peer_reviewed', 'external'] as const;
+
+  app.post('/api/decisions/:id/validate', async (c) => {
+    const db = getDb();
+    const id = requireUUID(c.req.param('id'), 'id');
+    const body = await c.req.json<{
+      validation_source?: unknown;
+      notes?: unknown;
+    }>();
+
+    const validation_source = requireString(body.validation_source, 'validation_source', 100);
+    if (!(VALID_SOURCES as readonly string[]).includes(validation_source)) {
+      throw new ValidationError(
+        `validation_source must be one of: ${VALID_SOURCES.join(', ')}`,
+      );
+    }
+
+    // Verify decision exists and is active
+    const existing = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
+    if (existing.rows.length === 0) throw new NotFoundError('Decision', id);
+    const dec = existing.rows[0] as Record<string, unknown>;
+    if (dec.status !== 'active') {
+      throw new ValidationError('Only active decisions can be validated');
+    }
+
+    // Update validated_at and validation_source
+    const notes = body.notes != null ? String(body.notes).slice(0, 5000) : undefined;
+    let metadataObj: Record<string, unknown> = {};
+    try {
+      metadataObj = typeof dec.metadata === 'string' ? JSON.parse(dec.metadata as string) : (dec.metadata as Record<string, unknown>) ?? {};
+    } catch { /* keep empty */ }
+    if (notes) metadataObj.validation_notes = notes;
+
+    const result = await db.query(
+      `UPDATE decisions SET validated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}, validation_source = ?, metadata = ? WHERE id = ? RETURNING *`,
+      [validation_source, JSON.stringify(metadataObj), id],
+    );
+
+    const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    logAudit('decision_validated', decision.project_id, {
+      decision_id: decision.id,
+      validation_source,
+    });
+
+    propagateChange(decision, 'decision_validated' as NotificationType).catch((err) =>
+      console.error('[nexus] Change propagation failed:', (err as Error).message),
+    );
+
+    dispatchWebhooks(decision.project_id, 'decision_validated', {
+      decision_id: decision.id,
+      title: decision.title,
+      validation_source,
+    }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
+
+    return c.json(decision);
+  });
+
+  // ── Decision Invalidation ───────────────────────────────────────────────
+
+  app.post('/api/decisions/:id/invalidate', async (c) => {
+    const db = getDb();
+    const id = requireUUID(c.req.param('id'), 'id');
+    const body = await c.req.json<{ reason?: unknown }>();
+
+    const existing = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
+    if (existing.rows.length === 0) throw new NotFoundError('Decision', id);
+    const dec = existing.rows[0] as Record<string, unknown>;
+
+    // Downgrade confidence: high → medium, medium → low, low stays low
+    const currentConf = dec.confidence as string;
+    const newConf = currentConf === 'high' ? 'medium' : currentConf === 'medium' ? 'low' : 'low';
+
+    // Store invalidation reason in metadata
+    let metadataObj: Record<string, unknown> = {};
+    try {
+      metadataObj = typeof dec.metadata === 'string' ? JSON.parse(dec.metadata as string) : (dec.metadata as Record<string, unknown>) ?? {};
+    } catch { /* keep empty */ }
+    if (body.reason) metadataObj.invalidation_reason = String(body.reason).slice(0, 5000);
+
+    const result = await db.query(
+      `UPDATE decisions SET validated_at = NULL, validation_source = NULL, confidence = ?, metadata = ? WHERE id = ? RETURNING *`,
+      [newConf, JSON.stringify(metadataObj), id],
+    );
+
+    const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    logAudit('decision_invalidated', decision.project_id, {
+      decision_id: decision.id,
+      reason: body.reason ? String(body.reason) : undefined,
+    });
+
+    propagateChange(decision, 'decision_invalidated' as NotificationType).catch((err) =>
+      console.error('[nexus] Change propagation failed:', (err as Error).message),
+    );
+
+    dispatchWebhooks(decision.project_id, 'decision_invalidated', {
+      decision_id: decision.id,
+      title: decision.title,
+    }).catch((err) => console.warn('[nexus:webhook]', (err as Error).message));
+
+    return c.json(decision);
+  });
+
+  // ── Bulk Validation ─────────────────────────────────────────────────────
+
+  app.post('/api/projects/:id/decisions/validate-bulk', async (c) => {
+    const db = getDb();
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+    const body = await c.req.json<{
+      decision_ids?: unknown;
+      validation_source?: unknown;
+      notes?: unknown;
+    }>();
+
+    if (!Array.isArray(body.decision_ids) || body.decision_ids.length === 0) {
+      throw new ValidationError('decision_ids must be a non-empty array');
+    }
+
+    const validation_source = requireString(body.validation_source, 'validation_source', 100);
+    if (!(VALID_SOURCES as readonly string[]).includes(validation_source)) {
+      throw new ValidationError(
+        `validation_source must be one of: ${VALID_SOURCES.join(', ')}`,
+      );
+    }
+
+    const ids: string[] = body.decision_ids.map((id: unknown) => requireUUID(id, 'decision_id'));
+
+    const results = await db.transaction(async (txQuery) => {
+      const validated: Array<Record<string, unknown>> = [];
+      const notFound: string[] = [];
+
+      for (const id of ids) {
+        const check = await txQuery('SELECT * FROM decisions WHERE id = ? AND project_id = ?', [id, projectId]);
+        if (check.rows.length === 0) {
+          notFound.push(id);
+          continue;
+        }
+        validated.push(check.rows[0] as Record<string, unknown>);
+      }
+
+      if (notFound.length > 0) {
+        throw new ValidationError(`Decisions not found in project: ${notFound.join(', ')}`);
+      }
+
+      for (const id of ids) {
+        await txQuery(
+          `UPDATE decisions SET validated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}, validation_source = ? WHERE id = ?`,
+          [validation_source, id],
+        );
+      }
+
+      return validated;
+    });
+
+    // Fire-and-forget propagation for each validated decision
+    for (const row of results as Array<Record<string, unknown>>) {
+      const dec = parseDecision(row);
+      propagateChange(dec, 'decision_validated' as NotificationType).catch((err) =>
+        console.error('[nexus] Change propagation failed:', (err as Error).message),
+      );
+    }
+
+    logAudit('decisions_bulk_validated', projectId, {
+      count: ids.length,
+      validation_source,
+    });
+
+    return c.json({
+      validated: ids.length,
+      failed: 0,
+      validation_source,
+      decision_ids: ids,
+    });
+  });
 }
