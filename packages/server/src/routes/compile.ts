@@ -3,12 +3,14 @@ import type { Hono } from 'hono';
 import { getDb } from '@decigraph/core/db/index.js';
 import {
   parseDecision,
+  parseAgent,
   parseArtifact,
   parseSession,
   parseNotification,
 } from '@decigraph/core/db/parsers.js';
 import { NotFoundError } from '@decigraph/core/types.js';
-import type { Decision } from '@decigraph/core/types.js';
+import type { Decision, ScoredDecision } from '@decigraph/core/types.js';
+import { scoreDecision } from '@decigraph/core/context-compiler/index.js';
 import {
   requireUUID,
   requireString,
@@ -16,6 +18,8 @@ import {
   generateEmbedding,
   estimateTokens,
 } from './validation.js';
+
+const TOKENS_PER_DECISION = 300;
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -37,6 +41,7 @@ export function registerCompileRoutes(app: Hono): void {
     const maxTokens = body.max_tokens ?? 50000;
     const includeSuperseeded = body.include_superseded ?? false;
 
+    // ── Fetch agent (parsed) ──────────────────────────────────────────
     const agentResult = await db.query(
       'SELECT * FROM agents WHERE project_id = ? AND name = ? LIMIT 1',
       [project_id, agent_name],
@@ -46,7 +51,9 @@ export function registerCompileRoutes(app: Hono): void {
     }
     const agent = agentResult.rows[0] as Record<string, unknown>;
     const agentId = agent.id as string;
+    const agentParsed = parseAgent(agent);
 
+    // ── Fetch notifications ───────────────────────────────────────────
     const notifResult = await db.query(
       `SELECT * FROM notifications
        WHERE agent_id = ? AND read_at IS NULL
@@ -58,6 +65,7 @@ export function registerCompileRoutes(app: Hono): void {
       parseNotification(r as Record<string, unknown>),
     );
 
+    // ── Fetch recent sessions ─────────────────────────────────────────
     const lookbackDays = body.session_lookback_days ?? 30;
     const sessionResult = await db.query(
       `SELECT * FROM session_summaries
@@ -72,8 +80,10 @@ export function registerCompileRoutes(app: Hono): void {
       parseSession(r as Record<string, unknown>),
     );
 
+    // ── Generate task embedding ───────────────────────────────────────
     const taskEmbedding = await generateEmbedding(task_description);
 
+    // ── Fetch all decisions ───────────────────────────────────────────
     let decisions: Decision[] = [];
     let decisionsConsidered = 0;
 
@@ -105,25 +115,36 @@ export function registerCompileRoutes(app: Hono): void {
       decisions = decResult.rows.map((r) => parseDecision(r as Record<string, unknown>));
     }
 
-    let tokenCount = 0;
-    const includedDecisions: Decision[] = [];
-    const TOKENS_PER_DECISION = 300;
-    const reservedTokens = estimateTokens(task_description) + 500;
+    // ── Score each decision using the 5-signal algorithm ──────────────
+    const taskEmb = taskEmbedding ?? [];
+    const scored: ScoredDecision[] = decisions.map((d) =>
+      scoreDecision(d, agentParsed, taskEmb),
+    );
 
-    for (const d of decisions) {
+    // Sort by combined score (highest first)
+    scored.sort((a, b) => b.combined_score - a.combined_score);
+
+    // ── Apply token budget ────────────────────────────────────────────
+    let tokenCount = 0;
+    const reservedTokens = estimateTokens(task_description) + 500;
+    const includedDecisions: ScoredDecision[] = [];
+
+    for (const sd of scored) {
       const dTokens =
-        estimateTokens(`${d.title} ${d.description} ${d.reasoning}`) + TOKENS_PER_DECISION;
+        estimateTokens(`${sd.title} ${sd.description} ${sd.reasoning}`) + TOKENS_PER_DECISION;
       if (tokenCount + dTokens + reservedTokens > maxTokens) break;
-      includedDecisions.push(d);
+      includedDecisions.push(sd);
       tokenCount += dTokens;
     }
 
+    // ── Fetch artifacts ───────────────────────────────────────────────
     const artifactResult = await db.query(
       `SELECT * FROM artifacts WHERE project_id = ? ORDER BY created_at DESC LIMIT 20`,
       [project_id],
     );
     const artifacts = artifactResult.rows.map((r) => parseArtifact(r as Record<string, unknown>));
 
+    // ── Format markdown ───────────────────────────────────────────────
     const formattedMarkdown = [
       `# DeciGraph Context Package`,
       `**Agent:** ${agent_name}`,
@@ -133,7 +154,7 @@ export function registerCompileRoutes(app: Hono): void {
       `## Relevant Decisions (${includedDecisions.length})`,
       ...includedDecisions.map((d, i) =>
         [
-          `### ${i + 1}. ${d.title}`,
+          `### ${i + 1}. ${d.title} (score: ${d.combined_score.toFixed(2)})`,
           `**Status:** ${d.status} | **Confidence:** ${d.confidence} | **Made by:** ${d.made_by}`,
           `**Description:** ${d.description}`,
           `**Reasoning:** ${d.reasoning}`,
@@ -153,7 +174,7 @@ export function registerCompileRoutes(app: Hono): void {
 
     const compilationTimeMs = Date.now() - startTime;
 
-    // Log compile with SHA-256 hash of task description, not the full text
+    // ── Audit log ─────────────────────────────────────────────────────
     const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
     logAudit('compile_request', project_id, {
       agent_name,
@@ -166,7 +187,7 @@ export function registerCompileRoutes(app: Hono): void {
     const compileRequestId = crypto.randomUUID();
     const contextHash = crypto.createHash('sha256').update(formattedMarkdown).digest('hex');
 
-    // Record compile history (fire-and-forget)
+    // ── Record compile history ────────────────────────────────────────
     try {
       await db.query(
         `INSERT INTO compile_history
@@ -181,10 +202,10 @@ export function registerCompileRoutes(app: Hono): void {
           agent_name,
           task_description,
           db.arrayParam(includedDecisions.map((d) => d.id)),
-          JSON.stringify(includedDecisions.map((d, i) => ({
+          JSON.stringify(includedDecisions.map((d) => ({
             id: d.id,
             title: d.title,
-            combined_score: i,
+            combined_score: d.combined_score,
           }))),
           includedDecisions.length,
           tokenCount,
@@ -195,33 +216,39 @@ export function registerCompileRoutes(app: Hono): void {
       console.warn('[decigraph:compile] History recording failed:', (err as Error).message);
     }
 
-    // Build debug info if requested
+    // ── Debug info ────────────────────────────────────────────────────
     const debugFlag = (body as Record<string, unknown>).debug === true;
     const debugInfo = debugFlag ? {
-      all_decisions_scored: decisions.map((d, i) => ({
-        title: d.title,
-        combined_score: i,
-        included: includedDecisions.some((inc) => inc.id === d.id),
-        excluded_reason: includedDecisions.some((inc) => inc.id === d.id) ? undefined : 'below_budget_or_threshold',
+      all_decisions_scored: scored.map((sd) => ({
+        title: sd.title,
+        combined_score: sd.combined_score,
+        included: includedDecisions.some((inc) => inc.id === sd.id),
+        excluded_reason: includedDecisions.some((inc) => inc.id === sd.id)
+          ? undefined
+          : 'below_budget_or_threshold',
+        scoring_breakdown: sd.scoring_breakdown,
       })),
       token_budget: {
         total: maxTokens,
         used: tokenCount,
         remaining: maxTokens - tokenCount,
       },
-      weights_used: typeof agent.relevance_profile === 'string'
-        ? JSON.parse(agent.relevance_profile as string)?.weights ?? {}
-        : (agent.relevance_profile as Record<string, unknown>)?.weights ?? {},
+      weights_used: agentParsed.relevance_profile.weights,
     } : undefined;
 
+    // ── Response ──────────────────────────────────────────────────────
     return c.json({
       compile_request_id: compileRequestId,
-      agent: { name: agent_name, role: agent.role as string },
+      agent: { name: agent_name, role: agentParsed.role },
       task: task_description,
       compiled_at: new Date().toISOString(),
       token_count: tokenCount,
       budget_used_pct: Math.round((tokenCount / maxTokens) * 100),
-      decisions: includedDecisions,
+      decisions: includedDecisions.map((sd) => ({
+        ...sd,
+        combined_score: sd.combined_score,
+        scoring_breakdown: sd.scoring_breakdown,
+      })),
       artifacts,
       notifications,
       recent_sessions: recentSessions,

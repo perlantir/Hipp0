@@ -70,6 +70,10 @@
     "./dependency-cascade/index.js": {
       "import": "./dist/dependency-cascade/index.js",
       "types": "./dist/dependency-cascade/index.d.ts"
+    },
+    "./context-compiler/index.js": {
+      "import": "./dist/context-compiler/index.js",
+      "types": "./dist/context-compiler/index.d.ts"
     }
   },
   "scripts": {
