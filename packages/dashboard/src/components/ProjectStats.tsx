@@ -8,6 +8,7 @@ import {
   Clock,
   Loader2,
   Activity,
+  Download,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -225,11 +226,32 @@ export function ProjectStats() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-lg font-semibold mb-1">Project Stats</h1>
-          <p className="text-sm text-nexus-text-muted-dark">
-            Overview of decisions, agents, and activity
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-lg font-semibold mb-1">Project Stats</h1>
+            <p className="text-sm text-nexus-text-muted-dark">
+              Overview of decisions, agents, and activity
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const data = await get(`/api/projects/${projectId}/export`);
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nexus-export-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch {
+                alert('Export failed');
+              }
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+          >
+            <Download size={14} /> Export Project
+          </button>
         </div>
 
         {/* Top stat cards */}

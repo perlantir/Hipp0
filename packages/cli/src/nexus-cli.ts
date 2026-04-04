@@ -9,6 +9,7 @@ import { registerAgentCommands } from './commands/agents.js';
 import { registerNotificationCommands } from './commands/notifications.js';
 import { registerStatusCommands } from './commands/status.js';
 import { registerServerCommands } from './commands/server.js';
+import { registerExportImportCommands } from './commands/export-import.js';
 
 const program = new Command();
 
@@ -25,6 +26,7 @@ registerAgentCommands(program);
 registerNotificationCommands(program);
 registerStatusCommands(program);
 registerServerCommands(program);
+registerExportImportCommands(program);
 
 program.parse(process.argv);
 

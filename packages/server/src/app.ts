@@ -22,6 +22,7 @@ import { registerStatsRoutes } from './routes/stats.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerDiscoveryRoutes } from './routes/discovery.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
+import { registerExportImportRoutes } from './routes/export-import.js';
 
 export function createApp() {
   const app = new Hono();
@@ -71,6 +72,7 @@ export function createApp() {
   registerArtifactRoutes(app);
   registerDiscoveryRoutes(app);
   registerWebhookRoutes(app);
+  registerExportImportRoutes(app);
 
   return app;
 }
