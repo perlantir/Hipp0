@@ -62,6 +62,10 @@
     "./webhooks/index.js": {
       "import": "./dist/webhooks/index.js",
       "types": "./dist/webhooks/index.d.ts"
+    },
+    "./relevance-learner/index.js": {
+      "import": "./dist/relevance-learner/index.js",
+      "types": "./dist/relevance-learner/index.d.ts"
     }
   },
   "scripts": {

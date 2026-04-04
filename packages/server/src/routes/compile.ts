@@ -163,7 +163,10 @@ export function registerCompileRoutes(app: Hono): void {
       compilation_time_ms: compilationTimeMs,
     });
 
+    const compileRequestId = crypto.randomUUID();
+
     return c.json({
+      compile_request_id: compileRequestId,
       agent: { name: agent_name, role: agent.role as string },
       task: task_description,
       compiled_at: new Date().toISOString(),
@@ -179,6 +182,7 @@ export function registerCompileRoutes(app: Hono): void {
       decisions_included: includedDecisions.length,
       relevance_threshold_used: 0,
       compilation_time_ms: compilationTimeMs,
+      feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
     });
   });
 }
