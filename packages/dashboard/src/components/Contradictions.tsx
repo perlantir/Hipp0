@@ -81,7 +81,8 @@ export function Contradictions() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || 'Failed to load contradictions');
+          const msg = err instanceof Error ? err.message : String(err?.message ?? 'Failed to load contradictions');
+          setError(msg);
           setLoading(false);
         }
       });

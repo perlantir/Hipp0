@@ -1,3 +1,11 @@
+# DeciGraph Dashboard — multi-stage Docker build
+# Stage 1: Build the Vite React app
+# Stage 2: Serve static files via nginx
+#
+# CACHE_BUSTER: Pass a unique value (e.g. timestamp) to force a fresh
+# Vite build even when Docker layer caching would otherwise skip it.
+# Usage: docker compose build --build-arg CACHE_BUSTER=$(date +%s) dashboard
+
 FROM node:22.12-slim AS build
 LABEL maintainer="Perlantir"
 LABEL org.opencontainers.image.authors="Perlantir"
@@ -5,14 +13,24 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
 ARG VITE_API_URL=http://localhost:3100
+ARG CACHE_BUSTER=1
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/dashboard/package.json packages/dashboard/
 RUN pnpm install --frozen-lockfile
 
 COPY packages/dashboard/ packages/dashboard/
-RUN cd packages/dashboard && VITE_API_URL=$VITE_API_URL pnpm build
 
+# Write cache buster to invalidate Docker layer cache for the build step.
+# Any change to CACHE_BUSTER forces everything below to re-run.
+RUN echo "CACHE_BUSTER=${CACHE_BUSTER}" > /app/packages/dashboard/.cache-buster
+
+RUN cd packages/dashboard && \
+    VITE_API_URL=$VITE_API_URL \
+    VITE_BUILD_VERSION=$(date -u +%Y%m%d-%H%M%S)-${CACHE_BUSTER} \
+    pnpm build
+
+# Stage 2: nginx
 FROM nginx:1.27-alpine
 LABEL maintainer="Perlantir"
 LABEL org.opencontainers.image.authors="Perlantir"

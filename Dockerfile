@@ -1,3 +1,6 @@
+# DeciGraph Server — multi-stage Docker build
+# No CACHE_BUSTER needed here — server code is not cached by browsers.
+# For the dashboard (browser-cached), see Dockerfile.dashboard.
 FROM node:22.12-slim AS base
 LABEL maintainer="Perlantir"
 LABEL org.opencontainers.image.authors="Perlantir"

@@ -73,9 +73,16 @@ export function ImpactAnalysis() {
       const data = await get<ImpactResult>(
         `/api/projects/${projectId}/decisions/${decisionId}/impact`,
       );
-      setImpact(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load impact analysis');
+      setImpact({
+        ...data,
+        downstream: data.downstream ?? [],
+        affected_agents: data.affected_agents ?? [],
+        blocking: data.blocking ?? [],
+        supersession_chain: data.supersession_chain ?? [],
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String((err as any)?.message ?? 'Failed to load impact analysis');
+      setError(msg);
     } finally {
       setLoading(false);
     }

@@ -76,7 +76,8 @@ export function NotificationFeed() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || 'Failed to load notifications');
+          const msg = err instanceof Error ? err.message : String(err?.message ?? 'Failed to load notifications');
+          setError(msg);
           setLoading(false);
         }
       });

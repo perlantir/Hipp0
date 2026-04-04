@@ -232,7 +232,10 @@ function SidebarContent({
 
       {/* Version */}
       {!collapsed && (
-        <div className="px-5 py-3 text-xs text-[#5A5957]">v0.1.0</div>
+        <div className="px-5 py-3 text-2xs text-[#5A5957] space-y-0.5">
+          <div>v0.1.0</div>
+          <div className="opacity-60 font-mono" title="Build version">{typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'dev'}</div>
+        </div>
       )}
     </>
   );

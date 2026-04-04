@@ -9,6 +9,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    // Build version injected at compile time.
+    // In Docker: set via VITE_BUILD_VERSION env var.
+    // Locally: falls back to ISO timestamp.
+    '__BUILD_VERSION__': JSON.stringify(
+      process.env.VITE_BUILD_VERSION ?? new Date().toISOString().slice(0, 19).replace('T', ' '),
+    ),
+  },
   server: {
     port: 5173,
   },
