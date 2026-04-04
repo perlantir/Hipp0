@@ -54,7 +54,7 @@ export function registerAgentRoutes(app: Hono): void {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const result = await db.query(
-      'SELECT * FROM agents WHERE project_id = ? ORDER BY created_at ASC',
+      "SELECT * FROM agents WHERE project_id = ? AND role != 'inactive' ORDER BY created_at ASC",
       [projectId],
     );
     return c.json(result.rows.map((r) => parseAgent(r as Record<string, unknown>)));

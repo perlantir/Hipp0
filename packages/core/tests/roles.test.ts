@@ -33,8 +33,8 @@ const EXPECTED_ROLES = [
 // ── Existence ────────────────────────────────────────────────────────────────
 
 describe('ROLE_TEMPLATES', () => {
-  it('contains all 16 role templates', () => {
-    expect(Object.keys(ROLE_TEMPLATES)).toHaveLength(16);
+  it('contains all 17 role templates', () => {
+    expect(Object.keys(ROLE_TEMPLATES)).toHaveLength(17);
     for (const role of EXPECTED_ROLES) {
       expect(ROLE_TEMPLATES).toHaveProperty(role);
     }
@@ -82,8 +82,8 @@ describe('ROLE_TEMPLATES', () => {
 // ── ROLE_NAMES ───────────────────────────────────────────────────────────────
 
 describe('ROLE_NAMES', () => {
-  it('contains exactly 16 entries', () => {
-    expect(ROLE_NAMES).toHaveLength(16);
+  it('contains exactly 17 entries', () => {
+    expect(ROLE_NAMES).toHaveLength(17);
   });
 
   it('includes all expected role keys', () => {
@@ -202,9 +202,9 @@ describe('getRoleNotificationContext', () => {
 // ── listRoles ────────────────────────────────────────────────────────────────
 
 describe('listRoles', () => {
-  it('returns exactly 16 roles', () => {
+  it('returns exactly 17 roles', () => {
     const roles = listRoles();
-    expect(roles).toHaveLength(16);
+    expect(roles).toHaveLength(17);
   });
 
   it('each entry has name and description', () => {

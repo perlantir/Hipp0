@@ -102,7 +102,7 @@ const SCORING_WEIGHTS = {
 };
 
 // Post-processing thresholds
-export const MIN_SCORE = 0.45;
+export const MIN_SCORE = 0.15;  // Low floor — catch anything with marginal relevance
 export const MAX_RESULTS = 25;
 
 export function scoreDecision(
@@ -149,12 +149,16 @@ export function scoreDecision(
       ? Math.max(0, cosineSimilarity(taskEmbedding, decisionEmbedding))
       : 0;
 
+  // Signal E: Made-by bonus (decisions authored by this agent are more relevant)
+  const madeByBonus = (decision.made_by ?? '').toLowerCase() === agentNameLower ? 0.15 : 0;
+
   // Weighted sum
   let finalScore =
     SCORING_WEIGHTS.directAffect * directAffectScore +
     SCORING_WEIGHTS.tagMatch * tagMatchScore +
     SCORING_WEIGHTS.personaMatch * personaMatchScore +
-    SCORING_WEIGHTS.semanticSimilarity * semanticScore;
+    SCORING_WEIGHTS.semanticSimilarity * semanticScore +
+    madeByBonus;
 
   const rawScore = finalScore;
 
@@ -172,22 +176,28 @@ export function scoreDecision(
   if (decision.confidence === 'high') finalScore *= 1.15;
   if (decision.confidence === 'low') finalScore *= 0.75;
 
-  // Direct agent match bonuses (flat adds, not multiplied)
+  // Direct agent match bonus (flat add, not multiplied)
   if ((decision.affects ?? []).map(a => a.toLowerCase()).includes(agentNameLower)) finalScore += 0.25;
-  if ((decision.made_by ?? '').toLowerCase() === agentNameLower) finalScore += 0.15;
 
   // Clamp to [0, 1.5] — can exceed 1.0 with bonuses
   finalScore = Math.max(0, Math.min(1.5, finalScore));
+
+  const statusPenaltyVal = decision.status === 'superseded' ? 0.4 : decision.status === 'pending' ? 0.6 : 1.0;
+  const freshnessVal = ageInDays > 30 ? Math.max(0.7, 1 - (ageInDays - 30) * 0.005) : 1.0;
+  const confidenceMultiplier = decision.confidence === 'high' ? 1.15 : decision.confidence === 'low' ? 0.75 : 1.0;
 
   const breakdown: ScoringBreakdown = {
     direct_affect: directAffectScore,
     tag_matching: tagMatchScore,
     role_relevance: personaMatchScore,
     semantic_similarity: semanticScore,
-    status_penalty: decision.status === 'superseded' ? 0.4 : decision.status === 'pending' ? 0.6 : 1.0,
-    freshness: ageInDays > 30 ? Math.max(0.7, 1 - (ageInDays - 30) * 0.005) : 1.0,
+    status_penalty: statusPenaltyVal,
+    freshness: freshnessVal,
     combined: finalScore,
-  };
+    // Extended breakdown for debugging
+    made_by_bonus: madeByBonus,
+    confidence_multiplier: confidenceMultiplier,
+  } as ScoringBreakdown;
 
   return {
     ...decision,
@@ -507,7 +517,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     .slice(0, MAX_RESULTS);
 
   // Take top-N scored decisions as seeds (configurable via decision_depth)
-  const topN = Math.max(5, depth * 3);
+  const topN = Math.max(25, depth * 5);
   const topDecisions = qualifiedDecisions.slice(0, topN);
 
   const expanded = await expandGraphContext(topDecisions, depth, allDecisionMap);
@@ -653,7 +663,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     formatted_json,
     decisions_considered: allScored.length,
     decisions_included: packedDecisions.length,
-    relevance_threshold_used: 0, // no hard threshold — all packed by budget
+    relevance_threshold_used: MIN_SCORE,
     compilation_time_ms: Date.now() - startMs,
   };
 

@@ -63,7 +63,7 @@ services:
       context: .
       dockerfile: Dockerfile.dashboard
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3100}
+        VITE_API_URL: ${VITE_API_URL:-/}
         CACHE_BUSTER: ${CACHE_BUSTER:-1}
     container_name: decigraph-dashboard
     depends_on:
