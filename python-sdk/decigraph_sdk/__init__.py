@@ -1,11 +1,11 @@
 """
-nexus-sdk
+decigraph-sdk
 =========
 Official Python SDK for the DeciGraph multi-agent memory and decision platform.
 
 Quick start::
 
-    from nexus_sdk import DeciGraphClient
+    from decigraph_sdk import DeciGraphClient
 
     client = DeciGraphClient(base_url="http://localhost:3100", api_key="my-key")
 

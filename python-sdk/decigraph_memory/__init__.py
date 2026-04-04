@@ -1,6 +1,6 @@
 """DeciGraph Memory — zero-config decision memory for multi-agent teams."""
 
-from nexus_sdk.client import DeciGraphClient
+from decigraph_sdk.client import DeciGraphClient
 from .server import DeciGraphServer
 
 _server = None

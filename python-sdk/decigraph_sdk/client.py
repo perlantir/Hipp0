@@ -5,7 +5,7 @@ Synchronous HTTP client wrapping every DeciGraph REST endpoint.
 
 Usage::
 
-    from nexus_sdk import DeciGraphClient
+    from decigraph_sdk import DeciGraphClient
 
     client = DeciGraphClient(base_url="http://localhost:3100", api_key="my-key")
     project = client.create_project("My Project", "A test project")

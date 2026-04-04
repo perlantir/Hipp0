@@ -1,11 +1,11 @@
-# nexus-sdk
+# decigraph-sdk
 
 Official Python SDK for the [DeciGraph](https://github.com/nexus-platform/nexus) multi-agent memory and decision platform.
 
 ## Installation
 
 ```bash
-pip install nexus-sdk
+pip install decigraph-sdk
 ```
 
 Or for local development:
@@ -18,7 +18,7 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```python
-from nexus_sdk import DeciGraphClient
+from decigraph_sdk import DeciGraphClient
 
 client = DeciGraphClient(base_url="http://localhost:3100", api_key="my-key")
 
@@ -63,4 +63,4 @@ print(f"Extracted {len(result['decisions_created'])} decisions")
 
 ## API Reference
 
-See the inline docstrings in `nexus_sdk/client.py` for the full API surface.
+See the inline docstrings in `decigraph_sdk/client.py` for the full API surface.

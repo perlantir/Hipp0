@@ -19,7 +19,7 @@ class DeciGraphServer:
         if not binary:
             raise RuntimeError(
                 "DeciGraph server binary not found. "
-                "Install Node.js and run: npx @nexus/cli start"
+                "Install Node.js and run: npx @decigraph/cli start"
             )
         env = {
             **os.environ,
@@ -67,7 +67,7 @@ class DeciGraphServer:
         import shutil
         npx = shutil.which("npx")
         if npx:
-            return None  # Caller should use npx @nexus/cli start instead
+            return None  # Caller should use npx @decigraph/cli start instead
         
         return None
 

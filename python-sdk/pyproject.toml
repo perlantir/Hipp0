@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "nexus-sdk"
+name = "decigraph-sdk"
 version = "0.1.0"
 description = "Official Python SDK for the DeciGraph multi-agent memory and decision platform."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "Perlantir" }]
-keywords = ["nexus", "multi-agent", "memory", "decisions", "sdk"]
+keywords = ["decigraph", "multi-agent", "memory", "decisions", "sdk"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -35,16 +35,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nexus-platform/nexus"
-Documentation = "https://docs.nexus.dev"
-Repository = "https://github.com/nexus-platform/nexus"
+Homepage = "https://github.com/perlantir/DeciGraph"
+Documentation = "https://github.com/perlantir/DeciGraph"
+Repository = "https://github.com/perlantir/DeciGraph"
 
 [project.scripts]
 decigraph-memory = "decigraph_memory.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nexus_sdk*", "decigraph_memory*"]
+include = ["decigraph_sdk*", "decigraph_memory*"]
 
 [tool.mypy]
 python_version = "3.10"
