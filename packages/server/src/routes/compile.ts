@@ -164,6 +164,55 @@ export function registerCompileRoutes(app: Hono): void {
     });
 
     const compileRequestId = crypto.randomUUID();
+    const contextHash = crypto.createHash('sha256').update(formattedMarkdown).digest('hex');
+
+    // Record compile history (fire-and-forget)
+    try {
+      await db.query(
+        `INSERT INTO compile_history
+         (id, project_id, agent_id, agent_name, task_description,
+          decision_ids, decision_scores, total_decisions,
+          token_budget_used, context_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          compileRequestId,
+          project_id,
+          agentId,
+          agent_name,
+          task_description,
+          db.arrayParam(includedDecisions.map((d) => d.id)),
+          JSON.stringify(includedDecisions.map((d, i) => ({
+            id: d.id,
+            title: d.title,
+            combined_score: i,
+          }))),
+          includedDecisions.length,
+          tokenCount,
+          contextHash,
+        ],
+      );
+    } catch (err) {
+      console.warn('[nexus:compile] History recording failed:', (err as Error).message);
+    }
+
+    // Build debug info if requested
+    const debugFlag = (body as Record<string, unknown>).debug === true;
+    const debugInfo = debugFlag ? {
+      all_decisions_scored: decisions.map((d, i) => ({
+        title: d.title,
+        combined_score: i,
+        included: includedDecisions.some((inc) => inc.id === d.id),
+        excluded_reason: includedDecisions.some((inc) => inc.id === d.id) ? undefined : 'below_budget_or_threshold',
+      })),
+      token_budget: {
+        total: maxTokens,
+        used: tokenCount,
+        remaining: maxTokens - tokenCount,
+      },
+      weights_used: typeof agent.relevance_profile === 'string'
+        ? JSON.parse(agent.relevance_profile as string)?.weights ?? {}
+        : (agent.relevance_profile as Record<string, unknown>)?.weights ?? {},
+    } : undefined;
 
     return c.json({
       compile_request_id: compileRequestId,
@@ -183,6 +232,8 @@ export function registerCompileRoutes(app: Hono): void {
       relevance_threshold_used: 0,
       compilation_time_ms: compilationTimeMs,
       feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
+      context_hash: contextHash,
+      ...(debugInfo ? { debug: debugInfo } : {}),
     });
   });
 }

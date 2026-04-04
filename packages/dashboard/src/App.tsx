@@ -30,6 +30,7 @@ import { Wizard } from './components/Wizard';
 import { Import } from './components/Import';
 import { Connectors } from './components/Connectors';
 import { Webhooks } from './components/Webhooks';
+import { TimeTravelView } from './components/TimeTravelView';
 import { useApi } from './hooks/useApi';
 
 /* ------------------------------------------------------------------ */
@@ -67,6 +68,7 @@ type View =
   | 'import'
   | 'connectors'
   | 'webhooks'
+  | 'timetravel'
   | 'wizard';
 
 const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
@@ -82,6 +84,7 @@ const NAV_ITEMS: { id: View; label: string; icon: ReactNode }[] = [
   { id: 'import', label: 'Import', icon: <Upload size={18} /> },
   { id: 'connectors', label: 'Connectors', icon: <Settings size={18} /> },
   { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} /> },
+  { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} /> },
 ];
 
 function getViewFromHash(): View {
@@ -120,6 +123,8 @@ function ViewContent({ view }: { view: View }) {
       return <Connectors />;
     case 'webhooks':
       return <Webhooks />;
+    case 'timetravel':
+      return <TimeTravelView />;
     default:
       return <DecisionGraph />;
   }

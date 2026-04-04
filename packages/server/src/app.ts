@@ -24,6 +24,7 @@ import { registerDiscoveryRoutes } from './routes/discovery.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerExportImportRoutes } from './routes/export-import.js';
 import { registerDocsRoutes } from './routes/docs.js';
+import { registerTimeTravelRoutes } from './routes/time-travel.js';
 
 export function createApp() {
   const app = new Hono();
@@ -75,6 +76,7 @@ export function createApp() {
   registerWebhookRoutes(app);
   registerExportImportRoutes(app);
   registerDocsRoutes(app);
+  registerTimeTravelRoutes(app);
 
   return app;
 }
