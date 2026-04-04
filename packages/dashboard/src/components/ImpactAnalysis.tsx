@@ -107,7 +107,7 @@ export function ImpactAnalysis() {
 
   /* ---- Tree node component --------------------------------------- */
   function TreeNode({ decision, depth = 0 }: { decision: Decision; depth?: number }) {
-    const hasChildren = decision.relationships?.some(
+    const hasChildren = (decision.relationships ?? []).some(
       (r) => r.type === 'depends_on' || r.type === 'blocks',
     );
     const isExpanded = expandedNodes.has(decision.id);
@@ -262,16 +262,16 @@ export function ImpactAnalysis() {
                   <GitBranch size={16} className="text-primary" />
                   Downstream Decisions
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({impact.downstream.length})
+                    ({(impact.downstream ?? []).length})
                   </span>
                 </h3>
-                {impact.downstream.length === 0 ? (
+                {(impact.downstream ?? []).length === 0 ? (
                   <p className="text-xs text-[var(--text-secondary)]">
                     No downstream dependencies
                   </p>
                 ) : (
                   <div className="space-y-0.5">
-                    {impact.downstream.map((d) => (
+                    {(impact.downstream ?? []).map((d) => (
                       <TreeNode key={d.id} decision={d} />
                     ))}
                   </div>
@@ -284,16 +284,16 @@ export function ImpactAnalysis() {
                   <Users size={16} className="text-primary" />
                   Affected Agents
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({impact.affected_agents.length})
+                    ({(impact.affected_agents ?? []).length})
                   </span>
                 </h3>
-                {impact.affected_agents.length === 0 ? (
+                {(impact.affected_agents ?? []).length === 0 ? (
                   <p className="text-xs text-[var(--text-secondary)]">
                     No agents affected
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {impact.affected_agents.map((agent, i) => (
+                    {(impact.affected_agents ?? []).map((agent, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-medium">
                           {agent.name.charAt(0).toUpperCase()}
@@ -314,16 +314,16 @@ export function ImpactAnalysis() {
                   <Ban size={16} className="text-status-reverted" />
                   Blocking Relationships
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({impact.blocking.length})
+                    ({(impact.blocking ?? []).length})
                   </span>
                 </h3>
-                {impact.blocking.length === 0 ? (
+                {(impact.blocking ?? []).length === 0 ? (
                   <p className="text-xs text-[var(--text-secondary)]">
                     No blocking relationships
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {impact.blocking.map((d) => (
+                    {(impact.blocking ?? []).map((d) => (
                       <div
                         key={d.id}
                         className="p-2.5 rounded-md bg-status-reverted/5 border border-status-reverted/20 text-sm"
@@ -342,10 +342,10 @@ export function ImpactAnalysis() {
                   <Zap size={16} className="text-status-superseded" />
                   Supersession Chain
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({impact.supersession_chain.length})
+                    ({(impact.supersession_chain ?? []).length})
                   </span>
                 </h3>
-                {impact.supersession_chain.length === 0 ? (
+                {(impact.supersession_chain ?? []).length === 0 ? (
                   <p className="text-xs text-[var(--text-secondary)]">
                     No supersession chain
                   </p>
@@ -353,7 +353,7 @@ export function ImpactAnalysis() {
                   <div className="relative">
                     <div className="absolute left-3 top-0 bottom-0 w-px bg-status-superseded/30" />
                     <div className="space-y-3">
-                      {impact.supersession_chain.map((d, i) => (
+                      {(impact.supersession_chain ?? []).map((d, i) => (
                         <div key={d.id} className="relative pl-8">
                           <div
                             className="absolute left-[7px] top-2 w-2.5 h-2.5 rounded-full border-2"
@@ -388,19 +388,19 @@ export function ImpactAnalysis() {
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-3 rounded-md bg-[var(--bg-secondary)]">
-                  <p className="text-xl font-bold tabular-nums">{impact.downstream.length}</p>
+                  <p className="text-xl font-bold tabular-nums">{(impact.downstream ?? []).length}</p>
                   <p className="text-xs text-[var(--text-secondary)]">
                     Downstream decisions
                   </p>
                 </div>
                 <div className="text-center p-3 rounded-md bg-[var(--bg-secondary)]">
-                  <p className="text-xl font-bold tabular-nums">{impact.affected_agents.length}</p>
+                  <p className="text-xl font-bold tabular-nums">{(impact.affected_agents ?? []).length}</p>
                   <p className="text-xs text-[var(--text-secondary)]">
                     Agents affected
                   </p>
                 </div>
                 <div className="text-center p-3 rounded-md bg-[var(--bg-secondary)]">
-                  <p className="text-xl font-bold tabular-nums">{impact.blocking.length}</p>
+                  <p className="text-xl font-bold tabular-nums">{(impact.blocking ?? []).length}</p>
                   <p className="text-xs text-[var(--text-secondary)]">
                     Blocking items
                   </p>

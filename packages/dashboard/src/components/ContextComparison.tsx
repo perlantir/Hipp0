@@ -78,13 +78,13 @@ export function ContextComparison() {
 
   /* ---- Compute shared / unique ----------------------------------- */
 
-  const idsA = new Set(resultA?.decisions.map((d) => d.id) ?? []);
-  const idsB = new Set(resultB?.decisions.map((d) => d.id) ?? []);
+  const idsA = new Set((resultA?.decisions ?? []).map((d) => d.id) ?? []);
+  const idsB = new Set((resultB?.decisions ?? []).map((d) => d.id) ?? []);
 
   const sharedIds = new Set([...idsA].filter((id) => idsB.has(id)));
-  const uniqueA = resultA?.decisions.filter((d) => !idsB.has(d.id)) ?? [];
-  const uniqueB = resultB?.decisions.filter((d) => !idsA.has(d.id)) ?? [];
-  const shared = resultA?.decisions.filter((d) => sharedIds.has(d.id)) ?? [];
+  const uniqueA = (resultA?.decisions ?? []).filter((d) => !idsB.has(d.id)) ?? [];
+  const uniqueB = (resultB?.decisions ?? []).filter((d) => !idsA.has(d.id)) ?? [];
+  const shared = (resultA?.decisions ?? []).filter((d) => sharedIds.has(d.id)) ?? [];
 
   /* ---- Decision row ---------------------------------------------- */
 
@@ -227,7 +227,7 @@ export function ContextComparison() {
                   <span className="w-2 h-2 rounded-full bg-primary" />
                   {agentA}
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({resultA.decisions.length} decisions)
+                    ({(resultA?.decisions ?? []).length} decisions)
                   </span>
                 </h3>
                 <div className="space-y-2">
@@ -257,7 +257,7 @@ export function ContextComparison() {
                   <span className="w-2 h-2 rounded-full bg-status-superseded" />
                   {agentB}
                   <span className="text-xs text-[var(--text-secondary)] font-normal">
-                    ({resultB.decisions.length} decisions)
+                    ({(resultB?.decisions ?? []).length} decisions)
                   </span>
                 </h3>
                 <div className="space-y-2">
@@ -271,7 +271,7 @@ export function ContextComparison() {
                   ))}
                   {showShared &&
                     shared.map((d) => {
-                      const bEntry = resultB.decisions.find(
+                      const bEntry = (resultB?.decisions ?? []).find(
                         (bd) => bd.id === d.id,
                       );
                       return (

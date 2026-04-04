@@ -92,12 +92,12 @@ export function Contradictions() {
     };
   }, [get, projectId]);
 
-  const filtered = contradictions.filter((c) => c.status === tab);
+  const filtered = (contradictions ?? []).filter((c) => c.status === tab);
 
   const counts = {
-    unresolved: contradictions.filter((c) => c.status === 'unresolved').length,
-    resolved: contradictions.filter((c) => c.status === 'resolved').length,
-    dismissed: contradictions.filter((c) => c.status === 'dismissed').length,
+    unresolved: (contradictions ?? []).filter((c) => c.status === 'unresolved').length,
+    resolved: (contradictions ?? []).filter((c) => c.status === 'resolved').length,
+    dismissed: (contradictions ?? []).filter((c) => c.status === 'dismissed').length,
   };
 
   /* ---- Actions --------------------------------------------------- */
@@ -235,11 +235,11 @@ export function Contradictions() {
     );
   }
 
-  const unresolvedCritical = contradictions.filter(
+  const unresolvedCritical = (contradictions ?? []).filter(
     (c) => c.status === 'unresolved' && getSeverity(c.similarity_score) === 'critical',
   ).length;
 
-  const unresolvedWarning = contradictions.filter(
+  const unresolvedWarning = (contradictions ?? []).filter(
     (c) => c.status === 'unresolved' && getSeverity(c.similarity_score) === 'warning',
   ).length;
 

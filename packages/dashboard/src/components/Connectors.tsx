@@ -593,7 +593,7 @@ export function Connectors() {
         )}
 
         {/* Connector list */}
-        {connectors.length === 0 ? (
+        {(connectors ?? []).length === 0 ? (
           <div className="text-center py-16">
             <div className="w-14 h-14 rounded-xl bg-[var(--border-light)]/30 flex items-center justify-center mx-auto mb-4">
               <Database size={22} className="text-[var(--text-secondary)]" />
@@ -614,7 +614,7 @@ export function Connectors() {
           <>
             {/* Active/disabled sections */}
             {['active', 'idle', 'error'].map((status) => {
-              const group = connectors.filter((c) => c.status === status);
+              const group = (connectors ?? []).filter((c) => c.status === status);
               if (group.length === 0) return null;
               const labelMap: Record<string, string> = {
                 active: 'Active',
@@ -650,7 +650,7 @@ export function Connectors() {
 
             {/* Disabled connectors */}
             {(() => {
-              const disabled = connectors.filter((c) => !c.enabled);
+              const disabled = (connectors ?? []).filter((c) => !c.enabled);
               if (disabled.length === 0) return null;
               return (
                 <div className="mb-6">

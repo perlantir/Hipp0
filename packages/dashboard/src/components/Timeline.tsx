@@ -54,10 +54,10 @@ function ValidationControls({
         {isValidated ? (
           <span className="flex items-center gap-1 text-green-400">
             <span>✅</span>
-            Validated via {decision.validation_source?.replace(/_/g, ' ')}
+            Validated via {(decision.validation_source ?? '').replace(/_/g, ' ')}
             {decision.validated_at && (
               <span className="text-[var(--text-secondary)] ml-1">
-                on {new Date(decision.validated_at).toLocaleDateString()}
+                on {new Date(decision.validated_at ?? '').toLocaleDateString()}
               </span>
             )}
           </span>
@@ -69,7 +69,7 @@ function ValidationControls({
       </div>
 
       {/* Action buttons */}
-      {decision.status === 'active' && (
+      {decision?.status === 'active' && (
         <div className="flex gap-2">
           {!showValidate && !showInvalidate && (
             <>
@@ -347,11 +347,11 @@ export function Timeline() {
                       className="absolute left-[14px] top-5 w-3 h-3 rounded-full border-2 border-[var(--border-light)]"
                       style={{
                         backgroundColor:
-                          decision.status === 'active'
+                          decision?.status === 'active'
                             ? '#01696F'
-                            : decision.status === 'superseded'
+                            : decision?.status === 'superseded'
                               ? '#D19900'
-                              : decision.status === 'reverted'
+                              : decision?.status === 'reverted'
                                 ? '#A13544'
                                 : '#FFC553',
                       }}

@@ -104,7 +104,7 @@ export function DecisionGraph() {
 
     filtered.forEach((d) => {
       if (d.relationships) {
-        d.relationships.forEach((rel) => {
+        (d.relationships ?? []).forEach((rel) => {
           if (nodeMap.has(rel.target_id)) {
             edges.push({
               source: d.id,
@@ -548,13 +548,13 @@ export function DecisionGraph() {
               )}
 
               {/* Tags */}
-              {selectedNode.tags.length > 0 && (
+              {(selectedNode.tags ?? []).length > 0 && (
                 <div>
                   <label className="text-xs text-[var(--text-secondary)] block mb-1">
                     Tags
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedNode.tags.map((tag) => (
+                    {(selectedNode.tags ?? []).map((tag) => (
                       <span
                         key={tag}
                         className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
@@ -567,13 +567,13 @@ export function DecisionGraph() {
               )}
 
               {/* Alternatives */}
-              {selectedNode.alternatives && selectedNode.alternatives.length > 0 && (
+              {(selectedNode.alternatives ?? []).length > 0 && (
                 <div>
                   <label className="text-xs text-[var(--text-secondary)] block mb-1">
                     Alternatives Considered
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
-                    {selectedNode.alternatives.map((alt, i) => (
+                    {(selectedNode.alternatives ?? []).map((alt, i) => (
                       <li key={i}>{alt}</li>
                     ))}
                   </ul>
@@ -581,13 +581,13 @@ export function DecisionGraph() {
               )}
 
               {/* Assumptions */}
-              {selectedNode.assumptions && selectedNode.assumptions.length > 0 && (
+              {(selectedNode.assumptions ?? []).length > 0 && (
                 <div>
                   <label className="text-xs text-[var(--text-secondary)] block mb-1">
                     Assumptions
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
-                    {selectedNode.assumptions.map((a, i) => (
+                    {(selectedNode.assumptions ?? []).map((a, i) => (
                       <li key={i}>{a}</li>
                     ))}
                   </ul>

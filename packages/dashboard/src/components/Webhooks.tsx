@@ -245,7 +245,7 @@ export function Webhooks() {
                       : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-light)] hover:bg-[var(--bg-active)]'
                   }`}
                 >
-                  {event.replace(/_/g, ' ')}
+                  {(event ?? '').replace(/_/g, ' ')}
                 </button>
               ))}
             </div>
@@ -370,7 +370,7 @@ export function Webhooks() {
                       key={event}
                       className="px-2 py-0.5 rounded-full text-xs bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-light)]"
                     >
-                      {event.replace(/_/g, ' ')}
+                      {(event ?? '').replace(/_/g, ' ')}
                     </span>
                   ))}
                   {events.length === 0 && (
