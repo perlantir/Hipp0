@@ -164,6 +164,30 @@ export function registerTimeTravelRoutes(app: Hono): void {
       throw new ValidationError('as_of must be a valid ISO date string');
     }
 
+    // Look up agent to get ID for weight snapshot lookup
+    const agentResult = await db.query(
+      'SELECT id FROM agents WHERE project_id = ? AND name = ? LIMIT 1',
+      [project_id, agent_name],
+    );
+    const agentId = agentResult.rows.length > 0 ? (agentResult.rows[0] as Record<string, unknown>).id as string : null;
+
+    // Look up historical weights (weight snapshot closest to but not after as_of)
+    let historicalWeights: Record<string, unknown> | null = null;
+    if (agentId) {
+      try {
+        const snapshotResult = await db.query(
+          `SELECT weights FROM weight_snapshots
+           WHERE agent_id = ? AND snapshot_at <= ?
+           ORDER BY snapshot_at DESC LIMIT 1`,
+          [agentId, as_of],
+        );
+        if (snapshotResult.rows.length > 0) {
+          const raw = (snapshotResult.rows[0] as Record<string, unknown>).weights;
+          historicalWeights = typeof raw === 'string' ? JSON.parse(raw) : raw as Record<string, unknown>;
+        }
+      } catch { /* weight_snapshots table may not exist */ }
+    }
+
     // Fetch decisions that existed as of that date, excluding ones superseded before that date
     const result = await db.query(
       `SELECT * FROM decisions
@@ -195,6 +219,8 @@ export function registerTimeTravelRoutes(app: Hono): void {
       task: task_description,
       decisions_available: decisions.length,
       decisions,
+      historical_weights: historicalWeights,
+      weights_source: historicalWeights ? 'snapshot' : 'current',
     });
   });
 }

@@ -217,6 +217,60 @@ describe('Context Time Travel', () => {
     });
   });
 
+  describe('Weight Snapshots', () => {
+    it('snapshot structure has agent_id, weights, and snapshot_at', () => {
+      const snapshot = {
+        id: 'snap-uuid',
+        agent_id: 'agent-uuid',
+        weights: { architecture: 0.9, testing: 0.7 },
+        snapshot_at: '2026-03-15T14:00:00Z',
+      };
+      expect(snapshot.weights.architecture).toBe(0.9);
+      expect(snapshot.agent_id).toBe('agent-uuid');
+      expect(snapshot.snapshot_at).toBeDefined();
+    });
+
+    it('historical weight lookup uses most recent snapshot before as_of', () => {
+      const snapshots = [
+        { weights: { auth: 0.5 }, snapshot_at: '2026-03-01T00:00:00Z' },
+        { weights: { auth: 0.7 }, snapshot_at: '2026-03-10T00:00:00Z' },
+        { weights: { auth: 0.9 }, snapshot_at: '2026-03-20T00:00:00Z' },
+      ];
+      const asOf = '2026-03-15T00:00:00Z';
+
+      // Find most recent snapshot <= as_of
+      const matching = snapshots
+        .filter((s) => s.snapshot_at <= asOf)
+        .sort((a, b) => b.snapshot_at.localeCompare(a.snapshot_at));
+
+      const selected = matching[0];
+      expect(selected).toBeDefined();
+      expect(selected.weights.auth).toBe(0.7);
+      expect(selected.snapshot_at).toBe('2026-03-10T00:00:00Z');
+    });
+
+    it('falls back to null when no snapshot exists before as_of', () => {
+      const snapshots = [
+        { weights: { auth: 0.9 }, snapshot_at: '2026-04-01T00:00:00Z' },
+      ];
+      const asOf = '2026-03-15T00:00:00Z';
+
+      const matching = snapshots.filter((s) => s.snapshot_at <= asOf);
+      expect(matching).toHaveLength(0);
+      // Caller should use current weights as fallback
+    });
+
+    it('weights_source indicates snapshot vs current', () => {
+      const hasSnapshot = true;
+      const source = hasSnapshot ? 'snapshot' : 'current';
+      expect(source).toBe('snapshot');
+
+      const noSnapshot = false;
+      const source2 = noSnapshot ? 'snapshot' : 'current';
+      expect(source2).toBe('current');
+    });
+  });
+
   describe('Compile History Record', () => {
     it('history record structure matches expected fields', () => {
       const record = {

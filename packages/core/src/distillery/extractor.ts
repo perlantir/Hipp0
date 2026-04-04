@@ -124,26 +124,51 @@ export function parseJsonSafe<T>(raw: string): T | null {
   }
 }
 
-const EXTRACTION_SYSTEM_PROMPT = `Analyze this conversation between a developer and an AI agent. Extract any DECISIONS that were made — explicit or implicit.
+const EXTRACTION_SYSTEM_PROMPT = `You are the Nexus Distillery — a precise decision extraction engine.
 
-For each decision, return JSON:
+CRITICAL RULES:
+- ONLY extract decisions the team has clearly committed to.
+- NEVER extract greetings, small talk, boot context, status updates, or tentative ideas.
+- Skip exploratory language: "maybe", "we could", "perhaps", "thinking about", "might".
+- Look for commitment signals: "decided", "going with", "chose", "will use", "agreed", "let's do".
+- Implicit decisions are allowed ONLY if the team clearly advances ("Let's move on to building X" implies X approach was chosen).
+- Do NOT extract trivial choices (formatting preferences, variable names, minor refactors).
+- Do NOT hallucinate decisions that weren't made — when in doubt, skip it.
+
+Output format: JSON array of objects, or empty [] if no decisions found.
+
+Each decision object:
 {
-  "title": "Short name (e.g., 'Use JWT for API auth')",
-  "description": "What was decided",
-  "reasoning": "Why this approach was chosen",
-  "alternatives_considered": [{"option": "...", "rejected_reason": "..."}],
-  "confidence": "high|medium|low",
-  "tags": ["auth", "security"],
-  "affects": ["builder", "reviewer"],
-  "assumptions": ["Stateless is better for horizontal scaling"],
-  "open_questions": ["Should refresh tokens be stored in Redis or DB?"],
-  "dependencies": ["Database must support ACID transactions"],
-  "implicit": true|false
+  "title": "short actionable title (5-10 words)",
+  "description": "1-2 sentence summary of what was decided",
+  "reasoning": "why this was chosen over alternatives",
+  "alternatives_considered": [{"option": "alt", "rejected_reason": "why"}],
+  "confidence": "high" | "medium" | "low",
+  "tags": ["architecture", "api", ...],
+  "affects": ["agent_name_or_role", ...]
 }
 
-Extract ONLY decisions that affect architecture, implementation approach, or technical direction. Do NOT extract routine coding steps, formatting, variable naming, or import ordering.
+EXAMPLES:
 
-Return JSON array. If no decisions found, return [].`;
+CONVERSATION: "We decided to use Hono instead of Express for the API server because it's faster and has better TypeScript support."
+CORRECT: [{"title": "Use Hono for API server", "description": "Chose Hono over Express for the API framework", "reasoning": "Faster performance and better TypeScript support", "confidence": "high", "tags": ["api", "framework"], "affects": ["builder"]}]
+
+CONVERSATION: "Hey how's it going? Ready to start? Let me pull up the repo."
+CORRECT: []
+
+CONVERSATION: "I think maybe we should consider Redis for caching but I'm not sure yet."
+CORRECT: []
+
+CONVERSATION: "After testing both approaches, we're going with PostgreSQL for the primary database because it handles our query patterns better."
+CORRECT: [{"title": "Use PostgreSQL as primary database", "description": "PostgreSQL chosen after testing both approaches", "reasoning": "Better query pattern support", "confidence": "high", "tags": ["database"], "affects": ["builder"]}]
+
+CONVERSATION: "Let's move on to building the auth flow. We'll use JWT with short-lived tokens and rotating refresh tokens."
+CORRECT: [{"title": "JWT authentication with rotating refresh tokens", "description": "JWT with short-lived access tokens and rotating refresh tokens for auth", "reasoning": "Implicit commitment by advancing to implementation", "confidence": "high", "tags": ["auth", "security"], "affects": ["builder"]}]
+
+CONVERSATION: "The build is failing because of a TypeScript error on line 42. Let me fix that."
+CORRECT: []
+
+Now extract decisions from the following conversation:`;
 
 function normaliseExtractedDecision(raw: Record<string, unknown>): ExtractedDecision {
   const ensureStringArray = (v: unknown): string[] => {

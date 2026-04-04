@@ -4,6 +4,7 @@ import { parseAgent } from '@nexus/core/db/parsers.js';
 import { NotFoundError } from '@nexus/core/types.js';
 import { getRoleProfile } from '@nexus/core/roles.js';
 import { requireUUID, requireString, mapDbError } from './validation.js';
+import { randomUUID } from 'node:crypto';
 
 export function registerAgentRoutes(app: Hono): void {
   app.post('/api/projects/:id/agents', async (c) => {
@@ -31,7 +32,19 @@ export function registerAgentRoutes(app: Hono): void {
          RETURNING *`,
         [projectId, name, role, JSON.stringify(profile), body.context_budget_tokens ?? 50000],
       );
-      return c.json(parseAgent(result.rows[0] as Record<string, unknown>), 201);
+      const agent = parseAgent(result.rows[0] as Record<string, unknown>);
+
+      // Record initial weight snapshot for time travel
+      try {
+        const weights = typeof profile === 'string' ? JSON.parse(profile)?.weights ?? {} : (profile as Record<string, unknown>)?.weights ?? {};
+        await db.query(
+          `INSERT INTO weight_snapshots (id, agent_id, weights, snapshot_at)
+           VALUES (?, ?, ?, ?)`,
+          [randomUUID(), agent.id, JSON.stringify(weights), new Date().toISOString()],
+        );
+      } catch { /* weight_snapshots table may not exist yet */ }
+
+      return c.json(agent, 201);
     } catch (err) {
       mapDbError(err);
     }

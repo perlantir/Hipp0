@@ -315,6 +315,17 @@ export async function computeAndApplyWeightUpdates(
     ],
   );
 
+  // Record weight snapshot for time travel
+  try {
+    await db.query(
+      `INSERT INTO weight_snapshots (id, agent_id, weights, snapshot_at)
+       VALUES (?, ?, ?, ?)`,
+      [randomUUID(), agentId, JSON.stringify(weightsAfter), new Date().toISOString()],
+    );
+  } catch (err) {
+    console.warn('[nexus:learner] Weight snapshot failed:', (err as Error).message);
+  }
+
   // Log changes
   for (const u of updates) {
     console.warn(

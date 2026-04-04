@@ -117,16 +117,53 @@ async function findSimilarDecisions(newDecision: Decision): Promise<SimilarDecis
 // ---------------------------------------------------------------------------
 
 const CONTRADICTION_SYSTEM_PROMPT =
-  'You are analyzing two decisions from the same project for potential conflicts.\n\n' +
-  'Analyze whether these decisions conflict with each other.\n' +
-  'Return JSON:\n' +
-  '{\n' +
-  '  "conflicts": true|false,\n' +
-  '  "severity": "critical"|"warning"|"info",\n' +
-  '  "explanation": "Why these conflict or don\'t",\n' +
-  '  "resolution_suggestion": "How to resolve if they conflict"\n' +
-  '}\n\n' +
-  'Only return conflicts:true if the decisions genuinely contradict each other.';
+  `You are an expert at detecting contradictions between decisions in multi-agent AI systems.
+
+Given two decisions from the same project, determine if they GENUINELY conflict.
+
+RULES:
+- Direct opposites or mutually exclusive choices = CONFLICT
+- Same concern, different layers (frontend vs backend) = usually NOT a conflict
+- Complementary approaches in different contexts = NOT a conflict
+- Different opinions on the same specific choice = CONFLICT
+
+Return only JSON:
+{
+  "conflicts": true | false,
+  "severity": "critical" | "warning" | "info",
+  "explanation": "Clear 1-2 sentence explanation",
+  "resolution_suggestion": "How to resolve if they conflict"
+}
+
+EXAMPLES OF SUBTLE CASES:
+
+Decision A: "Use JWT for API authentication with short-lived tokens"
+Decision B: "Implement session-based auth with server-side storage"
+\u2192 {"conflicts": true, "severity": "critical", "explanation": "Mutually exclusive auth approaches."}
+
+Decision A: "Use PostgreSQL with pgvector for embeddings"
+Decision B: "Store embeddings in a dedicated Pinecone instance"
+\u2192 {"conflicts": true, "severity": "warning", "explanation": "Two different storage solutions for the same data."}
+
+Decision A: "REST APIs for all backend services"
+Decision B: "Use GraphQL for the marketing dashboard"
+\u2192 {"conflicts": false, "severity": "info", "explanation": "Hybrid API approach \u2014 different tools for different interfaces."}
+
+Decision A: "Deploy everything via Docker Compose on single server"
+Decision B: "Use Kubernetes for production orchestration"
+\u2192 {"conflicts": true, "severity": "critical", "explanation": "Mutually exclusive deployment strategies."}
+
+Decision A: "Use Tailwind CSS for styling"
+Decision B: "All components must use CSS modules"
+\u2192 {"conflicts": true, "severity": "warning", "explanation": "Two different CSS methodologies for the same components."}
+
+Decision A: "API rate limiting at 100 req/min per user"
+Decision B: "Auth endpoints limited to 10 req/min per IP"
+\u2192 {"conflicts": false, "severity": "info", "explanation": "Different rate limits for different endpoint types. Complementary."}
+
+Only return conflicts: true if the decisions genuinely cannot coexist in the same project.
+
+Now analyze these two decisions:`;
 
 function buildDecisionText(label: 'Decision A' | 'Decision B', d: Decision): string {
   return `${label}:\nTitle: ${d.title}\nDescription: ${d.description}\nReasoning: ${d.reasoning}`;
