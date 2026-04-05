@@ -93,17 +93,17 @@ function _getPersonaSafe(agentName: string): AgentPersona | undefined {
   }
 }
 
-// Tuned scoring weights — targets 0.82–0.95 for relevant, <0.3 for irrelevant
+// V3 scoring weights — directAffect reduced, personaMatch nearly doubled
 const SCORING_WEIGHTS = {
-  directAffect: 0.35,
-  tagMatch: 0.22,
-  personaMatch: 0.18,
+  directAffect: 0.30,
+  tagMatch: 0.20,
+  personaMatch: 0.25,  // This is THE differentiator between agents
   semanticSimilarity: 0.25,
 };
 
 // Post-processing thresholds
-export const MIN_SCORE = 0.15;  // Low floor — catch anything with marginal relevance
-export const MAX_RESULTS = 25;
+export const MIN_SCORE = 0.50;  // Raise to 0.72 once embeddings are live
+export const MAX_RESULTS = 15;
 
 export function scoreDecision(
   decision: Decision,
@@ -112,79 +112,110 @@ export function scoreDecision(
 ): ScoredDecision {
   const profile = agent.relevance_profile;
   const agentNameLower = agent.name.toLowerCase();
-
-  // Signal A: Direct Affect (0 or 1)
-  const affectsLower = (decision.affects ?? []).map((a) => a.toLowerCase());
   const agentRoleLower = agent.role.toLowerCase();
-  const directAffectScore =
-    affectsLower.includes(agentNameLower) || affectsLower.includes(agentRoleLower) ? 1.0 : 0.0;
+  const decisionTags = (decision.tags ?? []).map((t) => t.toLowerCase());
+  const affects = (decision.affects ?? []).map((a) => a.toLowerCase());
 
-  // Signal B: Tag Matching (overlap of decision tags with agent's profile weights)
+  // ── Signal A: Direct Affect (0 or 1) ──────────────────────────────
+  const directAffectScore =
+    affects.includes(agentNameLower) || affects.includes(agentRoleLower) ? 1.0 : 0.0;
+
+  // ── Signal B: Tag Matching (overlap with profile weights) ─────────
   const profileWeights = profile.weights;
-  const decisionTags = decision.tags ?? [];
   let tagMatchScore = 0;
   if (decisionTags.length > 0 && Object.keys(profileWeights).length > 0) {
     const matchingTags = decisionTags.filter((tag) => profileWeights[tag] !== undefined);
     if (matchingTags.length > 0) {
       const sumWeights = matchingTags.reduce((sum, tag) => sum + (profileWeights[tag] ?? 0.5), 0);
-      tagMatchScore = sumWeights / decisionTags.length; // Normalize by total tags
+      tagMatchScore = sumWeights / decisionTags.length;
     }
   }
 
-  // Signal C: Persona Match (overlap with agent expertise topics)
+  // ── Signal C: Persona Match (primaryTags overlap - excludeTags penalty) ─
   const persona = _getPersonaSafe(agent.name);
   let personaMatchScore = 0;
+  let excludePenalty = 0;
   if (persona && decisionTags.length > 0) {
-    const tagsLower = decisionTags.map((t) => t.toLowerCase());
-    const overlapping = persona.expertiseTopics.filter((t: string) => tagsLower.includes(t)).length;
-    personaMatchScore = persona.expertiseTopics.length > 0
-      ? (overlapping / persona.expertiseTopics.length) * (persona.boostFactor / 0.20) // Normalize
+    // Positive: overlap with primaryTags
+    const primaryOverlap = persona.primaryTags.filter((t) => decisionTags.includes(t)).length;
+    personaMatchScore = persona.primaryTags.length > 0
+      ? (primaryOverlap / persona.primaryTags.length) * (persona.boostFactor / 0.20)
       : 0;
+    // Negative: excludeTags penalty (-0.10 per match, capped at -0.20)
+    const excludeHits = persona.excludeTags.filter((t) => decisionTags.includes(t)).length;
+    excludePenalty = Math.min(excludeHits * 0.10, 0.20);
   }
 
-  // Signal D: Semantic Similarity (cosine between task embedding and decision embedding)
+  // ── Signal D: Semantic Similarity ─────────────────────────────────
   const decisionEmbedding = decision.embedding ?? [];
   const semanticScore =
     decisionEmbedding.length > 0 && taskEmbedding.length > 0
       ? Math.max(0, cosineSimilarity(taskEmbedding, decisionEmbedding))
       : 0;
 
-  // Signal E: Made-by bonus (decisions authored by this agent are more relevant)
+  // ── Made-by bonus ─────────────────────────────────────────────────
   const madeByBonus = (decision.made_by ?? '').toLowerCase() === agentNameLower ? 0.15 : 0;
 
-  // Weighted sum
+  // ── Weighted sum ──────────────────────────────────────────────────
   let finalScore =
     SCORING_WEIGHTS.directAffect * directAffectScore +
     SCORING_WEIGHTS.tagMatch * tagMatchScore +
     SCORING_WEIGHTS.personaMatch * personaMatchScore +
     SCORING_WEIGHTS.semanticSimilarity * semanticScore +
-    madeByBonus;
+    madeByBonus -
+    excludePenalty;
 
-  const rawScore = finalScore;
+  // ── Specificity Multiplier ────────────────────────────────────────
+  // Penalize generic decisions that affect everyone
+  const affectsLen = (decision.affects ?? []).length;
+  const specificityMultiplier =
+    affectsLen <= 1 ? 1.15 :  // Very targeted
+    affectsLen <= 3 ? 1.00 :  // Normal
+    affectsLen <= 5 ? 0.85 :  // Broad
+    0.70;                     // Generic — affects everyone
+  finalScore *= specificityMultiplier;
 
-  // --- Post-scoring multipliers ---
+  // ── Freshness Multiplier ──────────────────────────────────────────
+  const ageInDays = (Date.now() - new Date(decision.created_at).getTime()) / 86400000;
+  const freshnessMultiplier =
+    ageInDays <= 7 ? 1.10 :   // Last week: boost
+    ageInDays <= 30 ? 1.00 :  // Last month: neutral
+    ageInDays <= 90 ? 0.95 :  // 1-3 months: slight decay
+    0.90;                     // Older: gentle penalty
+  finalScore *= freshnessMultiplier;
 
-  // Status multiplier
+  // ── Status Multiplier ─────────────────────────────────────────────
   if (decision.status === 'superseded') finalScore *= 0.4;
   if (decision.status === 'pending') finalScore *= 0.6;
 
-  // Freshness decay (decisions older than 30 days gradually lose relevance)
-  const ageInDays = (Date.now() - new Date(decision.created_at).getTime()) / 86400000;
-  if (ageInDays > 30) finalScore *= Math.max(0.7, 1 - (ageInDays - 30) * 0.005);
+  // ── Confidence Multiplier ─────────────────────────────────────────
+  const confidenceMultiplier =
+    decision.confidence === 'high' ? 1.10 :
+    decision.confidence === 'medium' ? 1.00 :
+    0.90;
+  finalScore *= confidenceMultiplier;
 
-  // Confidence multiplier
-  if (decision.confidence === 'high') finalScore *= 1.15;
-  if (decision.confidence === 'low') finalScore *= 0.75;
+  // ── Direct agent match bonus (flat add after multipliers) ─────────
+  if (affects.includes(agentNameLower)) finalScore += 0.25;
 
-  // Direct agent match bonus (flat add, not multiplied)
-  if ((decision.affects ?? []).map(a => a.toLowerCase()).includes(agentNameLower)) finalScore += 0.25;
-
-  // Clamp to [0, 1.5] — can exceed 1.0 with bonuses
+  // Clamp to [0, 1.5]
   finalScore = Math.max(0, Math.min(1.5, finalScore));
 
+  // ── Build explanation string ──────────────────────────────────────
+  const parts: string[] = [];
+  if (directAffectScore > 0) parts.push(`Direct affect (${(SCORING_WEIGHTS.directAffect * directAffectScore).toFixed(2)})`);
+  if (tagMatchScore > 0) parts.push(`Tag match (${(SCORING_WEIGHTS.tagMatch * tagMatchScore).toFixed(2)})`);
+  if (personaMatchScore > 0) parts.push(`Persona match (${(SCORING_WEIGHTS.personaMatch * personaMatchScore).toFixed(2)})`);
+  if (semanticScore > 0) parts.push(`Semantic sim (${(SCORING_WEIGHTS.semanticSimilarity * semanticScore).toFixed(2)})`);
+  if (madeByBonus > 0) parts.push(`Made-by bonus (+${madeByBonus.toFixed(2)})`);
+  if (excludePenalty > 0) parts.push(`Exclude penalty (-${excludePenalty.toFixed(2)})`);
+  if (specificityMultiplier !== 1.0) parts.push(`Specificity (x${specificityMultiplier.toFixed(2)})`);
+  if (freshnessMultiplier !== 1.0) parts.push(`Freshness (x${freshnessMultiplier.toFixed(2)})`);
+  if (confidenceMultiplier !== 1.0) parts.push(`Confidence (x${confidenceMultiplier.toFixed(2)})`);
+  if (affects.includes(agentNameLower)) parts.push(`Agent bonus (+0.25)`);
+  const explanation = parts.join(' + ') + ` = ${finalScore.toFixed(3)}`;
+
   const statusPenaltyVal = decision.status === 'superseded' ? 0.4 : decision.status === 'pending' ? 0.6 : 1.0;
-  const freshnessVal = ageInDays > 30 ? Math.max(0.7, 1 - (ageInDays - 30) * 0.005) : 1.0;
-  const confidenceMultiplier = decision.confidence === 'high' ? 1.15 : decision.confidence === 'low' ? 0.75 : 1.0;
 
   const breakdown: ScoringBreakdown = {
     direct_affect: directAffectScore,
@@ -192,17 +223,21 @@ export function scoreDecision(
     role_relevance: personaMatchScore,
     semantic_similarity: semanticScore,
     status_penalty: statusPenaltyVal,
-    freshness: freshnessVal,
+    freshness: freshnessMultiplier,
     combined: finalScore,
-    // Extended breakdown for debugging
+    // V3 extended signals
     made_by_bonus: madeByBonus,
     confidence_multiplier: confidenceMultiplier,
+    specificity_multiplier: specificityMultiplier,
+    freshness_multiplier: freshnessMultiplier,
+    exclude_penalty: excludePenalty,
+    explanation,
   } as ScoringBreakdown;
 
   return {
     ...decision,
-    relevance_score: rawScore,
-    freshness_score: breakdown.freshness,
+    relevance_score: SCORING_WEIGHTS.directAffect * directAffectScore + SCORING_WEIGHTS.tagMatch * tagMatchScore + SCORING_WEIGHTS.personaMatch * personaMatchScore + SCORING_WEIGHTS.semanticSimilarity * semanticScore,
+    freshness_score: freshnessMultiplier,
     combined_score: finalScore,
     scoring_breakdown: breakdown,
   };

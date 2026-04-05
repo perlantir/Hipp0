@@ -1,16 +1,15 @@
 /**
- * Agent Persona System — maps agent names to expertise topics
- * for persona-based scoring boosts in the context compiler.
- *
- * When computing personaMatchScore, the scoring engine checks
- * how many of the decision's tags overlap with the agent's
- * expertiseTopics. Score = (overlapping / total) * boostFactor.
+ * Agent Persona System — maps agent names to expertise topics,
+ * exclude tags (negative signals), and keywords for persona-based scoring.
  */
 
 export interface AgentPersona {
   name: string;
   role: string;
-  expertiseTopics: string[];
+  description: string;
+  primaryTags: string[];
+  excludeTags: string[];
+  keywords: string[];
   boostFactor: number;
 }
 
@@ -18,72 +17,98 @@ export const AGENT_PERSONAS: Record<string, AgentPersona> = {
   maks: {
     name: 'maks',
     role: 'builder',
-    expertiseTopics: ['architecture', 'api', 'database', 'framework', 'hono', 'typescript', 'node', 'backend', 'server', 'infra', 'docker', 'deployment'],
+    description: 'Full-stack engineering — Hono APIs, database, TypeScript, builds everything',
+    primaryTags: ['architecture', 'api', 'database', 'framework', 'hono', 'typescript', 'backend', 'server', 'infra', 'docker', 'deployment', 'node'],
+    excludeTags: ['legal', 'compliance', 'marketing', 'tiktok', 'content'],
+    keywords: ['build', 'implement', 'api', 'server', 'database', 'endpoint', 'hono', 'typescript', 'deploy'],
+    boostFactor: 0.25,
+  },
+  makspm: {
+    name: 'makspm',
+    role: 'product',
+    description: 'Product management — specs, task delegation, QA coordination, roadmap',
+    primaryTags: ['product', 'spec', 'roadmap', 'prioritization', 'qa', 'task', 'planning', 'delegation', 'milestone', 'requirement'],
+    excludeTags: ['solidity', 'blockchain', 'devops', 'ci-cd', 'design', 'typography'],
+    keywords: ['product', 'spec', 'requirement', 'priority', 'milestone', 'qa', 'task', 'delegation'],
+    boostFactor: 0.22,
+  },
+  scout: {
+    name: 'scout',
+    role: 'analytics',
+    description: 'Research, market analysis, competitive intelligence, data insights',
+    primaryTags: ['research', 'analysis', 'competitor', 'market', 'trend', 'data', 'benchmark', 'survey', 'intelligence', 'metrics'],
+    excludeTags: ['solidity', 'blockchain', 'design', 'typography', 'devops', 'ci-cd'],
+    keywords: ['research', 'analysis', 'competitor', 'market', 'benchmark', 'data', 'insight', 'trend'],
     boostFactor: 0.20,
+  },
+  clawexpert: {
+    name: 'clawexpert',
+    role: 'ops',
+    description: 'OpenClaw infrastructure, config management, workspace setup, agent orchestration',
+    primaryTags: ['openclaw', 'infrastructure', 'config', 'workspace', 'setup', 'ops', 'automation', 'orchestration', 'agent', 'mcp'],
+    excludeTags: ['legal', 'marketing', 'tiktok', 'design', 'blockchain', 'solidity'],
+    keywords: ['openclaw', 'config', 'workspace', 'setup', 'infrastructure', 'agent', 'automation', 'mcp'],
+    boostFactor: 0.22,
   },
   launch: {
     name: 'launch',
-    role: 'marketing',
-    expertiseTopics: ['marketing', 'content', 'tiktok', 'growth', 'launch', 'seo', 'social', 'brand', 'campaign', 'engagement'],
-    boostFactor: 0.20,
-  },
-  pixel: {
-    name: 'pixel',
-    role: 'designer',
-    expertiseTopics: ['design', 'ui', 'ux', 'palette', 'typography', 'layout', 'component', 'css', 'figma', 'responsive'],
-    boostFactor: 0.20,
+    role: 'launch',
+    description: 'Go-to-market, marketing, content strategy, TikTok, partnerships',
+    primaryTags: ['marketing', 'content', 'tiktok', 'growth', 'launch', 'seo', 'social', 'brand', 'campaign', 'engagement', 'partnership', 'uberkiwi'],
+    excludeTags: ['blockchain', 'solidity', 'security', 'devops', 'openclaw', 'ci-cd'],
+    keywords: ['launch', 'marketing', 'tiktok', 'content', 'growth', 'campaign', 'social', 'brand', 'partnership'],
+    boostFactor: 0.25,
   },
   forge: {
     name: 'forge',
     role: 'reviewer',
-    expertiseTopics: ['code-review', 'testing', 'ci-cd', 'security', 'quality', 'lint', 'coverage', 'audit', 'review'],
-    boostFactor: 0.20,
-  },
-  counsel: {
-    name: 'counsel',
-    role: 'legal',
-    expertiseTopics: ['legal', 'compliance', 'privacy', 'gdpr', 'ccpa', 'cftc', 'sec', 'tos', 'regulation', 'custody', 'gambling'],
+    description: 'Code review, CI/CD, testing, security review, quality gates',
+    primaryTags: ['code-review', 'testing', 'ci-cd', 'security', 'quality', 'lint', 'coverage', 'audit', 'review', 'pipeline', 'github-actions'],
+    excludeTags: ['marketing', 'tiktok', 'content', 'design', 'legal', 'compliance'],
+    keywords: ['review', 'test', 'ci', 'cd', 'pipeline', 'coverage', 'lint', 'security', 'quality'],
     boostFactor: 0.22,
+  },
+  pixel: {
+    name: 'pixel',
+    role: 'design',
+    description: 'UI/UX design, V0 components, color systems, typography, age-adaptive interfaces',
+    primaryTags: ['design', 'ui', 'ux', 'palette', 'typography', 'layout', 'component', 'css', 'responsive', 'v0', 'figma', 'age-adaptive'],
+    excludeTags: ['legal', 'compliance', 'blockchain', 'security', 'devops', 'cost'],
+    keywords: ['design', 'ui', 'ux', 'color', 'typography', 'component', 'layout', 'palette', 'responsive'],
+    boostFactor: 0.25,
   },
   chain: {
     name: 'chain',
     role: 'blockchain',
-    expertiseTopics: ['blockchain', 'solidity', 'on-chain', 'smart-contract', 'defi', 'web3', 'token', 'wallet', 'nft', 'ethereum'],
-    boostFactor: 0.22,
+    description: 'Solidity, on-chain scoring, DeFi, smart contracts, token mechanics',
+    primaryTags: ['blockchain', 'solidity', 'on-chain', 'smart-contract', 'defi', 'web3', 'token', 'wallet', 'nft', 'ethereum', 'scoring-contract'],
+    excludeTags: ['tiktok', 'content', 'marketing', 'design', 'mathind', 'uberkiwi'],
+    keywords: ['solidity', 'blockchain', 'on-chain', 'contract', 'token', 'defi', 'web3', 'wallet'],
+    boostFactor: 0.25,
   },
-  governor: {
-    name: 'governor',
-    role: 'enforcement',
-    expertiseTopics: ['enforcement', 'orchestration', 'safety', 'cost', 'monitoring', 'budget', 'priority', 'risk'],
-    boostFactor: 0.18,
-  },
-  scout: {
-    name: 'scout',
-    role: 'researcher',
-    expertiseTopics: ['research', 'analysis', 'competitor', 'market', 'trend', 'data', 'benchmark', 'survey'],
-    boostFactor: 0.18,
+  counsel: {
+    name: 'counsel',
+    role: 'legal',
+    description: 'CFTC/SEC compliance, gambling law, privacy, NDAs, licensing, Iowa law',
+    primaryTags: ['legal', 'compliance', 'privacy', 'gambling', 'prediction-market', 'cftc', 'sec', 'gdpr', 'ccpa', 'terms', 'nda', 'licensing', 'iowa'],
+    excludeTags: ['architecture', 'devops', 'frontend', 'design', 'content', 'tiktok', 'production'],
+    keywords: ['legal', 'compliance', 'regulation', 'gambling', 'privacy', 'cftc', 'sec', 'nda', 'license', 'iowa'],
+    boostFactor: 0.25,
   },
   gauntlet: {
     name: 'gauntlet',
-    role: 'challenge-engine',
-    expertiseTopics: ['challenge', 'scoring', 'judge', 'elo', 'leaderboard', 'mutation', 'matchmaking', 'bout', 'competition'],
-    boostFactor: 0.22,
-  },
-  distillery: {
-    name: 'distillery',
-    role: 'extractor',
-    expertiseTopics: ['extraction', 'decision', 'learning', 'retrospective', 'documentation', 'summary'],
-    boostFactor: 0.15,
+    role: 'challenge',
+    description: 'Challenge generation, difficulty profiling, CDI scoring, contamination detection',
+    primaryTags: ['challenge', 'scoring', 'judge', 'elo', 'leaderboard', 'mutation', 'matchmaking', 'bout', 'competition', 'cdi', 'difficulty'],
+    excludeTags: ['legal', 'marketing', 'tiktok', 'design', 'compliance', 'devops'],
+    keywords: ['challenge', 'scoring', 'judge', 'elo', 'leaderboard', 'bout', 'difficulty', 'mutation', 'matchmaking'],
+    boostFactor: 0.25,
   },
 };
 
 /**
  * Look up persona by agent name (case-insensitive).
- * Returns undefined if no persona is configured for this agent.
  */
 export function getPersona(agentName: string): AgentPersona | undefined {
   return AGENT_PERSONAS[agentName.toLowerCase()];
 }
-
-// Log on startup
-console.warn(`[decigraph:personas] Loaded ${Object.keys(AGENT_PERSONAS).length} agent personas`);

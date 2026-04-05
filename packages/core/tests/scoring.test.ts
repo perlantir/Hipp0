@@ -11,9 +11,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock the agentPersonas module
 vi.mock('../src/config/agentPersonas.js', () => ({
   getPersona: (name: string) => {
-    const personas: Record<string, { name: string; role: string; expertiseTopics: string[]; boostFactor: number }> = {
-      builder: { name: 'builder', role: 'builder', expertiseTopics: ['architecture', 'api', 'database'], boostFactor: 0.20 },
-      pixel: { name: 'pixel', role: 'designer', expertiseTopics: ['design', 'ui', 'ux'], boostFactor: 0.20 },
+    const personas: Record<string, { name: string; role: string; description: string; primaryTags: string[]; excludeTags: string[]; keywords: string[]; boostFactor: number }> = {
+      builder: { name: 'builder', role: 'builder', description: 'Full-stack engineering', primaryTags: ['architecture', 'api', 'database', 'hono', 'typescript'], excludeTags: ['legal', 'compliance', 'marketing'], keywords: ['build'], boostFactor: 0.25 },
+      pixel: { name: 'pixel', role: 'designer', description: 'UI/UX design', primaryTags: ['design', 'ui', 'ux'], excludeTags: ['legal', 'compliance', 'blockchain'], keywords: ['design'], boostFactor: 0.25 },
     };
     return personas[name.toLowerCase()];
   },
@@ -225,10 +225,10 @@ describe('scoreDecision — combined output', () => {
 
 describe('Scoring constants', () => {
   it('MIN_SCORE is 0.45', () => {
-    expect(MIN_SCORE).toBe(0.15);
+    expect(MIN_SCORE).toBe(0.50);
   });
 
   it('MAX_RESULTS is 25', () => {
-    expect(MAX_RESULTS).toBe(25);
+    expect(MAX_RESULTS).toBe(15);
   });
 });
