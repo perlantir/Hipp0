@@ -26,7 +26,41 @@ export function registerDecisionRoutes(app: Hono): void {
   app.post('/api/projects/:id/decisions', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
-    const body = await c.req.json<{
+    const rawBody = await c.req.json();
+
+    // Bulk import: if body is an array, create each decision and return array of results
+    if (Array.isArray(rawBody)) {
+      const results: Array<Record<string, unknown>> = [];
+      const errors: Array<{ index: number; error: string }> = [];
+      for (let i = 0; i < rawBody.length; i++) {
+        try {
+          const item = rawBody[i] as Record<string, unknown>;
+          const title = requireString(item.title, 'title', 500);
+          const description = requireString(item.description, 'description', 10000);
+          const reasoning = item.reasoning != null ? requireString(item.reasoning, 'reasoning', 10000) : description;
+          const made_by = requireString(item.made_by, 'made_by', 200);
+          const confidence = optionalString(item.confidence, 'confidence', 20) ?? 'medium';
+          const tags = item.tags ?? [];
+          const affects = item.affects ?? [];
+          const result = await db.query(
+            `INSERT INTO decisions
+             (project_id, title, description, reasoning, made_by, source, confidence, status,
+              alternatives_considered, affects, tags, assumptions, open_questions, dependencies,
+              confidence_decay_rate, metadata)
+             VALUES (?, ?, ?, ?, ?, 'manual', ?, 'active', '[]', ?, ?, '[]', '[]', '[]', 0, '{}')
+             RETURNING *`,
+            [projectId, title, description, reasoning, made_by, confidence,
+             db.arrayParam(affects as string[]), db.arrayParam(tags as string[])],
+          );
+          results.push(parseDecision(result.rows[0] as Record<string, unknown>) as unknown as Record<string, unknown>);
+        } catch (err) {
+          errors.push({ index: i, error: (err as Error).message });
+        }
+      }
+      return c.json({ created: results.length, errors, decisions: results }, 201);
+    }
+
+    const body = rawBody as {
       title?: unknown;
       description?: unknown;
       reasoning?: unknown;
@@ -45,11 +79,11 @@ export function registerDecisionRoutes(app: Hono): void {
       confidence_decay_rate?: number;
       metadata?: Record<string, unknown>;
       depends_on?: unknown[];
-    }>();
+    };
 
     const title = requireString(body.title, 'title', 500);
     const description = requireString(body.description, 'description', 10000);
-    const reasoning = requireString(body.reasoning, 'reasoning', 10000);
+    const reasoning = body.reasoning != null ? requireString(body.reasoning, 'reasoning', 10000) : description;
     const made_by = requireString(body.made_by, 'made_by', 200);
     const tags = validateTags(body.tags);
     const affects = validateAffects(body.affects);
@@ -297,7 +331,7 @@ export function registerDecisionRoutes(app: Hono): void {
 
     const title = requireString(body.title, 'title', 500);
     const description = requireString(body.description, 'description', 10000);
-    const reasoning = requireString(body.reasoning, 'reasoning', 10000);
+    const reasoning = body.reasoning != null ? requireString(body.reasoning, 'reasoning', 10000) : (body.description ? requireString(body.description, 'description', 10000) : '');
     const made_by = requireString(body.made_by, 'made_by', 200);
     const tags = validateTags(body.tags);
     const affects = validateAffects(body.affects);

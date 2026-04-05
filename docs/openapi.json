@@ -1400,7 +1400,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Create one or more decisions. Send a single object for one decision, or an array for bulk import. The reasoning field is optional (defaults to description if omitted)."
       },
       "get": {
         "tags": [
@@ -2270,11 +2271,163 @@
         },
         "responses": {
           "200": {
-            "description": "Context package",
+            "description": "Context package compiled for the agent",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContextPackage"
+                  "type": "object",
+                  "properties": {
+                    "compile_request_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Unique ID for this compilation. Use in feedback API."
+                    },
+                    "agent": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "task": {
+                      "type": "string"
+                    },
+                    "compiled_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "token_count": {
+                      "type": "integer",
+                      "description": "Tokens used by included decisions"
+                    },
+                    "budget_used_pct": {
+                      "type": "integer",
+                      "description": "Percentage of token budget consumed"
+                    },
+                    "decisions": {
+                      "type": "array",
+                      "description": "Scored decisions sorted by combined_score descending. Max 15 results.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "reasoning": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "confidence": {
+                            "type": "string"
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "affects": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "made_by": {
+                            "type": "string"
+                          },
+                          "combined_score": {
+                            "type": "number",
+                            "description": "Final score [0-1.0]. THIS is the relevance score."
+                          },
+                          "relevance_score": {
+                            "type": "number",
+                            "description": "Raw weighted signal sum before multipliers"
+                          },
+                          "freshness_score": {
+                            "type": "number",
+                            "description": "Freshness multiplier applied"
+                          },
+                          "scoring_breakdown": {
+                            "type": "object",
+                            "description": "Full scoring signal breakdown",
+                            "properties": {
+                              "direct_affect": {
+                                "type": "number"
+                              },
+                              "tag_matching": {
+                                "type": "number"
+                              },
+                              "role_relevance": {
+                                "type": "number",
+                                "description": "Persona match score"
+                              },
+                              "semantic_similarity": {
+                                "type": "number"
+                              },
+                              "keyword_score": {
+                                "type": "number"
+                              },
+                              "made_by_bonus": {
+                                "type": "number"
+                              },
+                              "exclude_penalty": {
+                                "type": "number"
+                              },
+                              "specificity_multiplier": {
+                                "type": "number"
+                              },
+                              "freshness_multiplier": {
+                                "type": "number"
+                              },
+                              "confidence_multiplier": {
+                                "type": "number"
+                              },
+                              "explanation": {
+                                "type": "string",
+                                "description": "Human-readable scoring explanation"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "decisions_considered": {
+                      "type": "integer",
+                      "description": "Total decisions scored"
+                    },
+                    "decisions_included": {
+                      "type": "integer",
+                      "description": "Decisions that passed MIN_SCORE and MAX_RESULTS"
+                    },
+                    "relevance_threshold_used": {
+                      "type": "number",
+                      "description": "MIN_SCORE value (currently 0.50)"
+                    },
+                    "compilation_time_ms": {
+                      "type": "integer"
+                    },
+                    "context_hash": {
+                      "type": "string",
+                      "description": "SHA-256 of formatted markdown"
+                    },
+                    "feedback_hint": {
+                      "type": "string",
+                      "description": "Instructions for rating this context"
+                    }
+                  }
                 }
               }
             }
