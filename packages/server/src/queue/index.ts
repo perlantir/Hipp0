@@ -65,10 +65,14 @@ let _inlineExtraction: InlineExtractionHandler | null = null;
 let _inlineIngestion: InlineIngestionHandler | null = null;
 let _inlineNotification: InlineNotificationHandler | null = null;
 
+// ── Inline stats (when no Redis) ──────────────────────────────────────────
+
+let _inlineStats = { pending: 0, completed: 0, failed: 0 };
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 export function isQueueEnabled(): boolean {
-  return extractionQueue !== null;
+  return _inlineExtraction !== null || extractionQueue !== null;
 }
 
 export function getQueues() {
@@ -89,13 +93,22 @@ export async function addExtractionJob(data: ExtractionJobData): Promise<void> {
     console.log(`[decigraph/queue] Extraction job added: source=${data.source} by=${data.made_by}`);
   } else if (_inlineExtraction) {
     // Inline fallback — process synchronously
+    _inlineStats.pending++;
     try {
       await _inlineExtraction(data);
+      _inlineStats.completed++;
     } catch (err) {
+      _inlineStats.failed++;
       console.error('[decigraph/queue] Inline extraction failed:', (err as Error).message);
     }
+    _inlineStats.pending = Math.max(0, _inlineStats.pending - 1);
   }
 }
+
+/**
+ * Unified interface for connectors — routes to queue or inline automatically.
+ */
+export const submitForExtraction = addExtractionJob;
 
 /**
  * Add a job to the ingestion queue (or process inline if no Redis).
@@ -268,7 +281,13 @@ export async function initQueues(
  */
 export async function getQueueStats(): Promise<Record<string, unknown>> {
   if (!extractionQueue || !ingestionQueue || !notificationQueue) {
-    return { enabled: false, mode: 'inline' };
+    return {
+      enabled: true,
+      mode: 'inline',
+      pending: _inlineStats.pending,
+      completed: _inlineStats.completed,
+      failed: _inlineStats.failed,
+    };
   }
 
   try {

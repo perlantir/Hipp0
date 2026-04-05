@@ -19,11 +19,12 @@ import {
 const ASK_ANYTHING_SYSTEM_PROMPT = `You are a decision memory assistant for a software development team. Given a set of relevant decisions and a question, provide a clear, helpful answer.
 
 Rules:
-- Cite specific decisions by their title
-- If decisions conflict with each other, note the contradiction explicitly
-- If the question cannot be answered from the available decisions, say so clearly
-- Be concise — 2-4 sentences for simple questions, up to a paragraph for complex ones
-- Use the team's terminology (agent names, project names, tools) naturally`;
+- Be concise: 2-4 sentences for simple questions, one paragraph max for complex ones
+- Cite specific decisions by title when referencing them
+- If decisions conflict with each other, note the contradiction
+- If the question cannot be answered from the decisions, say so clearly
+- Do NOT use markdown headers or bullet points — write natural prose
+- Use the team's terminology naturally (agent names, project names, tools)`;
 
 export function registerDistilleryRoutes(app: Hono): void {
   // POST /api/distill/ask — Ask Anything endpoint
@@ -165,7 +166,15 @@ export function registerDistilleryRoutes(app: Hono): void {
     let answer: string;
     let tokensUsed = 0;
     try {
-      answer = await callLLM(ASK_ANYTHING_SYSTEM_PROMPT, userMessage);
+      let rawAnswer = await callLLM(ASK_ANYTHING_SYSTEM_PROMPT, userMessage);
+      // Strip markdown formatting from the answer
+      rawAnswer = rawAnswer
+        .replace(/^#{1,6}\s+/gm, '')  // Remove markdown headers
+        .replace(/\*\*(.+?)\*\*/g, '$1')  // Remove bold
+        .replace(/\*(.+?)\*/g, '$1')  // Remove italic
+        .replace(/^[-*]\s+/gm, '')  // Remove bullet points
+        .trim();
+      answer = rawAnswer;
       // Rough token estimate: ~4 chars per token
       tokensUsed = Math.round((ASK_ANYTHING_SYSTEM_PROMPT.length + userMessage.length + answer.length) / 4);
     } catch (err) {

@@ -5,7 +5,7 @@
  * language, then forwards them to the extraction queue.
  */
 import TelegramBot from 'node-telegram-bot-api';
-import { addExtractionJob } from '../queue/index.js';
+import { submitForExtraction } from '../queue/index.js';
 import type { NotificationJobData } from '../queue/index.js';
 
 // ── Decision pattern matching ──────────────────────────────────────────────
@@ -78,7 +78,7 @@ export function startTelegramBot(): boolean {
     return false;
   }
 
-  _projectId = process.env.DECIGRAPH_TELEGRAM_PROJECT_ID ?? '';
+  _projectId = process.env.DECIGRAPH_TELEGRAM_PROJECT_ID ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID ?? '';
   if (!_projectId) {
     console.error('[decigraph/telegram] DECIGRAPH_TELEGRAM_PROJECT_ID required when Telegram is enabled');
     return false;
@@ -90,7 +90,7 @@ export function startTelegramBot(): boolean {
     _allowedChatIds = new Set(chatIdsStr.split(',').map((s) => s.trim()).filter(Boolean));
   }
 
-  _shouldReply = process.env.DECIGRAPH_TELEGRAM_REPLY !== 'false';
+  _shouldReply = process.env.DECIGRAPH_INGEST_REPLY_ENABLED === 'true' || process.env.DECIGRAPH_TELEGRAM_REPLY === 'true';
 
   try {
     bot = new TelegramBot(token, { polling: true });
@@ -164,7 +164,7 @@ async function handleMessage(msg: TelegramBot.Message): Promise<void> {
   // Extract agent name from username or first name
   const madeBy = msg.from?.username ?? msg.from?.first_name ?? 'unknown';
 
-  await addExtractionJob({
+  await submitForExtraction({
     raw_text: text,
     source: 'telegram',
     source_session_id: `${chatId}:${msg.message_id}`,
@@ -183,7 +183,7 @@ async function handleDecisionCommand(msg: TelegramBot.Message, decisionText: str
 
   const madeBy = msg.from?.username ?? msg.from?.first_name ?? 'unknown';
 
-  await addExtractionJob({
+  await submitForExtraction({
     raw_text: decisionText,
     source: 'telegram',
     source_session_id: `${chatId}:${msg.message_id}`,

@@ -19,7 +19,7 @@ If the message contains a decision, return ONLY valid JSON (no markdown, no back
   "alternatives_considered": [{"option": "Alternative X", "rejected_reason": "Why it was rejected"}]
 }
 
-If the message does NOT contain an actual decision (it's just discussion, a question, or brainstorming), return exactly: NO_DECISION
+If the message does NOT contain a decision, return ONLY: null
 
 Rules:
 - Not every message is a decision. Be selective.
@@ -52,7 +52,7 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
   const llmResponse = await callLLM(EXTRACTION_SYSTEM_PROMPT, userMessage);
 
   // Check if Distillery thinks this is not a decision
-  if (!llmResponse || llmResponse.trim() === 'NO_DECISION' || llmResponse.trim() === '[]') {
+  if (!llmResponse || llmResponse.trim() === 'null' || llmResponse.trim() === 'NO_DECISION' || llmResponse.trim() === '[]') {
     console.log(`[decigraph/extraction] No decision found in message from ${data.made_by}`);
     return;
   }

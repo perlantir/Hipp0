@@ -99,21 +99,14 @@ async function main() {
     handleIngestionJob,
     notificationHandler,
   );
-  console.warn(`[decigraph] Job queues: ${queueEnabled ? 'BullMQ (Redis)' : 'inline processing'}`);
+  console.warn(`[decigraph] Queue: ${queueEnabled ? 'BullMQ (Redis connected)' : 'inline mode (Redis not configured)'}`);
 
   // ── Start connectors ──────────────────────────────────────────────────
   const telegramStarted = startTelegramBot();
-  if (telegramStarted) {
-    console.warn('[decigraph] Telegram connector: active');
-  } else {
-    console.warn('[decigraph] Telegram connector: disabled (no DECIGRAPH_TELEGRAM_BOT_TOKEN)');
-  }
 
   const openclawStarted = startOpenClawWatcher();
-  if (openclawStarted) {
-    console.warn('[decigraph] OpenClaw watcher: active');
-  } else {
-    console.warn('[decigraph] OpenClaw watcher: disabled (no DECIGRAPH_OPENCLAW_PATH)');
+  if (!openclawStarted && !telegramStarted) {
+    console.warn('[decigraph] Auto-discovery: no connectors configured');
   }
 
   // Log contradiction detection

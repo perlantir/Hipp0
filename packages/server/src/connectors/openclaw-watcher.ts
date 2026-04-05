@@ -9,7 +9,7 @@
 import chokidar from 'chokidar';
 import fs from 'node:fs';
 import path from 'node:path';
-import { addExtractionJob } from '../queue/index.js';
+import { submitForExtraction } from '../queue/index.js';
 
 // Re-use the same decision patterns from telegram connector
 const DECISION_PATTERNS: RegExp[] = [
@@ -54,6 +54,7 @@ let _projectId = '';
 let _cursorPath = '';
 let _cursors: CursorData = {};
 let _filesTracked = 0;
+let _decisionsCaptured = 0;
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export function getOpenClawStatus(): Record<string, unknown> {
     watching: watcher !== null,
     path: _watchPath || null,
     files_tracked: _filesTracked,
+    decisions_captured: _decisionsCaptured,
   };
 }
 
@@ -80,6 +82,7 @@ export function startOpenClawWatcher(): boolean {
   }
 
   _projectId = process.env.DECIGRAPH_OPENCLAW_PROJECT_ID
+    ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID
     ?? process.env.DECIGRAPH_TELEGRAM_PROJECT_ID
     ?? '';
   if (!_projectId) {
@@ -92,7 +95,7 @@ export function startOpenClawWatcher(): boolean {
   loadCursors();
 
   // Watch for .jsonl files
-  const globPattern = path.join(_watchPath, '**', '*.jsonl');
+  const globPattern = path.join(_watchPath, '**', '*.{jsonl,md}');
 
   try {
     watcher = chokidar.watch(globPattern, {
@@ -217,31 +220,36 @@ async function processFile(filePath: string): Promise<void> {
   const agentName = extractAgentName(filePath);
   const lines = newContent.split('\n').filter((l) => l.trim());
   let decisionsFound = 0;
+  const isMarkdown = filePath.endsWith('.md');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    let msg: JsonlMessage;
-    try {
-      msg = JSON.parse(line) as JsonlMessage;
-    } catch {
-      continue; // Skip malformed lines
+    let textContent: string;
+
+    if (isMarkdown) {
+      // For .md files, each line is plain text
+      textContent = line;
+    } else {
+      // For .jsonl files, parse JSON and only process assistant messages
+      let msg: JsonlMessage;
+      try {
+        msg = JSON.parse(line) as JsonlMessage;
+      } catch {
+        continue; // Skip malformed lines
+      }
+      if (msg.role !== 'assistant') continue;
+      textContent = msg.content ?? msg.text ?? '';
     }
 
-    // Only process assistant messages
-    if (msg.role !== 'assistant') continue;
-
-    const content = msg.content ?? msg.text ?? '';
-    if (content.length < 50) continue;
+    if (textContent.length < 50) continue;
 
     // Check for decision language
-    if (!matchesDecisionPattern(content)) continue;
+    if (!matchesDecisionPattern(textContent)) continue;
 
-    const lineNumber = startOffset > 0
-      ? i + 1 // Relative line number for new content
-      : i + 1;
+    const lineNumber = i + 1;
 
-    await addExtractionJob({
-      raw_text: content,
+    await submitForExtraction({
+      raw_text: textContent,
       source: 'openclaw',
       source_session_id: `${key}:${lineNumber}`,
       made_by: agentName,
@@ -262,6 +270,7 @@ async function processFile(filePath: string): Promise<void> {
   saveCursors();
 
   if (decisionsFound > 0) {
+    _decisionsCaptured += decisionsFound;
     console.log(`[decigraph/openclaw] ${key}: ${decisionsFound} potential decisions found (agent=${agentName})`);
   }
 }
