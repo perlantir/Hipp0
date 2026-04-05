@@ -146,6 +146,11 @@ function finalizeResults(
     }, null, 2));
   }
 
+  // Re-clamp all scores to [0, 1.0] — catches cached results from before the cap
+  for (const d of scored) {
+    d.combined_score = Math.max(0, Math.min(1.0, d.combined_score));
+  }
+
   const filtered = scored.filter((d) => d.combined_score >= minScore);
   const deduped = deduplicateDecisions(filtered);
   const sorted = deduped.sort((a, b) => b.combined_score - a.combined_score);
@@ -601,10 +606,40 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
 
   const { agent_name, project_id, task_description, session_lookback_days = 7 } = request;
 
-  const agentResult = await db.query<Record<string, unknown>>(
+  // Agent lookup — try exact name first, then known aliases
+  const AGENT_ALIASES: Record<string, string[]> = {
+    makspm: ['pm', 'maks_pm', 'maks-pm', 'MaksPM'],
+    maks: ['builder'],
+  };
+
+  let agentResult = await db.query<Record<string, unknown>>(
     `SELECT * FROM agents WHERE project_id = ? AND name = ? LIMIT 1`,
     [project_id, agent_name],
   );
+
+  // If not found, try aliases
+  if (agentResult.rows.length === 0) {
+    const aliases = AGENT_ALIASES[agent_name.toLowerCase()] ?? [];
+    for (const alias of aliases) {
+      agentResult = await db.query<Record<string, unknown>>(
+        `SELECT * FROM agents WHERE project_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`,
+        [project_id, alias],
+      );
+      if (agentResult.rows.length > 0) {
+        console.warn(`[decigraph/compile] Agent "${agent_name}" not found, matched alias "${alias}"`);
+        break;
+      }
+    }
+  }
+
+  // Also try case-insensitive match as last resort
+  if (agentResult.rows.length === 0) {
+    agentResult = await db.query<Record<string, unknown>>(
+      `SELECT * FROM agents WHERE project_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`,
+      [project_id, agent_name],
+    );
+  }
+
   if (agentResult.rows.length === 0) {
     throw new NotFoundError('Agent', `${agent_name} in project ${project_id}`);
   }
