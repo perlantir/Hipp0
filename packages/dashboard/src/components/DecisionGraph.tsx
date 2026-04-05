@@ -406,10 +406,7 @@ export function DecisionGraph() {
           <button onClick={() => handleZoom(0.7)} className="btn-ghost p-2" title="Zoom out">
             <ZoomOut size={16} />
           </button>
-          <button onClick={handleFitView} className="btn-ghost p-2" title="Fit view">
-            <Maximize2 size={16} />
-          </button>
-          <button onClick={handleExpand} className="btn-ghost p-2" title={isExpanded ? 'Exit fullscreen' : 'Fullscreen'}>
+          <button onClick={handleExpand} className="btn-ghost p-2" title={isExpanded ? 'Exit fullscreen' : 'Expand'}>
             {isExpanded ? <X size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
