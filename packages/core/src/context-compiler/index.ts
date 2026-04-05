@@ -126,27 +126,12 @@ function deduplicateDecisions(decisions: ScoredDecision[]): ScoredDecision[] {
 function finalizeResults(
   scored: ScoredDecision[],
   agentName: string,
+  projectId: string,
+  startMs: number,
   minScore: number = MIN_SCORE,
   maxResults: number = MAX_RESULTS,
 ): ScoredDecision[] {
-  // Debug log for makspm (persistent — remove once makspm is confirmed working)
-  if (agentName === 'makspm' || agentName === 'pm') {
-    const top20 = [...scored]
-      .sort((a, b) => (b.combined_score || 0) - (a.combined_score || 0))
-      .slice(0, 20);
-    console.log('[decigraph/makspm-debug]', JSON.stringify({
-      totalScored: scored.length,
-      top20: top20.map((d) => ({
-        title: (d.title ?? '').slice(0, 60),
-        combined: d.combined_score,
-        tags: (d.tags ?? []).slice(0, 5),
-        made_by: d.made_by,
-        affects: d.affects,
-      })),
-    }, null, 2));
-  }
-
-  // Re-clamp all scores to [0, 1.0] — catches cached results from before the cap
+  // Re-clamp all scores to [0, 1.0]
   for (const d of scored) {
     d.combined_score = Math.max(0, Math.min(1.0, d.combined_score));
   }
@@ -156,21 +141,23 @@ function finalizeResults(
   const sorted = deduped.sort((a, b) => b.combined_score - a.combined_score);
   const capped = sorted.slice(0, maxResults);
 
-  // Debug log (keep permanently — invaluable for diagnosing scoring issues)
-  console.log('[decigraph/compile]', {
-    agent: agentName,
-    scored: scored.length,
-    afterThreshold: filtered.length,
-    afterDedupe: deduped.length,
-    returned: capped.length,
-    topScore: capped[0]?.combined_score ?? 0,
-    bottomScore: capped[capped.length - 1]?.combined_score ?? 0,
-  });
-
-  // Safety assertion
-  if (capped.length > maxResults) {
-    console.warn('[decigraph] MAX_RESULTS VIOLATED', { agent: agentName, count: capped.length });
+  // Normalize: map top score to 0.95, scale others proportionally
+  if (capped.length > 0) {
+    const maxScore = capped[0].combined_score;
+    if (maxScore > 0) {
+      const TARGET_MAX = 0.95;
+      const scale = TARGET_MAX / maxScore;
+      capped.forEach((d) => {
+        d.combined_score = Math.round(d.combined_score * scale * 1000) / 1000;
+      });
+    }
   }
+
+  // One-line compile trace (always-on, permanent)
+  const ms = Date.now() - startMs;
+  console.log(
+    `[decigraph/compile] agent=${agentName} project=${(projectId ?? '').slice(0, 8)}.. scored=${scored.length} passed=${capped.length} top=${(capped[0]?.combined_score ?? 0).toFixed(3)} ms=${ms}`,
+  );
 
   return capped;
 }
@@ -294,20 +281,25 @@ export function scoreDecision(
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
 
-  // ── Build explanation string ──────────────────────────────────────
-  const parts: string[] = [];
-  if (directAffectScore > 0) parts.push(`Direct affect (${(SCORING_WEIGHTS.directAffect * directAffectScore).toFixed(2)})`);
-  if (tagMatchScore > 0) parts.push(`Tag match (${(SCORING_WEIGHTS.tagMatch * tagMatchScore).toFixed(2)})`);
-  if (personaMatchScore > 0) parts.push(`Persona match (${(SCORING_WEIGHTS.personaMatch * personaMatchScore).toFixed(2)})`);
-  if (semanticScore > 0) parts.push(`Semantic sim (${(SCORING_WEIGHTS.semanticSimilarity * semanticScore).toFixed(2)})`);
-  if (keywordScore > 0) parts.push(`Keyword match (+${keywordScore.toFixed(2)})`);
-  if (madeByBonus > 0) parts.push(`Made-by bonus (+${madeByBonus.toFixed(2)})`);
-  if (excludePenalty > 0) parts.push(`Exclude penalty (-${excludePenalty.toFixed(2)})`);
-  if (Math.abs(specificityMultiplier - 1.0) > 0.001) parts.push(`Specificity (x${specificityMultiplier.toFixed(2)})`);
-  if (Math.abs(freshnessMultiplier - 1.0) > 0.001) parts.push(`Freshness (x${freshnessMultiplier.toFixed(2)})`);
-  if (Math.abs(confidenceMultiplier - 1.0) > 0.001) parts.push(`Confidence (x${confidenceMultiplier.toFixed(2)})`);
-  if (affects.includes(agentNameLower)) parts.push(`Agent bonus (+0.25)`);
-  const explanation = parts.join(' + ') + ` = ${finalScore.toFixed(3)}`;
+  // ── Build human-readable explanation ────────────────────────────────
+  const explanations: string[] = [];
+  if (directAffectScore > 0) explanations.push(`Directly affects ${agentNameLower}`);
+  if (tagMatchScore > 0) {
+    const matchedTags = decisionTags.filter((t) => profileWeights[t] !== undefined);
+    explanations.push(`Tags ${matchedTags.slice(0, 3).join(', ')} match your focus`);
+  }
+  if (personaMatchScore > 0 && persona) {
+    const matched = persona.primaryTags.filter((t) => decisionTags.includes(t));
+    explanations.push(`Persona match: ${matched.slice(0, 3).join(', ')}`);
+  }
+  if (keywordScore > 0) explanations.push(`Keyword hits in title/description`);
+  if (madeByBonus > 0) explanations.push(`Made by ${(decision.made_by ?? '').toLowerCase()} (+bonus)`);
+  if (excludePenalty > 0) explanations.push(`Cross-domain penalty (-${excludePenalty.toFixed(2)})`);
+  if (Math.abs(freshnessMultiplier - 1.0) > 0.01) {
+    explanations.push(freshnessMultiplier > 1.0 ? `Recent decision (x${freshnessMultiplier.toFixed(2)})` : `Older decision (x${freshnessMultiplier.toFixed(2)})`);
+  }
+  if (semanticScore > 0) explanations.push(`Semantic similarity (${semanticScore.toFixed(2)})`);
+  const explanation = explanations.join('. ') + '.';
 
   const statusPenaltyVal = decision.status === 'superseded' ? 0.4 : decision.status === 'pending' ? 0.6 : 1.0;
 
@@ -640,8 +632,22 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     );
   }
 
+  // Auto-create agent if not found after all lookups
   if (agentResult.rows.length === 0) {
-    throw new NotFoundError('Agent', `${agent_name} in project ${project_id}`);
+    console.warn(`[decigraph/compile] Agent "${agent_name}" not found in project ${project_id.slice(0, 8)}.. — auto-creating`);
+    const newAgent = await db.query(
+      `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens)
+       VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+      [
+        crypto.randomUUID(),
+        project_id,
+        agent_name,
+        agent_name, // role defaults to agent name
+        JSON.stringify({ weights: {}, decision_depth: 2, freshness_preference: 'balanced', include_superseded: false }),
+        50000,
+      ],
+    );
+    agentResult = newAgent;
   }
   const agent = parseAgent(agentResult.rows[0]!);
   const tokenBudget = request.max_tokens ?? agent.context_budget_tokens;
@@ -651,7 +657,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   if (cached) {
     // Apply finalizeResults even to cached data — ensures old cache entries
     // from before the cap was added don't bypass MAX_RESULTS.
-    const finalized = finalizeResults(cached.decisions as ScoredDecision[], agent_name);
+    const finalized = finalizeResults(cached.decisions as ScoredDecision[], agent_name, project_id, startMs);
     return { ...cached, decisions: finalized, decisions_included: finalized.length };
   }
 
@@ -762,7 +768,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
       .slice(0, 5)
       .map((d) => `${d.combined_score.toFixed(3)} ${(d.title ?? '').slice(0, 40)}`),
   });
-  const packedDecisions = finalizeResults(allScored, agent_name);
+  const packedDecisions = finalizeResults(allScored, agent_name, project_id, startMs);
   if (packedDecisions.length === 0 && allScored.length > 0) {
     console.warn('[decigraph/compile] WARNING: finalizeResults returned 0 but allScored had', allScored.length, 'items for agent', agent_name);
     console.warn('[decigraph/compile] Top score:', allScored[0]?.combined_score, 'MIN_SCORE:', MIN_SCORE);

@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createApp } from './app.js';
+import { logStartupDiagnostics } from './routes/status.js';
 import { initDb, closeDb } from '@decigraph/core/db/index.js';
 import { resolveLLMConfig, logLLMConfig } from '@decigraph/core';
 import path from 'node:path';
@@ -104,6 +105,8 @@ async function main() {
       console.warn(`[decigraph] Server started`);
       console.warn(`[decigraph] Listening on http://${HOST}:${info.port}`);
       console.warn(`[decigraph] Environment: ${NODE_ENV}`);
+      // Log system diagnostics after startup
+      logStartupDiagnostics().catch(() => {});
     },
   );
 

@@ -29,6 +29,7 @@ import { registerExportImportRoutes } from './routes/export-import.js';
 import { registerDocsRoutes } from './routes/docs.js';
 import { registerTimeTravelRoutes } from './routes/time-travel.js';
 import { registerReviewRoutes } from './routes/review.js';
+import { registerStatusRoutes } from './routes/status.js';
 
 export function createApp() {
   const app = new Hono();
@@ -52,7 +53,7 @@ export function createApp() {
 
   // Auth on all /api/* except /api/health, /api/docs, /api/openapi.json
   app.use('/api/*', async (c, next) => {
-    if (c.req.path === '/api/health' || c.req.path === '/api/docs' || c.req.path === '/api/openapi.json') {
+    if (c.req.path === '/api/health' || c.req.path === '/api/status' || c.req.path === '/api/docs' || c.req.path === '/api/openapi.json') {
       await next();
       return;
     }
@@ -82,6 +83,7 @@ export function createApp() {
   registerDocsRoutes(app);
   registerTimeTravelRoutes(app);
   registerReviewRoutes(app);
+  registerStatusRoutes(app);
 
   return app;
 }
