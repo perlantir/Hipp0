@@ -4,6 +4,12 @@ import { createApp } from './app.js';
 import { logStartupDiagnostics } from './routes/status.js';
 import { initDb, closeDb } from '@decigraph/core/db/index.js';
 import { resolveLLMConfig, logLLMConfig } from '@decigraph/core';
+import { initQueues, closeQueues } from './queue/index.js';
+import { handleExtractionJob } from './queue/extraction-worker.js';
+import { handleIngestionJob } from './queue/ingestion-worker.js';
+import { startTelegramBot, stopTelegramBot, handleTelegramNotification } from './connectors/telegram.js';
+import { startOpenClawWatcher, stopOpenClawWatcher } from './connectors/openclaw-watcher.js';
+import type { NotificationJobData } from './queue/index.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -79,18 +85,35 @@ async function main() {
 
   logLLMConfig(resolveLLMConfig());
 
-  // Log auto-discovery config
-  const openclawPath = process.env.DECIGRAPH_OPENCLAW_PATH;
-  const watchDir = process.env.DECIGRAPH_WATCH_DIR;
-  if (openclawPath) {
-    const interval = process.env.DECIGRAPH_DISCOVERY_INTERVAL || '30000';
-    console.warn(`[decigraph] Auto-discovery: openclaw connector watching ${openclawPath} (${parseInt(interval)/1000}s interval)`);
-  } else if (watchDir) {
-    const interval = process.env.DECIGRAPH_DISCOVERY_INTERVAL || '30000';
-    const pattern = process.env.DECIGRAPH_WATCH_PATTERN || '*.md';
-    console.warn(`[decigraph] Auto-discovery: directory connector watching ${watchDir} (${pattern}, ${parseInt(interval)/1000}s interval)`);
+  // ── Initialize job queues ──────────────────────────────────────────────
+  const notificationHandler = async (data: NotificationJobData): Promise<void> => {
+    // Route notifications to the appropriate connector
+    if (data.source === 'telegram') {
+      await handleTelegramNotification(data);
+    }
+    // Additional notification handlers (webhooks, etc.) can be added here
+  };
+
+  const queueEnabled = await initQueues(
+    handleExtractionJob,
+    handleIngestionJob,
+    notificationHandler,
+  );
+  console.warn(`[decigraph] Job queues: ${queueEnabled ? 'BullMQ (Redis)' : 'inline processing'}`);
+
+  // ── Start connectors ──────────────────────────────────────────────────
+  const telegramStarted = startTelegramBot();
+  if (telegramStarted) {
+    console.warn('[decigraph] Telegram connector: active');
   } else {
-    console.warn('[decigraph] Auto-discovery: no connectors configured (set DECIGRAPH_OPENCLAW_PATH or DECIGRAPH_WATCH_DIR)');
+    console.warn('[decigraph] Telegram connector: disabled (no DECIGRAPH_TELEGRAM_BOT_TOKEN)');
+  }
+
+  const openclawStarted = startOpenClawWatcher();
+  if (openclawStarted) {
+    console.warn('[decigraph] OpenClaw watcher: active');
+  } else {
+    console.warn('[decigraph] OpenClaw watcher: disabled (no DECIGRAPH_OPENCLAW_PATH)');
   }
 
   // Log contradiction detection
@@ -128,6 +151,11 @@ async function main() {
     shuttingDown = true;
 
     console.warn(`\n[decigraph] Received ${signal}. Shutting down gracefully...`);
+
+    // Stop connectors first
+    stopTelegramBot();
+    await stopOpenClawWatcher();
+    await closeQueues();
 
     server.close(async () => {
       console.warn('[decigraph] HTTP server closed');

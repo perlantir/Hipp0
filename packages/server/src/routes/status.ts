@@ -1,6 +1,9 @@
 import type { Hono } from 'hono';
 import { getDb } from '@decigraph/core/db/index.js';
 import { resolveLLMConfig } from '@decigraph/core/config/llm.js';
+import { getQueueStats, isQueueEnabled } from '../queue/index.js';
+import { getTelegramStatus } from '../connectors/telegram.js';
+import { getOpenClawStatus } from '../connectors/openclaw-watcher.js';
 
 export function registerStatusRoutes(app: Hono): void {
   // POST /api/cache/clear — manually flush the context cache.
@@ -52,6 +55,12 @@ export function registerStatusRoutes(app: Hono): void {
       cacheEntries = parseInt((cacheResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     } catch { /* table may not exist */ }
 
+    // Queue + connector stats
+    let queueStats: Record<string, unknown> = { enabled: false };
+    try {
+      queueStats = await getQueueStats();
+    } catch { /* ignore */ }
+
     return c.json({
       status: 'ok',
       version: '0.1.0',
@@ -64,6 +73,9 @@ export function registerStatusRoutes(app: Hono): void {
         cache_entries: cacheEntries,
         embeddings: hasEmbeddings,
         distillery: llm.distillery?.model ?? "not configured",
+        queues: queueStats,
+        telegram: getTelegramStatus(),
+        openclaw: getOpenClawStatus(),
       },
     });
   });
