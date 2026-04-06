@@ -4,6 +4,7 @@ import { X, Filter, ZoomIn, ZoomOut, Maximize2, Loader2, GitBranch, Search as Se
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { Decision, DecisionStatus, GraphNode, GraphEdge } from '../types';
+import { LinkedPRs } from './LinkedPRs';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -637,6 +638,9 @@ export function DecisionGraph() {
                   </ul>
                 </div>
               )}
+
+              {/* Linked PRs */}
+              <LinkedPRs decisionId={selectedNode.id} />
             </div>
           </div>
         </aside>
