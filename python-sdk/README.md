@@ -1,6 +1,6 @@
 # decigraph-sdk
 
-Official Python SDK for the [DeciGraph](https://github.com/nexus-platform/nexus) multi-agent memory and decision platform.
+Official Python SDK for the [DeciGraph](https://github.com/perlantir/DeciGraph) multi-agent memory and decision platform.
 
 ## Installation
 
