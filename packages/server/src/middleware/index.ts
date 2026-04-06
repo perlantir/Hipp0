@@ -4,15 +4,14 @@ import { DeciGraphError } from '@decigraph/core/types.js';
 import { getDb } from '@decigraph/core/db/index.js';
 import crypto from 'node:crypto';
 
-// API key cached at startup — never re-read per request
-const DECIGRAPH_API_KEY: string | undefined = process.env.DECIGRAPH_API_KEY;
+// Legacy API key — kept for backward compat (step 5 in auth flow)
+const LEGACY_API_KEY: string | undefined = process.env.DECIGRAPH_API_KEY;
 function isDev(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
 
-if (!DECIGRAPH_API_KEY) {
-  console.warn('[decigraph] WARNING: DECIGRAPH_API_KEY is not set — running in unauthenticated dev mode');
-}
+// Auth-disabled flag: log warning ONCE
+let authDisabledWarned = false;
 
 // Timing-safe comparison that handles length mismatches without leaking length info.
 // Both buffers are padded to the longer length before comparison; original lengths
@@ -142,18 +141,40 @@ export const corsMiddleware: MiddlewareHandler = createMiddleware(async (c, next
   await next();
 });
 
+// Public routes that never require auth
+const PUBLIC_ROUTES = new Set([
+  '/api/health',
+  '/health',
+  '/api/docs',
+  '/api/openapi.json',
+  '/api/metrics',
+  '/api/health/ready',
+  '/api/health/live',
+]);
+
 // Auth Middleware
-// Only /api/health is exempt. Everything else requires a valid Bearer token.
+// 1. Public route? pass through
+// 2. DECIGRAPH_AUTH_DISABLED=true? pass through with warning
+// 3. Extract Bearer token → no header? 401
+// 4. Hash token, look up in api_keys table (not revoked, not expired)
+// 5. Not in DB? Check legacy DECIGRAPH_API_KEY env var
+// 6. Nothing matches? 401
+// 7. Found? Update last_used_at, attach project_id, pass through
 export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   const path = new URL(c.req.url).pathname;
 
-  if (path === '/api/health') {
+  // Step 1: Public routes pass through
+  if (PUBLIC_ROUTES.has(path)) {
     await next();
     return;
   }
 
-  // Dev mode without a key set: skip auth entirely
-  if (isDev() && !DECIGRAPH_API_KEY) {
+  // Step 2: Auth explicitly disabled (local dev only)
+  if (process.env.DECIGRAPH_AUTH_DISABLED === 'true') {
+    if (!authDisabledWarned) {
+      authDisabledWarned = true;
+      console.warn('[decigraph] \u26a0\ufe0f AUTH DISABLED \u2014 set DECIGRAPH_AUTH_DISABLED=false for production');
+    }
     await next();
     return;
   }
@@ -171,29 +192,50 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     return c.json({ error: { code: 'UNAUTHORIZED', message } }, 401);
   };
 
-  if (!authHeader) {
-    return fail('Authorization header required');
-  }
-
-  if (!authHeader.startsWith('Bearer ')) {
-    return fail('Bearer token required');
+  // Step 3: Extract Bearer token
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return fail('Missing API key');
   }
 
   const token = authHeader.slice(7);
 
-  if (!DECIGRAPH_API_KEY) {
-    // Key required in production but not set — reject
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } }, 500);
+  // Step 4: Hash token, look up in api_keys table
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  try {
+    const db = getDb();
+    const result = await db.query(
+      `SELECT id, project_id FROM api_keys
+       WHERE key_hash = ?
+         AND (expires_at IS NULL OR expires_at > NOW())`,
+      [tokenHash],
+    );
+
+    if (result.rows.length > 0) {
+      const row = result.rows[0] as Record<string, unknown>;
+      // Step 7: Update last_used_at, attach project_id
+      db.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = ?', [row.id]).catch(() => {});
+      if (row.project_id) {
+        c.set('projectId', row.project_id as string);
+      }
+      await next();
+      return;
+    }
+  } catch {
+    // api_keys table may not exist yet — fall through to legacy check
   }
 
-  const tokenBuf = Buffer.from(token, 'utf8');
-  const keyBuf = Buffer.from(DECIGRAPH_API_KEY, 'utf8');
-
-  if (!safeEqual(tokenBuf, keyBuf)) {
-    return fail('Invalid API key');
+  // Step 5: Check legacy DECIGRAPH_API_KEY env var
+  if (LEGACY_API_KEY) {
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const keyBuf = Buffer.from(LEGACY_API_KEY, 'utf8');
+    if (safeEqual(tokenBuf, keyBuf)) {
+      await next();
+      return;
+    }
   }
 
-  await next();
+  // Step 6: Nothing matches
+  return fail('Invalid API key');
 });
 
 // Audit Middleware — async fire-and-forget after response is sent
