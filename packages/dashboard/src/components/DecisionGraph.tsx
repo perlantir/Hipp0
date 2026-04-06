@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { X, Filter, ZoomIn, ZoomOut, Maximize2, Loader2, GitBranch } from 'lucide-react';
+import { X, Filter, ZoomIn, ZoomOut, Maximize2, Loader2, GitBranch, Search as SearchIcon, ChevronDown } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { Decision, DecisionStatus, GraphNode, GraphEdge } from '../types';
@@ -51,6 +51,8 @@ export function DecisionGraph() {
     new Set(['active', 'superseded', 'reverted', 'pending']),
   );
   const [showFilters, setShowFilters] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [filterAgent, setFilterAgent] = useState<string>('');
 
   /* ---- Fetch data ------------------------------------------------ */
   useEffect(() => {
@@ -77,13 +79,21 @@ export function DecisionGraph() {
     };
   }, [get, projectId]);
 
-  /* ---- All tags -------------------------------------------------- */
+  /* ---- All tags & agents ------------------------------------------ */
   const allTags = Array.from(new Set(decisions.flatMap((d) => d.tags)));
+  const allAgents = Array.from(new Set(decisions.map((d) => d.made_by).filter(Boolean)));
 
   /* ---- Filter decisions ------------------------------------------ */
   const filtered = decisions.filter((d) => {
     if (!filterStatus.has(d.status)) return false;
     if (filterTag && !d.tags.includes(filterTag)) return false;
+    if (filterAgent && d.made_by !== filterAgent) return false;
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      const matchTitle = d.title.toLowerCase().includes(q);
+      const matchDesc = (d.description || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc) return false;
+    }
     return true;
   });
 
@@ -386,9 +396,30 @@ export function DecisionGraph() {
     <div className="flex flex-col md:flex-row h-full">
       {/* Graph area */}
       <div className={`flex-1 relative min-h-[400px] ${isExpanded ? 'fixed inset-0 z-50 bg-[var(--bg-primary)]' : ''}`} ref={containerRef}>
-        {/* Toolbar */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-          <h1 className="text-lg font-semibold mr-2">Decision Graph</h1>
+        {/* Filter bar */}
+        <div className="absolute top-4 left-4 right-16 z-10 flex items-center gap-2 flex-wrap">
+          <h1 className="text-lg font-semibold mr-1 shrink-0">Decision Graph</h1>
+          <div className="relative flex-1 min-w-[140px] max-w-[260px]">
+            <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Search decisions…"
+              className="input text-xs w-full pl-8 py-1.5"
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={filterAgent}
+              onChange={(e) => setFilterAgent(e.target.value)}
+              className="input text-xs appearance-none pr-7 py-1.5"
+            >
+              <option value="">All agents</option>
+              {allAgents.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn-secondary text-xs gap-1.5"
@@ -400,28 +431,13 @@ export function DecisionGraph() {
 
         {/* Zoom controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-          <button
-            onClick={() => handleZoom(1.3)}
-            onTouchEnd={(e) => { e.preventDefault(); handleZoom(1.3); }}
-            className="btn-ghost p-2 touch-target"
-            title="Zoom in"
-          >
+          <button onClick={() => handleZoom(1.3)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(1.3); }} className="btn-ghost p-2 touch-target" title="Zoom in">
             <ZoomIn size={16} />
           </button>
-          <button
-            onClick={() => handleZoom(0.7)}
-            onTouchEnd={(e) => { e.preventDefault(); handleZoom(0.7); }}
-            className="btn-ghost p-2 touch-target"
-            title="Zoom out"
-          >
+          <button onClick={() => handleZoom(0.7)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(0.7); }} className="btn-ghost p-2 touch-target" title="Zoom out">
             <ZoomOut size={16} />
           </button>
-          <button
-            onClick={handleExpand}
-            onTouchEnd={(e) => { e.preventDefault(); handleExpand(); }}
-            className="btn-ghost p-2 touch-target"
-            title={isExpanded ? 'Exit fullscreen' : 'Expand'}
-          >
+          <button onClick={handleExpand} onTouchEnd={(e) => { e.preventDefault(); handleExpand(); }} className="btn-ghost p-2 touch-target" title={isExpanded ? 'Exit fullscreen' : 'Expand'}>
             {isExpanded ? <X size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>

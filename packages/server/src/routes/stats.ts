@@ -185,6 +185,48 @@ export function registerStatsRoutes(app: Hono): void {
     });
   });
 
+  // Usage endpoint — daily decisions & compiles for last 30 days
+  app.get('/api/projects/:id/usage', async (c) => {
+    const db = getDb();
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+
+    const [decisionsDaily, compilesDaily, compileTotalResult] = await Promise.all([
+      db.query(
+        `SELECT DATE(created_at) as date, COUNT(*) as count
+         FROM decisions WHERE project_id = ?
+         AND created_at >= DATE('now', '-30 days')
+         GROUP BY DATE(created_at) ORDER BY date ASC`,
+        [projectId],
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT DATE(created_at) as date, COUNT(*) as count
+         FROM compile_history WHERE project_id = ?
+         AND created_at >= DATE('now', '-30 days')
+         GROUP BY DATE(created_at) ORDER BY date ASC`,
+        [projectId],
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        'SELECT COUNT(*) AS count FROM compile_history WHERE project_id = ?',
+        [projectId],
+      ).catch(() => ({ rows: [{ count: 0 }] })),
+    ]);
+
+    const toSeries = (rows: unknown[]) =>
+      rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return { date: String(row.date ?? ''), count: parseInt(String(row.count ?? '0'), 10) };
+      });
+
+    return c.json({
+      daily_decisions: toSeries(decisionsDaily.rows),
+      daily_compiles: toSeries(compilesDaily.rows),
+      total_compiles: parseInt(
+        String((compileTotalResult.rows[0] as Record<string, unknown>).count ?? '0'),
+        10,
+      ),
+    });
+  });
+
   // Project Graph (all decisions + edges)
 
   app.get('/api/projects/:id/graph', async (c) => {
