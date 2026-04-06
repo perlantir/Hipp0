@@ -67,6 +67,13 @@ export function Contradictions() {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Flag contradiction modal state
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagDecisionA, setFlagDecisionA] = useState('');
+  const [flagDecisionB, setFlagDecisionB] = useState('');
+  const [flagDescription, setFlagDescription] = useState('');
+  const [flagSubmitting, setFlagSubmitting] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -166,6 +173,27 @@ export function Contradictions() {
     }
   }
 
+  async function handleFlagContradiction() {
+    if (!flagDecisionA || !flagDecisionB || !flagDescription) return;
+    setFlagSubmitting(true);
+    try {
+      const created = await post<Contradiction>(`/api/projects/${projectId}/contradictions`, {
+        decision_a_id: flagDecisionA,
+        decision_b_id: flagDecisionB,
+        conflict_description: flagDescription,
+      });
+      setContradictions((prev) => [...prev, created]);
+      setShowFlagModal(false);
+      setFlagDecisionA('');
+      setFlagDecisionB('');
+      setFlagDescription('');
+    } catch {
+      // silent
+    } finally {
+      setFlagSubmitting(false);
+    }
+  }
+
   /* ---- Decision card helper -------------------------------------- */
 
   function DecisionCard({
@@ -233,34 +261,6 @@ export function Contradictions() {
         </div>
       </div>
     );
-  }
-
-  // Flag contradiction modal state
-  const [showFlagModal, setShowFlagModal] = useState(false);
-  const [flagDecisionA, setFlagDecisionA] = useState('');
-  const [flagDecisionB, setFlagDecisionB] = useState('');
-  const [flagDescription, setFlagDescription] = useState('');
-  const [flagSubmitting, setFlagSubmitting] = useState(false);
-
-  async function handleFlagContradiction() {
-    if (!flagDecisionA || !flagDecisionB || !flagDescription) return;
-    setFlagSubmitting(true);
-    try {
-      const created = await post<Contradiction>(`/api/projects/${projectId}/contradictions`, {
-        decision_a_id: flagDecisionA,
-        decision_b_id: flagDecisionB,
-        conflict_description: flagDescription,
-      });
-      setContradictions((prev) => [...prev, created]);
-      setShowFlagModal(false);
-      setFlagDecisionA('');
-      setFlagDecisionB('');
-      setFlagDescription('');
-    } catch {
-      // silent
-    } finally {
-      setFlagSubmitting(false);
-    }
   }
 
   const unresolvedCritical = (contradictions ?? []).filter(
