@@ -15,7 +15,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const subscribersRef = useRef<Map<string, Set<EventCallback>>>(new Map());
   const retryRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const getWsUrl = useCallback(() => {
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;

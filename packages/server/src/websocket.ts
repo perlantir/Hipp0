@@ -13,8 +13,8 @@ import { randomUUID } from 'node:crypto';
 
 let wss: WebSocketServer | null = null;
 
-export function initWebSocket(server: Server): void {
-  wss = new WebSocketServer({ server, path: '/ws' });
+export function initWebSocket(server: unknown): void {
+  wss = new WebSocketServer({ server: server as Server, path: '/ws' });
 
   wss.on('connection', (ws) => {
     const connectionId = randomUUID();
