@@ -1,0 +1,78 @@
+/**
+ * Bootstrap API Keys — on every startup, generate a default key for any
+ * project that has zero active (non-revoked, non-expired) API keys.
+ * The full key is logged once to stdout; only the SHA-256 hash is persisted.
+ */
+import { getDb } from '@decigraph/core/db/index.js';
+import crypto from 'node:crypto';
+
+const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
+const DEFAULT_USER_ID = 'a0000000-0000-4000-8000-000000000001';
+
+export function generateApiKey(): { key: string; prefix: string; hash: string } {
+  const randomPart = crypto.randomBytes(32).toString('hex');
+  const prefix = 'dg_live_';
+  const key = `${prefix}${randomPart}`;
+  const hash = crypto.createHash('sha256').update(key).digest('hex');
+  return { key, prefix, hash };
+}
+
+export async function bootstrapApiKeys(): Promise<void> {
+  const db = getDb();
+
+  // Check if api_keys table exists
+  try {
+    await db.query('SELECT 1 FROM api_keys LIMIT 0', []);
+  } catch {
+    console.warn('[decigraph] api_keys table does not exist yet — skipping key bootstrap');
+    return;
+  }
+
+  // Get all projects
+  let projects: Array<Record<string, unknown>>;
+  try {
+    const result = await db.query('SELECT id, name FROM projects', []);
+    projects = result.rows as Array<Record<string, unknown>>;
+  } catch {
+    console.warn('[decigraph] projects table does not exist yet — skipping key bootstrap');
+    return;
+  }
+
+  if (projects.length === 0) {
+    return;
+  }
+
+  for (const project of projects) {
+    const projectId = project.id as string;
+    const projectName = project.name as string;
+
+    // Check for existing active keys for this project
+    const existing = await db.query(
+      `SELECT id FROM api_keys
+       WHERE project_id = ?
+         AND (expires_at IS NULL OR expires_at > NOW())`,
+      [projectId],
+    );
+
+    if (existing.rows.length > 0) {
+      continue; // already has active keys
+    }
+
+    // Generate a new key
+    const { key, prefix, hash } = generateApiKey();
+
+    await db.query(
+      `INSERT INTO api_keys (tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [DEFAULT_TENANT_ID, projectId, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
+    );
+
+    console.log('============================================================');
+    console.log(`\ud83d\udd11 API Key generated for project "${projectName}"`);
+    console.log(`   Key: ${key}`);
+    console.log('');
+    console.log('   Save this key now \u2014 it will NOT be shown again.');
+    console.log('   Use it in the dashboard login and API requests.');
+    console.log('============================================================');
+  }
+}

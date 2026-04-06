@@ -3,6 +3,7 @@ import { getDb } from '@decigraph/core/db/index.js';
 import { parseProject } from '@decigraph/core/db/parsers.js';
 import { NotFoundError } from '@decigraph/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
+import { generateApiKey } from '../bootstrap-keys.js';
 
 export function registerProjectRoutes(app: Hono): void {
   app.post('/api/projects', async (c) => {
@@ -23,7 +24,36 @@ export function registerProjectRoutes(app: Hono): void {
          RETURNING *`,
         [name, description ?? null, JSON.stringify(body.metadata ?? {})],
       );
-      return c.json(parseProject(result.rows[0] as Record<string, unknown>), 201);
+      const project = parseProject(result.rows[0] as Record<string, unknown>);
+
+      // Auto-generate a default API key for the new project
+      let apiKey: string | undefined;
+      try {
+        const { key, prefix, hash } = generateApiKey();
+        const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
+        const DEFAULT_USER_ID = 'a0000000-0000-4000-8000-000000000001';
+        await db.query(
+          `INSERT INTO api_keys (tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [DEFAULT_TENANT_ID, project.id, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
+        );
+        apiKey = key;
+
+        console.log('============================================================');
+        console.log(`\ud83d\udd11 API Key generated for project "${name}"`);
+        console.log(`   Key: ${key}`);
+        console.log('');
+        console.log('   Save this key now \u2014 it will NOT be shown again.');
+        console.log('   Use it in the dashboard login and API requests.');
+        console.log('============================================================');
+      } catch {
+        // api_keys table may not exist yet — project still created successfully
+      }
+
+      return c.json({
+        ...project,
+        ...(apiKey ? { api_key: apiKey, api_key_warning: 'Save this key now. It cannot be retrieved again.' } : {}),
+      }, 201);
     } catch (err) {
       mapDbError(err);
     }
