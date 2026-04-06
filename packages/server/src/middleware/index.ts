@@ -98,6 +98,14 @@ export const requestTimer: MiddlewareHandler = createMiddleware(async (c, next) 
   c.header('X-Response-Time', `${Date.now() - start}ms`);
 });
 
+// X-Request-Id middleware — generate UUID, attach to req context, include in response header
+export const requestId: MiddlewareHandler = createMiddleware(async (c, next) => {
+  const id = c.req.header('X-Request-Id') || crypto.randomUUID();
+  c.set('requestId', id);
+  await next();
+  c.header('X-Request-Id', id);
+});
+
 // CORS Middleware — Phase 3: includes decigraph.ai + localhost:3200 by default
 export const corsMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   const origin = c.req.header('Origin') ?? '';

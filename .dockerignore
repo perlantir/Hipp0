@@ -1,6 +1,7 @@
 .env
 .env.*
 .git
+.claude
 node_modules
 dist
 *.md
@@ -15,3 +16,7 @@ docs
 scripts
 integrations
 python-sdk
+backups
+.vscode
+.idea
+*.log

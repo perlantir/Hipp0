@@ -2,11 +2,20 @@ import type { Hono } from 'hono';
 import { getDb } from '@decigraph/core/db/index.js';
 import { parseDecision, parseEdge, parseAuditEntry } from '@decigraph/core/db/parsers.js';
 import { requireUUID } from './validation.js';
+import { cache, projectStatsKey, CACHE_TTL } from '../cache/redis.js';
 
 export function registerStatsRoutes(app: Hono): void {
   app.get('/api/projects/:id/stats', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+
+    // Check cache first
+    const cachedStats = await cache.get(projectStatsKey(projectId));
+    if (cachedStats) {
+      try {
+        return c.json(JSON.parse(cachedStats));
+      } catch { /* proceed with fresh query */ }
+    }
 
     const [
       decisionsResult,
@@ -97,7 +106,7 @@ export function registerStatsRoutes(app: Hono): void {
     const compileCount = parseInt((compileHistoryResult.rows[0] as Record<string, unknown>).count as string ?? '0', 10);
     const feedbackPerCompile = compileCount > 0 ? Math.round((feedbackCount / compileCount) * 10) / 10 : 0;
 
-    return c.json({
+    const statsResponse = {
       total_decisions: parseInt(d.total as string, 10),
       active_decisions: parseInt(d.active as string, 10),
       superseded_decisions: parseInt(d.superseded as string, 10),
@@ -182,7 +191,12 @@ export function registerStatsRoutes(app: Hono): void {
           count: parseInt(row.count as string ?? '0', 10),
         };
       }),
-    });
+    };
+
+    // Cache stats
+    cache.set(projectStatsKey(projectId), JSON.stringify(statsResponse), CACHE_TTL.PROJECT_STATS).catch(() => {});
+
+    return c.json(statsResponse);
   });
 
   // Usage endpoint — daily decisions & compiles for last 30 days
