@@ -11,6 +11,7 @@ import { getDb } from '@decigraph/core/db/index.js';
 import { compileContext } from '@decigraph/core/context-compiler/index.js';
 import type { CompileRequest } from '@decigraph/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
+import { broadcast } from '../websocket.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -111,6 +112,14 @@ export function registerCompileRoutes(app: Hono): void {
       task_hash: taskHash,
       raw_tasks_stored: storeRawTasks,
     } : undefined;
+
+    // ── Broadcast compile completion ──────────────────────────────────
+    broadcast('compile_completed', {
+      compile_request_id: compileRequestId,
+      project_id,
+      agent_name,
+      decisions_included: result.decisions_included,
+    });
 
     // ── Response ─────────────────────────────────────────────────────
     console.log("[decigraph/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });

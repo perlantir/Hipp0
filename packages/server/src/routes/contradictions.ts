@@ -3,6 +3,7 @@ import { getDb } from '@decigraph/core/db/index.js';
 import { parseContradiction } from '@decigraph/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
 import { requireUUID, optionalString } from './validation.js';
+import { broadcast } from '../websocket.js';
 
 export function registerContradictionRoutes(app: Hono): void {
   app.get('/api/projects/:id/contradictions', async (c) => {
@@ -45,6 +46,8 @@ export function registerContradictionRoutes(app: Hono): void {
     );
 
     if (result.rows.length === 0) throw new NotFoundError('Contradiction', id);
-    return c.json(parseContradiction(result.rows[0] as Record<string, unknown>));
+    const contradiction = parseContradiction(result.rows[0] as Record<string, unknown>);
+    broadcast('contradiction_detected', { id: contradiction.id, status: statusVal });
+    return c.json(contradiction);
   });
 }
