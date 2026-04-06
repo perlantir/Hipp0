@@ -55,6 +55,8 @@ import {
   X,
   ClipboardCheck,
   Activity,
+  CreditCard,
+  Crown,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -76,6 +78,8 @@ import { TokenUsage } from './components/TokenUsage';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
+import { Pricing } from './components/Pricing';
+import { BillingSettings } from './components/BillingSettings';
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -119,7 +123,9 @@ type View =
   | 'wizard'
   | 'compile-tester'
   | 'ask-anything'
-  | 'token-usage';
+  | 'token-usage'
+  | 'pricing'
+  | 'billing';
 
 interface NavItem {
   id: View;
@@ -131,7 +137,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -158,6 +164,8 @@ function ViewContent({ view }: { view: View }) {
     case 'compile-tester': return <CompileTester />;
     case 'ask-anything': return <AskAnything />;
     case 'token-usage': return <TokenUsage />;
+    case 'pricing': return <Pricing />;
+    case 'billing': return <BillingSettings />;
     default: return <DecisionGraph />;
   }
 }
@@ -293,6 +301,8 @@ export default function App() {
     { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
+    { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
+    { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
   ];
 
   // Command palette items
