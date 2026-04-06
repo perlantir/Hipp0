@@ -11,6 +11,7 @@ import { startTelegramBot, stopTelegramBot, handleTelegramNotification } from '.
 import { startOpenClawWatcher, stopOpenClawWatcher } from './connectors/openclaw-watcher.js';
 import { registerGitHubWebhook } from './connectors/github.js';
 import { startDiscordBot, stopDiscordBot } from './connectors/discord.js';
+import { initWebSocket } from './websocket.js';
 import type { NotificationJobData } from './queue/index.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -163,6 +164,9 @@ async function main() {
       logStartupDiagnostics().catch(() => {});
     },
   );
+
+  // Attach WebSocket server to the HTTP server
+  initWebSocket(server);
 
   let shuttingDown = false;
 

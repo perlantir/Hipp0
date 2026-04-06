@@ -73,7 +73,12 @@ import { TimeTravelView } from './components/TimeTravelView';
 import { CompileTester } from './components/CompileTester';
 import { AskAnything } from './components/AskAnything';
 import { TokenUsage } from './components/TokenUsage';
+import { ConnectionStatus } from './components/ConnectionStatus';
+import { CommandPalette } from './components/CommandPalette';
+import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { useApi } from './hooks/useApi';
+import { useWebSocket } from './hooks/useWebSocket';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 /* ------------------------------------------------------------------ */
 /*  Project context                                                    */
@@ -256,10 +261,12 @@ function SidebarContent({
 
 export default function App() {
   const { get } = useApi();
+  const { connected } = useWebSocket();
 
   const [view, setView] = useState<View>(getViewFromHash);
   const [projectId, setProjectId] = useState('default');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // First-run detection
   const [showWizard, setShowWizard] = useState(false);
@@ -287,6 +294,14 @@ export default function App() {
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
   ];
+
+  // Command palette items
+  const commandItems = navItems.map((item, i) => ({
+    id: item.id,
+    label: item.label,
+    group: item.group,
+    shortcut: i < 9 ? String(i + 1) : undefined,
+  }));
 
   /* ---- Check for first run -------------------------------------- */
   useEffect(() => {
@@ -330,6 +345,18 @@ export default function App() {
     setView(v);
     setMenuOpen(false);
   }, []);
+
+  // Keyboard shortcuts (after navigate is defined)
+  useKeyboardShortcuts({
+    onCommandPalette: () => setCommandPaletteOpen((o) => !o),
+    onEscape: () => {
+      setCommandPaletteOpen(false);
+      setMenuOpen(false);
+    },
+    onNavigate: (index) => {
+      if (index < navItems.length) navigate(navItems[index].id);
+    },
+  });
 
   /* ---- Touch gestures: swipe from left edge to open menu -------- */
   useEffect(() => {
@@ -379,6 +406,14 @@ export default function App() {
   /* ---- Main dashboard ------------------------------------------ */
   return (
     <ProjectContext.Provider value={{ projectId, setProjectId }}>
+      {/* Command Palette */}
+      <CommandPalette
+        items={commandItems}
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onSelect={(id) => navigate(id as View)}
+      />
+
       {/* Mobile top bar */}
       <header
         className="sticky top-0 z-30 flex items-center h-14 px-4 border-b md:hidden top-bar"
@@ -387,7 +422,8 @@ export default function App() {
         <button onClick={() => setMenuOpen(true)} className="p-2 -ml-2 touch-target">
           <Menu className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
         </button>
-        <span className="ml-3 font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>DeciGraph</span>
+        <span className="ml-3 font-semibold text-lg flex-1" style={{ color: 'var(--text-primary)' }}>DeciGraph</span>
+        <ConnectionStatus status={connected} />
       </header>
 
       {/* Mobile overlay */}
@@ -418,6 +454,36 @@ export default function App() {
           className="flex-1 overflow-y-auto md:ml-[260px]"
           style={{ background: 'var(--bg-primary)' }}
         >
+          {/* Desktop connection status + shortcuts hint */}
+          <div
+            className="hidden md:flex items-center justify-end gap-4 px-6 py-2 text-xs"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <ConnectionStatus status={connected} />
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="command-palette-trigger"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border-light)',
+                background: 'var(--bg-card)', cursor: 'pointer', fontSize: 12,
+                color: 'var(--text-tertiary)', fontFamily: 'var(--font-body)',
+              }}
+            >
+              <SearchIcon size={12} />
+              <span>Search</span>
+              <kbd style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10, padding: '1px 4px',
+                background: 'var(--bg-secondary)', borderRadius: 3,
+                border: '1px solid var(--border-light)',
+              }}>
+                Ctrl+K
+              </kbd>
+            </button>
+          </div>
+
+          <OnboardingChecklist onNavigate={(v) => navigate(v as View)} />
+
           <ErrorBoundary viewKey={view}>
             <div className="page-enter">
               <ViewContent view={view} />
