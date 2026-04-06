@@ -19,6 +19,7 @@ import {
   logAudit,
   generateEmbedding,
 } from './validation.js';
+import { broadcast } from '../websocket.js';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -148,6 +149,8 @@ export function registerDecisionRoutes(app: Hono): void {
         title: decision.title,
         made_by: decision.made_by,
       }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+
+      broadcast('decision_created', { id: decision.id, title: decision.title, project_id: projectId });
 
       checkForContradictions(decision).catch((err) =>
         console.error('[decigraph] Contradiction check failed:', (err as Error).message),
@@ -311,6 +314,8 @@ export function registerDecisionRoutes(app: Hono): void {
     propagateChange(decision, 'decision_updated').catch((err) =>
       console.error('[decigraph] Change propagation failed:', (err as Error).message),
     );
+
+    broadcast('decision_updated', { id: decision.id, title: decision.title, project_id: decision.project_id });
 
     return c.json(decision);
   });
