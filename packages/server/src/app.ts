@@ -39,6 +39,8 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
+import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
+import { tierEnforcement } from './middleware/tierEnforcement.js';
 
 export function createApp() {
   const app = new Hono();
@@ -81,7 +83,8 @@ export function createApp() {
       path.startsWith('/api/team/invite/') ||
       path === '/api/webhooks/github' ||
       path === '/api/webhooks/slack/events' ||
-      path === '/api/webhooks/slack/commands'
+      path === '/api/webhooks/slack/commands' ||
+      path === '/api/webhooks/stripe'
     ) {
       await next();
       return;
@@ -114,6 +117,9 @@ export function createApp() {
       });
     }
   });
+
+  // ── Phase 6: Tier enforcement (after auth, before routes) ──────────
+  app.use('/api/*', tierEnforcement());
 
   // Health
   app.get('/api/health', (c) => {
@@ -149,6 +155,10 @@ export function createApp() {
   registerPhase2EdgeRoutes(app);
   registerImpactRoutes(app);
   registerSlackConnector(app);
+
+  // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
+  registerBillingRoutes(app);
+  registerStripeWebhookRoute(app);
 
   return app;
 }
