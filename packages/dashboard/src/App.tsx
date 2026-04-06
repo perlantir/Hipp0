@@ -60,6 +60,7 @@ import {
   Crown,
   Sun,
   Moon,
+  Key,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -83,7 +84,9 @@ import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
-import { useApi } from './hooks/useApi';
+import { ApiKeys } from './components/ApiKeys';
+import { Login } from './components/Login';
+import { useApi, getStoredApiKey } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -128,7 +131,8 @@ type View =
   | 'ask-anything'
   | 'token-usage'
   | 'pricing'
-  | 'billing';
+  | 'billing'
+  | 'api-keys';
 
 interface NavItem {
   id: View;
@@ -140,7 +144,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','api-keys'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -169,6 +173,7 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
+    case 'api-keys': return <ApiKeys />;
     default: return <DecisionGraph />;
   }
 }
@@ -303,6 +308,9 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
+  // Auth state — show login if no API key in localStorage
+  const [hasApiKey, setHasApiKey] = useState(() => !!getStoredApiKey());
+
   // First-run detection
   const [showWizard, setShowWizard] = useState(false);
   const [projectsChecked, setProjectsChecked] = useState(false);
@@ -330,6 +338,7 @@ export default function App() {
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
     { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
+    { id: 'api-keys', label: 'API Keys', icon: <Key size={18} />, group: 'settings' },
   ];
 
   // Command palette items
@@ -416,6 +425,17 @@ export default function App() {
     setProjectId(newProjectId);
     setShowWizard(false);
     navigate('graph');
+  }
+
+  /* ---- Login screen --------------------------------------------- */
+  if (!hasApiKey) {
+    return (
+      <ThemeContext.Provider value={themeCtx}>
+      <ProjectContext.Provider value={{ projectId, setProjectId }}>
+        <Login onLogin={() => setHasApiKey(true)} />
+      </ProjectContext.Provider>
+      </ThemeContext.Provider>
+    );
   }
 
   /* ---- Loading -------------------------------------------------- */

@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { initCache, cache } from './cache/redis.js';
+import { bootstrapApiKeys } from './lib/bootstrap-keys.js';
 
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -102,6 +103,9 @@ async function main() {
       console.warn(`[decigraph] Cleared ${deleted} stale context_cache entries on startup`);
     }
   } catch { /* table may not exist yet */ }
+
+  // Bootstrap API keys for projects that have none
+  await bootstrapApiKeys();
 
   logLLMConfig(resolveLLMConfig());
 
