@@ -60,6 +60,7 @@ import {
   Crown,
   Sun,
   Moon,
+  ClipboardList,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -83,6 +84,10 @@ import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
+import { ReviewQueue } from './components/ReviewQueue';
+import { MonitoringCards } from './components/MonitoringCards';
+import { ToastProvider } from './components/Toast';
+import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -128,7 +133,8 @@ type View =
   | 'ask-anything'
   | 'token-usage'
   | 'pricing'
-  | 'billing';
+  | 'billing'
+  | 'review-queue';
 
 interface NavItem {
   id: View;
@@ -140,7 +146,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','review-queue'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -169,6 +175,7 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
+    case 'review-queue': return <ReviewQueue />;
     default: return <DecisionGraph />;
   }
 }
@@ -309,6 +316,10 @@ export default function App() {
 
   // Badge counts
   const [unresolvedCount, setUnresolvedCount] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
+
+  // Keyboard shortcuts modal
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Build nav items
   const navItems: NavItem[] = [
@@ -320,6 +331,7 @@ export default function App() {
     { id: 'impact', label: 'Impact Analysis', icon: <Zap size={18} />, group: 'main' },
     { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'main' },
     { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'main' },
+    { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'main' },
     { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
@@ -357,7 +369,7 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---- Fetch unresolved contradiction count --------------------- */
+  /* ---- Fetch unresolved contradiction count + review queue ------- */
   useEffect(() => {
     if (!projectsChecked || showWizard || projectId === 'default') return;
     let cancelled = false;
@@ -366,6 +378,11 @@ export default function App() {
         if (!cancelled) setUnresolvedCount(Array.isArray(data) ? data.length : null);
       })
       .catch(() => { if (!cancelled) setUnresolvedCount(null); });
+    get<Array<{ id: string }>>(`/api/projects/${projectId}/review-queue`)
+      .then((data) => {
+        if (!cancelled) setReviewCount(Array.isArray(data) ? data.length : null);
+      })
+      .catch(() => { if (!cancelled) setReviewCount(null); });
     return () => { cancelled = true; };
   }, [get, projectId, projectsChecked, showWizard]);
 
@@ -389,10 +406,12 @@ export default function App() {
     onEscape: () => {
       setCommandPaletteOpen(false);
       setMenuOpen(false);
+      setShowShortcuts(false);
     },
     onNavigate: (index) => {
       if (index < navItems.length) navigate(navItems[index].id);
     },
+    onHelp: () => setShowShortcuts((o) => !o),
   });
 
   /* ---- Touch gestures: swipe from left edge to open menu -------- */
@@ -448,6 +467,10 @@ export default function App() {
   return (
     <ThemeContext.Provider value={themeCtx}>
     <ProjectContext.Provider value={{ projectId, setProjectId }}>
+    <ToastProvider>
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && <KeyboardShortcuts onClose={() => setShowShortcuts(false)} />}
+
       {/* Command Palette */}
       <CommandPalette
         items={commandItems}
@@ -528,6 +551,12 @@ export default function App() {
 
           <OnboardingChecklist onNavigate={(v) => navigate(v as View)} />
 
+          {view === 'stats' && (
+            <div className="max-w-5xl mx-auto px-6 pt-6">
+              <MonitoringCards onNavigate={(v) => navigate(v as View)} />
+            </div>
+          )}
+
           <ErrorBoundary viewKey={view}>
             <div className="page-enter">
               <ViewContent view={view} />
@@ -535,6 +564,7 @@ export default function App() {
           </ErrorBoundary>
         </main>
       </div>
+    </ToastProvider>
     </ProjectContext.Provider>
     </ThemeContext.Provider>
   );
