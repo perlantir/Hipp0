@@ -5,17 +5,39 @@ export interface ApiError {
   message: string;
 }
 
+const API_KEY_STORAGE_KEY = 'decigraph_api_key';
+
+export function getStoredApiKey(): string | null {
+  return localStorage.getItem(API_KEY_STORAGE_KEY);
+}
+
+export function setStoredApiKey(key: string): void {
+  localStorage.setItem(API_KEY_STORAGE_KEY, key);
+}
+
+export function clearStoredApiKey(): void {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
 export function useApi() {
   const baseUrl = import.meta.env.VITE_API_URL || '';
 
   const request = useCallback(
     async <T>(method: string, path: string, body?: unknown): Promise<T> => {
       const url = `${baseUrl}${path}`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Inject Bearer auth header if API key is stored
+      const apiKey = getStoredApiKey();
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const options: RequestInit = {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       };
 
       if (body !== undefined) {

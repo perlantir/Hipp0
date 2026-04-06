@@ -3,6 +3,7 @@ import { getDb } from '@decigraph/core/db/index.js';
 import { parseProject } from '@decigraph/core/db/parsers.js';
 import { NotFoundError } from '@decigraph/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
+import { generateApiKey } from '../lib/api-key-utils.js';
 
 export function registerProjectRoutes(app: Hono): void {
   app.post('/api/projects', async (c) => {
@@ -23,7 +24,26 @@ export function registerProjectRoutes(app: Hono): void {
          RETURNING *`,
         [name, description ?? null, JSON.stringify(body.metadata ?? {})],
       );
-      return c.json(parseProject(result.rows[0] as Record<string, unknown>), 201);
+      const project = parseProject(result.rows[0] as Record<string, unknown>);
+
+      // Auto-create a default API key for the new project
+      let apiKey: string | undefined;
+      try {
+        const { key, hash, prefix } = generateApiKey();
+        await db.query(
+          `INSERT INTO api_keys (project_id, key_hash, key_prefix, name, tenant_id, permissions, rate_limit, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [project.id, hash, prefix, 'Default', 'a0000000-0000-4000-8000-000000000001', 'admin', 100, 'system'],
+        );
+        apiKey = key;
+      } catch (keyErr) {
+        console.warn('[decigraph] Failed to auto-create API key for project:', (keyErr as Error).message);
+      }
+
+      return c.json({
+        ...project,
+        ...(apiKey ? { api_key: apiKey, api_key_warning: 'Save this key now. It cannot be retrieved again.' } : {}),
+      }, 201);
     } catch (err) {
       mapDbError(err);
     }
