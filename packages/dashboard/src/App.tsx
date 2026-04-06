@@ -70,6 +70,9 @@ import { Import } from './components/Import';
 import { Connectors } from './components/Connectors';
 import { Webhooks } from './components/Webhooks';
 import { TimeTravelView } from './components/TimeTravelView';
+import { CompileTester } from './components/CompileTester';
+import { AskAnything } from './components/AskAnything';
+import { TokenUsage } from './components/TokenUsage';
 import { useApi } from './hooks/useApi';
 
 /* ------------------------------------------------------------------ */
@@ -108,7 +111,10 @@ type View =
   | 'connectors'
   | 'webhooks'
   | 'timetravel'
-  | 'wizard';
+  | 'wizard'
+  | 'compile-tester'
+  | 'ask-anything'
+  | 'token-usage';
 
 interface NavItem {
   id: View;
@@ -120,7 +126,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -144,6 +150,9 @@ function ViewContent({ view }: { view: View }) {
     case 'connectors': return <Connectors />;
     case 'webhooks': return <Webhooks />;
     case 'timetravel': return <TimeTravelView />;
+    case 'compile-tester': return <CompileTester />;
+    case 'ask-anything': return <AskAnything />;
+    case 'token-usage': return <TokenUsage />;
     default: return <DecisionGraph />;
   }
 }
@@ -268,6 +277,9 @@ export default function App() {
     { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'main' },
     { id: 'impact', label: 'Impact Analysis', icon: <Zap size={18} />, group: 'main' },
     { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'main' },
+    { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'main' },
+    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
+    { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
     { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} />, group: 'integrations' },
