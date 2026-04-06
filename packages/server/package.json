@@ -30,6 +30,8 @@
     "@anthropic-ai/sdk": "^0.33.0",
     "@decigraph/core": "workspace:*",
     "@hono/node-server": "^1.13.0",
+    "@octokit/auth-app": "^8.2.0",
+    "@octokit/rest": "^22.0.1",
     "@slack/events-api": "^3.0.1",
     "@slack/web-api": "^7.15.0",
     "@supabase/supabase-js": "^2.49.0",
