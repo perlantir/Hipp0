@@ -12,7 +12,7 @@ docker ps | grep decigraph
 docker logs decigraph-server --tail 20
 
 # Check database connectivity
-docker exec decigraph-db psql -U nexus -d nexus -c "SELECT count(*) FROM decisions"
+docker exec decigraph-db psql -U decigraph -d decigraph -c "SELECT count(*) FROM decisions"
 
 # Check dashboard proxy
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3200/api/projects
@@ -31,9 +31,9 @@ curl -s "http://localhost:3100/api/projects" | head -50
 
 **File:** `packages/core/src/db/postgres-adapter.ts`
 
-### "role 'nexus' does not exist"
+### "role 'decigraph' does not exist"
 
-**Cause:** Docker volume was renamed, creating an empty database without the expected user/database
+**Cause:** Docker volume was renamed, creating an empty database without the expected user/database (formerly the role was named `nexus`)
 
 **Fix:** Check `docker-compose.yml` volume name matches the existing volume:
 
@@ -42,9 +42,9 @@ docker volume ls | grep pgdata
 docker inspect decigraph-db | grep -A5 "Mounts"
 ```
 
-If you see `nexus_nexus_pgdata` in the volume list but `decigraph_pgdata` in docker-compose, you need to either:
+If you see `decigraph_pgdata` in the volume list but a different name in docker-compose, you need to either:
 1. Change docker-compose to use the old volume name, or
-2. Copy data: `docker run --rm -v nexus_nexus_pgdata:/from -v decigraph_pgdata:/to alpine cp -a /from/. /to/`
+2. Copy data: `docker run --rm -v old_pgdata:/from -v decigraph_pgdata:/to alpine cp -a /from/. /to/`
 
 ### "FATAL: Cannot connect to database"
 
@@ -53,8 +53,8 @@ If you see `nexus_nexus_pgdata` in the volume list but `decigraph_pgdata` in doc
 **Diagnosis steps:**
 1. Check if DB container is healthy: `docker ps | grep decigraph-db`
 2. Check if DATABASE_URL reaches the container: `docker exec decigraph-server printenv DATABASE_URL`
-3. Test direct DB connection: `docker exec decigraph-db psql -U nexus -d nexus -c "SELECT 1"`
-4. Check Docker network: `docker network inspect nexus_default`
+3. Test direct DB connection: `docker exec decigraph-db psql -U decigraph -d decigraph -c "SELECT 1"`
+4. Check Docker network: `docker network inspect decigraph_default`
 
 ### "Failed to load decisions" (Dashboard)
 
@@ -121,7 +121,7 @@ process.exit(0);
 ### Listing volumes
 
 ```bash
-docker volume ls | grep nexus
+docker volume ls | grep decigraph
 ```
 
 ### Checking which volume the DB uses
@@ -140,7 +140,7 @@ Required in `.env`:
 
 ```
 NODE_ENV=development
-DATABASE_URL=postgresql://nexus:nexus_dev@postgres:5432/nexus
+DATABASE_URL=postgresql://decigraph:decigraph_dev@postgres:5432/decigraph
 DATABASE_SSL=false
 ANTHROPIC_API_KEY=sk-ant-...
 DISTILLERY_PROVIDER=anthropic

@@ -45,7 +45,7 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     console.error('[decigraph] FATAL: DATABASE_URL environment variable is not set.');
     console.error('[decigraph] Set it in .env or docker-compose.yml:');
-    console.error('  DATABASE_URL=postgresql://nexus:nexus_dev@postgres:5432/nexus');
+    console.error('  DATABASE_URL=postgresql://decigraph:decigraph_dev@postgres:5432/decigraph');
     process.exit(1);
   }
 
