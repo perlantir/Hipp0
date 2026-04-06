@@ -46,5 +46,11 @@ USER decigraph
 # In docker-compose, ./supabase/migrations is mounted as a read-only volume.
 COPY supabase/migrations /app/supabase/migrations
 
+ENV NODE_ENV=production
 EXPOSE 3100
+
+# Health check: readiness probe
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3100/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
 CMD ["node", "packages/server/dist/index.js"]

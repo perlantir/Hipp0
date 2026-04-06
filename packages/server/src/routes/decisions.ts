@@ -20,6 +20,7 @@ import {
   generateEmbedding,
 } from './validation.js';
 import { broadcast } from '../websocket.js';
+import { invalidateDecisionCaches } from '../cache/redis.js';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -139,6 +140,9 @@ export function registerDecisionRoutes(app: Hono): void {
         title: decision.title,
         made_by: decision.made_by,
       });
+
+      // Invalidate caches on new decision
+      invalidateDecisionCaches(projectId).catch(() => {});
 
       propagateChange(decision, 'decision_created').catch((err) =>
         console.error('[decigraph] Change propagation failed:', (err as Error).message),
@@ -311,6 +315,9 @@ export function registerDecisionRoutes(app: Hono): void {
       fields_updated: Object.keys(body),
     });
 
+    // Invalidate caches on decision update
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
+
     propagateChange(decision, 'decision_updated').catch((err) =>
       console.error('[decigraph] Change propagation failed:', (err as Error).message),
     );
@@ -402,6 +409,9 @@ export function registerDecisionRoutes(app: Hono): void {
       made_by,
     });
 
+    // Invalidate caches on supersede
+    invalidateDecisionCaches((result.newDecision as Decision).project_id).catch(() => {});
+
     propagateChange(result.newDecision as Decision, 'decision_superseded').catch((err) =>
       console.error('[decigraph] Change propagation failed:', (err as Error).message),
     );
@@ -458,6 +468,9 @@ export function registerDecisionRoutes(app: Hono): void {
     const decision = parseDecision(result.rows[0] as Record<string, unknown>);
 
     logAudit('decision_reverted', decision.project_id, { decision_id: decision.id });
+
+    // Invalidate caches on revert
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     propagateChange(decision, 'decision_reverted').catch((err) =>
       console.error('[decigraph] Change propagation failed:', (err as Error).message),
