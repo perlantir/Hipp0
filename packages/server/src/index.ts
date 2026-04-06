@@ -17,9 +17,26 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { initCache, cache } from './cache/redis.js';
+
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV ?? 'production';
+
+// Optional Sentry error tracking
+if (process.env.SENTRY_DSN) {
+  const sentryModule = '@sentry/node';
+  import(sentryModule).then((Sentry: Record<string, any>) => {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: NODE_ENV,
+      tracesSampleRate: NODE_ENV === 'production' ? 0.1 : 1.0,
+    });
+    console.warn('[decigraph] Sentry error tracking: enabled');
+  }).catch((err: unknown) => {
+    console.warn('[decigraph] Sentry init failed (package may not be installed):', (err as Error).message);
+  });
+}
 
 // ESM-compatible __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -87,6 +104,9 @@ async function main() {
   } catch { /* table may not exist yet */ }
 
   logLLMConfig(resolveLLMConfig());
+
+  // ── Initialize cache ────────────────────────────────────────────────
+  await initCache();
 
   // ── Initialize job queues ──────────────────────────────────────────────
   const notificationHandler = async (data: NotificationJobData): Promise<void> => {
@@ -181,6 +201,7 @@ async function main() {
     await stopDiscordBot();
     await stopOpenClawWatcher();
     await closeQueues();
+    await cache.close();
 
     server.close(async () => {
       console.warn('[decigraph] HTTP server closed');

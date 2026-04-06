@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, type ReactNode } from 'react';
+import { ThemeContext, useTheme, useThemeProvider } from './theme';
 
 /* ------------------------------------------------------------------ */
 /*  Error Boundary                                                     */
@@ -57,6 +58,8 @@ import {
   Activity,
   CreditCard,
   Crown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -201,6 +204,24 @@ function NavItemButton({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Theme Toggle Button                                                */
+/* ------------------------------------------------------------------ */
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      className="p-2 rounded-md transition-colors duration-150"
+      style={{ color: 'var(--text-secondary)' }}
+    >
+      {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Sidebar Content (shared between mobile menu and desktop sidebar)   */
 /* ------------------------------------------------------------------ */
 
@@ -252,11 +273,16 @@ function SidebarContent({
         ))}
       </div>
 
-      {/* Version */}
+      {/* Theme toggle + Version */}
       {!collapsed && (
-        <div className="px-5 py-3 text-2xs text-[#5A5957] space-y-0.5">
-          <div>v0.1.0</div>
-          <div className="opacity-60 font-mono" title="Build version">{typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'dev'}</div>
+        <div className="px-5 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs" style={{ color: 'var(--text-sidebar)' }}>v0.1.0</span>
+            <ThemeToggle />
+          </div>
+          <div className="text-2xs opacity-60 font-mono" style={{ color: 'var(--text-sidebar)' }} title="Build version">
+            {typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'dev'}
+          </div>
         </div>
       )}
     </>
@@ -270,6 +296,7 @@ function SidebarContent({
 export default function App() {
   const { get } = useApi();
   const { connected } = useWebSocket();
+  const themeCtx = useThemeProvider();
 
   const [view, setView] = useState<View>(getViewFromHash);
   const [projectId, setProjectId] = useState('default');
@@ -394,6 +421,7 @@ export default function App() {
   /* ---- Loading -------------------------------------------------- */
   if (!projectsChecked) {
     return (
+      <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
         <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-primary)' }}>
           <div className="w-10 h-10 rounded-xl bg-[#D97706] flex items-center justify-center">
@@ -401,20 +429,24 @@ export default function App() {
           </div>
         </div>
       </ProjectContext.Provider>
+      </ThemeContext.Provider>
     );
   }
 
   /* ---- Wizard -------------------------------------------------- */
   if (showWizard) {
     return (
+      <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
         <Wizard onComplete={handleWizardComplete} />
       </ProjectContext.Provider>
+      </ThemeContext.Provider>
     );
   }
 
   /* ---- Main dashboard ------------------------------------------ */
   return (
+    <ThemeContext.Provider value={themeCtx}>
     <ProjectContext.Provider value={{ projectId, setProjectId }}>
       {/* Command Palette */}
       <CommandPalette
@@ -434,6 +466,7 @@ export default function App() {
         </button>
         <span className="ml-3 font-semibold text-lg flex-1" style={{ color: 'var(--text-primary)' }}>DeciGraph</span>
         <ConnectionStatus status={connected} />
+        <ThemeToggle />
       </header>
 
       {/* Mobile overlay */}
@@ -446,9 +479,10 @@ export default function App() {
 
       {/* Mobile slide-over menu */}
       <nav
-        className={`fixed inset-y-0 left-0 z-50 w-3/4 max-w-[320px] bg-[#1A1A1A] transform transition-transform duration-[250ms] ease-out md:hidden flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 w-3/4 max-w-[320px] transform transition-transform duration-[250ms] ease-out md:hidden flex flex-col ${
           menuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ background: 'var(--bg-sidebar)' }}
       >
         <SidebarContent navItems={navItems} view={view} onNavigate={navigate} />
       </nav>
@@ -502,5 +536,6 @@ export default function App() {
         </main>
       </div>
     </ProjectContext.Provider>
+    </ThemeContext.Provider>
   );
 }
