@@ -42,6 +42,8 @@ import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
 import { tierEnforcement } from './middleware/tierEnforcement.js';
+import { apiKeyAuthMiddleware } from './middleware/apiKeyAuth.js';
+import { registerProjectKeyRoutes } from './routes/project-keys.js';
 import { getDb } from '@decigraph/core/db/index.js';
 
 const SERVER_START_TIME = Date.now();
@@ -69,6 +71,11 @@ export function createApp() {
     rateLimiter({ maxRequests: 60, windowMs: 60000, namespace: 'decisions' }),
   );
   app.onError(errorHandler);
+
+  // ── Per-project API key auth middleware ────────────────────────────
+  // Bearer token validation on all /api/* routes (public routes exempt).
+  // Registered before Phase 3 auth so per-project keys are checked first.
+  app.use('/api/*', apiKeyAuthMiddleware);
 
   // ── Phase 3: Auth middleware ───────────────────────────────────────
   // When DECIGRAPH_AUTH_REQUIRED=false (default), optionalAuth is used.
@@ -202,6 +209,7 @@ export function createApp() {
   registerAuditLogRoutes(app);
 
   // Register route modules
+  registerProjectKeyRoutes(app);
   registerProjectRoutes(app);
   registerAgentRoutes(app);
   registerDecisionRoutes(app);
