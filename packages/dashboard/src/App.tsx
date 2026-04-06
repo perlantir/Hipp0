@@ -83,6 +83,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
+import { Playground } from './components/Playground';
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -136,6 +137,10 @@ interface NavItem {
   icon: ReactNode;
   badge?: number | null;
   group: 'main' | 'integrations' | 'monitoring' | 'settings';
+}
+
+function isPlaygroundRoute(): boolean {
+  return window.location.hash === '#playground' || window.location.pathname === '/playground';
 }
 
 function getViewFromHash(): View {
@@ -416,6 +421,26 @@ export default function App() {
     setProjectId(newProjectId);
     setShowWizard(false);
     navigate('graph');
+  }
+
+  /* ---- Playground: public route, bypass login gate --------------- */
+  const [isPlayground, setIsPlayground] = useState(isPlaygroundRoute);
+  useEffect(() => {
+    function checkPlayground() { setIsPlayground(isPlaygroundRoute()); }
+    window.addEventListener('hashchange', checkPlayground);
+    window.addEventListener('popstate', checkPlayground);
+    return () => {
+      window.removeEventListener('hashchange', checkPlayground);
+      window.removeEventListener('popstate', checkPlayground);
+    };
+  }, []);
+
+  if (isPlayground) {
+    return (
+      <ThemeContext.Provider value={themeCtx}>
+        <Playground />
+      </ThemeContext.Provider>
+    );
   }
 
   /* ---- Loading -------------------------------------------------- */

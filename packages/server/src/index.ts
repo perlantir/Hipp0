@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import { initCache, cache } from './cache/redis.js';
 import { bootstrapApiKeys } from './bootstrap-keys.js';
+import { seedDemoProject } from './seed-demo-project.js';
 
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -106,6 +107,13 @@ async function main() {
 
   // ── Bootstrap API keys for keyless projects ────────────────────────
   await bootstrapApiKeys();
+
+  // ── Seed demo project for public playground ────────────────────────
+  try {
+    await seedDemoProject();
+  } catch (err) {
+    console.warn('[decigraph] Demo seed failed (non-fatal):', (err as Error).message);
+  }
 
   logLLMConfig(resolveLLMConfig());
 

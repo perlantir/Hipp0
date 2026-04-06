@@ -41,6 +41,7 @@ import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
+import { registerDemoRoutes } from './routes/demo.js';
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
 
@@ -55,6 +56,9 @@ export function createApp() {
   app.use('*', securityHeaders);
   app.use('*', corsMiddleware);
   app.use('*', bodyLimit({ maxBytes: 2 * 1024 * 1024 }));
+
+  // ── Demo routes: registered BEFORE auth/rate-limiting so they are fully public ──
+  registerDemoRoutes(app);
 
   // ── Phase 3: Global rate limiting ─────────────────────────────────
   // Unauthenticated: 60/min, Authenticated: 300/min (enforced in middleware)
