@@ -12,6 +12,7 @@ import { compileContext } from '@decigraph/core/context-compiler/index.js';
 import type { CompileRequest } from '@decigraph/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
+import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -29,6 +30,18 @@ export function registerCompileRoutes(app: Hono): void {
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
     const task_description = requireString(body.task_description, 'task_description', 100000);
+
+    // ── Check cache first ───────────────────────────────────────────
+    const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
+    const cacheHit = await cache.get(compileKey(project_id, agent_name, taskHash));
+    if (cacheHit && body.debug !== true) {
+      try {
+        const cached = JSON.parse(cacheHit);
+        return c.json({ ...cached, cache_hit: true });
+      } catch {
+        // Invalid cache entry, proceed with fresh compile
+      }
+    }
 
     // ── Delegate to core compileContext() ────────────────────────────
     // This uses the full 5-signal scoring pipeline: freshness weighting,
@@ -57,9 +70,7 @@ export function registerCompileRoutes(app: Hono): void {
       ? task_description
       : crypto.createHash('sha256').update(task_description).digest('hex');
 
-    // Audit log (always uses hash)
-    const taskHash = crypto.createHash('sha256')
-      .update(task_description).digest('hex');
+    // Audit log (always uses hash — taskHash computed above for cache key)
     logAudit('compile_request', project_id, {
       agent_name,
       task_description_sha256: taskHash,
@@ -120,6 +131,23 @@ export function registerCompileRoutes(app: Hono): void {
       agent_name,
       decisions_included: result.decisions_included,
     });
+
+    // ── Cache the result ──────────────────────────────────────────────
+    const responsePayload = {
+      compile_request_id: compileRequestId,
+      ...result,
+      context_hash: contextHash,
+      feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
+      ...(debugInfo ? { debug: debugInfo } : {}),
+    };
+
+    if (!debugInfo) {
+      cache.set(
+        compileKey(project_id, agent_name, taskHash),
+        JSON.stringify(responsePayload),
+        CACHE_TTL.COMPILE,
+      ).catch(() => {});
+    }
 
     // ── Response ─────────────────────────────────────────────────────
     console.log("[decigraph/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });

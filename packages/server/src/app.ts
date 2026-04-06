@@ -8,6 +8,7 @@ import {
   authMiddleware,
   corsMiddleware,
   requestTimer,
+  requestId,
   securityHeaders,
   rateLimiter,
   bodyLimit,
@@ -41,11 +42,15 @@ import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
 import { tierEnforcement } from './middleware/tierEnforcement.js';
+import { getDb } from '@decigraph/core/db/index.js';
+
+const SERVER_START_TIME = Date.now();
 
 export function createApp() {
   const app = new Hono();
 
   // Global middleware stack
+  app.use('*', requestId);
   app.use('*', requestTimer);
   app.use('*', securityHeaders);
   app.use('*', corsMiddleware);
@@ -75,7 +80,10 @@ export function createApp() {
     // Always public
     if (
       path === '/api/health' ||
+      path === '/api/health/ready' ||
+      path === '/api/health/live' ||
       path === '/api/status' ||
+      path === '/api/metrics' ||
       path === '/api/cache/clear' ||
       path === '/api/docs' ||
       path === '/api/openapi.json' ||
@@ -121,9 +129,70 @@ export function createApp() {
   // ── Phase 6: Tier enforcement (after auth, before routes) ──────────
   app.use('/api/*', tierEnforcement());
 
-  // Health
-  app.get('/api/health', (c) => {
-    return c.json({ status: 'ok', version: '0.1.0', timestamp: new Date().toISOString() });
+  // Health — enhanced with db latency, uptime, version
+  app.get('/api/health', async (c) => {
+    let dbLatencyMs = -1;
+    try {
+      const db = getDb();
+      const start = Date.now();
+      await db.query('SELECT 1', []);
+      dbLatencyMs = Date.now() - start;
+    } catch { /* db unavailable */ }
+
+    return c.json({
+      status: 'ok',
+      version: '0.3.0',
+      timestamp: new Date().toISOString(),
+      db_latency_ms: dbLatencyMs,
+      uptime_seconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000),
+      node_env: process.env.NODE_ENV ?? 'production',
+    });
+  });
+
+  // Liveness probe — always 200 (proves process is alive)
+  app.get('/api/health/live', (c) => {
+    return c.json({ status: 'ok' });
+  });
+
+  // Readiness probe — checks DB connection
+  app.get('/api/health/ready', async (c) => {
+    try {
+      const db = getDb();
+      await db.query('SELECT 1', []);
+      return c.json({ status: 'ready' });
+    } catch {
+      return c.json({ status: 'not_ready', reason: 'database connection failed' }, 503);
+    }
+  });
+
+  // Metrics endpoint — operational counters
+  app.get('/api/metrics', async (c) => {
+    try {
+      const db = getDb();
+      const [decisionsToday, compilesToday, avgCompile] = await Promise.all([
+        db.query(
+          "SELECT COUNT(*) as c FROM decisions WHERE created_at >= CURRENT_DATE",
+          [],
+        ).catch(() => ({ rows: [{ c: 0 }] })),
+        db.query(
+          "SELECT COUNT(*) as c FROM compile_history WHERE compiled_at >= CURRENT_DATE",
+          [],
+        ).catch(() => ({ rows: [{ c: 0 }] })),
+        db.query(
+          "SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (compiled_at - compiled_at)) * 1000), 0) as avg_ms FROM compile_history WHERE compiled_at >= CURRENT_DATE",
+          [],
+        ).catch(() => ({ rows: [{ avg_ms: 0 }] })),
+      ]);
+
+      return c.json({
+        decisions_today: parseInt((decisionsToday.rows[0] as Record<string, unknown>).c as string ?? '0', 10),
+        compiles_today: parseInt((compilesToday.rows[0] as Record<string, unknown>).c as string ?? '0', 10),
+        avg_compile_ms: parseFloat((avgCompile.rows[0] as Record<string, unknown>).avg_ms as string ?? '0'),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 500);
+    }
   });
 
   // ── Phase 3: Auth, Team, API Key, Audit Log routes ────────────────

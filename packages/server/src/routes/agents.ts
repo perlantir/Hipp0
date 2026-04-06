@@ -5,6 +5,7 @@ import { NotFoundError } from '@decigraph/core/types.js';
 import { getRoleProfile } from '@decigraph/core/roles.js';
 import { requireUUID, requireString, mapDbError } from './validation.js';
 import { randomUUID } from 'node:crypto';
+import { cache, agentListKey, CACHE_TTL } from '../cache/redis.js';
 
 export function registerAgentRoutes(app: Hono): void {
   app.post('/api/projects/:id/agents', async (c) => {
@@ -53,10 +54,22 @@ export function registerAgentRoutes(app: Hono): void {
   app.get('/api/projects/:id/agents', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+
+    // Check cache
+    const cached = await cache.get(agentListKey(projectId));
+    if (cached) {
+      try { return c.json(JSON.parse(cached)); } catch { /* proceed */ }
+    }
+
     const result = await db.query(
       "SELECT * FROM agents WHERE project_id = ? AND role != 'inactive' ORDER BY created_at ASC",
       [projectId],
     );
-    return c.json(result.rows.map((r) => parseAgent(r as Record<string, unknown>)));
+    const agents = result.rows.map((r) => parseAgent(r as Record<string, unknown>));
+
+    // Cache the result
+    cache.set(agentListKey(projectId), JSON.stringify(agents), CACHE_TTL.AGENT_LIST).catch(() => {});
+
+    return c.json(agents);
   });
 }
