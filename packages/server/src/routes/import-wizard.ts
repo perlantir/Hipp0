@@ -384,7 +384,7 @@ export function registerImportWizardRoutes(app: Hono): void {
         await db.query(
           `INSERT INTO decisions (project_id, title, description, reasoning, made_by, confidence, source, tags)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [projectId, d.title, description, reasoning, 'import-wizard', d.confidence === 'high' ? 0.9 : 0.6, scan.source as string, '{' + (d.tags ?? []).join(',') + '}'],
+          [projectId, d.title, description, reasoning, 'import-wizard', ['high','medium','low'].includes(d.confidence) ? d.confidence : (parseFloat(d.confidence) >= 0.8 ? 'high' : parseFloat(d.confidence) >= 0.5 ? 'medium' : 'low'), scan.source as string, '{' + (d.tags ?? []).join(',') + '}'],
         );
         importedCount++;
       }
