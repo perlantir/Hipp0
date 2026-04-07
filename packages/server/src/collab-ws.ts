@@ -13,7 +13,6 @@
  *   heartbeat   — presence keep-alive
  */
 import { WebSocketServer, WebSocket } from 'ws';
-import type { Server as HTTPServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import { getDb } from '@decigraph/core/db/index.js';
 
@@ -45,6 +44,13 @@ const HEARTBEAT_TIMEOUT_MS = 60_000;  // Mark offline after 60s without heartbea
 const SWEEP_INTERVAL_MS = 15_000;     // Check for stale clients every 15s
 
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+let collabWss: WebSocketServer | null = null;
+
+/** Return the collab WebSocketServer instance (call after initCollabWebSocket). */
+export function getCollabWss(): WebSocketServer | null {
+  return collabWss;
+}
 
 // ── Public API ───────────────────────────────────────────────────────
 
@@ -81,11 +87,10 @@ export function getRoomPresence(token: string): string[] {
 
 // ── Initialisation ───────────────────────────────────────────────────
 
-export function initCollabWebSocket(server: unknown): void {
-  const wss = new WebSocketServer({
-    server: server as HTTPServer,
-    path: '/ws/room',
-  });
+export function initCollabWebSocket(): void {
+  // noServer mode — the HTTP upgrade event is handled in index.ts
+  const wss = new WebSocketServer({ noServer: true });
+  collabWss = wss;
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     // Parse token from URL: /ws/room?token=xxx  (or /ws/room/xxx via path param fallback)
@@ -139,7 +144,7 @@ export function initCollabWebSocket(server: unknown): void {
     sweepTimer = setInterval(sweepStaleClients, SWEEP_INTERVAL_MS);
   }
 
-  console.warn('[decigraph] Collab Room WebSocket ready on /ws/room');
+  console.warn('[decigraph] Collab Room WebSocket ready on /ws/room (noServer mode)');
 }
 
 // ── Client message handling ──────────────────────────────────────────

@@ -8,13 +8,18 @@
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
-import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 let wss: WebSocketServer | null = null;
 
-export function initWebSocket(server: unknown): void {
-  wss = new WebSocketServer({ server: server as Server, path: '/ws' });
+/** Return the WebSocketServer instance (call after initWebSocket). */
+export function getMainWss(): WebSocketServer | null {
+  return wss;
+}
+
+export function initWebSocket(): void {
+  // noServer mode — the HTTP upgrade event is handled in index.ts
+  wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', (ws) => {
     const connectionId = randomUUID();
@@ -34,7 +39,7 @@ export function initWebSocket(server: unknown): void {
     });
   });
 
-  console.warn('[decigraph] WebSocket server ready on /ws');
+  console.warn('[decigraph] WebSocket server ready on /ws (noServer mode)');
 }
 
 export function broadcast(event: string, data: unknown): void {

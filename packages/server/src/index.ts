@@ -11,8 +11,8 @@ import { startTelegramBot, stopTelegramBot, handleTelegramNotification } from '.
 import { startOpenClawWatcher, stopOpenClawWatcher } from './connectors/openclaw-watcher.js';
 import { registerGitHubWebhook } from './connectors/github.js';
 import { startDiscordBot, stopDiscordBot } from './connectors/discord.js';
-import { initWebSocket } from './websocket.js';
-import { initCollabWebSocket } from './collab-ws.js';
+import { initWebSocket, getMainWss } from './websocket.js';
+import { initCollabWebSocket, getCollabWss } from './collab-ws.js';
 import type { NotificationJobData } from './queue/index.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -241,9 +241,37 @@ async function main() {
     },
   );
 
-  // Attach WebSocket servers to the HTTP server
-  initWebSocket(server);
-  initCollabWebSocket(server);
+  // Initialise WebSocket servers in noServer mode
+  initWebSocket();
+  initCollabWebSocket();
+
+  // Route HTTP upgrade requests to the correct WebSocketServer by path
+  server.on('upgrade', (req, socket, head) => {
+    const url = req.url ?? '';
+
+    if (url.startsWith('/ws/room')) {
+      const collabWss = getCollabWss();
+      if (collabWss) {
+        collabWss.handleUpgrade(req, socket, head, (ws) => {
+          collabWss.emit('connection', ws, req);
+        });
+      } else {
+        socket.destroy();
+      }
+    } else if (url === '/ws' || url.startsWith('/ws?')) {
+      const mainWss = getMainWss();
+      if (mainWss) {
+        mainWss.handleUpgrade(req, socket, head, (ws) => {
+          mainWss.emit('connection', ws, req);
+        });
+      } else {
+        socket.destroy();
+      }
+    } else {
+      // Unknown WS path — reject the upgrade
+      socket.destroy();
+    }
+  });
 
   let shuttingDown = false;
 
