@@ -94,6 +94,7 @@ import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { OutcomeHistory } from './components/OutcomeHistory';
 
 import { EvolutionProposals } from './components/EvolutionProposals';
+import { WhatIfSimulator } from './components/WhatIfSimulator';
 import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
 import { WeeklyDigest } from './components/WeeklyDigest';
@@ -150,7 +151,8 @@ type View =
   | 'policies'
   | 'violations'
   | 'digest'
-  | 'evolution';
+  | 'evolution'
+  | 'whatif';
 
 
 interface NavItem {
@@ -169,7 +171,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -206,6 +208,7 @@ function ViewContent({ view }: { view: View }) {
     case 'violations': return <Violations />;
     case 'digest': return <WeeklyDigest />;
     case 'evolution': return <EvolutionProposals />;
+    case 'whatif': return <WhatIfSimulator />;
 
     default: return <DecisionGraph />;
   }
@@ -366,6 +369,7 @@ export default function App() {
     { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'main' },
     { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
     { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'main' },
+    { id: 'whatif', label: 'What-If', icon: <Zap size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },

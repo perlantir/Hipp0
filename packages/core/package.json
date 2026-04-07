@@ -110,6 +110,10 @@
     "./config/prompts/evolution.js": {
       "import": "./dist/config/prompts/evolution.js",
       "types": "./dist/config/prompts/evolution.d.ts"
+    },
+    "./intelligence/whatif-simulator.js": {
+      "import": "./dist/intelligence/whatif-simulator.js",
+      "types": "./dist/intelligence/whatif-simulator.d.ts"
     }
   },
   "scripts": {
