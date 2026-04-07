@@ -360,4 +360,30 @@ export class DeciGraphClient {
   getProjectGraph(projectId: string): Promise<GraphResult> {
     return this.get<GraphResult>(`/api/projects/${projectId}/graph`);
   }
+
+  // Governance
+
+  checkPolicy(params: {
+    projectId: string;
+    agentName: string;
+    plannedAction: string;
+  }): Promise<{ compliant: boolean; violations: unknown[]; advisories: unknown[] }> {
+    return this.post('/api/policies/check', {
+      project_id: params.projectId,
+      agent_name: params.agentName,
+      planned_action: params.plannedAction,
+    });
+  }
+
+  getProjectPolicies(projectId: string): Promise<unknown[]> {
+    return this.get<unknown[]>(`/api/projects/${projectId}/policies`);
+  }
+
+  getProjectViolations(projectId: string, status?: string): Promise<unknown[]> {
+    const qs = status ? { status } : undefined;
+    return this.get<unknown[]>(
+      `/api/projects/${projectId}/violations`,
+      qs as Record<string, string | number | boolean | undefined>,
+    );
+  }
 }

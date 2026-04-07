@@ -93,6 +93,9 @@ import { ToastProvider } from './components/Toast';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { OutcomeHistory } from './components/OutcomeHistory';
 
+import { Policies } from './components/Policies';
+import { Violations } from './components/Violations';
+
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -142,6 +145,9 @@ type View =
   | 'billing'
   | 'playground'
   | 'review-queue';
+  | 'policies'
+  | 'violations';
+
 
 interface NavItem {
   id: View;
@@ -159,7 +165,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -192,6 +198,9 @@ function ViewContent({ view }: { view: View }) {
     case 'billing': return <BillingSettings />;
     case 'playground': return <Playground />;
     case 'review-queue': return <ReviewQueue />;
+    case 'policies': return <Policies />;
+    case 'violations': return <Violations />;
+
     default: return <DecisionGraph />;
   }
 }
@@ -358,6 +367,9 @@ export default function App() {
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
+    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
+    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
+
     { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
     { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
   ];
