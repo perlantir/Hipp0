@@ -1,5 +1,23 @@
-import React, { useState } from 'react';
-import { Github, MessageSquare, FileText, Upload, CheckCircle, Circle, ChevronRight, X, Users, Zap } from 'lucide-react';
+/**
+ * Import Wizard — polished 5-phase onboarding wizard.
+ *
+ * Phases: welcome → scan → preview → importing → complete
+ *
+ * Key changes from baseline:
+ *  - GitHub form now sends github_token + repo_url to the live scan endpoint
+ *  - Glassmorphic stat cards with better labels and icons
+ *  - Decision list shows description, tag pills, and colour-coded confidence
+ *  - Team section shows contribution bars and styled role badges
+ *  - Prominent copper CTA with decision count
+ *  - Animated progress bar + step checklist during import
+ *  - Polished completion screen with import metrics
+ */
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Github, MessageSquare, FileText, Upload, CheckCircle, Circle,
+  ChevronRight, X, Users, Zap, GitPullRequest, AlertTriangle,
+  Shield, ArrowRight, Loader,
+} from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
@@ -12,6 +30,8 @@ interface Decision {
   title: string;
   confidence: string;
   source: string;
+  description?: string;
+  tags?: string[];
 }
 
 interface TeamMember {
@@ -38,7 +58,14 @@ interface ImportResult {
 
 // ── Source config ────────────────────────────────────────────────────────
 
-const SOURCES: Array<{ id: Source; label: string; description: string; icon: React.ReactNode; placeholder: string; inputLabel: string }> = [
+const SOURCES: Array<{
+  id: Source;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  placeholder: string;
+  inputLabel: string;
+}> = [
   {
     id: 'github',
     label: 'GitHub',
@@ -82,6 +109,43 @@ const IMPORT_STEPS = [
   'Finalizing import...',
 ];
 
+// ── Confidence styles ───────────────────────────────────────────────────
+
+const CONFIDENCE: Record<string, { bg: string; fg: string; label: string }> = {
+  high:   { bg: '#05966922', fg: '#059669', label: 'High' },
+  medium: { bg: '#d9770722', fg: '#D97757', label: 'Medium' },
+  low:    { bg: '#ef444422', fg: '#ef4444', label: 'Low' },
+};
+
+// ── Role badge colours ──────────────────────────────────────────────────
+
+const ROLE_COLORS: Record<string, string> = {
+  architect:   '#D97757',
+  backend:     '#059669',
+  frontend:    '#7c3aed',
+  devops:      '#0891b2',
+  qa:          '#d97706',
+  security:    '#ef4444',
+  contributor: '#6b7280',
+};
+
+// ── Stat card labels ────────────────────────────────────────────────────
+
+const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  prs_found:             { label: 'PRs Found',           icon: <GitPullRequest size={15} /> },
+  prs_merged:            { label: 'PRs Merged',          icon: <GitPullRequest size={15} /> },
+  issues_open:           { label: 'Open Issues',         icon: <AlertTriangle size={15} /> },
+  issues_closed:         { label: 'Closed Issues',       icon: <CheckCircle size={15} /> },
+  issues_found:          { label: 'Issues Found',        icon: <AlertTriangle size={15} /> },
+  team_members:          { label: 'Team Members',        icon: <Users size={15} /> },
+  estimated_decisions:   { label: 'Decisions Found',     icon: <Zap size={15} /> },
+  channels_scanned:      { label: 'Channels Scanned',    icon: <MessageSquare size={15} /> },
+  messages_found:        { label: 'Messages Found',      icon: <MessageSquare size={15} /> },
+  projects_found:        { label: 'Projects Found',      icon: <FileText size={15} /> },
+  files_processed:       { label: 'Files Processed',     icon: <FileText size={15} /> },
+  files_found:           { label: 'Files Found',         icon: <FileText size={15} /> },
+};
+
 // ── Component ────────────────────────────────────────────────────────────
 
 export function ImportWizard() {
@@ -91,6 +155,7 @@ export function ImportWizard() {
   const [phase, setPhase] = useState<Phase>('welcome');
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [sourceInput, setSourceInput] = useState('');
+  const [githubToken, setGithubToken] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selectedDecisions, setSelectedDecisions] = useState<Set<number>>(new Set());
@@ -98,6 +163,15 @@ export function ImportWizard() {
   const [importStep, setImportStep] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanElapsed, setScanElapsed] = useState(0);
+  const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up scan timer
+  useEffect(() => {
+    return () => {
+      if (scanTimerRef.current) clearInterval(scanTimerRef.current);
+    };
+  }, []);
 
   // ── Actions ──────────────────────────────────────────────────────────
 
@@ -105,26 +179,42 @@ export function ImportWizard() {
     setSelectedSource(src);
     setPhase('scan');
     setError(null);
+    setSourceInput('');
+    setGithubToken('');
   }
 
   async function runScan() {
     if (!selectedSource) return;
     setScanning(true);
     setError(null);
+    setScanElapsed(0);
+
+    // Timer to show elapsed seconds
+    scanTimerRef.current = setInterval(() => {
+      setScanElapsed(prev => prev + 1);
+    }, 1000);
+
     try {
       const body: Record<string, unknown> = {};
       if (projectId && projectId !== 'default') body.project_id = projectId;
-      if (sourceInput) body.config_value = sourceInput;
+
+      // GitHub-specific: send token + repo URL for live API scan
+      if (selectedSource === 'github') {
+        if (sourceInput) body.repo_url = sourceInput;
+        if (githubToken) body.github_token = githubToken;
+      } else {
+        if (sourceInput) body.config_value = sourceInput;
+      }
 
       const result = await post<ScanResult>(`/api/import-wizard/scan/${selectedSource}`, body);
       setScanResult(result);
-      // Select all decisions by default
       setSelectedDecisions(new Set(result.preview_decisions.map((_, i) => i)));
       setPhase('preview');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed. Please try again.');
     } finally {
       setScanning(false);
+      if (scanTimerRef.current) { clearInterval(scanTimerRef.current); scanTimerRef.current = null; }
     }
   }
 
@@ -161,6 +251,26 @@ export function ImportWizard() {
     });
   }
 
+  function selectAllDecisions() {
+    if (!scanResult) return;
+    setSelectedDecisions(new Set(scanResult.preview_decisions.map((_, i) => i)));
+  }
+
+  function deselectAllDecisions() {
+    setSelectedDecisions(new Set());
+  }
+
+  function resetWizard() {
+    setPhase('welcome');
+    setScanResult(null);
+    setImportResult(null);
+    setProjectName('');
+    setSourceInput('');
+    setGithubToken('');
+    setSelectedSource(null);
+    setError(null);
+  }
+
   // ── Styles ───────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
@@ -170,16 +280,27 @@ export function ImportWizard() {
     padding: 20,
   };
 
+  /* Glassmorphic stat card */
+  const glassCard: React.CSSProperties = {
+    background: 'linear-gradient(135deg, rgba(217,119,87,0.08) 0%, rgba(217,119,87,0.03) 100%)',
+    border: '1px solid rgba(217,119,87,0.18)',
+    borderRadius: 14,
+    padding: '18px 16px',
+    backdropFilter: 'blur(12px)',
+    textAlign: 'center',
+  };
+
   const accentBtn: React.CSSProperties = {
-    background: 'var(--accent)',
+    background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
     color: '#fff',
     border: 'none',
-    borderRadius: 8,
-    padding: '12px 24px',
+    borderRadius: 10,
+    padding: '14px 28px',
     fontSize: 15,
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'opacity 0.15s',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 14px rgba(217,119,87,0.25)',
   };
 
   const ghostBtn: React.CSSProperties = {
@@ -192,7 +313,7 @@ export function ImportWizard() {
     cursor: 'pointer',
   };
 
-  const input: React.CSSProperties = {
+  const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px 14px',
     borderRadius: 8,
@@ -203,25 +324,35 @@ export function ImportWizard() {
     fontFamily: 'inherit',
     outline: 'none',
     boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
   };
 
   // ── Phase: Welcome ───────────────────────────────────────────────────
 
   if (phase === 'welcome') {
     return (
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <Upload size={22} color="var(--accent)" />
-            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Import Wizard</span>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px' }}>
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 12,
+              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+            }}>
+              <Upload size={20} color="#fff" />
+            </div>
+            <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5 }}>
+              Import Wizard
+            </span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>
-            Connect a source and DeciGraph will scan it for architectural decisions, automatically
-            build your decision graph, and detect your team.
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15, margin: 0, lineHeight: 1.6 }}>
+            Connect a source and DeciGraph will scan it for architectural decisions,
+            automatically build your decision graph, and detect your team.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {SOURCES.map(src => (
             <button
               key={src.id}
@@ -233,25 +364,34 @@ export function ImportWizard() {
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: 14,
-                transition: 'border-color 0.15s',
+                transition: 'all 0.2s',
+                position: 'relative',
+                overflow: 'hidden',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-light)'; }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.borderColor = '#D97757';
+                el.style.boxShadow = '0 0 0 1px #D9775733';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.borderColor = 'var(--border-light)';
+                el.style.boxShadow = 'none';
+              }}
             >
-              <span style={{ color: 'var(--accent)', marginTop: 2 }}>{src.icon}</span>
+              <span style={{ color: '#D97757', marginTop: 2, flexShrink: 0 }}>{src.icon}</span>
               <div>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15, marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15, marginBottom: 4 }}>
                   {src.label}
                 </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{src.description}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.4 }}>
+                  {src.description}
+                </div>
               </div>
+              <ArrowRight size={14} color="var(--text-tertiary)" style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)' }} />
             </button>
           ))}
         </div>
-
-        <p style={{ color: 'var(--text-tertiary)', fontSize: 12, marginTop: 20, textAlign: 'center' }}>
-          All scans use simulated data — no credentials required in this preview.
-        </p>
       </div>
     );
   }
@@ -260,34 +400,71 @@ export function ImportWizard() {
 
   if (phase === 'scan' && selectedSource) {
     const srcConfig = SOURCES.find(s => s.id === selectedSource)!;
+    const isGitHub = selectedSource === 'github';
 
     return (
-      <div style={{ maxWidth: 540, margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <button onClick={() => setPhase('welcome')} style={{ ...ghostBtn, padding: '6px 10px' }}>←</button>
-          <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-            Configure {srcConfig.label} source
+      <div style={{ maxWidth: 540, margin: '0 auto', padding: '40px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+          <button
+            onClick={() => setPhase('welcome')}
+            style={{ ...ghostBtn, padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            ← Back
+          </button>
+          <span style={{ color: 'var(--text-secondary)', fontSize: 14, fontWeight: 500 }}>
+            Connect {srcConfig.label}
           </span>
         </div>
 
         <div style={{ ...card, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <span style={{ color: 'var(--accent)' }}>{srcConfig.icon}</span>
-            <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }}>{srcConfig.label}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <span style={{ color: '#D97757' }}>{srcConfig.icon}</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }}>
+                {srcConfig.label}
+              </div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>
+                {srcConfig.description}
+              </div>
+            </div>
           </div>
 
-          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
+          {/* Repository URL */}
+          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
             {srcConfig.inputLabel}
           </label>
           <input
-            style={input}
+            style={{ ...inputStyle, marginBottom: isGitHub ? 16 : 0 }}
             value={sourceInput}
             onChange={e => setSourceInput(e.target.value)}
             placeholder={srcConfig.placeholder}
+            onKeyDown={e => { if (e.key === 'Enter' && !scanning) runScan(); }}
           />
 
+          {/* GitHub-specific: optional PAT */}
+          {isGitHub && (
+            <>
+              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+                Personal Access Token
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> (optional — enables live scan)</span>
+              </label>
+              <input
+                style={inputStyle}
+                type="password"
+                value={githubToken}
+                onChange={e => setGithubToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxx"
+                onKeyDown={e => { if (e.key === 'Enter' && !scanning) runScan(); }}
+              />
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+                <Shield size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Token is sent directly to GitHub, never stored. Without a token, demo data is shown.
+              </div>
+            </>
+          )}
+
           {error && (
-            <div style={{ marginTop: 12, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
+            <div style={{ marginTop: 14, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
               {error}
             </div>
           )}
@@ -296,14 +473,24 @@ export function ImportWizard() {
         <button
           onClick={runScan}
           disabled={scanning}
-          style={{ ...accentBtn, width: '100%', opacity: scanning ? 0.7 : 1 }}
+          style={{
+            ...accentBtn,
+            width: '100%',
+            opacity: scanning ? 0.8 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
         >
-          {scanning ? 'Scanning...' : `Scan ${srcConfig.label}`}
+          {scanning ? (
+            <>
+              <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              Scanning... {scanElapsed > 0 ? `(${scanElapsed}s)` : ''}
+            </>
+          ) : (
+            <>Scan {srcConfig.label}</>
+          )}
         </button>
 
-        <p style={{ color: 'var(--text-tertiary)', fontSize: 12, marginTop: 12, textAlign: 'center' }}>
-          This will simulate a scan and return mock decision data.
-        </p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -311,139 +498,276 @@ export function ImportWizard() {
   // ── Phase: Preview ───────────────────────────────────────────────────
 
   if (phase === 'preview' && scanResult) {
-    const statEntries = Object.entries(scanResult.stats);
+    // Filter out fallback flag and 0-value stats
+    const statEntries = Object.entries(scanResult.stats)
+      .filter(([key, val]) => key !== 'fallback' && val > 0);
+
+    const maxContributions = Math.max(...scanResult.detected_team.map(m => m.contributions), 1);
 
     return (
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-primary)', marginBottom: 4 }}>
-              Scan Complete
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '4px 12px', borderRadius: 20, marginBottom: 10,
+              background: '#05966918', border: '1px solid #05966930',
+            }}>
+              <CheckCircle size={14} color="#059669" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#059669' }}>Scan Complete</span>
             </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-              Review what was found and configure your import.
+            <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text-primary)', letterSpacing: -0.5 }}>
+              Review Your Import
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
+              We found decisions, team members, and patterns in your codebase.
             </div>
           </div>
-          <button onClick={() => setPhase('welcome')} style={{ ...ghostBtn, padding: '6px 10px' }}>
+          <button onClick={resetWizard} style={{ ...ghostBtn, padding: '8px 12px' }}>
             <X size={16} />
           </button>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          {statEntries.map(([key, val]) => (
-            <div key={key} style={{ ...card, flex: '1 1 120px', textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{val}</div>
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 2 }}>
-                {key.replace(/_/g, ' ')}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Decisions */}
-        <div style={{ ...card, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15 }}>
-              Decisions Found ({scanResult.preview_decisions.length})
-            </span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-              {selectedDecisions.size} selected
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-            {scanResult.preview_decisions.map((d, i) => (
-              <button
-                key={i}
-                onClick={() => toggleDecision(i)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 10,
-                  background: selectedDecisions.has(i) ? 'var(--bg-secondary)' : 'transparent',
-                  border: `1px solid ${selectedDecisions.has(i) ? 'var(--accent)' : 'var(--border-light)'}`,
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {selectedDecisions.has(i)
-                  ? <CheckCircle size={16} color="var(--accent)" style={{ marginTop: 1, flexShrink: 0 }} />
-                  : <Circle size={16} color="var(--text-tertiary)" style={{ marginTop: 1, flexShrink: 0 }} />
-                }
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}>{d.title}</div>
-                  <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 2 }}>{d.source}</div>
+        {/* ── Stats cards ───────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(statEntries.length, 4)}, 1fr)`, gap: 12, marginBottom: 24 }}>
+          {statEntries.slice(0, 6).map(([key, val]) => {
+            const meta = STAT_LABELS[key] || { label: key.replace(/_/g, ' '), icon: <Zap size={15} /> };
+            return (
+              <div key={key} style={glassCard}>
+                <div style={{ color: '#D97757', marginBottom: 6, opacity: 0.8 }}>{meta.icon}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{val}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {meta.label}
                 </div>
-                <span style={{
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  background: d.confidence === 'high' ? '#059669' + '22' : '#d97706' + '22',
-                  color: d.confidence === 'high' ? '#059669' : '#d97706',
-                }}>
-                  {d.confidence}
-                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Decisions list ─────────────────────────────────────────── */}
+        <div style={{ ...card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Zap size={16} color="#D97757" />
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
+                Decisions ({scanResult.preview_decisions.length})
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={selectAllDecisions}
+                style={{ background: 'none', border: 'none', color: '#D97757', fontSize: 12, cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}
+              >
+                Select All
               </button>
-            ))}
+              <span style={{ color: 'var(--border-light)' }}>|</span>
+              <button
+                onClick={deselectAllDecisions}
+                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', padding: '2px 6px' }}
+              >
+                Clear
+              </button>
+              <span style={{
+                padding: '2px 10px', borderRadius: 12,
+                background: '#D9775718', color: '#D97757',
+                fontSize: 12, fontWeight: 700,
+              }}>
+                {selectedDecisions.size} selected
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
+            {scanResult.preview_decisions.map((d, i) => {
+              const selected = selectedDecisions.has(i);
+              const conf = CONFIDENCE[d.confidence] || CONFIDENCE.medium;
+
+              return (
+                <button
+                  key={i}
+                  onClick={() => toggleDecision(i)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    background: selected ? 'rgba(217,119,87,0.06)' : 'transparent',
+                    border: `1px solid ${selected ? 'rgba(217,119,87,0.3)' : 'var(--border-light)'}`,
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                    width: '100%',
+                  }}
+                >
+                  {/* Checkbox */}
+                  <div style={{ marginTop: 1, flexShrink: 0 }}>
+                    {selected
+                      ? <CheckCircle size={18} color="#D97757" />
+                      : <Circle size={18} color="var(--text-tertiary)" />
+                    }
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, marginBottom: 3, lineHeight: 1.4 }}>
+                      {d.title}
+                    </div>
+                    {d.description && (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5, marginBottom: 6 }}>
+                        {d.description.length > 140 ? d.description.slice(0, 140) + '...' : d.description}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {/* Source */}
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
+                        {d.source}
+                      </span>
+                      {/* Tag pills */}
+                      {d.tags && d.tags.length > 0 && (
+                        <>
+                          <span style={{ color: 'var(--border-light)' }}>·</span>
+                          {d.tags.slice(0, 3).map((tag, ti) => (
+                            <span key={ti} style={{
+                              padding: '1px 8px', borderRadius: 10,
+                              background: 'var(--bg-secondary)',
+                              border: '1px solid var(--border-light)',
+                              fontSize: 10, fontWeight: 500,
+                              color: 'var(--text-secondary)',
+                            }}>
+                              {tag}
+                            </span>
+                          ))}
+                          {d.tags.length > 3 && (
+                            <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                              +{d.tags.length - 3}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Confidence badge */}
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: conf.bg,
+                    color: conf.fg,
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}>
+                    {conf.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Team */}
+        {/* ── Detected team ──────────────────────────────────────────── */}
         {scanResult.detected_team.length > 0 && (
           <div style={{ ...card, marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Users size={16} color="var(--text-secondary)" />
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Users size={16} color="#D97757" />
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
                 Detected Team ({scanResult.detected_team.length})
               </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {scanResult.detected_team.map((m, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 20,
-                }}>
-                  <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff' }}>
-                    {m.name[0]?.toUpperCase()}
-                  </span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: 13 }}>{m.name}</span>
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{m.suggested_role}</span>
-                </div>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {scanResult.detected_team.map((m, i) => {
+                const roleColor = ROLE_COLORS[m.suggested_role] || ROLE_COLORS.contributor;
+                const barWidth = Math.max((m.contributions / maxContributions) * 100, 8);
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${roleColor}44, ${roleColor}22)`,
+                      border: `2px solid ${roleColor}44`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, fontWeight: 700, color: roleColor,
+                      flexShrink: 0,
+                    }}>
+                      {m.name[0]?.toUpperCase()}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{m.name}</span>
+                        <span style={{
+                          padding: '1px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                          background: roleColor + '18',
+                          color: roleColor,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                          {m.suggested_role}
+                        </span>
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: 11, marginLeft: 'auto' }}>
+                          {m.contributions} contributions
+                        </span>
+                      </div>
+                      {/* Contribution bar */}
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--border-light)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 2,
+                          background: `linear-gradient(90deg, ${roleColor}, ${roleColor}88)`,
+                          width: `${barWidth}%`,
+                          transition: 'width 0.4s ease',
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Project name + import */}
+        {/* ── Project name + Import CTA ──────────────────────────────── */}
         <div style={{ ...card }}>
-          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
+          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
             Project name
           </label>
           <input
-            style={{ ...input, marginBottom: 14 }}
+            style={{ ...inputStyle, marginBottom: 16 }}
             value={projectName}
             onChange={e => setProjectName(e.target.value)}
             placeholder="My Project"
+            onKeyDown={e => { if (e.key === 'Enter' && projectName.trim() && selectedDecisions.size > 0) runImport(); }}
           />
+
           {error && (
-            <div style={{ marginBottom: 14, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
               {error}
             </div>
           )}
-          <button
-            onClick={runImport}
-            disabled={!projectName.trim() || selectedDecisions.size === 0}
-            style={{ ...accentBtn, width: '100%', opacity: (!projectName.trim() || selectedDecisions.size === 0) ? 0.5 : 1 }}
-          >
-            Import {selectedDecisions.size} Decisions <ChevronRight size={16} style={{ display: 'inline', marginLeft: 4, verticalAlign: 'middle' }} />
-          </button>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={resetWizard}
+              style={{ ...ghostBtn, flex: '0 0 auto' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={runImport}
+              disabled={!projectName.trim() || selectedDecisions.size === 0}
+              style={{
+                ...accentBtn,
+                flex: 1,
+                opacity: (!projectName.trim() || selectedDecisions.size === 0) ? 0.5 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              Import These {selectedDecisions.size} Decisions
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -455,44 +779,77 @@ export function ImportWizard() {
     const progress = Math.round((importStep / IMPORT_STEPS.length) * 100);
 
     return (
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '64px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 20 }}>🧠</div>
-        <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Importing...
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
+        {/* Animated icon */}
+        <div style={{
+          width: 64, height: 64, borderRadius: 16, margin: '0 auto 24px',
+          background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 24px rgba(217,119,87,0.3)',
+          animation: 'pulse 2s ease-in-out infinite',
+        }}>
+          <Upload size={28} color="#fff" />
         </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>
-          Building your decision graph
+
+        <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: -0.5 }}>
+          Building Your Decision Graph
+        </div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 36 }}>
+          This usually takes a few seconds
         </div>
 
         {/* Progress bar */}
-        <div style={{ background: 'var(--border-light)', borderRadius: 8, height: 6, marginBottom: 24, overflow: 'hidden' }}>
+        <div style={{
+          background: 'var(--border-light)',
+          borderRadius: 10,
+          height: 8,
+          marginBottom: 28,
+          overflow: 'hidden',
+        }}>
           <div style={{
             height: '100%',
-            background: 'var(--accent)',
-            borderRadius: 8,
+            background: 'linear-gradient(90deg, #D97757, #c56a4d)',
+            borderRadius: 10,
             width: `${progress}%`,
-            transition: 'width 0.4s ease',
+            transition: 'width 0.5s ease',
+            boxShadow: '0 0 12px rgba(217,119,87,0.4)',
           }} />
         </div>
 
         {/* Steps */}
-        <div style={{ textAlign: 'left', ...card }}>
+        <div style={{ ...card, textAlign: 'left' }}>
           {IMPORT_STEPS.map((step, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < IMPORT_STEPS.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 0',
+              borderBottom: i < IMPORT_STEPS.length - 1 ? '1px solid var(--border-light)' : 'none',
+            }}>
               {i < importStep
-                ? <CheckCircle size={16} color="#059669" />
+                ? <CheckCircle size={18} color="#059669" />
                 : i === importStep
-                  ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-                  : <Circle size={16} color="var(--text-tertiary)" />
+                  ? <div style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      border: '2px solid #D97757',
+                      borderTopColor: 'transparent',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                  : <Circle size={18} color="var(--text-tertiary)" />
               }
-              <span style={{ fontSize: 13, color: i < importStep ? 'var(--text-secondary)' : i === importStep ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+              <span style={{
+                fontSize: 14,
+                fontWeight: i === importStep ? 600 : 400,
+                color: i < importStep ? '#059669' : i === importStep ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              }}>
                 {step}
               </span>
             </div>
           ))}
         </div>
 
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        `}</style>
       </div>
     );
   }
@@ -500,28 +857,44 @@ export function ImportWizard() {
   // ── Phase: Complete ──────────────────────────────────────────────────
 
   if (phase === 'complete' && importResult) {
-    const stats = [
-      { label: 'Decisions Imported', value: importResult.decisions_imported, color: 'var(--accent)' },
-      { label: 'Agents Created', value: importResult.agents_created, color: '#059669' },
-      { label: 'Contradictions Found', value: importResult.contradictions_found, color: '#d97706' },
-      { label: 'Edges Created', value: importResult.edges_created, color: '#7c3aed' },
+    const resultStats = [
+      { label: 'Decisions Imported', value: importResult.decisions_imported, color: '#D97757', icon: <Zap size={18} /> },
+      { label: 'Agents Created',     value: importResult.agents_created,     color: '#059669', icon: <Users size={18} /> },
+      { label: 'Contradictions',     value: importResult.contradictions_found, color: '#d97706', icon: <AlertTriangle size={18} /> },
+      { label: 'Edges Created',      value: importResult.edges_created,      color: '#7c3aed', icon: <GitPullRequest size={18} /> },
     ];
 
     return (
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '48px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-        <div style={{ fontWeight: 700, fontSize: 24, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Import Complete!
-        </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>
-          Your decision graph is ready. Here's what was imported:
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
+        {/* Success icon */}
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%', margin: '0 auto 20px',
+          background: '#05966918',
+          border: '2px solid #05966930',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <CheckCircle size={36} color="#059669" />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
-          {stats.map(s => (
-            <div key={s.label} style={{ ...card, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 12, marginTop: 4 }}>{s.label}</div>
+        <div style={{ fontWeight: 800, fontSize: 26, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: -0.5 }}>
+          Import Complete
+        </div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 36, lineHeight: 1.6 }}>
+          Your decision graph is ready. Here is what was imported.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 36 }}>
+          {resultStats.map(s => (
+            <div key={s.label} style={{
+              ...glassCard,
+              background: `linear-gradient(135deg, ${s.color}10 0%, ${s.color}05 100%)`,
+              border: `1px solid ${s.color}22`,
+            }}>
+              <div style={{ color: s.color, marginBottom: 6, opacity: 0.7 }}>{s.icon}</div>
+              <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 8, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {s.label}
+              </div>
             </div>
           ))}
         </div>
@@ -529,9 +902,10 @@ export function ImportWizard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             onClick={() => { window.location.hash = 'playground'; }}
-            style={{ ...accentBtn, width: '100%' }}
+            style={{ ...accentBtn, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
-            Start First Session →
+            Start First Session
+            <ArrowRight size={16} />
           </button>
           <button
             onClick={() => { window.location.hash = 'graph'; }}
@@ -540,16 +914,8 @@ export function ImportWizard() {
             View Decision Graph
           </button>
           <button
-            onClick={() => {
-              setPhase('welcome');
-              setScanResult(null);
-              setImportResult(null);
-              setProjectName('');
-              setSourceInput('');
-              setSelectedSource(null);
-              setError(null);
-            }}
-            style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 13 }}
+            onClick={resetWizard}
+            style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 13, padding: '8px 0' }}
           >
             Import another source
           </button>

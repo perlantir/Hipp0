@@ -379,10 +379,12 @@ export function registerImportWizardRoutes(app: Hono): void {
 
       let importedCount = 0;
       for (const d of decisions) {
+        const description = d.description ?? `Imported from ${scan.source}: ${d.source}`;
+        const reasoning = d.description || 'Imported from GitHub PR';
         await db.query(
-          `INSERT INTO decisions (project_id, title, context, agent_name, confidence, source_type, tags)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [projectId, d.title, d.description ?? `Imported from ${scan.source}: ${d.source}`, 'import-wizard', d.confidence === 'high' ? 0.9 : 0.6, scan.source, JSON.stringify([])],
+          `INSERT INTO decisions (project_id, title, description, reasoning, made_by, confidence, source, tags)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [projectId, d.title, description, reasoning, 'import-wizard', d.confidence === 'high' ? 0.9 : 0.6, scan.source as string, JSON.stringify([])],
         );
         importedCount++;
       }
