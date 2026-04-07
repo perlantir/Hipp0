@@ -1,5 +1,26 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Users, Send, Check, X, Link, ChevronRight, MessageSquare, Clock, Wifi, WifiOff } from 'lucide-react';
+/**
+ * Collab Room — real-time multi-agent collaboration dashboard.
+ *
+ * Phases: landing → join-name → room
+ *
+ * Features:
+ *  - Create new room or join existing by share_token
+ *  - Deep-link: auto-join if URL has ?token=xxx or hash contains token param
+ *  - WebSocket-first messaging with REST polling fallback
+ *  - @mention autocomplete from room participants
+ *  - Typing indicators (throttled 1/sec, 4s auto-clear)
+ *  - Participant sidebar with online/offline dots
+ *  - Session timeline with Brain suggestions + Accept/Override
+ *  - Connection status badge: green WS / yellow Connecting / red Polling
+ *  - Close room with confirmation
+ *  - Message deduplication by id
+ */
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  Radio, Users, Send, Check, X, Link, ChevronRight, MessageSquare,
+  Clock, Wifi, WifiOff, Copy, CheckCircle, AlertTriangle, ExternalLink,
+  Loader, Plus, LogIn,
+} from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
@@ -12,6 +33,7 @@ interface Participant {
   platform: string;
   role: string;
   is_online: boolean;
+  last_seen?: string;
 }
 
 interface Message {
@@ -75,8 +97,8 @@ function highlightMentions(text: string): React.ReactNode[] {
   const parts = text.split(/(@\w+)/g);
   return parts.map((part, i) =>
     part.startsWith('@')
-      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
-      : part
+      ? <span key={i} style={{ color: '#D97757', fontWeight: 600 }}>{part}</span>
+      : <React.Fragment key={i}>{part}</React.Fragment>
   );
 }
 
@@ -91,12 +113,30 @@ function timeAgo(ts: string): string {
 
 /** Build a ws:// or wss:// URL for the collab room WS endpoint. */
 function buildWsUrl(token: string): string {
-  const loc = window.location;
-  const proto = loc.protocol === 'https:' ? 'wss' : 'ws';
-  // Dashboard typically proxies to server on same host, or use VITE_API_URL
-  const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || loc.origin;
+  const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || window.location.origin;
   const base = apiBase.replace(/^http/, 'ws');
   return `${base}/ws/room?token=${encodeURIComponent(token)}`;
+}
+
+/** Try to extract a room token from the current URL (deep-link support). */
+function getTokenFromUrl(): string | null {
+  // Check ?token=xxx in search params
+  const params = new URLSearchParams(window.location.search);
+  const fromSearch = params.get('token');
+  if (fromSearch) return fromSearch;
+
+  // Check hash: #collab?token=xxx or #collab/TOKEN
+  const hash = window.location.hash;
+  if (hash.includes('token=')) {
+    const hashParams = new URLSearchParams(hash.split('?')[1] || '');
+    const fromHash = hashParams.get('token');
+    if (fromHash) return fromHash;
+  }
+  // #collab/abc123def
+  const match = hash.match(/#collab\/([a-zA-Z0-9]{6,})/);
+  if (match) return match[1];
+
+  return null;
 }
 
 // ── WebSocket hook ───────────────────────────────────────────────────────
@@ -127,7 +167,17 @@ function useCollabSocket(
     }
   }, []);
 
-  const connect = useCallback(() => {
+  const scheduleReconnect = useCallback(() => {
+    const attempt = reconnectAttempts.current;
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
+    reconnectAttempts.current = attempt + 1;
+    reconnectTimer.current = setTimeout(() => {
+      connectWs();
+    }, delay);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connectWs = useCallback(() => {
     if (!token) return;
     cleanup();
     setState('connecting');
@@ -168,77 +218,105 @@ function useCollabSocket(
     ws.onerror = () => {
       // onclose will fire after this
     };
-  }, [token, displayName, onEvent, cleanup]);
-
-  const scheduleReconnect = useCallback(() => {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
-    const attempt = reconnectAttempts.current;
-    const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
-    reconnectAttempts.current = attempt + 1;
-
-    reconnectTimer.current = setTimeout(() => {
-      connect();
-    }, delay);
-  }, [connect]);
+  }, [token, displayName, onEvent, cleanup, scheduleReconnect]);
 
   // Send a message through the WebSocket
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
+      return true;
     }
+    return false;
   }, []);
 
-  // Connect when token changes
+  // Connect when token + displayName are both available
   useEffect(() => {
     if (token && displayName) {
-      connect();
+      connectWs();
     }
     return cleanup;
-  }, [token, displayName, connect, cleanup]);
+  }, [token, displayName, connectWs, cleanup]);
 
   return { state, send };
 }
 
 // ── Component ────────────────────────────────────────────────────────────
 
+type Phase = 'landing' | 'join-name' | 'room';
+
 export function CollabRoom() {
   const { get, post } = useApi();
   const { projectId } = useProject();
 
-  const [phase, setPhase] = useState<'create' | 'room'>('create');
+  const [phase, setPhase] = useState<Phase>('landing');
   const [room, setRoom] = useState<Room | null>(null);
   const [token, setToken] = useState('');
 
-  // Create form
+  // Landing: create form
   const [title, setTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // In-room state
+  // Landing: join form
+  const [joinToken, setJoinToken] = useState('');
+  const [joining, setJoining] = useState(false);
+
+  // Join-name
+  const [joinName, setJoinName] = useState('');
   const [myName, setMyName] = useState('');
   const [joined, setJoined] = useState(false);
-  const [joinName, setJoinName] = useState('');
+
+  // In-room state
   const [chatMsg, setChatMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [suggestion, setSuggestion] = useState<{ agent: string; reason: string } | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(true);
+
+  // @mention autocomplete
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const chatInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSent = useRef(0);
+
+  // ── Deep-link: check URL for token on mount ───────────────────────────
+
+  useEffect(() => {
+    const deepToken = getTokenFromUrl();
+    if (deepToken) {
+      setJoinToken(deepToken);
+      setToken(deepToken);
+      // Auto-fetch room details and go to join-name
+      get<Room>(`/api/collab/rooms/${deepToken}`)
+        .then(data => {
+          setRoom(data);
+          setPhase('join-name');
+        })
+        .catch(() => {
+          setError('Room not found from URL. Check the token.');
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── WebSocket event handler ───────────────────────────────────────────
 
   const handleWsEvent = useCallback((evt: WsEvent) => {
     switch (evt.event) {
+      case 'connected':
+        // Server confirmed WS connection
+        break;
+
       case 'new_message': {
         const msg = evt.data as Message;
         setRoom(prev => {
           if (!prev) return prev;
-          // Deduplicate by id
           if (prev.recent_messages.some(m => m.id === msg.id)) return prev;
           return { ...prev, recent_messages: [...prev.recent_messages, msg] };
         });
@@ -256,12 +334,25 @@ export function CollabRoom() {
       }
 
       case 'participant_joined': {
-        const data = evt.data as { participant?: Participant; display_name?: string };
+        const data = evt.data as { participant?: Participant; display_name?: string; online?: string[] };
         if (data.participant) {
           setRoom(prev => {
             if (!prev) return prev;
             if (prev.participants.some(p => p.id === data.participant!.id)) return prev;
             return { ...prev, participants: [...prev.participants, data.participant!] };
+          });
+        }
+        // Update online list if provided
+        if (data.online) {
+          setRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              participants: prev.participants.map(p => ({
+                ...p,
+                is_online: data.online!.includes(p.display_name),
+              })),
+            };
           });
         }
         break;
@@ -270,7 +361,18 @@ export function CollabRoom() {
       case 'participant_left':
       case 'participant_offline': {
         const data = evt.data as { display_name?: string; online?: string[] };
-        if (data.display_name) {
+        if (data.online) {
+          setRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              participants: prev.participants.map(p => ({
+                ...p,
+                is_online: data.online!.includes(p.display_name),
+              })),
+            };
+          });
+        } else if (data.display_name) {
           setRoom(prev => {
             if (!prev) return prev;
             return {
@@ -303,7 +405,6 @@ export function CollabRoom() {
       case 'suggestion': {
         const data = evt.data as { sender_name?: string; message?: string };
         if (data.message) {
-          // Parse agent name from suggestion message if possible
           const match = data.message.match(/Suggesting (\w+) as next agent/);
           const agent = match ? match[1] : 'next-agent';
           setSuggestion({ agent, reason: data.message });
@@ -311,16 +412,17 @@ export function CollabRoom() {
         break;
       }
 
-      case 'action': {
-        // Clear suggestion when an action is taken
+      case 'action':
         setSuggestion(null);
         break;
-      }
 
-      case 'room_closed': {
+      case 'room_closed':
         setRoom(prev => prev ? { ...prev, status: 'closed' } : prev);
         break;
-      }
+
+      case 'heartbeat_ack':
+        // Connection alive confirmation
+        break;
 
       default:
         break;
@@ -361,29 +463,15 @@ export function CollabRoom() {
     try {
       const data = await get<Room>(`/api/collab/rooms/${tok}`);
       setRoom(data);
-
-      // Simulate Brain suggestion if steps exist but no in_progress
-      if (data.steps.length > 0 && !data.steps.some(s => s.status === 'in_progress')) {
-        const agents = ['frontend', 'backend', 'security', 'qa', 'devops'];
-        const reasons = ['codebase analysis needed', 'auth implementation ready for review', 'test coverage gap detected'];
-        if (!suggestion) {
-          setSuggestion({
-            agent: agents[Math.floor(Math.random() * agents.length)],
-            reason: reasons[Math.floor(Math.random() * reasons.length)],
-          });
-        }
-      }
     } catch {
       // silent poll failure
     }
-  }, [get, suggestion]);
+  }, [get]);
 
   useEffect(() => {
-    if (phase === 'room' && token) {
-      // Always do initial fetch
+    if (phase === 'room' && token && joined) {
       fetchRoom(token);
 
-      // Only poll if WebSocket is disconnected
       if (wsState === 'disconnected') {
         pollRef.current = setInterval(() => fetchRoom(token), 3000);
       }
@@ -392,9 +480,8 @@ export function CollabRoom() {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       };
     }
-  }, [phase, token, wsState, fetchRoom]);
+  }, [phase, token, wsState, fetchRoom, joined]);
 
-  // Stop polling when WS connects
   useEffect(() => {
     if (wsState === 'connected' && pollRef.current) {
       clearInterval(pollRef.current);
@@ -405,6 +492,27 @@ export function CollabRoom() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [room?.recent_messages.length]);
+
+  // ── @mention autocomplete ─────────────────────────────────────────────
+
+  const mentionCandidates = useMemo(() => {
+    if (mentionQuery === null || !room) return [];
+    const q = mentionQuery.toLowerCase();
+    return room.participants
+      .filter(p => p.display_name !== myName && p.display_name.toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [mentionQuery, room, myName]);
+
+  function insertMention(name: string) {
+    // Replace the @query with @name in chatMsg
+    const atIdx = chatMsg.lastIndexOf('@');
+    if (atIdx >= 0) {
+      const before = chatMsg.slice(0, atIdx);
+      setChatMsg(`${before}@${name} `);
+    }
+    setMentionQuery(null);
+    chatInputRef.current?.focus();
+  }
 
   // ── Actions ──────────────────────────────────────────────────────────
 
@@ -417,7 +525,10 @@ export function CollabRoom() {
       if (projectId && projectId !== 'default') body.project_id = projectId;
       const result = await post<CreateRoomResult>('/api/collab/rooms', body);
       setToken(result.share_token);
-      setPhase('room');
+      // Fetch full room data
+      const data = await get<Room>(`/api/collab/rooms/${result.share_token}`);
+      setRoom(data);
+      setPhase('join-name');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create room');
     } finally {
@@ -426,24 +537,33 @@ export function CollabRoom() {
   }
 
   async function loadRoomByToken() {
-    if (!token.trim()) return;
+    if (!joinToken.trim()) return;
+    setJoining(true);
     setError(null);
     try {
-      const data = await get<Room>(`/api/collab/rooms/${token.trim()}`);
+      const data = await get<Room>(`/api/collab/rooms/${joinToken.trim()}`);
       setRoom(data);
-      setToken(token.trim());
-      setPhase('room');
+      setToken(joinToken.trim());
+      setPhase('join-name');
     } catch {
       setError('Room not found. Check the token and try again.');
+    } finally {
+      setJoining(false);
     }
   }
 
   async function joinRoom() {
     if (!joinName.trim()) return;
+    setError(null);
     try {
-      await post(`/api/collab/rooms/${token}/join`, { name: joinName.trim(), type: 'human', platform: 'browser' });
+      await post(`/api/collab/rooms/${token}/join`, {
+        name: joinName.trim(),
+        type: 'human',
+        platform: 'browser',
+      });
       setMyName(joinName.trim());
       setJoined(true);
+      setPhase('room');
       fetchRoom(token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join room');
@@ -453,29 +573,53 @@ export function CollabRoom() {
   async function sendMessage() {
     if (!chatMsg.trim() || !myName) return;
     setSending(true);
+    setMentionQuery(null);
 
     // Clear typing indicator
     wsSend({ type: 'typing', is_typing: false });
 
-    try {
-      await post(`/api/collab/rooms/${token}/messages`, {
-        sender_name: myName,
-        sender_type: 'human',
-        message: chatMsg.trim(),
-        message_type: 'chat',
-      });
-      setChatMsg('');
-      // WS will deliver the new message; no need for fetchRoom
-      if (wsState !== 'connected') fetchRoom(token);
-    } catch {
-      // silent
-    } finally {
-      setSending(false);
+    const text = chatMsg.trim();
+    setChatMsg('');
+
+    // Prefer WebSocket, fall back to REST
+    const sentViaWs = wsSend({ type: 'chat', message: text });
+
+    if (!sentViaWs) {
+      // WS unavailable — send via REST
+      try {
+        await post(`/api/collab/rooms/${token}/messages`, {
+          sender_name: myName,
+          sender_type: 'human',
+          message: text,
+          message_type: 'chat',
+        });
+        if (wsState !== 'connected') fetchRoom(token);
+      } catch {
+        // Restore message on failure
+        setChatMsg(text);
+      }
     }
+    setSending(false);
   }
 
   function handleChatInput(value: string) {
     setChatMsg(value);
+
+    // @mention detection
+    const atIdx = value.lastIndexOf('@');
+    if (atIdx >= 0) {
+      const after = value.slice(atIdx + 1);
+      // Only show autocomplete if @ is at start or after a space, and no space in query
+      const charBefore = atIdx > 0 ? value[atIdx - 1] : ' ';
+      if ((charBefore === ' ' || atIdx === 0) && !after.includes(' ')) {
+        setMentionQuery(after);
+        setMentionIndex(0);
+      } else {
+        setMentionQuery(null);
+      }
+    } else {
+      setMentionQuery(null);
+    }
 
     // Throttle typing events to 1 per second
     const now = Date.now();
@@ -483,12 +627,38 @@ export function CollabRoom() {
       wsSend({ type: 'typing', is_typing: value.length > 0 });
       lastTypingSent.current = now;
     }
+  }
 
-    // Clear typing after 3s of no input
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      wsSend({ type: 'typing', is_typing: false });
-    }, 3000);
+  function handleChatKeyDown(e: React.KeyboardEvent) {
+    // @mention nav
+    if (mentionQuery !== null && mentionCandidates.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(i => Math.min(i + 1, mentionCandidates.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(i => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        if (mentionCandidates[mentionIndex]) {
+          e.preventDefault();
+          insertMention(mentionCandidates[mentionIndex].display_name);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        setMentionQuery(null);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   }
 
   async function handleAction(action: 'accept' | 'override') {
@@ -501,9 +671,15 @@ export function CollabRoom() {
       });
       setSuggestion(null);
       if (wsState !== 'connected') fetchRoom(token);
-    } catch {
-      // silent
-    }
+    } catch { /* silent */ }
+  }
+
+  async function closeRoom() {
+    try {
+      await post(`/api/collab/rooms/${token}/close`, {});
+      setShowCloseConfirm(false);
+      if (wsState !== 'connected') fetchRoom(token);
+    } catch { /* silent */ }
   }
 
   async function seedDemo() {
@@ -511,18 +687,26 @@ export function CollabRoom() {
     try {
       const result = await post<{ room_id: string; share_token: string }>('/api/collab/rooms/seed-demo', {});
       setToken(result.share_token);
-      setPhase('room');
+      const data = await get<Room>(`/api/collab/rooms/${result.share_token}`);
+      setRoom(data);
+      setPhase('join-name');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to seed demo');
     }
   }
 
   function copyShareLink() {
-    const url = `${window.location.origin}/room/${token}`;
+    const url = `${window.location.origin}${window.location.pathname}?token=${token}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     });
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(token);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
   }
 
   // ── Typing indicator text ─────────────────────────────────────────────
@@ -545,15 +729,25 @@ export function CollabRoom() {
     padding: 20,
   };
 
+  const glassCard: React.CSSProperties = {
+    background: 'linear-gradient(135deg, rgba(217,119,87,0.06) 0%, rgba(217,119,87,0.02) 100%)',
+    border: '1px solid rgba(217,119,87,0.18)',
+    borderRadius: 12,
+    padding: 20,
+    backdropFilter: 'blur(12px)',
+  };
+
   const accentBtn: React.CSSProperties = {
-    background: 'var(--accent)',
+    background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
     color: '#fff',
     border: 'none',
-    borderRadius: 8,
-    padding: '10px 20px',
+    borderRadius: 10,
+    padding: '12px 24px',
     fontSize: 14,
     fontWeight: 700,
     cursor: 'pointer',
+    boxShadow: '0 4px 14px rgba(217,119,87,0.25)',
+    transition: 'all 0.2s',
   };
 
   const ghostBtn: React.CSSProperties = {
@@ -564,11 +758,12 @@ export function CollabRoom() {
     fontSize: 13,
     color: 'var(--text-secondary)',
     cursor: 'pointer',
+    transition: 'all 0.15s',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '10px 12px',
+    padding: '11px 14px',
     borderRadius: 8,
     border: '1px solid var(--border-light)',
     background: 'var(--bg-primary)',
@@ -577,32 +772,59 @@ export function CollabRoom() {
     fontFamily: 'inherit',
     outline: 'none',
     boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
   };
 
-  // ── Phase: Create ────────────────────────────────────────────────────
+  // ── Phase: Landing ────────────────────────────────────────────────────
 
-  if (phase === 'create') {
+  if (phase === 'landing') {
     return (
-      <div style={{ maxWidth: 540, margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <Radio size={22} color="var(--accent)" />
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Collab Room</span>
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
-            background: '#059669' + '22', color: '#059669', letterSpacing: 1,
-          }}>LIVE</span>
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 20px' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 12,
+              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+            }}>
+              <Radio size={20} color="#fff" />
+            </div>
+            <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5 }}>
+              Collab Room
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+              background: '#05966918', color: '#059669', letterSpacing: 1,
+            }}>LIVE</span>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15, margin: 0, lineHeight: 1.6 }}>
+            Create a shared room where humans and AI agents collaborate in real time.
+            Share the link with any team member or agent.
+          </p>
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 28 }}>
-          Create a shared room where humans and agents collaborate in real time.
-          Share the link with any AI agent or team member.
-        </p>
 
-        <div style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15, marginBottom: 16 }}>
-            New Room
+        {error && (
+          <div style={{
+            marginBottom: 16, padding: '12px 16px', borderRadius: 10,
+            background: '#7f1d1d22', border: '1px solid #991b1b44',
+            color: '#fca5a5', fontSize: 13,
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Create New Room */}
+        <div style={{ ...glassCard, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <Plus size={18} color="#D97757" />
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16 }}>
+              Create New Room
+            </span>
           </div>
 
-          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
+          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
             Room title
           </label>
           <input
@@ -610,10 +832,12 @@ export function CollabRoom() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="e.g., Build JWT Auth System"
+            onKeyDown={e => { if (e.key === 'Enter' && title.trim()) createRoom(); }}
           />
 
-          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
-            Task description (optional)
+          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+            Task description
+            <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> (optional)</span>
           </label>
           <textarea
             style={{ ...inputStyle, resize: 'none', marginBottom: 16 }}
@@ -623,34 +847,39 @@ export function CollabRoom() {
             placeholder="Describe what needs to get done..."
           />
 
-          {error && (
-            <div style={{ marginBottom: 12, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
-              {error}
-            </div>
-          )}
-
           <button
             onClick={createRoom}
             disabled={!title.trim() || creating}
-            style={{ ...accentBtn, width: '100%', opacity: (!title.trim() || creating) ? 0.6 : 1 }}
+            style={{ ...accentBtn, width: '100%', opacity: (!title.trim() || creating) ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
-            {creating ? 'Creating...' : 'Create Room'}
+            {creating ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Creating...</> : <>Create Room</>}
           </button>
         </div>
 
-        <div style={{ ...card, marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14, marginBottom: 12 }}>
-            Join Existing Room
+        {/* Join Existing Room */}
+        <div style={{ ...card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <LogIn size={18} color="#D97757" />
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16 }}>
+              Join Existing Room
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+
+          <div style={{ display: 'flex', gap: 10 }}>
             <input
               style={{ ...inputStyle, flex: 1 }}
-              value={token}
-              onChange={e => setToken(e.target.value)}
-              placeholder="Room token (e.g. a1b2c3d4e)"
+              value={joinToken}
+              onChange={e => setJoinToken(e.target.value)}
+              placeholder="Paste room token (e.g. a1b2c3d4e)"
+              onKeyDown={e => { if (e.key === 'Enter') loadRoomByToken(); }}
             />
-            <button onClick={loadRoomByToken} style={accentBtn}>
-              Join <ChevronRight size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
+            <button
+              onClick={loadRoomByToken}
+              disabled={!joinToken.trim() || joining}
+              style={{ ...accentBtn, padding: '12px 20px', opacity: (!joinToken.trim() || joining) ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {joining ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ChevronRight size={16} />}
+              Join
             </button>
           </div>
         </div>
@@ -661,121 +890,230 @@ export function CollabRoom() {
         >
           Load Demo Room
         </button>
+
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  // ── Phase: Room ──────────────────────────────────────────────────────
+  // ── Phase: Join Name ──────────────────────────────────────────────────
 
-  if (!room) {
+  if (phase === 'join-name') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--text-tertiary)' }}>
-        Loading room...
-      </div>
-    );
-  }
+      <div style={{ maxWidth: 420, margin: '80px auto', padding: '0 20px' }}>
+        <div style={glassCard}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px',
+              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 6px 20px rgba(217,119,87,0.3)',
+            }}>
+              <Radio size={24} color="#fff" />
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', marginBottom: 4 }}>
+              {room?.title || 'Collab Room'}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+              {room ? `${room.participants.length} participant${room.participants.length !== 1 ? 's' : ''} · ${room.status}` : ''}
+            </div>
+            {room?.task_description && (
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 12, marginTop: 8, lineHeight: 1.5, fontStyle: 'italic' }}>
+                {room.task_description}
+              </div>
+            )}
+          </div>
 
-  // Join modal if not yet joined
-  if (!joined) {
-    return (
-      <div style={{ maxWidth: 400, margin: '80px auto', padding: 20 }}>
-        <div style={{ ...card }}>
-          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>
-            {room.title}
-          </div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 20 }}>
-            {room.participants.length} participant{room.participants.length !== 1 ? 's' : ''} · {room.status}
-          </div>
-          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
+          <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
             Your display name
           </label>
           <input
-            style={{ ...inputStyle, marginBottom: 12 }}
+            style={{ ...inputStyle, marginBottom: 16 }}
             value={joinName}
             onChange={e => setJoinName(e.target.value)}
             placeholder="Enter your name..."
-            onKeyDown={e => { if (e.key === 'Enter') joinRoom(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && joinName.trim()) joinRoom(); }}
+            autoFocus
           />
+
           {error && (
-            <div style={{ marginBottom: 12, color: '#fca5a5', fontSize: 13 }}>{error}</div>
+            <div style={{ marginBottom: 12, padding: '10px 14px', background: '#7f1d1d22', border: '1px solid #991b1b44', borderRadius: 8, color: '#fca5a5', fontSize: 13 }}>
+              {error}
+            </div>
           )}
-          <button
-            onClick={joinRoom}
-            disabled={!joinName.trim()}
-            style={{ ...accentBtn, width: '100%', opacity: !joinName.trim() ? 0.6 : 1 }}
-          >
-            Join Room
-          </button>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => { setPhase('landing'); setError(null); }}
+              style={{ ...ghostBtn, flex: '0 0 auto' }}
+            >
+              Back
+            </button>
+            <button
+              onClick={joinRoom}
+              disabled={!joinName.trim()}
+              style={{ ...accentBtn, flex: 1, opacity: !joinName.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              Join Room
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Phase: Room (loading) ─────────────────────────────────────────────
+
+  if (!room) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--text-tertiary)', gap: 10 }}>
+        <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} />
+        Loading room...
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ── Phase: Room ───────────────────────────────────────────────────────
+
   const onlineCount = room.participants.filter(p => p.is_online).length;
+  const wsBadge = wsState === 'connected'
+    ? { bg: '#05966918', color: '#059669', icon: <Wifi size={10} />, label: 'WS' }
+    : wsState === 'connecting'
+      ? { bg: '#d9770618', color: '#d97706', icon: <Loader size={10} style={{ animation: 'spin 1s linear infinite' }} />, label: 'Connecting' }
+      : { bg: '#ef444418', color: '#ef4444', icon: <WifiOff size={10} />, label: 'Polling' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Header */}
+      {/* ── Room Header ──────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 20px',
+        padding: '12px 20px',
         background: 'var(--bg-card)',
         borderBottom: '1px solid var(--border-light)',
         flexShrink: 0,
+        flexWrap: 'wrap',
+        gap: 8,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Radio size={18} color="var(--accent)" />
-          <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{room.title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <Radio size={18} color="#D97757" />
+          <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {room.title}
+          </span>
           <span style={{
-            fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-            background: '#059669' + '22', color: '#059669', letterSpacing: 1,
+            fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+            background: room.status === 'open' ? '#05966918' : '#ef444418',
+            color: room.status === 'open' ? '#059669' : '#ef4444',
+            letterSpacing: 1,
           }}>
             {room.status === 'open' ? 'LIVE' : room.status.toUpperCase()}
           </span>
-          {/* Connection indicator */}
+
+          {/* Connection badge */}
           <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-            background: wsState === 'connected' ? '#059669' + '18' : wsState === 'connecting' ? '#d97706' + '18' : '#ef4444' + '18',
-            color: wsState === 'connected' ? '#059669' : wsState === 'connecting' ? '#d97706' : '#ef4444',
+            display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+            fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+            background: wsBadge.bg, color: wsBadge.color,
           }}>
-            {wsState === 'connected' ? <Wifi size={10} /> : <WifiOff size={10} />}
-            {wsState === 'connected' ? 'WS' : wsState === 'connecting' ? 'Connecting' : 'Polling'}
+            {wsBadge.icon}
+            {wsBadge.label}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>
-            Token: <code style={{ color: 'var(--text-secondary)' }}>{token}</code>
-          </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {/* Token + copy */}
           <button
-            onClick={copyShareLink}
-            style={{ ...ghostBtn, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+            onClick={copyToken}
+            style={{
+              ...ghostBtn, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5,
+              fontSize: 12,
+            }}
           >
-            <Link size={13} />
-            {copySuccess ? 'Copied!' : 'Share'}
+            <code style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{token}</code>
+            {copySuccess ? <CheckCircle size={12} color="#059669" /> : <Copy size={12} />}
           </button>
+
+          {/* Share */}
+          <button onClick={copyShareLink} style={{ ...ghostBtn, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+            <ExternalLink size={12} />
+            Share
+          </button>
+
+          {/* Participant toggle */}
+          <button
+            onClick={() => setShowParticipants(p => !p)}
+            style={{ ...ghostBtn, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+          >
+            <Users size={12} />
+            {onlineCount}
+          </button>
+
+          {/* Close room */}
+          {room.status === 'open' && (
+            <button
+              onClick={() => setShowCloseConfirm(true)}
+              style={{ ...ghostBtn, padding: '5px 10px', color: '#fca5a5', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <X size={12} />
+              Close
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Main: Timeline + Chat */}
+      {/* Close confirmation modal */}
+      {showCloseConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{ ...card, maxWidth: 360, textAlign: 'center' }}>
+            <AlertTriangle size={32} color="#ef4444" style={{ marginBottom: 12 }} />
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', marginBottom: 8 }}>
+              Close this room?
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+              All participants will be notified. No new messages can be sent after closing.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowCloseConfirm(false)} style={{ ...ghostBtn, flex: 1 }}>
+                Cancel
+              </button>
+              <button
+                onClick={closeRoom}
+                style={{
+                  ...accentBtn, flex: 1,
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  boxShadow: '0 4px 14px rgba(239,68,68,0.25)',
+                }}
+              >
+                Close Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main layout: Timeline | Chat | Participants ─────────────── */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-        {/* Timeline panel */}
+        {/* ── Timeline panel (left) ─────────────────────────────────── */}
         <div style={{
-          width: 320,
-          flexShrink: 0,
+          width: 300, flexShrink: 0,
           borderRight: '1px solid var(--border-light)',
           background: 'var(--bg-primary)',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
-              Timeline
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Clock size={14} color="#D97757" />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>Timeline</span>
+            </div>
             {room.task_description && (
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
                 {room.task_description}
               </div>
             )}
@@ -783,25 +1121,24 @@ export function CollabRoom() {
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
             {room.steps.length === 0 && (
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
-                No steps yet. Accept a Brain suggestion to start.
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center', marginTop: 40, lineHeight: 1.6 }}>
+                No steps yet.<br />Accept a Brain suggestion to start.
               </div>
             )}
 
             {room.steps.map((step, i) => (
               <div key={step.id} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                {/* Dot + line */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                    background: step.status === 'in_progress' ? 'var(--accent)' : 'var(--bg-card)',
-                    border: `2px solid ${step.status === 'in_progress' ? 'var(--accent)' : 'var(--border-light)'}`,
+                    background: step.status === 'in_progress' ? '#D97757' : 'var(--bg-card)',
+                    border: `2px solid ${step.status === 'in_progress' ? '#D97757' : 'var(--border-light)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 11, fontWeight: 700,
                     color: step.status === 'in_progress' ? '#fff' : 'var(--text-secondary)',
                   }}>
                     {step.status === 'in_progress'
-                      ? <Clock size={13} />
+                      ? <Loader size={13} style={{ animation: 'spin 1.5s linear infinite' }} />
                       : <Check size={13} color="#059669" />
                     }
                   </div>
@@ -810,11 +1147,10 @@ export function CollabRoom() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div style={{ flex: 1, paddingBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{
-                      width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)',
+                      width: 20, height: 20, borderRadius: '50%', background: '#D97757',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0,
                     }}>
@@ -825,7 +1161,7 @@ export function CollabRoom() {
                     </span>
                     <span style={{
                       fontSize: 10, padding: '1px 5px', borderRadius: 3,
-                      background: step.status === 'in_progress' ? '#d97706' + '22' : '#059669' + '22',
+                      background: step.status === 'in_progress' ? '#d9770622' : '#05966922',
                       color: step.status === 'in_progress' ? '#d97706' : '#059669',
                       fontWeight: 600,
                     }}>
@@ -845,30 +1181,31 @@ export function CollabRoom() {
               </div>
             ))}
 
-            {/* Brain suggestion */}
+            {/* Brain suggestion card */}
             {suggestion && room.status === 'open' && (
               <div style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--accent)',
+                background: 'linear-gradient(135deg, rgba(217,119,87,0.08) 0%, rgba(217,119,87,0.03) 100%)',
+                border: '1px solid rgba(217,119,87,0.3)',
                 borderRadius: 10,
                 padding: 14,
                 marginTop: 8,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, marginBottom: 8 }}>
-                  BRAIN SUGGESTION
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#D97757', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
+                  Brain Suggestion
                 </div>
                 <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
                   Next: {suggestion.agent}
                 </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
                   {suggestion.reason}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => handleAction('accept')}
                     style={{
-                      flex: 1, padding: '7px 10px', borderRadius: 6, border: 'none',
-                      background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none',
+                      background: 'linear-gradient(135deg, #D97757, #c56a4d)', color: '#fff',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     }}
                   >
@@ -877,7 +1214,7 @@ export function CollabRoom() {
                   <button
                     onClick={() => handleAction('override')}
                     style={{
-                      flex: 1, padding: '7px 10px', borderRadius: 6,
+                      flex: 1, padding: '8px 10px', borderRadius: 8,
                       border: '1px solid var(--border-light)',
                       background: 'none', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
@@ -891,25 +1228,33 @@ export function CollabRoom() {
           </div>
         </div>
 
-        {/* Chat panel */}
+        {/* ── Chat panel (center) ───────────────────────────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {room.recent_messages.length === 0 && (
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center', marginTop: 60, lineHeight: 1.6 }}>
+                No messages yet. Start the conversation.
+              </div>
+            )}
+
             {room.recent_messages.map(msg => {
               const isSystem = msg.sender_type === 'system';
               const isSuggestionMsg = msg.message_type === 'suggestion';
+              const isAction = msg.message_type === 'action';
 
               if (isSystem) {
                 return (
-                  <div key={msg.id} style={{ textAlign: 'center' }}>
+                  <div key={msg.id} style={{ textAlign: 'center', margin: '4px 0' }}>
                     <span style={{
                       display: 'inline-block',
-                      padding: '4px 12px',
+                      padding: '5px 14px',
                       borderRadius: 12,
-                      background: isSuggestionMsg ? 'var(--accent)' + '22' : 'var(--bg-secondary)',
-                      color: isSuggestionMsg ? 'var(--accent)' : 'var(--text-tertiary)',
+                      background: isSuggestionMsg ? 'rgba(217,119,87,0.12)' : isAction ? '#05966912' : 'var(--bg-card)',
+                      color: isSuggestionMsg ? '#D97757' : isAction ? '#059669' : 'var(--text-tertiary)',
                       fontSize: 12,
-                      border: isSuggestionMsg ? '1px solid var(--accent)' : 'none',
+                      fontStyle: 'italic',
+                      border: isSuggestionMsg ? '1px solid rgba(217,119,87,0.25)' : '1px solid var(--border-light)',
                     }}>
                       {msg.message}
                     </span>
@@ -921,36 +1266,45 @@ export function CollabRoom() {
               const isMe = msg.sender_name === myName;
 
               return (
-                <div key={msg.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                <div key={msg.id} style={{
+                  display: 'flex', gap: 10, alignItems: 'flex-start',
+                  flexDirection: isMe ? 'row-reverse' : 'row',
+                }}>
                   <div style={{
-                    width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                    background: isAgent ? '#7c3aed' : 'var(--accent)',
+                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                    background: isAgent ? '#7c3aed' : '#D97757',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 700, color: '#fff',
                   }}>
                     {msg.sender_name[0]?.toUpperCase()}
                   </div>
                   <div style={{ maxWidth: '72%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3,
+                      flexDirection: isMe ? 'row-reverse' : 'row',
+                    }}>
                       <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>
                         {msg.sender_name}
                       </span>
                       {isAgent && (
                         <span style={{
-                          fontSize: 10, padding: '1px 5px', borderRadius: 3,
-                          background: '#7c3aed' + '22', color: '#7c3aed', fontWeight: 600,
+                          fontSize: 10, padding: '1px 6px', borderRadius: 4,
+                          background: '#7c3aed18', color: '#7c3aed', fontWeight: 600,
                         }}>agent</span>
                       )}
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{timeAgo(msg.created_at)}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        {timeAgo(msg.created_at)}
+                      </span>
                     </div>
                     <div style={{
-                      padding: '9px 13px',
-                      borderRadius: isMe ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
-                      background: isMe ? 'var(--accent)' : 'var(--bg-card)',
-                      border: isMe ? 'none' : '1px solid var(--border-light)',
+                      padding: '10px 14px',
+                      borderRadius: isMe ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
+                      background: isMe ? 'linear-gradient(135deg, #D97757, #c56a4d)' : 'var(--bg-card)',
+                      border: isMe ? 'none' : isAgent ? '1px solid rgba(217,119,87,0.25)' : '1px solid var(--border-light)',
                       color: isMe ? '#fff' : 'var(--text-primary)',
                       fontSize: 13,
                       lineHeight: 1.5,
+                      borderLeft: isAgent && !isMe ? '3px solid #D97757' : undefined,
                     }}>
                       {highlightMentions(msg.message)}
                     </div>
@@ -974,20 +1328,68 @@ export function CollabRoom() {
             </div>
           )}
 
-          {/* Input bar */}
+          {/* Chat input */}
           <div style={{
             padding: '12px 16px',
             borderTop: '1px solid var(--border-light)',
             background: 'var(--bg-card)',
             flexShrink: 0,
+            position: 'relative',
           }}>
+            {/* @mention autocomplete dropdown */}
+            {mentionQuery !== null && mentionCandidates.length > 0 && (
+              <div style={{
+                position: 'absolute', bottom: '100%', left: 16, right: 16,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 10,
+                boxShadow: '0 -4px 20px rgba(0,0,0,0.3)',
+                overflow: 'hidden',
+                marginBottom: 4,
+              }}>
+                {mentionCandidates.map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => insertMention(p.display_name)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '10px 14px',
+                      background: i === mentionIndex ? 'rgba(217,119,87,0.1)' : 'transparent',
+                      border: 'none',
+                      borderBottom: i < mentionCandidates.length - 1 ? '1px solid var(--border-light)' : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{
+                      width: 24, height: 24, borderRadius: '50%',
+                      background: p.sender_type === 'agent' ? '#7c3aed' : '#D97757',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0,
+                    }}>
+                      {p.display_name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        @{p.display_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        {p.sender_type} · {p.platform}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8 }}>
               <input
+                ref={chatInputRef}
                 style={{ ...inputStyle, flex: 1 }}
                 value={chatMsg}
                 onChange={e => handleChatInput(e.target.value)}
-                placeholder={`Message as ${myName}... (use @name to mention)`}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={room.status === 'open' ? `Message as ${myName}... (@ to mention)` : 'Room is closed'}
+                onKeyDown={handleChatKeyDown}
                 disabled={room.status !== 'open'}
               />
               <button
@@ -995,75 +1397,112 @@ export function CollabRoom() {
                 disabled={!chatMsg.trim() || sending || room.status !== 'open'}
                 style={{
                   ...accentBtn,
-                  padding: '10px 14px',
-                  opacity: (!chatMsg.trim() || sending) ? 0.6 : 1,
+                  padding: '10px 16px',
+                  opacity: (!chatMsg.trim() || sending) ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', gap: 4,
                 }}
               >
-                <Send size={14} />
+                <Send size={15} />
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Participants bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 20px',
-        background: 'var(--bg-card)',
-        borderTop: '1px solid var(--border-light)',
-        flexShrink: 0,
-        overflow: 'hidden',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-tertiary)', fontSize: 12, flexShrink: 0 }}>
-          <Users size={13} />
-          <span>{onlineCount} online</span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, overflow: 'hidden', flex: 1 }}>
-          {room.participants.map(p => (
-            <div key={p.id} style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '3px 10px',
-              borderRadius: 12,
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-light)',
-              flexShrink: 0,
-              opacity: p.is_online ? 1 : 0.4,
+        {/* ── Participants sidebar (right) ──────────────────────────── */}
+        {showParticipants && (
+          <div style={{
+            width: 220, flexShrink: 0,
+            borderLeft: '1px solid var(--border-light)',
+            background: 'var(--bg-primary)',
+            display: 'flex', flexDirection: 'column',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '14px 16px',
+              borderBottom: '1px solid var(--border-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: p.is_online ? '#059669' : '#9ca3af',
-                flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{p.display_name}</span>
-              {p.sender_type === 'agent' && (
-                <span style={{
-                  fontSize: 10, padding: '1px 4px', borderRadius: 3,
-                  background: platformBadgeColor(p.platform) + '22',
-                  color: platformBadgeColor(p.platform),
-                  fontWeight: 600,
-                }}>
-                  {p.platform}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Users size={14} color="#D97757" />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
+                  Participants
                 </span>
-              )}
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8,
+                  background: '#05966918', color: '#059669',
+                }}>
+                  {onlineCount}
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
-        {room.status === 'open' && (
-          <button
-            onClick={async () => {
-              try {
-                await post(`/api/collab/rooms/${token}/close`, {});
-                if (wsState !== 'connected') fetchRoom(token);
-              } catch { /* silent */ }
-            }}
-            style={{ ...ghostBtn, padding: '4px 10px', fontSize: 12, flexShrink: 0, color: '#fca5a5' }}
-          >
-            Close Room
-          </button>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+              {/* Online first, then offline */}
+              {[...room.participants]
+                .sort((a, b) => (b.is_online ? 1 : 0) - (a.is_online ? 1 : 0))
+                .map(p => {
+                  const roleColor = p.sender_type === 'agent' ? platformBadgeColor(p.platform) : '#D97757';
+                  return (
+                    <div key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 8px',
+                      borderRadius: 8,
+                      opacity: p.is_online ? 1 : 0.5,
+                      transition: 'opacity 0.2s',
+                    }}>
+                      {/* Avatar with online dot */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          background: `${roleColor}22`,
+                          border: `2px solid ${roleColor}44`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontWeight: 700, color: roleColor,
+                        }}>
+                          {p.display_name[0]?.toUpperCase()}
+                        </div>
+                        <div style={{
+                          position: 'absolute', bottom: -1, right: -1,
+                          width: 10, height: 10, borderRadius: '50%',
+                          background: p.is_online ? '#059669' : '#6b7280',
+                          border: '2px solid var(--bg-primary)',
+                        }} />
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 600, fontSize: 13, color: 'var(--text-primary)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {p.display_name}
+                          {p.display_name === myName && (
+                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 11 }}> (you)</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          {p.sender_type === 'agent' && (
+                            <span style={{
+                              fontSize: 10, padding: '0px 5px', borderRadius: 3,
+                              background: `${roleColor}18`, color: roleColor,
+                              fontWeight: 600,
+                            }}>
+                              {p.platform}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                            {p.is_online ? 'online' : p.last_seen ? timeAgo(p.last_seen) : 'offline'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         )}
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
