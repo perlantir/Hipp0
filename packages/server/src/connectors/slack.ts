@@ -203,10 +203,59 @@ export function registerSlackConnector(app: Hono): void {
       return c.json({ status: 'processing' });
     }
 
-    // Handle lock reaction (decision capture)
-    if (event.type === 'reaction_added' && event.reaction === 'lock') {
-      console.log(`[decigraph/slack] Lock reaction in channel ${event.item?.channel} — could fetch message for extraction`);
-      return c.json({ status: 'reaction_noted' });
+    // Handle decision reactions (pushpin, brain, bulb, memo, lock)
+    if (event.type === 'reaction_added') {
+      const decisionReactions = ['pushpin', 'brain', 'bulb', 'memo', 'lock'];
+      if (decisionReactions.includes(event.reaction) && event.item?.channel && event.item?.ts) {
+        // Fetch the original message via Slack API
+        const botToken = process.env.DECIGRAPH_SLACK_BOT_TOKEN;
+        if (botToken) {
+          try {
+            const msgResp = await fetch('https://slack.com/api/conversations.history', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${botToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                channel: event.item.channel,
+                latest: event.item.ts,
+                inclusive: true,
+                limit: 1,
+              }),
+            });
+            const msgData = await msgResp.json() as Record<string, unknown>;
+            const messages = (msgData.messages as Array<Record<string, unknown>>) || [];
+            const msg = messages[0];
+            if (msg?.text && (msg.text as string).length >= 20) {
+              await submitForExtraction({
+                raw_text: (msg.text as string).slice(0, 2000),
+                source: 'slack_reaction',
+                source_session_id: `slack:${event.item.channel}:${event.item.ts}:reaction`,
+                made_by: (msg.user as string) || 'unknown',
+                project_id: projectId,
+              });
+              // Add checkmark reaction to confirm capture
+              await fetch('https://slack.com/api/reactions.add', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${botToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  channel: event.item.channel,
+                  timestamp: event.item.ts,
+                  name: 'white_check_mark',
+                }),
+              }).catch(() => {});
+              console.log(`[decigraph/slack] Extracted decision from reaction in ${event.item.channel}`);
+            }
+          } catch (err) {
+            console.warn('[decigraph/slack] Reaction extraction failed:', (err as Error).message);
+          }
+        }
+        return c.json({ status: 'reaction_processed' });
+      }
     }
 
     return c.json({ status: 'ignored', reason: 'unhandled_event_type' });
