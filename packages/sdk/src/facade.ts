@@ -14,6 +14,7 @@ import type {
   Decision,
   Contradiction,
   ContextPackage,
+  OutcomeResult,
 } from './types.js';
 
 export interface DeciGraphConfig {
@@ -135,5 +136,24 @@ export class DeciGraph {
   /** Get decisions that contradict each other */
   async getContradictions(projectId?: string): Promise<Contradiction[]> {
     return this.client.getContradictions(this.pid(projectId));
+  }
+
+  /** Report task outcome for passive weight evolution */
+  async reportOutcome(params: {
+    compileRequestId: string;
+    taskCompleted: boolean;
+    taskDurationMs?: number;
+    agentOutput?: string;
+    errorOccurred?: boolean;
+    errorMessage?: string;
+  }): Promise<OutcomeResult> {
+    return this.client.reportOutcome({
+      compile_request_id: params.compileRequestId,
+      task_completed: params.taskCompleted,
+      task_duration_ms: params.taskDurationMs,
+      agent_output: params.agentOutput,
+      error_occurred: params.errorOccurred,
+      error_message: params.errorMessage,
+    });
   }
 }

@@ -41,6 +41,7 @@ import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
+import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
 
@@ -223,6 +224,7 @@ export function createApp() {
   registerPhase2ContradictionRoutes(app);
   registerPhase2EdgeRoutes(app);
   registerImpactRoutes(app);
+  registerOutcomeRoutes(app);
   registerSlackConnector(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────

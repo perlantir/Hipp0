@@ -1,12 +1,13 @@
 /**
  * MCP Tool definitions and handlers for DeciGraph.
  *
- * 5 tools:
+ * 6 tools:
  *   1. compile_context — get scored decisions for a task
  *   2. add_decision — record a new decision
  *   3. ask_decisions — natural language query
  *   4. search_decisions — filter by tag/agent/status
  *   5. get_contradictions — find conflicting decisions
+ *   6. report_outcome — report task outcome for weight evolution
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -214,6 +215,46 @@ export function registerAllTools(
 
       return {
         content: [{ type: 'text' as const, text: `Found ${limited.length} contradictions:\n\n${text}` }],
+      };
+    },
+  );
+
+  // ── Tool 6: report_outcome ────────────────────────────────────────────
+
+  server.registerTool(
+    'report_outcome',
+    {
+      title: 'Report task outcome',
+      description:
+        'Report the result of a task that used compiled context. Enables passive weight evolution via alignment tracking.',
+      inputSchema: {
+        compile_request_id: z.string().describe('The compile_request_id from a compile_context response'),
+        task_completed: z.boolean().describe('Whether the task was completed successfully'),
+        task_duration_ms: z.number().optional().describe('How long the task took in milliseconds'),
+        agent_output: z.string().optional().describe('The agent output text (used for alignment analysis, not stored)'),
+        error_message: z.string().optional().describe('Error message if the task failed'),
+      },
+    },
+    async (args) => {
+      const result = await client.reportOutcome({
+        compile_request_id: args.compile_request_id,
+        task_completed: args.task_completed,
+        task_duration_ms: args.task_duration_ms,
+        agent_output: args.agent_output,
+        error_occurred: args.error_message ? true : undefined,
+        error_message: args.error_message,
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: [
+            `Outcome recorded (id: ${result.id})`,
+            `  Task completed: ${result.task_completed}`,
+            `  Alignment score: ${(result.alignment_score * 100).toFixed(1)}%`,
+            `  Decisions: ${result.decisions_referenced}/${result.decisions_compiled} referenced`,
+          ].join('\n'),
+        }],
       };
     },
   );
