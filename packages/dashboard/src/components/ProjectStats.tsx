@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
+import { PolicyComplianceCard } from './PolicyComplianceCard';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -370,6 +371,9 @@ export function ProjectStats() {
                 </div>
               </div>
             )}
+
+            {/* Policy compliance */}
+            <PolicyComplianceCard />
           </div>
         </div>
 
