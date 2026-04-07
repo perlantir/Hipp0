@@ -17,6 +17,7 @@ import {
   X,
   ToggleLeft,
   ToggleRight,
+  GitBranch,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -400,6 +401,136 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  GitHub Integration Settings                                        */
+/* ------------------------------------------------------------------ */
+
+interface GitHubStatus {
+  connected: boolean;
+  app_id: string | null;
+  installation_id: string | null;
+  total_links: number;
+  open_pr_links: number;
+  merged_pr_links: number;
+}
+
+function GitHubSettings({ projectId }: { projectId: string }) {
+  const { get } = useApi();
+  const [status, setStatus] = useState<GitHubStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [prComments, setPrComments] = useState(true);
+  const [autoExtract, setAutoExtract] = useState(true);
+  const [supersedeNotify, setSupersedeNotify] = useState(true);
+  const [autoLink, setAutoLink] = useState(true);
+
+  const testConnection = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await get<GitHubStatus>(`/api/projects/${projectId}/github/status`);
+      setStatus(data);
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to check GitHub status.');
+    } finally {
+      setLoading(false);
+    }
+  }, [get, projectId]);
+
+  useEffect(() => {
+    testConnection();
+  }, [testConnection]);
+
+  return (
+    <div className="card p-4 mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <GitBranch size={16} className="text-primary" />
+        <h3 className="text-sm font-semibold">GitHub Integration</h3>
+        {status?.connected ? (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            Connected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
+            Not configured
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20 mb-3">
+          <AlertCircle size={13} className="shrink-0 mt-0.5 text-red-400" />
+          <p className="text-xs text-red-300">{error}</p>
+        </div>
+      )}
+
+      {status && (
+        <>
+          {/* Connection details */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            {status.app_id && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">App ID</p>
+                <p className="text-xs font-medium">{status.app_id}</p>
+              </div>
+            )}
+            {status.installation_id && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Installation</p>
+                <p className="text-xs font-medium">{status.installation_id}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Total links</p>
+              <p className="text-xs font-medium">{status.total_links}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Open PRs</p>
+              <p className="text-xs font-medium">{status.open_pr_links}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Merged PRs</p>
+              <p className="text-xs font-medium">{status.merged_pr_links}</p>
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2 mb-4">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Options</p>
+            {[
+              { label: 'Post relevant decisions on new PRs', value: prComments, set: setPrComments },
+              { label: 'Auto-extract decisions from merged PRs', value: autoExtract, set: setAutoExtract },
+              { label: 'Notify PRs when decisions are superseded', value: supersedeNotify, set: setSupersedeNotify },
+              { label: 'Auto-link PRs that reference decisions', value: autoLink, set: setAutoLink },
+            ].map((opt) => (
+              <label key={opt.label} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={opt.value}
+                  onChange={(e) => opt.set(e.target.checked)}
+                  className="rounded border-[var(--border-light)] text-primary focus:ring-primary/30"
+                />
+                <span className="text-xs">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button
+        onClick={testConnection}
+        disabled={loading}
+        className="btn-secondary text-xs flex items-center gap-1.5"
+      >
+        {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+        Test Connection
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Connectors page                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -584,6 +715,9 @@ export function Connectors() {
             </div>
           </div>
         )}
+
+        {/* GitHub integration */}
+        <GitHubSettings projectId={projectId} />
 
         {/* Add form */}
         {showForm && (

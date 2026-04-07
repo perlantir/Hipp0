@@ -21,6 +21,7 @@ import {
 } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { invalidateDecisionCaches } from '../cache/redis.js';
+import { notifySupersededDecision } from '../connectors/github.js';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -421,6 +422,13 @@ export function registerDecisionRoutes(app: Hono): void {
       title: (result.newDecision as Decision).title,
       old_decision_id: oldId,
     }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+
+    // Notify linked open PRs about superseded decision (fire-and-forget)
+    notifySupersededDecision(
+      oldId,
+      (result.newDecision as Decision).id,
+      (result.newDecision as Decision).title,
+    ).catch((err) => console.warn('[decigraph/github] Supersede notify failed:', (err as Error).message));
 
     // Cascade impact detection (fire-and-forget notifications, but include in response)
     let cascadeImpact: { decisions_affected: number; chain: Array<Record<string, unknown>> } = { decisions_affected: 0, chain: [] };
