@@ -5,7 +5,7 @@
  * Uses role signals from Phase 2 — zero LLM calls.
  */
 import { getDb } from '../db/index.js';
-import { generateRoleSignal } from './role-signals.js';
+import { generateRoleSignal, computeRecommendedAction } from './role-signals.js';
 import { getSessionContext } from '../memory/session-manager.js';
 
 /* ------------------------------------------------------------------ */
@@ -29,6 +29,9 @@ export interface NextAgentSuggestion {
   completion_reason?: string;
   estimated_remaining_steps: number;
   session_progress: number;
+  recommended_action?: string;
+  action_reason?: string;
+  override_to_agent?: string;
 }
 
 export interface SessionPlan {
@@ -314,6 +317,9 @@ export async function suggestNextAgent(
     is_session_complete: false,
     estimated_remaining_steps: estimatedRemaining,
     session_progress: sessionProgress,
+    recommended_action: 'OVERRIDE_TO' as const,
+    override_to_agent: top.agent,
+    action_reason: `${top.agent} has ${Math.round(top.score * 100)}% relevance as ${top.role}. They should handle the next step.`,
   };
 }
 

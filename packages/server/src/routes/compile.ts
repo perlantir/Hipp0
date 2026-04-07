@@ -14,7 +14,7 @@ import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@decigraph/core/memory/session-manager.js';
-import { generateRoleSignal } from '@decigraph/core/intelligence/role-signals.js';
+import { generateRoleSignal, computeRecommendedAction } from '@decigraph/core/intelligence/role-signals.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -273,6 +273,17 @@ export function registerCompileRoutes(app: Hono): void {
 
       ...(sessionMeta ? { session: sessionMeta } : {}),
       ...(roleSignal ? { role_signal: roleSignal } : {}),
+      ...(roleSignal ? (() => {
+        try {
+          const sig = { abstain_probability: roleSignal.abstain_probability as number, relevance_score: roleSignal.relevance_score as number, rank_among_agents: roleSignal.rank as number } as Parameters<typeof computeRecommendedAction>[0];
+          const actionSignal = computeRecommendedAction(sig);
+          return {
+            recommended_action: actionSignal.recommended_action,
+            action_reason: actionSignal.action_reason,
+            ...(actionSignal.override_to_agent ? { override_to_agent: actionSignal.override_to_agent } : {}),
+          };
+        } catch { return {}; }
+      })() : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
     };
 

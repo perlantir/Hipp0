@@ -80,6 +80,57 @@ function scoreAgentForTask(
 /*  generateRoleSuggestion                                             */
 /* ------------------------------------------------------------------ */
 
+
+// ── Machine-Readable Action Signals ──────────────────────────────────────
+
+export type RecommendedAction =
+  | 'PROCEED'
+  | 'PROCEED_WITH_NOTE'
+  | 'SKIP'
+  | 'OVERRIDE_TO'
+  | 'ASK_FOR_CLARIFICATION';
+
+export interface ActionSignal {
+  recommended_action: RecommendedAction;
+  action_reason: string;
+  override_to_agent?: string;
+}
+
+/**
+ * Compute a machine-readable action from a role signal.
+ * Pure function — no LLM calls, no DB queries.
+ */
+export function computeRecommendedAction(signal: RoleSignal): ActionSignal {
+  // Agent is a strong fit
+  if (signal.abstain_probability < 0.30) {
+    return {
+      recommended_action: 'PROCEED',
+      action_reason: `You are a strong fit for this task (${Math.round(signal.relevance_score * 100)}% relevance). Start working.`,
+    };
+  }
+
+  // Agent can contribute but isn't the best fit
+  if (signal.abstain_probability < 0.70) {
+    return {
+      recommended_action: 'PROCEED_WITH_NOTE',
+      action_reason: `You can contribute (${Math.round(signal.relevance_score * 100)}% relevance), but consider deferring to a higher-ranked agent for deeper review.`,
+    };
+  }
+
+  // Agent is not a good fit — check if there's a better agent
+  if (signal.rank_among_agents > 1) {
+    return {
+      recommended_action: 'SKIP',
+      action_reason: `This task is outside your core expertise (${Math.round(signal.relevance_score * 100)}% relevance). Other agents are better suited.`,
+    };
+  }
+
+  return {
+    recommended_action: 'SKIP',
+    action_reason: `Low relevance to this task (${Math.round(signal.relevance_score * 100)}%). Do not participate.`,
+  };
+}
+
 export function generateRoleSuggestion(
   agentRole: string,
   taskDescription: string,

@@ -2,6 +2,30 @@ import React, { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
+const ACTION_BADGE_COLORS: Record<string, string> = {
+  PROCEED: '#10b981',
+  PROCEED_WITH_NOTE: '#f59e0b',
+  SKIP: '#6b7280',
+  OVERRIDE_TO: '#3b82f6',
+  ASK_FOR_CLARIFICATION: '#eab308',
+};
+
+function ActionTag({ action }: { action?: string }) {
+  if (!action) return null;
+  const color = ACTION_BADGE_COLORS[action] || '#6b7280';
+  const label = action === 'PROCEED_WITH_NOTE' ? 'NOTE' : action;
+  return (
+    <span style={{
+      display: 'inline-block', padding: '1px 6px', borderRadius: 3, marginRight: 6,
+      backgroundColor: color + '22', color, fontWeight: 600, fontSize: 11,
+      border: `1px solid ${color}44`,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+
 interface RoleSignal {
   agent_name: string;
   should_participate: boolean;

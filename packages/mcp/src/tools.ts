@@ -339,18 +339,20 @@ export function registerAllTools(
       },
     },
     async (args) => {
-      const state = await client.getSessionState(args.session_id);
+      const rawState = (await client.getSessionState(args.session_id)) as unknown as Record<string, unknown>;
+      const session = rawState.session as Record<string, unknown> ?? {};
+      const steps = rawState.steps as Array<Record<string, unknown>> ?? [];
 
       const lines = [
-        `Session: ${state.session.title} [${state.session.status}]`,
-        `Steps: ${state.steps.length} | Agents: ${state.session.agents_involved.join(', ')}`,
+        `Session: ${session.title ?? ''} [${session.status ?? ''}]`,
+        `Steps: ${steps.length} | Agents: ${((session.agents_involved as string[]) ?? []).join(', ')}`,
         '',
       ];
 
-      for (const step of state.steps) {
+      for (const step of steps) {
         lines.push(`Step ${step.step_number} — ${step.agent_name} [${step.status}]`);
         lines.push(`  Task: ${step.task_description}`);
-        lines.push(`  Output: ${step.output_summary ?? step.output?.slice(0, 200) ?? '(none)'}`);
+        lines.push(`  Output: ${(step.output_summary ?? (step.output as string)?.slice(0, 200)) ?? '(none)'}`);
         lines.push('');
       }
 
@@ -537,4 +539,95 @@ export function registerAllTools(
       };
     },
   );
+  // ── Tool: follow_orchestrator ──────────────────────────────────────
+
+  server.registerTool(
+    'follow_orchestrator',
+    {
+      title: 'Follow the orchestrator suggestion',
+      description:
+        "Accept the Super Brain's recommendation for the current session. Records your acceptance and returns the pre-compiled context for the recommended next agent.",
+      inputSchema: {
+        session_id: z.string().describe('The active session ID'),
+        your_agent_name: z.string().describe('Your agent name'),
+      },
+    },
+    async (args) => {
+      // 1. Get session state to find the suggestion
+      const state = (await client.getSessionState(args.session_id)) as unknown as Record<string, unknown>;
+      const stateSummary = typeof state === 'object' && state !== null ? (state as Record<string, unknown>).state_summary : '';
+      let suggestion: Record<string, unknown> = {};
+      try {
+        if (typeof stateSummary === 'string' && stateSummary.startsWith('{')) {
+          suggestion = JSON.parse(stateSummary) as Record<string, unknown>;
+        }
+      } catch { /* ignore */ }
+
+      const recommendedAgent = (suggestion.recommended_agent as string) || args.your_agent_name;
+
+      // 2. Accept suggestion
+      try {
+        await client.acceptSuggestion(args.session_id, {
+          accepted_agent: recommendedAgent,
+          override: false,
+        });
+      } catch { /* accept may not be required */ }
+
+      // 3. Compile context for the recommended agent
+      const compiled = await client.compileContext({
+        agent_name: recommendedAgent,
+        project_id: config.projectId,
+        task_description: (suggestion.task_suggestion as string) || 'Continue the task',
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: compiled.formatted_markdown ?? JSON.stringify({ decisions_included: compiled.decisions_included }, null, 2),
+        }],
+      };
+    },
+  );
+
+  // ── Tool: override_orchestrator ────────────────────────────────────
+
+  server.registerTool(
+    'override_orchestrator',
+    {
+      title: 'Override the orchestrator suggestion',
+      description:
+        "Override the Super Brain's recommendation. You disagree with the suggested next agent and want a different agent to go next. Your reason is recorded so DeciGraph learns from the override.",
+      inputSchema: {
+        session_id: z.string().describe('The active session ID'),
+        your_agent_name: z.string().describe('Your agent name'),
+        override_to_agent: z.string().describe('Which agent should go next instead'),
+        reason: z.string().describe('Why you disagree with the suggestion'),
+      },
+    },
+    async (args) => {
+      // 1. Accept with override
+      try {
+        await client.acceptSuggestion(args.session_id, {
+          accepted_agent: args.override_to_agent,
+          override: true,
+          override_reason: args.reason,
+        });
+      } catch { /* accept may not be required */ }
+
+      // 2. Compile context for the override agent
+      const compiled = await client.compileContext({
+        agent_name: args.override_to_agent,
+        project_id: config.projectId,
+        task_description: 'Continue the task (overridden by ' + args.your_agent_name + ')',
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: compiled.formatted_markdown ?? JSON.stringify({ decisions_included: compiled.decisions_included }, null, 2),
+        }],
+      };
+    },
+  );
+
 }

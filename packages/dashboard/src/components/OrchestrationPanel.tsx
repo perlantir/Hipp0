@@ -12,6 +12,32 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+const ACTION_COLORS: Record<string, string> = {
+  PROCEED: '#10b981',
+  PROCEED_WITH_NOTE: '#f59e0b',
+  SKIP: '#6b7280',
+  OVERRIDE_TO: '#3b82f6',
+  ASK_FOR_CLARIFICATION: '#eab308',
+};
+
+function ActionBadge({ action, reason }: { action?: string; reason?: string }) {
+  if (!action) return null;
+  const color = ACTION_COLORS[action] || '#6b7280';
+  return (
+    <div style={{ marginTop: 8 }}>
+      <span style={{
+        display: 'inline-block', padding: '2px 8px', borderRadius: 4,
+        backgroundColor: color + '22', color, fontWeight: 600, fontSize: 12,
+        border: `1px solid ${color}44`,
+      }}>
+        {action}
+      </span>
+      {reason && <div style={{ color: '#d1d5db', fontSize: 13, marginTop: 4 }}>{reason}</div>}
+    </div>
+  );
+}
+
+
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
