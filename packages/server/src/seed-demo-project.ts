@@ -2,42 +2,49 @@
  * Idempotent demo project seeder.
  * Creates a fixed "AI SaaS Platform (Demo)" project with 6 agents,
  * 50 decisions, decision edges, and contradictions for the public
- * playground. Skips entirely if the demo project already exists.
+ * playground.
+ *
+ * Idempotent behavior:
+ *   - If demo project does NOT exist: full seed (project + agents + decisions + edges + contradictions)
+ *   - If demo project ALREADY exists: UPDATE agent relevance_profiles only
+ *     (ensures weighted tags are always current for Super Brain / team-score)
  *
  * Called once on server startup (after migrations).
  */
 
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@decigraph/core/db/index.js';
-import { getRoleProfile } from '@decigraph/core/roles.js';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { DEMO_DATA } from './demo-data.js';
 
 const DEMO_PROJECT_ID = 'de000000-0000-4000-8000-000000000001';
 
-interface DemoAgent {
-  name: string;
-  role: string;
-  desc: string;
+const DEMO_RELEVANCE_WEIGHTS: Record<string, Record<string, number>> = {
+  architect: { architecture: 0.9, design: 0.8, database: 0.7, api: 0.7, schema: 0.6, infrastructure: 0.5, scalability: 0.6, 'system-design': 0.8 },
+  backend: { api: 0.9, auth: 0.8, database: 0.8, server: 0.7, middleware: 0.7, jwt: 0.6, rest: 0.6, graphql: 0.5 },
+  security: { auth: 0.9, security: 0.9, vulnerability: 0.8, encryption: 0.7, owasp: 0.8, jwt: 0.7, rbac: 0.6, audit: 0.6 },
+  frontend: { ui: 0.9, css: 0.7, react: 0.8, login: 0.6, form: 0.6, component: 0.7, responsive: 0.6, accessibility: 0.5 },
+  devops: { deploy: 0.9, ci: 0.8, cd: 0.8, docker: 0.8, infrastructure: 0.7, monitoring: 0.6, kubernetes: 0.5, terraform: 0.5 },
+  marketer: { launch: 0.9, pricing: 0.8, marketing: 0.9, content: 0.7, positioning: 0.7, growth: 0.6, analytics: 0.5, seo: 0.5 },
+};
+
+/** Default role profile when getRoleProfile is unavailable */
+function defaultProfile(role: string): Record<string, unknown> {
+  return {
+    role,
+    decision_depth: 2,
+    include_superseded: false,
+    weights: {},
+  };
 }
 
-interface DemoDecision {
-  title: string;
-  desc: string;
-  reasoning: string;
-  alts: string[];
-  tags: string[];
-  affects: string[];
-  confidence: string;
-}
-
-interface DemoData {
-  agents: DemoAgent[];
-  decisions: DemoDecision[];
+/** Try to import getRoleProfile, fall back to default */
+async function safeGetRoleProfile(role: string): Promise<Record<string, unknown>> {
+  try {
+    const mod = await import('@decigraph/core/roles.js');
+    return (mod.getRoleProfile as unknown as (r: string) => Record<string, unknown>)(role);
+  } catch {
+    return defaultProfile(role);
+  }
 }
 
 /** Edges to create between decisions (by title prefix match). */
@@ -78,17 +85,67 @@ const DEMO_CONTRADICTIONS: Array<{ a: string; b: string; desc: string; score: nu
   },
 ];
 
+/**
+ * Update demo agent relevance profiles.
+ * Called when project already exists to ensure weighted tags are current.
+ */
+async function updateDemoAgentProfiles(): Promise<void> {
+  const db = getDb();
+  let updated = 0;
+
+  for (const agentName of Object.keys(DEMO_RELEVANCE_WEIGHTS)) {
+    const weights = DEMO_RELEVANCE_WEIGHTS[agentName];
+    try {
+      // Get current profile
+      const result = await db.query(
+        'SELECT id, relevance_profile FROM agents WHERE project_id = ? AND name = ?',
+        [DEMO_PROJECT_ID, agentName],
+      );
+      if (result.rows.length === 0) continue;
+
+      const row = result.rows[0] as Record<string, unknown>;
+      const agentId = row.id as string;
+      let profile: Record<string, unknown>;
+      try {
+        profile = typeof row.relevance_profile === 'string'
+          ? JSON.parse(row.relevance_profile)
+          : (row.relevance_profile as Record<string, unknown>) ?? {};
+      } catch {
+        profile = {};
+      }
+
+      // Merge weights into profile
+      profile.weights = weights;
+
+      await db.query(
+        'UPDATE agents SET relevance_profile = ? WHERE id = ?',
+        [JSON.stringify(profile), agentId],
+      );
+      updated++;
+    } catch (err) {
+      console.warn(`[decigraph/demo] Failed to update profile for ${agentName}:`, (err as Error).message);
+    }
+  }
+
+  if (updated > 0) {
+    console.warn(`[decigraph/demo] Updated ${updated} demo agent relevance profiles`);
+  }
+}
+
 export async function seedDemoProject(): Promise<void> {
   const db = getDb();
+  const data = DEMO_DATA;
 
-  // ── Idempotency check: skip if demo project already exists ──────
+  // ── Check if demo project already exists ────────────────────────
   try {
     const existing = await db.query(
       'SELECT id FROM projects WHERE id = ?',
       [DEMO_PROJECT_ID],
     );
     if (existing.rows.length > 0) {
-      console.warn('[decigraph/demo] Demo project already seeded — skipping');
+      // Project exists — update agent profiles and return
+      console.warn('[decigraph/demo] Demo project exists — updating agent profiles');
+      await updateDemoAgentProfiles();
       return;
     }
   } catch {
@@ -97,20 +154,7 @@ export async function seedDemoProject(): Promise<void> {
 
   console.warn('[decigraph/demo] Seeding demo project...');
 
-  // ── Load demo data from JSON ────────────────────────────────────
-  const candidates = [
-    path.join(__dirname, 'demo-decisions.json'),
-    path.join(__dirname, '..', 'src', 'demo-decisions.json'),
-    path.join(process.cwd(), 'packages', 'server', 'src', 'demo-decisions.json'),
-  ];
-  const jsonPath = candidates.find((p) => fs.existsSync(p));
-  if (!jsonPath) {
-    console.warn('[decigraph/demo] demo-decisions.json not found — skipping seed');
-    return;
-  }
-  const data: DemoData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-
-  // ── 1. Create demo project ─────────────────────────────────────
+  // ── 1. Create demo project ────────────────────────────────────
   await db.query(
     `INSERT INTO projects (id, name, description, created_at)
      VALUES (?, ?, ?, ?)`,
@@ -122,24 +166,15 @@ export async function seedDemoProject(): Promise<void> {
     ],
   );
 
-  // ── 2. Create agents ───────────────────────────────────────────
-  const DEMO_RELEVANCE_WEIGHTS: Record<string, Record<string, number>> = {
-    architect: { architecture: 0.9, design: 0.8, database: 0.7, api: 0.7, schema: 0.6, infrastructure: 0.5, scalability: 0.6, 'system-design': 0.8 },
-    backend: { api: 0.9, auth: 0.8, database: 0.8, server: 0.7, middleware: 0.7, jwt: 0.6, rest: 0.6, graphql: 0.5 },
-    security: { auth: 0.9, security: 0.9, vulnerability: 0.8, encryption: 0.7, owasp: 0.8, jwt: 0.7, rbac: 0.6, audit: 0.6 },
-    frontend: { ui: 0.9, css: 0.7, react: 0.8, login: 0.6, form: 0.6, component: 0.7, responsive: 0.6, accessibility: 0.5 },
-    devops: { deploy: 0.9, ci: 0.8, cd: 0.8, docker: 0.8, infrastructure: 0.7, monitoring: 0.6, kubernetes: 0.5, terraform: 0.5 },
-    marketer: { launch: 0.9, pricing: 0.8, marketing: 0.9, content: 0.7, positioning: 0.7, growth: 0.6, analytics: 0.5, seo: 0.5 },
-  };
-
+  // ── 2. Create agents ──────────────────────────────────────────
   const agentIds: Record<string, string> = {};
   for (const agent of data.agents) {
     const id = randomUUID();
     agentIds[agent.name] = id;
-    const profile = getRoleProfile(agent.role);
+    const profile = await safeGetRoleProfile(agent.role);
     // Override weights with demo-specific relevance profiles
     if (DEMO_RELEVANCE_WEIGHTS[agent.name]) {
-      (profile as unknown as Record<string, unknown>).weights = DEMO_RELEVANCE_WEIGHTS[agent.name];
+      profile.weights = DEMO_RELEVANCE_WEIGHTS[agent.name];
     }
     await db.query(
       `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens)
@@ -148,46 +183,32 @@ export async function seedDemoProject(): Promise<void> {
     );
   }
 
-  // ── 3. Create decisions ────────────────────────────────────────
-  // Spread created_at dates over 30 days so the timeline looks realistic
+  // ── 3. Create decisions ───────────────────────────────────────
   const now = Date.now();
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  const decisionIds: Record<string, string> = {}; // title → id
+  const decisionIds: Record<string, string> = {};
 
   for (let i = 0; i < data.decisions.length; i++) {
     const d = data.decisions[i];
     const id = randomUUID();
     decisionIds[d.title] = id;
 
-    // Evenly spread decisions across 30 days, newest first
     const offset = thirtyDays * (1 - i / data.decisions.length);
     const createdAt = new Date(now - offset).toISOString();
-
-    // Pick made_by from first agent in affects list
     const madeBy = d.affects[0] || 'architect';
 
     await db.query(
       `INSERT INTO decisions (id, project_id, title, description, reasoning, made_by, source, confidence, status, alternatives_considered, affects, tags, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id,
-        DEMO_PROJECT_ID,
-        d.title,
-        d.desc,
-        d.reasoning,
-        madeBy,
-        'manual',
-        d.confidence,
-        'active',
-        JSON.stringify(d.alts),
-        db.arrayParam(d.affects),
-        db.arrayParam(d.tags),
-        createdAt,
+        id, DEMO_PROJECT_ID, d.title, d.desc, d.reasoning, madeBy,
+        'manual', d.confidence, 'active', JSON.stringify(d.alts),
+        db.arrayParam(d.affects), db.arrayParam(d.tags), createdAt,
       ],
     );
   }
 
-  // ── 4. Create decision edges ───────────────────────────────────
+  // ── 4. Create decision edges ──────────────────────────────────
   let edgesCreated = 0;
   for (const edge of DEMO_EDGES) {
     const sourceTitle = Object.keys(decisionIds).find((t) => t.startsWith(edge.from));
@@ -200,13 +221,11 @@ export async function seedDemoProject(): Promise<void> {
           [decisionIds[sourceTitle], decisionIds[targetTitle], edge.rel],
         );
         edgesCreated++;
-      } catch {
-        // Edge table might not exist or constraint violation — skip
-      }
+      } catch { /* Edge table might not exist or constraint violation */ }
     }
   }
 
-  // ── 5. Create contradictions ───────────────────────────────────
+  // ── 5. Create contradictions ──────────────────────────────────
   let contradictionsCreated = 0;
   for (const c of DEMO_CONTRADICTIONS) {
     const aTitle = Object.keys(decisionIds).find((t) => t.startsWith(c.a));
@@ -216,20 +235,10 @@ export async function seedDemoProject(): Promise<void> {
         await db.query(
           `INSERT INTO contradictions (id, project_id, decision_a_id, decision_b_id, similarity_score, conflict_description, status)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            randomUUID(),
-            DEMO_PROJECT_ID,
-            decisionIds[aTitle],
-            decisionIds[bTitle],
-            c.score,
-            c.desc,
-            'unresolved',
-          ],
+          [randomUUID(), DEMO_PROJECT_ID, decisionIds[aTitle], decisionIds[bTitle], c.score, c.desc, 'unresolved'],
         );
         contradictionsCreated++;
-      } catch {
-        // Table may not exist — skip
-      }
+      } catch { /* Table may not exist */ }
     }
   }
 
