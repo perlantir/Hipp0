@@ -78,6 +78,14 @@ export {
   blendScores,
 } from './temporal/index.js';
 
+// --- Role Signals (Super Brain Phase 2) ---
+export {
+  generateRoleSignal,
+  generateRoleSuggestion,
+  scoreTeamForTask,
+} from './intelligence/role-signals.js';
+export type { RoleSignal, TeamRelevance } from './intelligence/role-signals.js';
+
 // --- Relevance Learner ---
 export {
   recordFeedback,

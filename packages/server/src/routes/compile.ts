@@ -14,6 +14,7 @@ import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@decigraph/core/memory/session-manager.js';
+import { generateRoleSignal } from '@decigraph/core/intelligence/role-signals.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -26,6 +27,7 @@ export function registerCompileRoutes(app: Hono): void {
       include_superseded?: boolean;
       session_lookback_days?: number;
       task_session_id?: unknown;
+      include_role_signal?: boolean;
       debug?: boolean;
     }>();
 
@@ -227,8 +229,34 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
+    // ── Role Signal: generate when session or explicitly requested ──
+    let roleSignal: Record<string, unknown> | undefined;
+    let abstentionMarkdown = '';
+    if (body.task_session_id || body.include_role_signal) {
+      try {
+        const sessionIdForSignal = body.task_session_id
+          ? requireUUID(body.task_session_id, 'task_session_id')
+          : undefined;
+        const signal = await generateRoleSignal(project_id, agent_name, task_description, sessionIdForSignal);
+        roleSignal = {
+          should_participate: signal.should_participate,
+          abstain_probability: signal.abstain_probability,
+          role_suggestion: signal.role_suggestion,
+          reason: signal.reason,
+          relevance_score: signal.relevance_score,
+          rank: signal.rank_among_agents,
+          total_agents: signal.total_agents,
+        };
+        if (!signal.should_participate) {
+          abstentionMarkdown = `> **Abstention Notice:** ${agent_name} has low relevance for this task (score: ${signal.relevance_score}, rank: ${signal.rank_among_agents}/${signal.total_agents}). Consider delegating to a more relevant agent.\n\n`;
+        }
+      } catch (err) {
+        console.warn('[decigraph:compile] Role signal generation failed:', (err as Error).message);
+      }
+    }
+
     // Prepend policy markdown to formatted output
-    const formattedMarkdown = sessionMarkdown
+    const formattedMarkdown = abstentionMarkdown + sessionMarkdown
       + (policyMarkdown ? policyMarkdown : '')
       + (result.formatted_markdown ?? '');
 
@@ -244,6 +272,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...(policySummary ? { policy_summary: policySummary } : {}),
 
       ...(sessionMeta ? { session: sessionMeta } : {}),
+      ...(roleSignal ? { role_signal: roleSignal } : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
     };
 

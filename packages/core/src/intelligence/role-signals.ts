@@ -1,0 +1,276 @@
+/**
+ * Super Brain Phase 2: Role Signals + Abstention
+ *
+ * Pure tag-matching math against agent relevance profiles.
+ * Zero LLM calls — scoring only.
+ */
+import { getDb } from '../db/index.js';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface RoleSignal {
+  agent_name: string;
+  should_participate: boolean;
+  abstain_probability: number;
+  role_suggestion: string;
+  reason: string;
+  relevance_score: number;
+  rank_among_agents: number;
+  total_agents: number;
+}
+
+export interface TeamRelevance {
+  task_description: string;
+  recommended_participants: RoleSignal[];
+  recommended_skip: RoleSignal[];
+  optimal_team_size: number;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Role keyword map                                                   */
+/* ------------------------------------------------------------------ */
+
+const ROLE_KEYWORD_MAP: Array<{ role: string; keywords: string[]; suggestion: string }> = [
+  { role: 'architect', keywords: ['design', 'plan', 'structure', 'architecture', 'system'], suggestion: 'design_lead' },
+  { role: 'builder', keywords: ['implement', 'build', 'code', 'develop', 'feature'], suggestion: 'implementation_lead' },
+  { role: 'security', keywords: ['auth', 'security', 'encrypt', 'permission', 'access'], suggestion: 'security_reviewer' },
+  { role: 'ops', keywords: ['deploy', 'infrastructure', 'ci', 'cd', 'devops', 'monitor'], suggestion: 'deployment_lead' },
+  { role: 'marketer', keywords: ['launch', 'marketing', 'campaign', 'growth', 'brand'], suggestion: 'launch_coordinator' },
+  { role: 'reviewer', keywords: ['review', 'audit', 'quality', 'test', 'qa'], suggestion: 'code_reviewer' },
+  { role: 'designer', keywords: ['ui', 'ux', 'design', 'layout', 'visual', 'css'], suggestion: 'design_lead' },
+  { role: 'data', keywords: ['data', 'analytics', 'metric', 'dashboard', 'report'], suggestion: 'data_analyst' },
+  { role: 'product', keywords: ['product', 'roadmap', 'feature', 'requirement', 'spec'], suggestion: 'product_lead' },
+  { role: 'legal', keywords: ['legal', 'compliance', 'policy', 'regulation', 'license'], suggestion: 'compliance_reviewer' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Scoring helpers                                                    */
+/* ------------------------------------------------------------------ */
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+}
+
+function scoreAgentForTask(
+  weights: Record<string, number>,
+  taskTokens: string[],
+): number {
+  if (Object.keys(weights).length === 0 || taskTokens.length === 0) return 0;
+
+  let matchScore = 0;
+  let maxPossible = 0;
+
+  for (const [tag, weight] of Object.entries(weights)) {
+    maxPossible += Math.abs(weight);
+    const tagLower = tag.toLowerCase();
+    for (const token of taskTokens) {
+      if (tagLower.includes(token) || token.includes(tagLower)) {
+        matchScore += Math.abs(weight);
+        break;
+      }
+    }
+  }
+
+  return maxPossible > 0 ? matchScore / maxPossible : 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  generateRoleSuggestion                                             */
+/* ------------------------------------------------------------------ */
+
+export function generateRoleSuggestion(
+  agentRole: string,
+  taskDescription: string,
+  rank: number,
+  _totalAgents: number,
+): string {
+  const roleLower = agentRole.toLowerCase();
+  const taskLower = taskDescription.toLowerCase();
+
+  // Check keyword map for specific role+task match
+  for (const entry of ROLE_KEYWORD_MAP) {
+    if (roleLower.includes(entry.role)) {
+      for (const kw of entry.keywords) {
+        if (taskLower.includes(kw)) {
+          if (rank === 1) return entry.suggestion;
+          if (rank <= 3) return entry.suggestion.replace('_lead', '_contributor').replace('_reviewer', '_contributor');
+          return entry.suggestion.replace('_lead', '_observer').replace('_reviewer', '_observer');
+        }
+      }
+    }
+  }
+
+  // Default: use agent role with rank suffix
+  const baseRole = roleLower.replace(/\s+/g, '_');
+  if (rank === 1) return `${baseRole}_lead`;
+  if (rank <= 3) return `${baseRole}_contributor`;
+  return `${baseRole}_observer`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  generateRoleSignal                                                 */
+/* ------------------------------------------------------------------ */
+
+export async function generateRoleSignal(
+  projectId: string,
+  agentName: string,
+  taskDescription: string,
+  sessionId?: string,
+): Promise<RoleSignal> {
+  const db = getDb();
+  const taskTokens = tokenize(taskDescription);
+
+  // 1. Get all agents for this project
+  const agentsResult = await db.query(
+    'SELECT id, name, role, relevance_profile FROM agents WHERE project_id = ?',
+    [projectId],
+  );
+  const agents = agentsResult.rows as Array<{
+    id: string;
+    name: string;
+    role: string;
+    relevance_profile: string | Record<string, unknown> | null;
+  }>;
+
+  if (agents.length === 0) {
+    return {
+      agent_name: agentName,
+      should_participate: false,
+      abstain_probability: 0.95,
+      role_suggestion: 'observer',
+      reason: 'No agents found in project',
+      relevance_score: 0,
+      rank_among_agents: 0,
+      total_agents: 0,
+    };
+  }
+
+  // 2. Score each agent
+  const scored: Array<{ name: string; role: string; score: number }> = [];
+  for (const agent of agents) {
+    const profile = typeof agent.relevance_profile === 'string'
+      ? JSON.parse(agent.relevance_profile || '{}')
+      : (agent.relevance_profile ?? {});
+    const weights: Record<string, number> = (profile as Record<string, unknown>).weights as Record<string, number> ?? {};
+    const score = scoreAgentForTask(weights, taskTokens);
+    scored.push({ name: agent.name, role: agent.role, score });
+  }
+
+  // 3. Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  // 4. Find this agent
+  const agentIdx = scored.findIndex((a) => a.name === agentName);
+  if (agentIdx === -1) {
+    return {
+      agent_name: agentName,
+      should_participate: false,
+      abstain_probability: 0.95,
+      role_suggestion: 'observer',
+      reason: 'Agent not found in project',
+      relevance_score: 0,
+      rank_among_agents: 0,
+      total_agents: scored.length,
+    };
+  }
+
+  const agentEntry = scored[agentIdx];
+  const rank = agentIdx + 1;
+  const relevanceScore = agentEntry.score;
+
+  // 5. Check session participation history — increases abstain probability
+  let sessionBoost = 0;
+  if (sessionId) {
+    try {
+      const stepsResult = await db.query(
+        'SELECT id FROM session_steps WHERE session_id = ? AND agent_name = ? LIMIT 1',
+        [sessionId, agentName],
+      );
+      if (stepsResult.rows.length > 0) {
+        sessionBoost = 0.2;
+      }
+    } catch {
+      // session_steps table may not exist — ignore
+    }
+  }
+
+  // 6. Apply thresholds
+  let shouldParticipate: boolean;
+  let abstainProbability: number;
+  let reason: string;
+
+  if (relevanceScore >= 0.6) {
+    shouldParticipate = true;
+    abstainProbability = Math.min(0.05 + sessionBoost, 1);
+    reason = `High relevance (${(relevanceScore * 100).toFixed(0)}%) — strong tag match for this task`;
+  } else if (relevanceScore >= 0.3) {
+    shouldParticipate = true;
+    abstainProbability = Math.min(0.3 + sessionBoost, 1);
+    reason = `Moderate relevance (${(relevanceScore * 100).toFixed(0)}%) — partial tag overlap`;
+  } else if (relevanceScore >= 0.15) {
+    shouldParticipate = false;
+    abstainProbability = Math.min(0.7 + sessionBoost, 1);
+    reason = `Low relevance (${(relevanceScore * 100).toFixed(0)}%) — limited tag match`;
+  } else {
+    shouldParticipate = false;
+    abstainProbability = Math.min(0.95 + sessionBoost, 1);
+    reason = `Minimal relevance (${(relevanceScore * 100).toFixed(0)}%) — no significant tag match`;
+  }
+
+  // 7. Generate role suggestion
+  const roleSuggestion = generateRoleSuggestion(agentEntry.role, taskDescription, rank, scored.length);
+
+  return {
+    agent_name: agentName,
+    should_participate: shouldParticipate,
+    abstain_probability: Math.round(abstainProbability * 100) / 100,
+    role_suggestion: roleSuggestion,
+    reason,
+    relevance_score: Math.round(relevanceScore * 1000) / 1000,
+    rank_among_agents: rank,
+    total_agents: scored.length,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  scoreTeamForTask                                                   */
+/* ------------------------------------------------------------------ */
+
+export async function scoreTeamForTask(
+  projectId: string,
+  taskDescription: string,
+  sessionId?: string,
+): Promise<TeamRelevance> {
+  const db = getDb();
+
+  // Get all agents
+  const agentsResult = await db.query(
+    'SELECT name FROM agents WHERE project_id = ?',
+    [projectId],
+  );
+  const agentNames = (agentsResult.rows as Array<{ name: string }>).map((a) => a.name);
+
+  // Score all agents in parallel
+  const signals = await Promise.all(
+    agentNames.map((name) => generateRoleSignal(projectId, name, taskDescription, sessionId)),
+  );
+
+  // Sort by relevance descending
+  signals.sort((a, b) => b.relevance_score - a.relevance_score);
+
+  const participants = signals.filter((s) => s.should_participate);
+  const skip = signals.filter((s) => !s.should_participate);
+
+  // Optimal team size: agents with relevance >= 0.3, capped at 5
+  const qualifiedCount = signals.filter((s) => s.relevance_score >= 0.3).length;
+  const optimalTeamSize = Math.min(qualifiedCount, 5);
+
+  return {
+    task_description: taskDescription,
+    recommended_participants: participants,
+    recommended_skip: skip,
+    optimal_team_size: optimalTeamSize,
+  };
+}

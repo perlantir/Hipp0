@@ -118,6 +118,10 @@
     "./memory/session-manager.js": {
       "import": "./dist/memory/session-manager.js",
       "types": "./dist/memory/session-manager.d.ts"
+    },
+    "./intelligence/role-signals.js": {
+      "import": "./dist/intelligence/role-signals.js",
+      "types": "./dist/intelligence/role-signals.d.ts"
     }
   },
   "scripts": {

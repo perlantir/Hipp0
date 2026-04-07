@@ -37,6 +37,8 @@ import {
   type StartSessionInput,
   type RecordStepInput,
   type SessionState,
+  type TeamRelevance,
+  type ScoreTeamInput,
 } from './types.js';
 
 export class DeciGraphClient {
@@ -426,5 +428,14 @@ export class DeciGraphClient {
 
   completeSession(sessionId: string): Promise<TaskSession> {
     return this.post<TaskSession>(`/api/tasks/session/${sessionId}/complete`);
+  }
+
+  // ── Team Scoring (Super Brain Phase 2) ────────────────────────────
+
+  scoreTeam(params: ScoreTeamInput): Promise<TeamRelevance> {
+    return this.post<TeamRelevance>(`/api/projects/${params.projectId}/team-score`, {
+      task_description: params.taskDescription,
+      session_id: params.sessionId,
+    });
   }
 }

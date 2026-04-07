@@ -12,6 +12,7 @@ import {
   updateSessionStatus,
   listProjectSessions,
 } from '@decigraph/core/memory/session-manager.js';
+import { scoreTeamForTask } from '@decigraph/core/intelligence/role-signals.js';
 
 export function registerSessionRoutes(app: Hono): void {
   // ── Start a new task session ────────────────────────────────────────
@@ -149,5 +150,32 @@ export function registerSessionRoutes(app: Hono): void {
     const status = c.req.query('status') ?? undefined;
     const sessions = await listProjectSessions(projectId, status);
     return c.json(sessions);
+  });
+
+  // ── Score team for a task (Super Brain Phase 2) ─────────────────────
+  app.post('/api/projects/:id/team-score', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'project_id');
+    const body = await c.req.json<{
+      task_description?: unknown;
+      session_id?: unknown;
+    }>();
+
+    const taskDescription = requireString(body.task_description, 'task_description', 100000);
+    const sessionId = body.session_id ? requireUUID(body.session_id, 'session_id') : undefined;
+
+    try {
+      const result = await scoreTeamForTask(projectId, taskDescription, sessionId);
+
+      logAudit('team_score', projectId, {
+        task_description_length: taskDescription.length,
+        recommended_participants: result.recommended_participants.length,
+        recommended_skip: result.recommended_skip.length,
+        optimal_team_size: result.optimal_team_size,
+      });
+
+      return c.json(result);
+    } catch (err) {
+      mapDbError(err);
+    }
   });
 }

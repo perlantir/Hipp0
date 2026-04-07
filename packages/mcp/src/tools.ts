@@ -360,6 +360,52 @@ export function registerAllTools(
     },
   );
 
+  // ── Tool 10: score_team ────────────────────────────────────────────
+
+  server.registerTool(
+    'score_team',
+    {
+      title: 'Score team for a task',
+      description:
+        'Score all agents for a task and get participation recommendations. Shows who should participate, who should skip, and suggested roles.',
+      inputSchema: {
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        task_description: z.string().describe('Description of the task to score agents for'),
+        session_id: z.string().optional().describe('Task session ID — factors in prior participation'),
+      },
+    },
+    async (args) => {
+      const result = await client.scoreTeam({
+        projectId: args.project_id ?? config.projectId,
+        taskDescription: args.task_description,
+        sessionId: args.session_id,
+      });
+
+      const lines = [
+        `Team Score for: "${result.task_description.slice(0, 80)}"`,
+        `Optimal team size: ${result.optimal_team_size}`,
+        '',
+        `Recommended (${result.recommended_participants.length}):`,
+      ];
+
+      for (const p of result.recommended_participants) {
+        lines.push(`  + ${p.agent_name} — ${p.role_suggestion} (relevance: ${(p.relevance_score * 100).toFixed(0)}%, rank: ${p.rank_among_agents})`);
+      }
+
+      if (result.recommended_skip.length > 0) {
+        lines.push('');
+        lines.push(`Skip (${result.recommended_skip.length}):`);
+        for (const s of result.recommended_skip) {
+          lines.push(`  - ${s.agent_name} — ${s.reason} (abstain: ${(s.abstain_probability * 100).toFixed(0)}%)`);
+        }
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+      };
+    },
+  );
+
   // ── Tool 6: check_policy ───────────────────────────────────────────
 
   server.registerTool(

@@ -473,6 +473,32 @@ export interface SessionState {
   steps: SessionStep[];
 }
 
+// ── Role Signals (Super Brain Phase 2) ──────────────────────────────
+
+export interface RoleSignal {
+  agent_name: string;
+  should_participate: boolean;
+  abstain_probability: number;
+  role_suggestion: string;
+  reason: string;
+  relevance_score: number;
+  rank_among_agents: number;
+  total_agents: number;
+}
+
+export interface TeamRelevance {
+  task_description: string;
+  recommended_participants: RoleSignal[];
+  recommended_skip: RoleSignal[];
+  optimal_team_size: number;
+}
+
+export interface ScoreTeamInput {
+  projectId: string;
+  taskDescription: string;
+  sessionId?: string;
+}
+
 export interface DeciGraphClientOptions {
   baseUrl: string;
   apiKey?: string;

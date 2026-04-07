@@ -62,7 +62,7 @@ import {
   Moon,
   ClipboardList,
   Target,
-
+  Users,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -96,6 +96,7 @@ import { OutcomeHistory } from './components/OutcomeHistory';
 import { EvolutionProposals } from './components/EvolutionProposals';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
 import { LiveSessions } from './components/LiveSessions';
+import { TeamScore } from './components/TeamScore';
 import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
 import { WeeklyDigest } from './components/WeeklyDigest';
@@ -154,7 +155,8 @@ type View =
   | 'digest'
   | 'evolution'
   | 'whatif'
-  | 'live-tasks';
+  | 'live-tasks'
+  | 'team-score';
 
 
 interface NavItem {
@@ -173,7 +175,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -212,6 +214,7 @@ function ViewContent({ view }: { view: View }) {
     case 'evolution': return <EvolutionProposals />;
     case 'whatif': return <WhatIfSimulator />;
     case 'live-tasks': return <LiveSessions />;
+    case 'team-score': return <TeamScore />;
 
     default: return <DecisionGraph />;
   }
@@ -374,6 +377,7 @@ export default function App() {
     { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'main' },
     { id: 'whatif', label: 'What-If', icon: <Zap size={18} />, group: 'main' },
     { id: 'live-tasks', label: 'Live Tasks', icon: <Activity size={18} />, group: 'main' },
+    { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
