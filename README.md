@@ -67,8 +67,8 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 ### Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/perlantir/DeciGraph.git
-cd DeciGraph
+git clone https://github.com/perlantir/Hipp0.git
+cd Hipp0
 
 # Create .env from template
 cp .env.example .env

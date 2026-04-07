@@ -3,16 +3,16 @@ services:
     image: pgvector/pgvector:pg17
     container_name: hipp0-db
     environment:
-      POSTGRES_USER: nexus
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus_dev}
-      POSTGRES_DB: nexus
+      POSTGRES_USER: hipp0
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hipp0_dev}
+      POSTGRES_DB: hipp0
     ports:
       - "5432:5432"
     volumes:
       - nexus_nexus_pgdata:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      test: ["CMD-SHELL", "pg_isready -U hipp0"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@postgres:5432/nexus}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://hipp0:${POSTGRES_PASSWORD:-hipp0_dev}@postgres:5432/hipp0}
       DATABASE_SSL: ${DATABASE_SSL:-false}
       PORT: 3100
       HOST: 0.0.0.0
