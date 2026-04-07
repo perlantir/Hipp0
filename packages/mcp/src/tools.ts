@@ -255,6 +255,10 @@ export function registerAllTools(
             `  Decisions: ${result.decisions_referenced}/${result.decisions_compiled} referenced`,
           ].join('\n'),
         }],
+      };
+    },
+  );
+
   // ── Tool 6: check_policy ───────────────────────────────────────────
 
   server.registerTool(
