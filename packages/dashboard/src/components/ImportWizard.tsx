@@ -1,7 +1,7 @@
 /**
  * Import Wizard — polished 5-phase onboarding wizard.
  *
- * Phases: welcome → scan → preview → importing → complete
+ * Phases: welcome → scan → preview → importing → complete → sync-setup
  *
  * Key changes from baseline:
  *  - GitHub form now sends github_token + repo_url to the live scan endpoint
@@ -11,12 +11,14 @@
  *  - Prominent copper CTA with decision count
  *  - Animated progress bar + step checklist during import
  *  - Polished completion screen with import metrics
+ *  - Post-import "Enable Permanent GitHub Sync" guided 3-step wizard
+ *    (explain → install app → configure webhook)
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Github, MessageSquare, FileText, Upload, CheckCircle, Circle,
   ChevronRight, X, Users, Zap, GitPullRequest, AlertTriangle,
-  Shield, ArrowRight, Loader,
+  Shield, ArrowRight, Loader, RefreshCw, Link, ExternalLink, Copy,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -24,7 +26,7 @@ import { useProject } from '../App';
 // ── Types ────────────────────────────────────────────────────────────────
 
 type Source = 'github' | 'slack' | 'linear' | 'files';
-type Phase = 'welcome' | 'scan' | 'preview' | 'importing' | 'complete';
+type Phase = 'welcome' | 'scan' | 'preview' | 'importing' | 'complete' | 'sync-setup';
 
 interface Decision {
   title: string;
@@ -165,6 +167,10 @@ export function ImportWizard() {
   const [error, setError] = useState<string | null>(null);
   const [scanElapsed, setScanElapsed] = useState(0);
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync-setup wizard state
+  const [syncStep, setSyncStep] = useState(1);
+  const [webhookCopied, setWebhookCopied] = useState(false);
 
   // Clean up scan timer
   useEffect(() => {
@@ -899,6 +905,48 @@ export function ImportWizard() {
           ))}
         </div>
 
+        {/* ── Enable Permanent Sync CTA ─────────────────────────── */}
+        {selectedSource === 'github' && (
+          <div style={{
+            ...card,
+            marginBottom: 20,
+            background: 'linear-gradient(135deg, rgba(217,119,87,0.06) 0%, rgba(217,119,87,0.02) 100%)',
+            border: '1px solid rgba(217,119,87,0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(217,119,87,0.25)',
+              }}>
+                <RefreshCw size={18} color="#fff" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  Keep your decision graph in sync
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>
+                  This import was a one-time snapshot. Enable permanent sync to automatically
+                  capture every merged PR going forward — no more manual scans.
+                </div>
+                <button
+                  onClick={() => { setSyncStep(1); setPhase('sync-setup'); }}
+                  style={{
+                    ...accentBtn,
+                    padding: '11px 22px',
+                    fontSize: 14,
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  Enable Permanent GitHub Sync
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             onClick={() => { window.location.hash = 'playground'; }}
@@ -920,6 +968,363 @@ export function ImportWizard() {
             Import another source
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ── Phase: Sync Setup ─────────────────────────────────────────────────
+  // Guided 3-step wizard: explain → install GitHub App → configure webhook
+
+  if (phase === 'sync-setup' && importResult) {
+    const apiBase = (import.meta.env.VITE_API_URL as string) || window.location.origin;
+    const webhookUrl = `${apiBase}/api/webhooks/github`;
+    // Derive GitHub owner/repo from the source input if provided
+    const repoSlug = sourceInput
+      ? sourceInput.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '')
+      : '';
+    const installUrl = repoSlug
+      ? `https://github.com/apps/decigraph/installations/new/permissions?target_id=${repoSlug.split('/')[0]}`
+      : 'https://github.com/apps/decigraph/installations/new';
+
+    const SYNC_STEPS = [
+      { num: 1, title: 'Why permanent sync?', icon: <RefreshCw size={16} /> },
+      { num: 2, title: 'Install GitHub App',  icon: <Github size={16} /> },
+      { num: 3, title: 'Configure Webhook',   icon: <Link size={16} /> },
+    ];
+
+    function copyWebhook() {
+      navigator.clipboard.writeText(webhookUrl).then(() => {
+        setWebhookCopied(true);
+        setTimeout(() => setWebhookCopied(false), 2000);
+      });
+    }
+
+    async function finishSyncSetup() {
+      // Mark the GitHub connector as active for this project
+      try {
+        await post('/api/connectors', {
+          project_id: importResult!.project_id,
+          connector_type: 'github',
+          config: { repo_url: sourceInput, webhook_active: true },
+        });
+      } catch {
+        // Best-effort — connector endpoint may not exist yet
+      }
+      setPhase('complete');
+    }
+
+    return (
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 20px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+          <button
+            onClick={() => setPhase('complete')}
+            style={{ ...ghostBtn, padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            ← Back to results
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 14, margin: '0 auto 16px',
+            background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 6px 20px rgba(217,119,87,0.3)',
+          }}>
+            <RefreshCw size={24} color="#fff" />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text-primary)', letterSpacing: -0.5, marginBottom: 6 }}>
+            Enable Permanent Sync
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6 }}>
+            Three quick steps to keep your decision graph always up-to-date.
+          </div>
+        </div>
+
+        {/* ── Step progress indicator ──────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 32 }}>
+          {SYNC_STEPS.map((s, i) => (
+            <React.Fragment key={s.num}>
+              <div
+                onClick={() => { if (s.num < syncStep) setSyncStep(s.num); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 16px', borderRadius: 20,
+                  background: syncStep === s.num
+                    ? 'linear-gradient(135deg, rgba(217,119,87,0.15) 0%, rgba(217,119,87,0.06) 100%)'
+                    : syncStep > s.num ? '#05966912' : 'transparent',
+                  border: `1px solid ${
+                    syncStep === s.num ? 'rgba(217,119,87,0.35)'
+                    : syncStep > s.num ? '#05966930'
+                    : 'var(--border-light)'
+                  }`,
+                  cursor: s.num < syncStep ? 'pointer' : 'default',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {syncStep > s.num
+                  ? <CheckCircle size={16} color="#059669" />
+                  : <span style={{ color: syncStep === s.num ? '#D97757' : 'var(--text-tertiary)' }}>{s.icon}</span>
+                }
+                <span style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: syncStep === s.num ? '#D97757' : syncStep > s.num ? '#059669' : 'var(--text-tertiary)',
+                }}>
+                  {s.title}
+                </span>
+              </div>
+              {i < SYNC_STEPS.length - 1 && (
+                <div style={{
+                  width: 32, height: 1,
+                  background: syncStep > s.num ? '#05966940' : 'var(--border-light)',
+                  transition: 'background 0.3s',
+                }} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* ── Step 1: Explanation ──────────────────────────────────────── */}
+        {syncStep === 1 && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <RefreshCw size={20} color="#D97757" />
+              <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
+                How Permanent Sync Works
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+              {[
+                {
+                  icon: <GitPullRequest size={18} />,
+                  title: 'Every merged PR captured',
+                  desc: 'When a PR is merged, GitHub sends a webhook event and DeciGraph automatically extracts decisions, updates the graph, and links contributors.',
+                },
+                {
+                  icon: <Zap size={18} />,
+                  title: 'Zero manual effort',
+                  desc: 'No more running import scans. Your decision graph stays current as your codebase evolves.',
+                },
+                {
+                  icon: <Shield size={18} />,
+                  title: 'Secure and scoped',
+                  desc: 'The GitHub App only requests read access to PRs and issues. Webhook payloads are verified with a shared secret.',
+                },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: 'rgba(217,119,87,0.08)', border: '1px solid rgba(217,119,87,0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#D97757',
+                  }}>
+                    {item.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 3 }}>
+                      {item.title}
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
+                      {item.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setSyncStep(2)}
+              style={{ ...accentBtn, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              Got it, let's set it up
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Step 2: Install GitHub App ───────────────────────────────── */}
+        {syncStep === 2 && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <Github size={20} color="#D97757" />
+              <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
+                Install the DeciGraph GitHub App
+              </span>
+            </div>
+
+            <div style={{
+              padding: 20, borderRadius: 10,
+              background: 'linear-gradient(135deg, rgba(217,119,87,0.05) 0%, rgba(217,119,87,0.02) 100%)',
+              border: '1px solid rgba(217,119,87,0.12)',
+              marginBottom: 20,
+            }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
+                The DeciGraph GitHub App grants read-only access to your repository's pull requests and issues.
+                Click below to install it{repoSlug ? ` for ${repoSlug}` : ''}.
+              </div>
+              <a
+                href={installUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  ...accentBtn,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  textDecoration: 'none',
+                  fontSize: 14, padding: '11px 22px',
+                }}
+              >
+                <Github size={16} />
+                Install on GitHub
+                <ExternalLink size={13} />
+              </a>
+            </div>
+
+            <div style={{
+              padding: '12px 16px', borderRadius: 8,
+              background: 'var(--bg-primary)', border: '1px solid var(--border-light)',
+              marginBottom: 20,
+            }}>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                Already installed?
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
+                If the DeciGraph app is already installed on your organization or repository, skip ahead to the next step.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setSyncStep(1)} style={{ ...ghostBtn, flex: '0 0 auto' }}>
+                ← Back
+              </button>
+              <button
+                onClick={() => setSyncStep(3)}
+                style={{ ...accentBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                Continue
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Configure Webhook ────────────────────────────────── */}
+        {syncStep === 3 && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <Link size={20} color="#D97757" />
+              <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
+                Configure Webhook
+              </span>
+            </div>
+
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+              Add this webhook to your GitHub repository so DeciGraph receives events in real time.
+            </div>
+
+            {/* Webhook URL copyable box */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', color: 'var(--text-tertiary)', fontSize: 12, fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Payload URL
+              </label>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 0,
+                border: '1px solid rgba(217,119,87,0.3)', borderRadius: 8, overflow: 'hidden',
+              }}>
+                <div style={{
+                  flex: 1, padding: '11px 14px',
+                  background: 'var(--bg-primary)',
+                  color: '#D97757', fontSize: 13, fontWeight: 600, fontFamily: 'monospace',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {webhookUrl}
+                </div>
+                <button
+                  onClick={copyWebhook}
+                  style={{
+                    padding: '11px 16px', border: 'none', cursor: 'pointer',
+                    background: webhookCopied
+                      ? '#059669'
+                      : 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+                    color: '#fff', display: 'flex', alignItems: 'center', gap: 6,
+                    fontSize: 12, fontWeight: 600, transition: 'background 0.2s',
+                  }}
+                >
+                  {webhookCopied ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                </button>
+              </div>
+            </div>
+
+            {/* Setup instructions */}
+            <div style={{
+              padding: 16, borderRadius: 10,
+              background: 'var(--bg-primary)', border: '1px solid var(--border-light)',
+              marginBottom: 20,
+            }}>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13, marginBottom: 12 }}>
+                GitHub Settings
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { step: '1', text: repoSlug ? `Go to github.com/${repoSlug}/settings/hooks` : 'Go to your repo → Settings → Webhooks' },
+                  { step: '2', text: 'Click "Add webhook" and paste the Payload URL above' },
+                  { step: '3', text: 'Set Content type to application/json' },
+                  { step: '4', text: 'Under "Which events?", select "Let me select individual events" and check Pull requests' },
+                  { step: '5', text: 'Click "Add webhook"' },
+                ].map(item => (
+                  <div key={item.step} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                      background: 'rgba(217,119,87,0.1)', border: '1px solid rgba(217,119,87,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 700, color: '#D97757',
+                    }}>
+                      {item.step}
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, paddingTop: 1 }}>
+                      {item.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {repoSlug && (
+              <a
+                href={`https://github.com/${repoSlug}/settings/hooks/new`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  color: '#D97757', fontSize: 13, fontWeight: 600,
+                  textDecoration: 'none', marginBottom: 20,
+                }}
+              >
+                Open webhook settings for {repoSlug}
+                <ExternalLink size={13} />
+              </a>
+            )}
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setSyncStep(2)} style={{ ...ghostBtn, flex: '0 0 auto' }}>
+                ← Back
+              </button>
+              <button
+                onClick={finishSyncSetup}
+                style={{
+                  ...accentBtn, flex: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  boxShadow: '0 4px 14px rgba(5,150,105,0.25)',
+                }}
+              >
+                <CheckCircle size={16} />
+                Finish Setup
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
