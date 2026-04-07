@@ -18,6 +18,8 @@ import {
   ToggleLeft,
   ToggleRight,
   GitBranch,
+  ExternalLink,
+  Link2,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -432,6 +434,34 @@ function GitHubSettings({ projectId }: { projectId: string }) {
     } catch (err: unknown) {
       const e = err as { message?: string };
       setError(e.message || 'Failed to check GitHub status.');
+/*  Linear Settings Panel                                              */
+/* ------------------------------------------------------------------ */
+
+interface LinearStatus {
+  connected: boolean;
+  team_id: string | null;
+  team_name: string | null;
+  auto_create: boolean;
+  auto_create_all: boolean;
+  auto_validate: boolean;
+  notify_on_cancel: boolean;
+  trigger_tags: string[];
+  connected_at: string | null;
+}
+
+function LinearSettingsPanel({ projectId }: { projectId: string }) {
+  const { get, post } = useApi();
+  const [status, setStatus] = useState<LinearStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await get<LinearStatus>(`/api/linear/status/${projectId}`);
+      setStatus(data);
+    } catch {
+      setStatus(null);
     } finally {
       setLoading(false);
     }
@@ -454,6 +484,77 @@ function GitHubSettings({ projectId }: { projectId: string }) {
         ) : (
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
             Not configured
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  // Check for OAuth callback token in URL
+  useEffect(() => {
+    const hash = window.location.hash;
+    const match = hash.match(/linear_token=([^&]+)/);
+    if (match) {
+      // Clean up URL
+      window.location.hash = '#connectors';
+    }
+  }, []);
+
+  async function handleDisconnect() {
+    setSaving(true);
+    try {
+      await post('/api/linear/disconnect', { project_id: projectId });
+      await fetchStatus();
+    } catch { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  async function handleToggleSetting(key: string, value: boolean) {
+    if (!status) return;
+    setSaving(true);
+    try {
+      await post('/api/linear/connect', {
+        project_id: projectId,
+        access_token: '_existing_',
+        team_id: status.team_id,
+        team_name: status.team_name,
+        auto_create: key === 'auto_create' ? value : status.auto_create,
+        auto_create_all: key === 'auto_create_all' ? value : status.auto_create_all,
+        auto_validate: key === 'auto_validate' ? value : status.auto_validate,
+        notify_on_cancel: key === 'notify_on_cancel' ? value : status.notify_on_cancel,
+        trigger_tags: status.trigger_tags,
+      });
+      await fetchStatus();
+    } catch { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  if (loading) {
+    return (
+      <div className="card p-5">
+        <div className="flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin text-primary" />
+          <span className="text-sm text-[var(--text-secondary)]">Loading Linear status…</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-[#5E6AD2]/10 flex items-center justify-center shrink-0">
+          <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+            <path d="M1.22541 61.5228c-.97401-6.5599-.62806-13.2361.95743-19.6243l57.919 57.9191c-6.3882 1.5855-13.0644 1.9315-19.6243.9574L1.22541 61.5228zM.00241111 46.8891c-.09505 1.1294-.15484 2.2628-.17908 3.3996L43.6813 93.1466c1.2981-.0285 2.5935-.1008 3.8833-.217L.00241111 46.8891zM.25025 40.8372c-.10912 1.1003-.18579 2.2043-.22972 3.3118L40.948 93.0771c1.0878-.0415 2.1728-.1155 3.2543-.2213L.25025 40.8372z" fill="#5E6AD2"/>
+            <path d="M92.8746 37.5765 37.5764 92.8747c-6.4289-2.6921-12.2583-6.7755-17.0422-11.5595l71.3002-71.3004c4.784 4.7839 8.8674 10.6133 11.5595 17.0422l-10.5193 10.5195z" fill="#5E6AD2"/>
+            <path d="M96.6356 46.8891c.095 1.1294.1548 2.2628.1791 3.3996L53.9569 93.1466c-1.2981-.0285-2.5935-.1008-3.8833-.217l46.5620-46.0405zM96.7875 40.8372c.1091 1.1003.1858 2.2043.2297 3.3118L50.0893 93.0771c-1.0878-.0415-2.1728-.1155-3.2543-.2213l49.9525-52.0186z" fill="#5E6AD2"/>
+          </svg>
+        </div>
+        <h3 className="text-sm font-semibold flex-1">Linear</h3>
+        {status?.connected ? (
+          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Connected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
+            Not connected
           </span>
         )}
       </div>
@@ -526,6 +627,187 @@ function GitHubSettings({ projectId }: { projectId: string }) {
         {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
         Test Connection
       </button>
+      {status?.connected ? (
+        <div className="space-y-4">
+          {/* Team info */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--text-secondary)]">Team:</span>
+            <span className="font-medium">{status.team_name || status.team_id}</span>
+          </div>
+
+          {/* Settings toggles */}
+          <div className="space-y-3 pt-2 border-t border-[var(--border-light)]">
+            {[
+              { key: 'auto_create', label: 'Auto-create issues for action-required decisions', value: status.auto_create },
+              { key: 'auto_create_all', label: 'Auto-create issues for ALL decisions', value: status.auto_create_all },
+              { key: 'auto_validate', label: 'Auto-validate decisions when issue is completed', value: status.auto_validate },
+              { key: 'notify_on_cancel', label: 'Notify when Linear issue is cancelled', value: status.notify_on_cancel },
+            ].map((setting) => (
+              <div key={setting.key} className="flex items-center justify-between gap-3">
+                <span className="text-sm text-[var(--text-secondary)]">{setting.label}</span>
+                <button
+                  onClick={() => handleToggleSetting(setting.key, !setting.value)}
+                  disabled={saving}
+                  className="shrink-0"
+                >
+                  {setting.value ? (
+                    <ToggleRight size={24} className="text-primary" />
+                  ) : (
+                    <ToggleLeft size={24} className="text-[var(--text-secondary)]" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Trigger tags */}
+          <div className="pt-2 border-t border-[var(--border-light)]">
+            <p className="text-xs text-[var(--text-secondary)] mb-1.5">Auto-create trigger tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {status.trigger_tags.map((tag) => (
+                <span key={tag} className="tag-pill text-xs">{tag}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Disconnect */}
+          <div className="pt-3 border-t border-[var(--border-light)]">
+            <button
+              onClick={handleDisconnect}
+              disabled={saving}
+              className="btn-secondary text-xs text-red-500 hover:text-red-600 flex items-center gap-1.5"
+            >
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+              Disconnect Linear
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm text-[var(--text-secondary)] mb-4">
+            Connect Linear to auto-create issues from decisions and sync issue status.
+          </p>
+          <a
+            href="/api/linear/install"
+            className="btn-primary text-sm inline-flex items-center gap-2"
+          >
+            <ExternalLink size={14} />
+            Connect Linear
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Linked Issues Section (for use in decision detail)                 */
+/* ------------------------------------------------------------------ */
+
+interface DecisionLink {
+  id: string;
+  platform: string;
+  external_id: string;
+  external_url: string;
+  link_type: string;
+  status: string;
+  title: string;
+  created_at: string;
+}
+
+export function LinkedIssues({ decisionId }: { decisionId: string }) {
+  const { get, post } = useApi();
+  const [links, setLinks] = useState<DecisionLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [linkId, setLinkId] = useState('');
+
+  const fetchLinks = useCallback(async () => {
+    try {
+      const data = await get<DecisionLink[]>(`/api/decisions/${decisionId}/links`);
+      setLinks(Array.isArray(data) ? data : []);
+    } catch { setLinks([]); }
+    finally { setLoading(false); }
+  }, [get, decisionId]);
+
+  useEffect(() => { fetchLinks(); }, [fetchLinks]);
+
+  async function handleManualLink() {
+    if (!linkId.trim()) return;
+    try {
+      await post(`/api/decisions/${decisionId}/links`, {
+        platform: 'linear',
+        external_id: linkId.trim(),
+        link_type: 'implements',
+      });
+      setLinkId('');
+      setShowLinkForm(false);
+      fetchLinks();
+    } catch { /* silent */ }
+  }
+
+  const statusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle2 size={13} className="text-green-500" />;
+      case 'cancelled': return <XCircle size={13} className="text-red-400" />;
+      default: return <Clock size={13} className="text-amber-500" />;
+    }
+  };
+
+  if (loading) return null;
+
+  const linearLinks = links.filter((l) => l.platform === 'linear');
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+          <Link2 size={12} />
+          Linked Issues
+        </h4>
+        <button
+          onClick={() => setShowLinkForm((v) => !v)}
+          className="text-xs text-primary hover:underline"
+        >
+          Link Issue
+        </button>
+      </div>
+
+      {showLinkForm && (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={linkId}
+            onChange={(e) => setLinkId(e.target.value)}
+            placeholder="e.g. ENG-123"
+            className="input text-xs flex-1"
+            onKeyDown={(e) => e.key === 'Enter' && handleManualLink()}
+          />
+          <button onClick={handleManualLink} className="btn-primary text-xs px-3 py-1.5">
+            Link
+          </button>
+        </div>
+      )}
+
+      {linearLinks.length === 0 && !showLinkForm ? (
+        <p className="text-xs text-[var(--text-tertiary)]">No linked issues.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {linearLinks.map((link) => (
+            <div key={link.id} className="flex items-center gap-2 text-sm">
+              {statusIcon(link.status)}
+              <span className="font-mono text-xs text-primary">{link.external_id}</span>
+              {link.title && <span className="text-xs truncate flex-1">{link.title}</span>}
+              <span className="text-2xs text-[var(--text-tertiary)] capitalize">{link.status}</span>
+              {link.external_url && (
+                <a href={link.external_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  <ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -809,6 +1091,17 @@ export function Connectors() {
             })()}
           </>
         )}
+
+        {/* Linear Integration */}
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 size={14} className="text-primary" />
+            <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+              Integrations
+            </h2>
+          </div>
+          <LinearSettingsPanel projectId={projectId} />
+        </div>
       </div>
     </div>
   );
