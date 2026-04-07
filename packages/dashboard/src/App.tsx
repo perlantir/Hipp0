@@ -144,7 +144,7 @@ type View =
   | 'pricing'
   | 'billing'
   | 'playground'
-  | 'review-queue';
+  | 'review-queue'
   | 'policies'
   | 'violations';
 
