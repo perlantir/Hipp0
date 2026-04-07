@@ -277,25 +277,6 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           ))}
         </div>
 
-        {/* Or type your own */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
-          <div style={{ color: '#9ca3af', fontSize: 13, marginBottom: 8 }}>Or describe your own task:</div>
-          <textarea
-            value={taskInput}
-            onChange={e => setTaskInput(e.target.value)}
-            placeholder="e.g., Implement rate limiting for our REST API..."
-            rows={2}
-            style={{
-              width: '100%', padding: '14px 16px', borderRadius: 10, fontSize: 15,
-              backgroundColor: SURFACE, color: '#e5e7eb', border: `1px solid ${SURFACE_BORDER}`,
-              resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
-              outline: 'none',
-            }}
-            onFocus={e => { e.currentTarget.style.borderColor = COPPER_BORDER; }}
-            onBlur={e => { e.currentTarget.style.borderColor = SURFACE_BORDER; }}
-          />
-        </div>
-
         <button
           onClick={() => startSimulation(taskInput || QUICK_TASKS[0].task)}
           disabled={false}

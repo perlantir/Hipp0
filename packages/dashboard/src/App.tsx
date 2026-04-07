@@ -88,6 +88,8 @@ import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
 import { Playground } from './components/Playground';
 import { PlaygroundSuperBrain } from './components/PlaygroundSuperBrain';
+import { ImportWizard } from './components/ImportWizard';
+import { CollabRoom } from './components/CollabRoom';
 import { ReviewQueue } from './components/ReviewQueue';
 import { MonitoringCards } from './components/MonitoringCards';
 import { ToastProvider } from './components/Toast';
@@ -157,7 +159,9 @@ type View =
   | 'evolution'
   | 'whatif'
   | 'live-tasks'
-  | 'team-score';
+  | 'team-score'
+  | 'import-wizard'
+  | 'collab-room';
 
 
 interface NavItem {
@@ -176,7 +180,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score','import-wizard','collab-room'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -222,6 +226,8 @@ function ViewContent({ view }: { view: View }) {
     case 'whatif': return <WhatIfSimulator />;
     case 'live-tasks': return <LiveSessions />;
     case 'team-score': return <TeamScore />;
+    case 'import-wizard': return <ImportWizard />;
+    case 'collab-room': return <CollabRoom />;
 
     default: return <DecisionGraph />;
   }
@@ -385,8 +391,10 @@ export default function App() {
     { id: 'whatif', label: 'What-If', icon: <Zap size={18} />, group: 'main' },
     { id: 'live-tasks', label: 'Live Tasks', icon: <Activity size={18} />, group: 'main' },
     { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'main' },
+    { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
+    { id: 'import-wizard', label: 'Import Wizard', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
     { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} />, group: 'integrations' },
     { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
