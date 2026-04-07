@@ -149,7 +149,7 @@ export function TimeTravelView() {
         <div className="text-center py-12">
           <Clock size={28} className="mx-auto mb-2 opacity-30" style={{ color: 'var(--text-tertiary)' }} />
           <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>No compile history yet</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>Compilations will appear here after running POST /api/compile</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>Run a context compilation to see history.</p>
         </div>
       )}
 

@@ -127,7 +127,7 @@ export function SessionHistory() {
               No sessions yet
             </p>
             <p className="text-sm text-[var(--text-tertiary)] mt-1">
-              Sessions appear when agents report summaries via the distillery API
+              Sessions appear when agents report summaries via the API.
             </p>
           </div>
         ) : (

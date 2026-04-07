@@ -43,13 +43,13 @@ interface ProjectStatsData {
     reverted: number;
     pending: number;
   };
-  decisions_per_agent: AgentDecisionCount[];
+  decisions_per_agent?: AgentDecisionCount[];
   unresolved_contradictions: number;
   total_agents: number;
   total_artifacts: number;
   total_sessions: number;
   recent_activity: ActivityItem[];
-  decision_trend: TrendPoint[];
+  decision_trend?: TrendPoint[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -218,13 +218,16 @@ export function ProjectStats() {
     );
   }
 
+  const agentData = stats.decisions_per_agent ?? [];
+  const trendData = stats.decision_trend ?? [];
+
   const maxAgentCount =
-    stats.decisions_per_agent.length > 0
-      ? Math.max(...stats.decisions_per_agent.map((a) => a.count))
+    agentData.length > 0
+      ? Math.max(...agentData.map((a) => a.count))
       : 1;
 
   const trendMax =
-    stats.decision_trend.length > 0 ? Math.max(...stats.decision_trend.map((t) => t.count), 1) : 1;
+    trendData.length > 0 ? Math.max(...trendData.map((t) => t.count), 1) : 1;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -307,11 +310,11 @@ export function ProjectStats() {
               <Users size={16} className="text-primary" />
               Decisions per Agent
             </h2>
-            {stats.decisions_per_agent.length === 0 ? (
+            {agentData.length === 0 ? (
               <p className="text-sm text-[var(--text-secondary)] py-4 text-center">No agent data</p>
             ) : (
               <div className="space-y-3">
-                {stats.decisions_per_agent
+                {agentData
                   .sort((a, b) => b.count - a.count)
                   .map((row) => {
                     const pct =
@@ -374,14 +377,14 @@ export function ProjectStats() {
         </div>
 
         {/* Decision trend */}
-        {stats.decision_trend && stats.decision_trend.length > 0 && (
+        {trendData.length > 0 && (
           <div className="card p-5">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <TrendingUp size={16} className="text-primary" />
               Decision Trend
             </h2>
             <div className="flex items-end gap-1.5 h-24">
-              {stats.decision_trend.map((point) => {
+              {trendData.map((point) => {
                 const heightPct = trendMax > 0 ? Math.round((point.count / trendMax) * 100) : 0;
                 return (
                   <div
@@ -398,18 +401,18 @@ export function ProjectStats() {
               })}
             </div>
             {/* X-axis labels — show first, middle, last */}
-            {stats.decision_trend.length >= 2 && (
+            {trendData.length >= 2 && (
               <div className="flex justify-between mt-2">
                 <span className="text-2xs text-[var(--text-tertiary)]">
-                  {formatDate(stats.decision_trend[0].date)}
+                  {formatDate(trendData[0].date)}
                 </span>
                 <span className="text-2xs text-[var(--text-tertiary)]">
                   {formatDate(
-                    stats.decision_trend[Math.floor(stats.decision_trend.length / 2)].date,
+                    trendData[Math.floor(trendData.length / 2)].date,
                   )}
                 </span>
                 <span className="text-2xs text-[var(--text-tertiary)]">
-                  {formatDate(stats.decision_trend[stats.decision_trend.length - 1].date)}
+                  {formatDate(trendData[trendData.length - 1].date)}
                 </span>
               </div>
             )}

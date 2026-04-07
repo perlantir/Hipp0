@@ -79,7 +79,7 @@ export function Contradictions() {
     setLoading(true);
     setError(null);
 
-    get<Contradiction[]>(`/api/projects/${projectId}/contradictions`)
+    get<Contradiction[]>(`/api/projects/${projectId}/contradictions?status=open`)
       .then((data) => {
         if (!cancelled) {
           setContradictions(Array.isArray(data) ? data : []);
