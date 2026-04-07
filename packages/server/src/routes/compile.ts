@@ -132,12 +132,94 @@ export function registerCompileRoutes(app: Hono): void {
       decisions_included: result.decisions_included,
     });
 
+    // ── Governance: policy overlay ──────────────────────────────────
+    let policyNotices: Array<Record<string, unknown>> = [];
+    let policySummary: Record<string, unknown> | undefined;
+    let policyMarkdown = '';
+
+    try {
+      const activePolicies = await db.query(
+        `SELECT dp.*, d.title AS decision_title
+         FROM decision_policies dp
+         JOIN decisions d ON dp.decision_id = d.id
+         WHERE dp.project_id = ? AND dp.active = ?
+           AND (dp.expires_at IS NULL OR dp.expires_at > ?)`,
+        [project_id, true, new Date().toISOString()],
+      );
+
+      if (activePolicies.rows.length > 0) {
+        const blockPolicies: Array<{ title: string; approved_by: string }> = [];
+        const warnPolicies: Array<{ title: string; approved_by: string }> = [];
+        const advisoryPolicies: Array<{ title: string }> = [];
+        const compiledIds = (result.decisions ?? []).map((d: Record<string, unknown>) => d.id);
+
+        for (const row of activePolicies.rows) {
+          const p = row as Record<string, unknown>;
+          const enforcement = p.enforcement as string;
+          const title = p.decision_title as string;
+          const approvedBy = p.approved_by as string;
+
+          // Check applies_to scoping
+          let appliesTo: string[] = [];
+          if (Array.isArray(p.applies_to)) appliesTo = p.applies_to as string[];
+          else if (typeof p.applies_to === 'string') {
+            try { appliesTo = JSON.parse(p.applies_to as string); } catch { appliesTo = []; }
+          }
+          if (appliesTo.length > 0 && !appliesTo.includes(agent_name)) continue;
+
+          const msg = enforcement === 'block'
+            ? `POLICY REQUIREMENT: You MUST comply with "${title}". This is an approved, enforced policy.`
+            : enforcement === 'warn'
+              ? `POLICY ADVISORY: "${title}" is an approved decision. Consider compliance carefully.`
+              : `Policy note: "${title}" is an approved decision.`;
+
+          policyNotices.push({
+            decision_id: p.decision_id,
+            decision_title: title,
+            enforcement,
+            category: p.category,
+            approved_by: approvedBy,
+            message: msg,
+          });
+
+          if (enforcement === 'block') blockPolicies.push({ title, approved_by: approvedBy });
+          else if (enforcement === 'warn') warnPolicies.push({ title, approved_by: approvedBy });
+          else advisoryPolicies.push({ title });
+        }
+
+        policySummary = {
+          block_policies: blockPolicies,
+          warn_policies: warnPolicies,
+          advisory_policies: advisoryPolicies,
+          total_enforced: blockPolicies.length + warnPolicies.length,
+        };
+
+        // Build markdown section for enforced policies
+        const enforced = policyNotices.filter((n) => n.enforcement !== 'advisory');
+        if (enforced.length > 0) {
+          const lines = enforced.map((n) => `- ${n.message}`).join('\n');
+          policyMarkdown = `## Active Policies (${enforced.length} enforced)\n${lines}\n\n---\n\n`;
+        }
+      }
+    } catch (err) {
+      console.warn('[decigraph:compile] Policy overlay failed:', (err as Error).message);
+    }
+
+    // Prepend policy markdown to formatted output
+    const formattedMarkdown = policyMarkdown
+      ? policyMarkdown + (result.formatted_markdown ?? '')
+      : result.formatted_markdown;
+
     // ── Cache the result ──────────────────────────────────────────────
     const responsePayload = {
       compile_request_id: compileRequestId,
       ...result,
+      formatted_markdown: formattedMarkdown,
       context_hash: contextHash,
       feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
+      outcome_hint: `Report task results: POST /api/outcomes with compile_request_id=${compileRequestId}`,
+      ...(policyNotices.length > 0 ? { policy_notices: policyNotices } : {}),
+      ...(policySummary ? { policy_summary: policySummary } : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
     };
 
@@ -151,12 +233,6 @@ export function registerCompileRoutes(app: Hono): void {
 
     // ── Response ─────────────────────────────────────────────────────
     console.log("[decigraph/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
-    return c.json({
-      compile_request_id: compileRequestId,
-      ...result,
-      context_hash: contextHash,
-      feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
-      ...(debugInfo ? { debug: debugInfo } : {}),
-    });
+    return c.json(responsePayload);
   });
 }

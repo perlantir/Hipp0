@@ -217,4 +217,44 @@ export function registerAllTools(
       };
     },
   );
+
+  // ── Tool 6: check_policy ───────────────────────────────────────────
+
+  server.registerTool(
+    'check_policy',
+    {
+      title: 'Check policy compliance',
+      description: 'Check if a planned action violates any approved policies before executing',
+      inputSchema: {
+        project_id: z.string().optional().describe('Project ID'),
+        agent_name: z.string().describe('Agent name to check policies for'),
+        planned_action: z.string().describe('Description of the planned action to verify'),
+      },
+    },
+    async (args) => {
+      const pid = args.project_id ?? config.projectId;
+      const result = await client.checkPolicy({
+        projectId: pid,
+        agentName: args.agent_name,
+        plannedAction: args.planned_action,
+      });
+
+      if (result.compliant) {
+        const advText = (result.advisories ?? []).length > 0
+          ? `\n\nAdvisories:\n${(result.advisories as Array<{ policy_decision: string; note: string }>).map((a) => `- ${a.note}`).join('\n')}`
+          : '';
+        return {
+          content: [{ type: 'text' as const, text: `Compliant — no policy violations detected.${advText}` }],
+        };
+      }
+
+      const vText = (result.violations as Array<{ policy_decision: string; enforcement: string; explanation: string }>)
+        .map((v) => `- [${v.enforcement.toUpperCase()}] ${v.policy_decision}: ${v.explanation}`)
+        .join('\n');
+
+      return {
+        content: [{ type: 'text' as const, text: `Policy violations found:\n\n${vText}` }],
+      };
+    },
+  );
 }

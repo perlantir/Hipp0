@@ -83,6 +83,8 @@ import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
+import { Policies } from './components/Policies';
+import { Violations } from './components/Violations';
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -128,7 +130,9 @@ type View =
   | 'ask-anything'
   | 'token-usage'
   | 'pricing'
-  | 'billing';
+  | 'billing'
+  | 'policies'
+  | 'violations';
 
 interface NavItem {
   id: View;
@@ -140,7 +144,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','policies','violations'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -169,6 +173,8 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
+    case 'policies': return <Policies />;
+    case 'violations': return <Violations />;
     default: return <DecisionGraph />;
   }
 }
@@ -328,6 +334,8 @@ export default function App() {
     { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
+    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
+    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
     { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
     { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
   ];
