@@ -60,6 +60,7 @@ import {
   Crown,
   Sun,
   Moon,
+  Shield,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -78,6 +79,8 @@ import { TimeTravelView } from './components/TimeTravelView';
 import { CompileTester } from './components/CompileTester';
 import { AskAnything } from './components/AskAnything';
 import { TokenUsage } from './components/TokenUsage';
+import { PolicyComplianceCard } from './components/PolicyComplianceCard';
+import { ViolationFeed } from './components/ViolationFeed';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { CommandPalette } from './components/CommandPalette';
 import { OnboardingChecklist } from './components/OnboardingChecklist';
@@ -128,7 +131,8 @@ type View =
   | 'ask-anything'
   | 'token-usage'
   | 'pricing'
-  | 'billing';
+  | 'billing'
+  | 'violations';
 
 interface NavItem {
   id: View;
@@ -140,7 +144,7 @@ interface NavItem {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','violations'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -169,6 +173,7 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
+    case 'violations': return <ViolationFeed />;
     default: return <DecisionGraph />;
   }
 }
@@ -321,6 +326,7 @@ export default function App() {
     { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'main' },
     { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'main' },
     { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
+    { id: 'violations', label: 'Violations', icon: <Shield size={18} />, group: 'monitoring' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },

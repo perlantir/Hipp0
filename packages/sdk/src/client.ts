@@ -31,6 +31,8 @@ import {
   type ImpactAnalysis,
   type ProjectStats,
   type AuditEntry,
+  type PolicyCheckInput,
+  type PolicyCheckResult,
 } from './types.js';
 
 export class DeciGraphClient {
@@ -340,5 +342,11 @@ export class DeciGraphClient {
 
   getProjectGraph(projectId: string): Promise<GraphResult> {
     return this.get<GraphResult>(`/api/projects/${projectId}/graph`);
+  }
+
+  // Policy Compliance
+
+  checkPolicy(input: PolicyCheckInput): Promise<PolicyCheckResult> {
+    return this.post<PolicyCheckResult>('/api/policies/check', input);
   }
 }
