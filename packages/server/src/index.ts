@@ -166,6 +166,38 @@ async function main() {
   void runStalenessCheck();
   setInterval(() => void runStalenessCheck(), 24 * 60 * 60 * 1000);
 
+  // Weekly digest cron — every Monday at 8:00 AM UTC
+  const runWeeklyDigests = async () => {
+    try {
+      const { generateDigest } = await import('@decigraph/core/intelligence/weekly-digest.js');
+      const digDb = (await import('@decigraph/core/db/index.js')).getDb();
+      const projects = await digDb.query(
+        `SELECT p.id FROM projects p
+         JOIN decisions d ON d.project_id = p.id AND d.status = 'active'
+         GROUP BY p.id HAVING COUNT(*) >= 20`,
+        [],
+      );
+      for (const row of projects.rows) {
+        const pid = (row as Record<string, unknown>).id as string;
+        try {
+          await generateDigest(pid);
+          console.log(`[decigraph/digest] Generated for project ${pid}`);
+        } catch (err) {
+          console.warn(`[decigraph/digest] Failed for project ${pid}:`, (err as Error).message);
+        }
+      }
+    } catch (err) {
+      console.warn('[decigraph/digest] Weekly digest run failed:', (err as Error).message);
+    }
+  };
+  // Schedule: check every hour, run on Monday 8 AM UTC
+  setInterval(() => {
+    const now = new Date();
+    if (now.getUTCDay() === 1 && now.getUTCHours() === 8 && now.getUTCMinutes() < 5) {
+      void runWeeklyDigests();
+    }
+  }, 5 * 60 * 1000); // check every 5 minutes
+
   const app = createApp();
 
   // ── Register GitHub PR webhook ──────────────────────────────────────────
