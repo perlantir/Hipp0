@@ -102,6 +102,14 @@
     "./intelligence/pattern-extractor.js": {
       "import": "./dist/intelligence/pattern-extractor.js",
       "types": "./dist/intelligence/pattern-extractor.d.ts"
+    },
+    "./intelligence/decision-evolver.js": {
+      "import": "./dist/intelligence/decision-evolver.js",
+      "types": "./dist/intelligence/decision-evolver.d.ts"
+    },
+    "./config/prompts/evolution.js": {
+      "import": "./dist/config/prompts/evolution.js",
+      "types": "./dist/config/prompts/evolution.d.ts"
     }
   },
   "scripts": {

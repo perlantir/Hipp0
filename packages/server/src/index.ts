@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { initCache, cache } from './cache/redis.js';
+import { startEvolutionWorker, stopEvolutionWorker } from './jobs/evolution-worker.js';
 import { bootstrapApiKeys } from './bootstrap-keys.js';
 import { seedDemoProject } from './seed-demo-project.js';
 
@@ -205,6 +206,9 @@ async function main() {
     }
   }, 5 * 60 * 1000); // check every 5 minutes
 
+  // Evolution worker — daily scan at 6 AM UTC
+  startEvolutionWorker();
+
   const app = createApp();
 
   // ── Register GitHub PR webhook ──────────────────────────────────────────
@@ -247,7 +251,8 @@ async function main() {
 
     console.warn(`\n[decigraph] Received ${signal}. Shutting down gracefully...`);
 
-    // Stop connectors first
+    // Stop connectors and workers first
+    stopEvolutionWorker();
     stopTelegramBot();
     await stopDiscordBot();
     await stopOpenClawWatcher();

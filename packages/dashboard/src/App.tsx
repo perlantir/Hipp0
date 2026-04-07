@@ -93,6 +93,7 @@ import { ToastProvider } from './components/Toast';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { OutcomeHistory } from './components/OutcomeHistory';
 
+import { EvolutionProposals } from './components/EvolutionProposals';
 import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
 import { WeeklyDigest } from './components/WeeklyDigest';
@@ -148,7 +149,8 @@ type View =
   | 'review-queue'
   | 'policies'
   | 'violations'
-  | 'digest';
+  | 'digest'
+  | 'evolution';
 
 
 interface NavItem {
@@ -167,7 +169,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -203,6 +205,7 @@ function ViewContent({ view }: { view: View }) {
     case 'policies': return <Policies />;
     case 'violations': return <Violations />;
     case 'digest': return <WeeklyDigest />;
+    case 'evolution': return <EvolutionProposals />;
 
     default: return <DecisionGraph />;
   }
@@ -362,6 +365,7 @@ export default function App() {
     { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'main' },
     { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'main' },
     { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
+    { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
