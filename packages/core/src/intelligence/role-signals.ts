@@ -53,6 +53,61 @@ function tokenize(text: string): string[] {
   return text.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
 }
 
+/**
+ * Strip common English suffixes to produce a rough stem.
+ * This is intentionally aggressive — we want "authentication" → "auth",
+ * "tokens" → "token", "deployment" → "deploy", etc.
+ */
+function stem(word: string): string {
+  return word
+    .replace(/ication$/, '')
+    .replace(/ation$/, '')
+    .replace(/ment$/, '')
+    .replace(/ness$/, '')
+    .replace(/ity$/, '')
+    .replace(/ious$/, '')
+    .replace(/ive$/, '')
+    .replace(/ing$/, '')
+    .replace(/tion$/, '')
+    .replace(/sion$/, '')
+    .replace(/able$/, '')
+    .replace(/ence$/, '')
+    .replace(/ance$/, '')
+    .replace(/ture$/, '')
+    .replace(/ous$/, '')
+    .replace(/ful$/, '')
+    .replace(/ent$/, '')
+    .replace(/ant$/, '')
+    .replace(/al$/, '')
+    .replace(/ed$/, '')
+    .replace(/er$/, '')
+    .replace(/ly$/, '')
+    .replace(/es$/, '')
+    .replace(/s$/, '');
+}
+
+/**
+ * Check if a tag matches a task token.
+ * Uses three strategies:
+ *   1. Exact match
+ *   2. Substring/contains (either direction)
+ *   3. Stemmed match (both sides stemmed, min 3 chars)
+ */
+function tagMatches(tagLower: string, token: string): boolean {
+  // Exact
+  if (tagLower === token) return true;
+  // Substring: "authentication" contains "auth", "tokens" contains "token"
+  if (tagLower.includes(token) || token.includes(tagLower)) return true;
+  // Stemmed: stem("authentication") = "auth", stem("tokens") = "token"
+  const tagStem = stem(tagLower);
+  const tokenStem = stem(token);
+  if (tagStem.length >= 3 && tokenStem.length >= 3) {
+    if (tagStem === tokenStem) return true;
+    if (tagStem.includes(tokenStem) || tokenStem.includes(tagStem)) return true;
+  }
+  return false;
+}
+
 function scoreAgentForTask(
   weights: Record<string, number>,
   taskTokens: string[],
@@ -60,20 +115,25 @@ function scoreAgentForTask(
   if (Object.keys(weights).length === 0 || taskTokens.length === 0) return 0;
 
   let matchScore = 0;
-  let maxPossible = 0;
 
   for (const [tag, weight] of Object.entries(weights)) {
-    maxPossible += Math.abs(weight);
     const tagLower = tag.toLowerCase();
     for (const token of taskTokens) {
-      if (tagLower.includes(token) || token.includes(tagLower)) {
+      if (tagMatches(tagLower, token)) {
         matchScore += Math.abs(weight);
         break;
       }
     }
   }
 
-  return maxPossible > 0 ? matchScore / maxPossible : 0;
+  // Normalize by the sum of the top 3 weights (the agent's strongest tags).
+  // This prevents low scores when an agent has many niche tags that don't
+  // match the current task but their core tags match strongly.
+  const sortedWeights = Object.values(weights).map(Math.abs).sort((a, b) => b - a);
+  const top3Sum = sortedWeights.slice(0, 3).reduce((s, w) => s + w, 0);
+  const maxPossible = Math.max(top3Sum, 0.1);
+
+  return Math.min(matchScore / maxPossible, 1.0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -282,7 +342,7 @@ export async function generateRoleSignal(
     })();
     const matchedTags = Object.keys(weights).filter((tag) => {
       const tagLower = tag.toLowerCase();
-      return taskTokens.some((token) => tagLower.includes(token) || token.includes(tagLower));
+      return taskTokens.some((token) => tagMatches(tagLower, token));
     });
     console.log(`[role-signals] Agent: ${agentName}`);
     console.log(`[role-signals]   Tags matched: ${matchedTags.join(', ')}`);
