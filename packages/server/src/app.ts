@@ -44,6 +44,7 @@ import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
 import { registerDemoRoutes } from './routes/demo.js';
 import { registerLinkRoutes } from './routes/links.js';
+import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
 
@@ -232,6 +233,7 @@ export function createApp() {
   registerPhase2ContradictionRoutes(app);
   registerPhase2EdgeRoutes(app);
   registerImpactRoutes(app);
+  registerOutcomeRoutes(app);
   registerSlackConnector(app);
   registerLinkRoutes(app);
   registerLinearConnector(app);

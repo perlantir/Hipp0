@@ -61,6 +61,8 @@ import {
   Sun,
   Moon,
   ClipboardList,
+  Target,
+
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -89,6 +91,8 @@ import { ReviewQueue } from './components/ReviewQueue';
 import { MonitoringCards } from './components/MonitoringCards';
 import { ToastProvider } from './components/Toast';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
+import { OutcomeHistory } from './components/OutcomeHistory';
+
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -133,6 +137,7 @@ type View =
   | 'compile-tester'
   | 'ask-anything'
   | 'token-usage'
+  | 'outcomes'
   | 'pricing'
   | 'billing'
   | 'playground'
@@ -154,7 +159,8 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue'];
+
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -174,6 +180,7 @@ function ViewContent({ view }: { view: View }) {
     case 'sessions': return <SessionHistory />;
     case 'notifications': return <NotificationFeed />;
     case 'stats': return <ProjectStats />;
+    case 'outcomes': return <OutcomeHistory />;
     case 'import': return <Import />;
     case 'connectors': return <Connectors />;
     case 'webhooks': return <Webhooks />;
@@ -350,6 +357,7 @@ export default function App() {
     { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
+    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
     { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
     { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
   ];

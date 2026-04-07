@@ -138,6 +138,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...result,
       context_hash: contextHash,
       feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
+      outcome_hint: `Report task results: POST /api/outcomes with compile_request_id=${compileRequestId}`,
       ...(debugInfo ? { debug: debugInfo } : {}),
     };
 
@@ -156,6 +157,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...result,
       context_hash: contextHash,
       feedback_hint: `Rate this context: POST /api/feedback/batch with compile_request_id=${compileRequestId}`,
+      outcome_hint: `Report task results: POST /api/outcomes with compile_request_id=${compileRequestId}`,
       ...(debugInfo ? { debug: debugInfo } : {}),
     });
   });
