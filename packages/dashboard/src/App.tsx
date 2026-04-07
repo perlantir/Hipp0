@@ -95,6 +95,7 @@ import { OutcomeHistory } from './components/OutcomeHistory';
 
 import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
+import { WeeklyDigest } from './components/WeeklyDigest';
 
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -146,7 +147,8 @@ type View =
   | 'playground'
   | 'review-queue'
   | 'policies'
-  | 'violations';
+  | 'violations'
+  | 'digest';
 
 
 interface NavItem {
@@ -165,7 +167,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -200,6 +202,7 @@ function ViewContent({ view }: { view: View }) {
     case 'review-queue': return <ReviewQueue />;
     case 'policies': return <Policies />;
     case 'violations': return <Violations />;
+    case 'digest': return <WeeklyDigest />;
 
     default: return <DecisionGraph />;
   }
@@ -367,6 +370,7 @@ export default function App() {
     { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
     { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
+    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
     { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
 
