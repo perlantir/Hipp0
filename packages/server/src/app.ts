@@ -36,6 +36,7 @@ import { registerPhase2ContradictionRoutes } from './routes/phase2-contradiction
 import { registerPhase2EdgeRoutes } from './routes/phase2-edges.js';
 import { registerImpactRoutes } from './routes/impact.js';
 import { registerSlackConnector } from './connectors/slack.js';
+import { registerLinearConnector } from './connectors/linear.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerTeamRoutes } from './routes/team.js';
@@ -94,6 +95,9 @@ export function createApp() {
       path === '/api/openapi.json' ||
       path.startsWith('/api/auth/') ||
       path.startsWith('/api/team/invite/') ||
+      path.startsWith('/api/linear/install') ||
+      path.startsWith('/api/linear/callback') ||
+      path === '/api/linear/webhook' ||
       path === '/api/webhooks/github' ||
       path === '/api/webhooks/slack/events' ||
       path === '/api/webhooks/slack/commands' ||
@@ -230,6 +234,7 @@ export function createApp() {
   registerImpactRoutes(app);
   registerSlackConnector(app);
   registerLinkRoutes(app);
+  registerLinearConnector(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);

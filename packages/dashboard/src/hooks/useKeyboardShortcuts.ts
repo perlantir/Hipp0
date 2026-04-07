@@ -4,9 +4,10 @@ interface ShortcutActions {
   onCommandPalette: () => void;
   onEscape: () => void;
   onNavigate: (index: number) => void;
+  onHelp?: () => void;
 }
 
-export function useKeyboardShortcuts({ onCommandPalette, onEscape, onNavigate }: ShortcutActions) {
+export function useKeyboardShortcuts({ onCommandPalette, onEscape, onNavigate, onHelp }: ShortcutActions) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
@@ -36,6 +37,13 @@ export function useKeyboardShortcuts({ onCommandPalette, onEscape, onNavigate }:
         return;
       }
 
+      // ? → show keyboard shortcuts help (only when not in input)
+      if (!isInput && e.key === '?' && !meta && !e.altKey) {
+        e.preventDefault();
+        onHelp?.();
+        return;
+      }
+
       // Number keys 1-9 → navigate (only when not focused on an input)
       if (!isInput && e.key >= '1' && e.key <= '9' && !meta && !e.altKey && !e.shiftKey) {
         e.preventDefault();
@@ -46,5 +54,5 @@ export function useKeyboardShortcuts({ onCommandPalette, onEscape, onNavigate }:
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onCommandPalette, onEscape, onNavigate]);
+  }, [onCommandPalette, onEscape, onNavigate, onHelp]);
 }
