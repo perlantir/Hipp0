@@ -219,7 +219,28 @@ export async function generateRoleSignal(
     reason = `Minimal relevance (${(relevanceScore * 100).toFixed(0)}%) — no significant tag match`;
   }
 
-  // 7. Generate role suggestion
+  // 7. Debug logging in development
+  if (process.env.NODE_ENV === 'development') {
+    const weights: Record<string, number> = (() => {
+      const agent = agents.find((a) => a.name === agentName);
+      if (!agent) return {};
+      const profile = typeof agent.relevance_profile === 'string'
+        ? JSON.parse(agent.relevance_profile || '{}')
+        : (agent.relevance_profile ?? {});
+      return (profile as Record<string, unknown>).weights as Record<string, number> ?? {};
+    })();
+    const matchedTags = Object.keys(weights).filter((tag) => {
+      const tagLower = tag.toLowerCase();
+      return taskTokens.some((token) => tagLower.includes(token) || token.includes(tagLower));
+    });
+    console.log(`[role-signals] Agent: ${agentName}`);
+    console.log(`[role-signals]   Tags matched: ${matchedTags.join(', ')}`);
+    console.log(`[role-signals]   Raw score: ${relevanceScore}`);
+    console.log(`[role-signals]   Normalized: ${Math.round(relevanceScore * 1000) / 1000}`);
+    console.log(`[role-signals]   Abstain: ${abstainProbability}`);
+  }
+
+  // 8. Generate role suggestion
   const roleSuggestion = generateRoleSuggestion(agentEntry.role, taskDescription, rank, scored.length);
 
   return {

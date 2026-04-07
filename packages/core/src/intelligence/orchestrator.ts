@@ -27,6 +27,8 @@ export interface NextAgentSuggestion {
   }>;
   is_session_complete: boolean;
   completion_reason?: string;
+  estimated_remaining_steps: number;
+  session_progress: number;
 }
 
 export interface SessionPlan {
@@ -213,6 +215,8 @@ export async function suggestNextAgent(
       alternatives: [],
       is_session_complete: true,
       completion_reason: 'No agents available',
+      estimated_remaining_steps: 0,
+      session_progress: 100,
     };
   }
 
@@ -239,8 +243,14 @@ export async function suggestNextAgent(
     .filter((c) => c.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  // 5. Check completion conditions
+  // 5. Count agents with relevance > 0.3 that haven't participated (for remaining estimate)
+  const remainingRelevant = signals
+    .filter((s) => s.relevance_score > 0.3 && !completedAgents.includes(s.agent_name))
+    .length;
+
+  // 6. Check completion conditions
   if (candidates.length === 0 || (completedSteps.length >= 3 && (candidates[0]?.score ?? 0) < 0.3)) {
+    const contributorNames = completedAgents.join(', ');
     return {
       recommended_agent: '',
       recommended_role: '',
@@ -252,9 +262,9 @@ export async function suggestNextAgent(
         : `Best candidate score (${((candidates[0]?.score ?? 0) * 100).toFixed(0)}%) too low after ${completedSteps.length} steps`,
       alternatives: [],
       is_session_complete: true,
-      completion_reason: candidates.length === 0
-        ? 'No candidates with sufficient relevance'
-        : 'Diminishing returns — top score below threshold after 3+ steps',
+      completion_reason: `Task appears complete — ${completedAgents.length} agent${completedAgents.length !== 1 ? 's' : ''} contributed (${contributorNames}). Remaining agents have low relevance to this task (<15%). No further steps recommended.`,
+      estimated_remaining_steps: 0,
+      session_progress: 100,
     };
   }
 
@@ -288,6 +298,11 @@ export async function suggestNextAgent(
     task_suggestion: generateTaskSuggestion(c.agent, c.role, sessionTitle, completedSteps.length),
   }));
 
+  const estimatedRemaining = remainingRelevant;
+  const sessionProgress = completedSteps.length > 0
+    ? Math.round((completedSteps.length / (completedSteps.length + estimatedRemaining)) * 100)
+    : 0;
+
   return {
     recommended_agent: top.agent,
     recommended_role: top.role,
@@ -297,6 +312,8 @@ export async function suggestNextAgent(
     reasoning,
     alternatives,
     is_session_complete: false,
+    estimated_remaining_steps: estimatedRemaining,
+    session_progress: sessionProgress,
   };
 }
 

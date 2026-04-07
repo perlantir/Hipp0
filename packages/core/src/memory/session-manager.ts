@@ -361,11 +361,21 @@ export async function getSessionContext(
   }
 
   if (steps.length > 0) {
+    // Condensed summary when 5+ steps completed
+    if (steps.length >= 5) {
+      lines.push('', `### Session Summary (${steps.length} steps completed)`);
+      const summaryParts = steps.map((s) => {
+        const summary = s.output_summary ?? s.output?.slice(0, 100) ?? 'completed';
+        return `${s.agent_name} ${summary.split('.')[0].toLowerCase()}`;
+      });
+      lines.push(`This task started with ${summaryParts.join(', then ')}.`);
+    }
+
     lines.push('', '### Previous Steps', '');
     for (const step of steps) {
-      lines.push(`**Step ${step.step_number} — ${step.agent_name}${step.agent_role ? ` (${step.agent_role})` : ''}**`);
-      lines.push(`Task: ${step.task_description}`);
-      lines.push(`Output: ${step.output_summary ?? step.output?.slice(0, 500) ?? '(no output)'}`);
+      const outputText = step.output_summary ?? step.output?.slice(0, 500) ?? '(no output)';
+      lines.push(`**Step ${step.step_number} — ${step.agent_name}${step.agent_role ? ` (${step.agent_role})` : ''} completed:**`);
+      lines.push(`Here is what ${step.agent_name} decided: ${outputText}`);
       if (step.decisions_created.length > 0) {
         lines.push(`Decisions created: ${step.decisions_created.join(', ')}`);
       }

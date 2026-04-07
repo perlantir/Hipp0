@@ -1,36 +1,32 @@
 ```
-███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
-████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
-██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
-██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
-██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
-╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+██████╗ ███████╗ ██████╗██╗ ██████╗ ██████╗  █████╗ ██████╗ ██╗  ██╗
+██╔══██╗██╔════╝██╔════╝██║██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██║  ██║
+██║  ██║█████╗  ██║     ██║██║  ███╗██████╔╝███████║██████╔╝███████║
+██║  ██║██╔══╝  ██║     ██║██║   ██║██╔══██╗██╔══██║██╔═══╝ ██╔══██║
+██████╔╝███████╗╚██████╗██║╚██████╔╝██║  ██║██║  ██║██║     ██║  ██║
+╚═════╝ ╚══════╝ ╚═════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝
 ```
 
 # DeciGraph — The shared brain for multi-agent AI teams
 
 ## Install
 
-**Try it instantly (no Docker needed):**
+**Docker Compose (recommended):**
 
 ```bash
-npx @decigraph/cli init my-project
+git clone https://github.com/perlantir/decigraph.git
+cd decigraph
+cp .env.example .env       # Edit with your API key
+docker compose up -d        # PostgreSQL + API + Dashboard
 ```
 
-**Python:**
-
-```bash
-pip install decigraph-memory
-decigraph-memory init my-project
-```
-
-**Production (Docker + PostgreSQL):**
+**One-line install:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/perlantir/decigraph/main/install.sh | bash
 ```
 
-Or clone and run manually — see the [Getting Started Guide](docs/getting-started.md).
+Or see the full [Getting Started Guide](docs/getting-started.md).
 
 [![CI](https://github.com/perlantir/decigraph/actions/workflows/ci.yml/badge.svg)](https://github.com/perlantir/decigraph/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -99,11 +95,56 @@ Decisions carry a `confidence_decay_rate`. Freshness scores decay over time. The
 ### MCP Server
 A zero-config Model Context Protocol server exposes 12 tools and 7 resources. Add two lines to `claude_desktop_config.json` and Claude can record decisions, compile context, and search the graph natively — no code changes to your prompts.
 
-### Dashboard
-A React + Tailwind dashboard gives you a live view of the decision graph, session history, contradiction feed, context comparison, and impact analysis. Available at `http://localhost:3200` after `docker compose up`.
+### Super Brain: Session Memory + Orchestration
+Multi-step task sessions where each agent sees the previous agent's actual output. The Smart Orchestrator recommends who should go next, what they should do, and pre-loads their context — zero LLM calls, pure tag-matching math. Role Signals score every agent's relevance and recommend abstention when an agent has nothing to add.
 
-### Framework Integrations
-Drop-in integrations for LangChain/LangGraph, CrewAI, AutoGen, and OpenAI Agents SDK. One import and your existing agents gain persistent decision memory.
+### Playground
+Interactive step-by-step agent simulation. Walk through a task session one agent at a time, see context compilation in real time, and experiment with different agent orderings.
+
+### Outcome Tracking
+Track whether decisions led to the expected outcomes. Record results, link them back to the original decision, and build an institutional feedback loop.
+
+### Governance & Violations
+Define governance rules (e.g., "security review required for auth changes") and automatically detect violations when decisions bypass required steps.
+
+### What-If Simulator
+Preview the impact of a hypothetical decision before committing it. See which agents would be affected, what contradictions would arise, and how the graph topology changes.
+
+### Decision Evolution
+Visualize how decisions evolve over time — supersession chains, confidence decay, and the full audit trail from initial proposal to current state.
+
+### Time Travel
+View the state of the decision graph at any point in the past. See what each agent knew at a specific moment.
+
+### Export / Import
+Export your entire decision graph as JSON for backup, migration, or analysis. Import decisions from external sources.
+
+### Review Queue
+A prioritized queue of decisions that need human review — contradictions, low-confidence decisions, and governance violations surface automatically.
+
+### Ask Anything
+Natural-language search across all decisions. Ask questions like "what did we decide about authentication?" and get ranked, contextualized answers.
+
+### Weekly Digest
+Automated summary of the week's decisions, contradictions resolved, and agents' activity — delivered as structured markdown.
+
+### GitHub Integration
+Bidirectional PR-to-decision linking. Decisions reference PRs, PRs reference decisions. Webhook-driven — no polling.
+
+### Linear Integration
+Connect your Linear workspace to automatically create decisions from issues and link issue status back to the decision graph.
+
+### Webhooks
+Push decision events to external systems. Configurable per-project with HMAC signature verification.
+
+### Discord, Slack & Telegram Bots
+Ingest decisions directly from chat. Send a message in your team channel and DeciGraph extracts and records decisions automatically.
+
+### Dashboard
+A React + Tailwind dashboard gives you a live view of 25+ views — see the Dashboard section below. Available at `http://localhost:3200` after `docker compose up`.
+
+### Framework Integrations (Experimental)
+Drop-in integrations for LangChain/LangGraph, CrewAI, AutoGen, and OpenAI Agents SDK. One import and your existing agents gain persistent decision memory. These integrations are experimental and may change.
 
 ---
 
@@ -451,14 +492,33 @@ decigraph notifications --agent <agent-id>
 
 ## Dashboard
 
-Open [http://localhost:3200](http://localhost:3200) after `docker compose up` to access:
+Open [http://localhost:3200](http://localhost:3200) after `docker compose up` to access 25+ views:
 
-- **Decision Graph** — force-directed visualization of the decision graph with edge labels
+- **Decision Graph** — force-directed visualization with edge labels and filtering
 - **Session History** — timeline of all agent sessions with linked decisions
-- **Contradictions** — unresolved conflicts between decisions with resolution workflow
-- **Context Comparison** — side-by-side view of what different agents see for the same task
+- **Contradictions** — unresolved conflicts with resolution workflow
+- **Context Comparison** — side-by-side view of what different agents see
 - **Impact Analysis** — downstream effect visualizer for any decision
 - **Notifications Feed** — real-time feed of changes affecting each agent
+- **Playground** — interactive step-by-step agent simulation
+- **Outcome Tracking** — decision result recording and feedback loop
+- **Governance Dashboard** — rule definitions and violation feed
+- **What-If Simulator** — hypothetical decision impact preview
+- **Decision Evolution** — supersession chains and confidence decay timeline
+- **Time Travel** — historical graph state viewer
+- **Review Queue** — prioritized list of decisions needing attention
+- **Ask Anything** — natural-language decision search
+- **Weekly Digest** — automated activity summary
+- **Export / Import** — JSON backup and migration tools
+- **Smart Orchestrator** — next-agent recommendation with progress tracking
+- **Session Memory** — multi-step task context viewer
+- **Role Signals** — agent relevance scoring breakdown
+- **GitHub Integration** — PR-to-decision linking status
+- **Linear Integration** — issue-to-decision sync dashboard
+- **Webhook Manager** — configure and monitor outbound webhooks
+- **Agent Profiles** — relevance weights and persona configuration
+- **Project Settings** — API keys, team members, and configuration
+- **Health & Stats** — system health, decision counts, and performance metrics
 
 ---
 
@@ -534,6 +594,8 @@ pnpm test --filter core  # run core package tests only
 | [docs/framework-guides/crewai.md](docs/framework-guides/crewai.md) | CrewAI integration |
 | [docs/framework-guides/autogen.md](docs/framework-guides/autogen.md) | Microsoft AutoGen integration |
 | [docs/framework-guides/openai-agents.md](docs/framework-guides/openai-agents.md) | OpenAI Agents SDK integration |
+| [docs/github-integration.md](docs/github-integration.md) | GitHub App setup and PR linking |
+| [docs/storage.md](docs/storage.md) | Storage backends and data management |
 
 ---
 

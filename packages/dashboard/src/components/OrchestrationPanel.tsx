@@ -31,6 +31,8 @@ interface NextAgentSuggestion {
   }>;
   is_session_complete: boolean;
   completion_reason?: string;
+  estimated_remaining_steps: number;
+  session_progress: number;
 }
 
 interface SessionPlan {
@@ -177,6 +179,29 @@ export function OrchestrationPanel({ sessionId, sessionStatus, onRefresh }: Orch
           </button>
         </div>
       </div>
+
+      {/* Progress bar + remaining steps */}
+      {suggestion && !suggestion.is_session_complete && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Session progress
+            </span>
+            <span className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+              {suggestion.session_progress}%
+              {suggestion.estimated_remaining_steps > 0 && (
+                <span style={{ color: 'var(--text-tertiary)' }}> — {suggestion.estimated_remaining_steps} step{suggestion.estimated_remaining_steps !== 1 ? 's' : ''} remaining</span>
+              )}
+            </span>
+          </div>
+          <div className="w-full rounded-full h-1.5" style={{ background: 'var(--bg-secondary)' }}>
+            <div
+              className="h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${suggestion.session_progress}%`, background: '#D97706' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

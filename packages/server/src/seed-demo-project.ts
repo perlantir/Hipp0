@@ -123,11 +123,24 @@ export async function seedDemoProject(): Promise<void> {
   );
 
   // ── 2. Create agents ───────────────────────────────────────────
+  const DEMO_RELEVANCE_WEIGHTS: Record<string, Record<string, number>> = {
+    architect: { architecture: 0.9, design: 0.8, database: 0.7, api: 0.7, schema: 0.6, infrastructure: 0.5, scalability: 0.6, 'system-design': 0.8 },
+    backend: { api: 0.9, auth: 0.8, database: 0.8, server: 0.7, middleware: 0.7, jwt: 0.6, rest: 0.6, graphql: 0.5 },
+    security: { auth: 0.9, security: 0.9, vulnerability: 0.8, encryption: 0.7, owasp: 0.8, jwt: 0.7, rbac: 0.6, audit: 0.6 },
+    frontend: { ui: 0.9, css: 0.7, react: 0.8, login: 0.6, form: 0.6, component: 0.7, responsive: 0.6, accessibility: 0.5 },
+    devops: { deploy: 0.9, ci: 0.8, cd: 0.8, docker: 0.8, infrastructure: 0.7, monitoring: 0.6, kubernetes: 0.5, terraform: 0.5 },
+    marketer: { launch: 0.9, pricing: 0.8, marketing: 0.9, content: 0.7, positioning: 0.7, growth: 0.6, analytics: 0.5, seo: 0.5 },
+  };
+
   const agentIds: Record<string, string> = {};
   for (const agent of data.agents) {
     const id = randomUUID();
     agentIds[agent.name] = id;
     const profile = getRoleProfile(agent.role);
+    // Override weights with demo-specific relevance profiles
+    if (DEMO_RELEVANCE_WEIGHTS[agent.name]) {
+      (profile as unknown as Record<string, unknown>).weights = DEMO_RELEVANCE_WEIGHTS[agent.name];
+    }
     await db.query(
       `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens)
        VALUES (?, ?, ?, ?, ?, ?)`,
