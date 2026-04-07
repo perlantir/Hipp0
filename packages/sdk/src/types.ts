@@ -395,6 +395,27 @@ export interface DecisionListFilters {
   offset?: number;
 }
 
+export interface OutcomeResult {
+  id: string;
+  compile_request_id: string;
+  project_id: string;
+  agent_id: string;
+  task_completed: boolean | null;
+  alignment_score: number;
+  decisions_compiled: number;
+  decisions_referenced: number;
+  decisions_ignored: number;
+}
+
+export interface ReportOutcomeInput {
+  compile_request_id: string;
+  task_completed: boolean;
+  task_duration_ms?: number;
+  agent_output?: string;
+  error_occurred?: boolean;
+  error_message?: string;
+}
+
 export interface DeciGraphClientOptions {
   baseUrl: string;
   apiKey?: string;

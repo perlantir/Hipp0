@@ -31,6 +31,8 @@ import {
   type ImpactAnalysis,
   type ProjectStats,
   type AuditEntry,
+  type OutcomeResult,
+  type ReportOutcomeInput,
 } from './types.js';
 
 export class DeciGraphClient {
@@ -312,6 +314,23 @@ export class DeciGraphClient {
       question,
       agent_name: agentName,
     });
+  }
+
+  // Outcomes
+
+  reportOutcome(input: ReportOutcomeInput): Promise<OutcomeResult> {
+    return this.post<OutcomeResult>('/api/outcomes', input);
+  }
+
+  getAgentOutcomes(agentId: string, limit?: number): Promise<OutcomeResult[]> {
+    return this.get<OutcomeResult[]>(
+      `/api/agents/${agentId}/outcomes`,
+      limit !== undefined ? { limit } : undefined,
+    );
+  }
+
+  getProjectOutcomeSummary(projectId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`/api/projects/${projectId}/outcome-summary`);
   }
 
   // Feedback
