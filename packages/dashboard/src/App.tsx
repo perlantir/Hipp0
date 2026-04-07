@@ -87,6 +87,7 @@ import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
 import { Playground } from './components/Playground';
+import { PlaygroundSuperBrain } from './components/PlaygroundSuperBrain';
 import { ReviewQueue } from './components/ReviewQueue';
 import { MonitoringCards } from './components/MonitoringCards';
 import { ToastProvider } from './components/Toast';
@@ -185,6 +186,12 @@ function getViewFromHash(): View {
 /*  View renderer                                                      */
 /* ------------------------------------------------------------------ */
 
+function PlaygroundWrapper() {
+  const [classic, setClassic] = React.useState(false);
+  if (classic) return <><Playground /><div style={{textAlign:'center',marginTop:16}}><button onClick={()=>setClassic(false)} style={{background:'none',border:'none',color:'#6b7280',cursor:'pointer',fontSize:13}}>Back to Super Brain →</button></div></>;
+  return <PlaygroundSuperBrain onClassicMode={() => setClassic(true)} />;
+}
+
 function ViewContent({ view }: { view: View }) {
   switch (view) {
     case 'graph': return <DecisionGraph />;
@@ -206,7 +213,7 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
-    case 'playground': return <Playground />;
+    case 'playground': return <PlaygroundWrapper />;
     case 'review-queue': return <ReviewQueue />;
     case 'policies': return <Policies />;
     case 'violations': return <Violations />;
