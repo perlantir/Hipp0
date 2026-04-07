@@ -52,6 +52,8 @@ export type {
   AuditEntry,
   ProjectStats,
   DeciGraphError,
+  OutcomeResult,
+  ReportOutcomeInput,
 } from './types.js';
 
 export { DeciGraphApiError } from './types.js';

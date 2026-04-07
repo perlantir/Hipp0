@@ -37,6 +37,8 @@ function loadBetterSqlite3(): typeof import('better-sqlite3') {
 const BOOLEAN_COLUMNS = new Set([
   'was_useful',
   'enabled',
+  'task_completed',
+  'error_occurred',
 ]);
 
 /**
