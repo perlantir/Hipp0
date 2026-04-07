@@ -395,6 +395,29 @@ export interface DecisionListFilters {
   offset?: number;
 }
 
+// --- Policy Check ---
+export interface PolicyCheckInput {
+  project_id: string;
+  agent_name: string;
+  planned_action: string;
+}
+
+export interface PolicyCheckResult {
+  compliant: boolean;
+  violations: Array<{
+    policy_id: string;
+    policy_title: string;
+    enforcement_level: string;
+    evidence_snippet: string;
+    explanation: string;
+  }>;
+  advisories: Array<{
+    policy_id: string;
+    policy_title: string;
+    message: string;
+  }>;
+}
+
 export interface DeciGraphClientOptions {
   baseUrl: string;
   apiKey?: string;

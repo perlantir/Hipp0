@@ -1,12 +1,13 @@
 /**
  * MCP Tool definitions and handlers for DeciGraph.
  *
- * 5 tools:
+ * 6 tools:
  *   1. compile_context — get scored decisions for a task
  *   2. add_decision — record a new decision
  *   3. ask_decisions — natural language query
  *   4. search_decisions — filter by tag/agent/status
- *   5. get_contradictions — find conflicting decisions
+ *   5. check_policy — check planned action against governance policies
+ *   6. get_contradictions — find conflicting decisions
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -184,7 +185,51 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 5: get_contradictions ─────────────────────────────────────────
+  // ── Tool 5: check_policy ───────────────────────────────────────────────
+
+  server.registerTool(
+    'check_policy',
+    {
+      title: 'Check policy compliance',
+      description:
+        'Check if a planned action complies with project governance policies. Returns violations and advisories.',
+      inputSchema: {
+        project_id: z.string().optional().describe('Project ID'),
+        agent_name: z.string().describe('Agent name performing the action'),
+        planned_action: z.string().describe('Description of the planned action to check'),
+      },
+    },
+    async (args) => {
+      const pid = args.project_id ?? config.projectId;
+      const result = await client.checkPolicy({
+        project_id: pid,
+        agent_name: args.agent_name,
+        planned_action: args.planned_action,
+      });
+
+      let text = result.compliant
+        ? 'Action is compliant with all policies.'
+        : `Action has ${result.violations.length} policy violation(s).`;
+
+      if (result.violations.length > 0) {
+        text += '\n\nViolations:\n' + result.violations
+          .map((v) => `  - [${v.enforcement_level.toUpperCase()}] ${v.policy_title}: ${v.explanation}`)
+          .join('\n');
+      }
+
+      if (result.advisories.length > 0) {
+        text += '\n\nAdvisories:\n' + result.advisories
+          .map((a) => `  - ${a.policy_title}: ${a.message}`)
+          .join('\n');
+      }
+
+      return {
+        content: [{ type: 'text' as const, text }],
+      };
+    },
+  );
+
+  // ── Tool 6: get_contradictions ─────────────────────────────────────────
 
   server.registerTool(
     'get_contradictions',
