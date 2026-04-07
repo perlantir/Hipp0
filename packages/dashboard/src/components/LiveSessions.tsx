@@ -13,6 +13,7 @@ import {
   Clock,
   Activity,
 } from 'lucide-react';
+import { OrchestrationPanel } from './OrchestrationPanel';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -399,6 +400,16 @@ export function LiveSessions() {
               ))}
             </div>
           )}
+
+          {/* Smart Orchestrator (Phase 3) */}
+          <OrchestrationPanel
+            sessionId={selectedId}
+            sessionStatus={detail.session.status}
+            onRefresh={async () => {
+              const data = await get<SessionState>(`/api/tasks/session/${selectedId}/state`);
+              setDetail(data);
+            }}
+          />
         </div>
       )}
 

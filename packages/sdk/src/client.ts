@@ -39,6 +39,10 @@ import {
   type SessionState,
   type TeamRelevance,
   type ScoreTeamInput,
+  type NextAgentSuggestion,
+  type SessionPlan,
+  type AcceptSuggestionInput,
+  type AcceptSuggestionResult,
 } from './types.js';
 
 export class DeciGraphClient {
@@ -428,6 +432,20 @@ export class DeciGraphClient {
 
   completeSession(sessionId: string): Promise<TaskSession> {
     return this.post<TaskSession>(`/api/tasks/session/${sessionId}/complete`);
+  }
+
+  // ── Smart Orchestrator (Super Brain Phase 3) ──────────────────────
+
+  suggestNextAgent(sessionId: string): Promise<NextAgentSuggestion> {
+    return this.post<NextAgentSuggestion>(`/api/tasks/session/${sessionId}/suggest-next`);
+  }
+
+  getSessionPlan(sessionId: string): Promise<SessionPlan> {
+    return this.post<SessionPlan>(`/api/tasks/session/${sessionId}/plan`);
+  }
+
+  acceptSuggestion(sessionId: string, params: AcceptSuggestionInput): Promise<AcceptSuggestionResult> {
+    return this.post<AcceptSuggestionResult>(`/api/tasks/session/${sessionId}/accept-suggestion`, params);
   }
 
   // ── Team Scoring (Super Brain Phase 2) ────────────────────────────

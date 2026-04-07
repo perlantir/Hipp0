@@ -86,6 +86,15 @@ export {
 } from './intelligence/role-signals.js';
 export type { RoleSignal, TeamRelevance } from './intelligence/role-signals.js';
 
+// --- Smart Orchestrator (Super Brain Phase 3) ---
+export {
+  suggestNextAgent,
+  generateSessionPlan,
+  generateTaskSuggestion,
+  buildReasoningExplanation,
+} from './intelligence/orchestrator.js';
+export type { NextAgentSuggestion, SessionPlan } from './intelligence/orchestrator.js';
+
 // --- Relevance Learner ---
 export {
   recordFeedback,

@@ -13,6 +13,8 @@ import {
   listProjectSessions,
 } from '@decigraph/core/memory/session-manager.js';
 import { scoreTeamForTask } from '@decigraph/core/intelligence/role-signals.js';
+import { suggestNextAgent, generateSessionPlan } from '@decigraph/core/intelligence/orchestrator.js';
+import { getDb } from '@decigraph/core/db/index.js';
 
 export function registerSessionRoutes(app: Hono): void {
   // ── Start a new task session ────────────────────────────────────────
@@ -150,6 +152,119 @@ export function registerSessionRoutes(app: Hono): void {
     const status = c.req.query('status') ?? undefined;
     const sessions = await listProjectSessions(projectId, status);
     return c.json(sessions);
+  });
+
+  // ── Suggest next agent (Super Brain Phase 3) ───────────────────────
+  app.post('/api/tasks/session/:id/suggest-next', async (c) => {
+    const sessionId = requireUUID(c.req.param('id'), 'session_id');
+
+    // Get project_id from session
+    const state = await getSessionState(sessionId);
+    const projectId = state.session.project_id;
+
+    try {
+      const suggestion = await suggestNextAgent(sessionId, projectId);
+
+      logAudit('orchestrator_suggest', projectId, {
+        session_id: sessionId,
+        recommended_agent: suggestion.recommended_agent,
+        confidence: suggestion.confidence,
+        is_session_complete: suggestion.is_session_complete,
+      });
+
+      return c.json(suggestion);
+    } catch (err) {
+      if ((err as Error).message?.includes('not found')) {
+        return c.json({ error: { code: 'NOT_FOUND', message: (err as Error).message } }, 404);
+      }
+      mapDbError(err);
+    }
+  });
+
+  // ── Generate session plan (Super Brain Phase 3) ────────────────────
+  app.post('/api/tasks/session/:id/plan', async (c) => {
+    const sessionId = requireUUID(c.req.param('id'), 'session_id');
+
+    const state = await getSessionState(sessionId);
+    const projectId = state.session.project_id;
+
+    try {
+      const plan = await generateSessionPlan(sessionId, projectId);
+
+      logAudit('orchestrator_plan', projectId, {
+        session_id: sessionId,
+        estimated_agents: plan.estimated_agents,
+      });
+
+      return c.json(plan);
+    } catch (err) {
+      if ((err as Error).message?.includes('not found')) {
+        return c.json({ error: { code: 'NOT_FOUND', message: (err as Error).message } }, 404);
+      }
+      mapDbError(err);
+    }
+  });
+
+  // ── Accept/override suggestion (Super Brain Phase 3) ───────────────
+  app.post('/api/tasks/session/:id/accept-suggestion', async (c) => {
+    const sessionId = requireUUID(c.req.param('id'), 'session_id');
+    const body = await c.req.json<{
+      accepted_agent?: unknown;
+      override?: unknown;
+      override_reason?: unknown;
+    }>();
+
+    const acceptedAgent = requireString(body.accepted_agent, 'accepted_agent', 200);
+    const isOverride = body.override === true;
+    const overrideReason = isOverride
+      ? optionalString(body.override_reason, 'override_reason', 5000)
+      : undefined;
+
+    const state = await getSessionState(sessionId);
+    const projectId = state.session.project_id;
+
+    // Get the current suggestion to record what was suggested
+    let suggestedAgent = acceptedAgent;
+    let confidence: number | null = null;
+    try {
+      const suggestion = await suggestNextAgent(sessionId, projectId);
+      suggestedAgent = suggestion.recommended_agent || acceptedAgent;
+      confidence = suggestion.confidence;
+    } catch {
+      // Non-fatal — record anyway
+    }
+
+    const db = getDb();
+    try {
+      await db.query(
+        `INSERT INTO orchestration_decisions
+           (session_id, step_number, suggested_agent, actual_agent, was_override, override_reason, suggestion_confidence)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          sessionId,
+          state.session.current_step + 1,
+          suggestedAgent,
+          acceptedAgent,
+          isOverride,
+          overrideReason ?? null,
+          confidence,
+        ],
+      );
+
+      logAudit('orchestrator_accept', projectId, {
+        session_id: sessionId,
+        accepted_agent: acceptedAgent,
+        was_override: isOverride,
+      });
+
+      return c.json({
+        accepted: true,
+        agent: acceptedAgent,
+        was_override: isOverride,
+      }, 201);
+    } catch (err) {
+      mapDbError(err);
+    }
   });
 
   // ── Score team for a task (Super Brain Phase 2) ─────────────────────

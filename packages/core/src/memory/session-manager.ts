@@ -219,7 +219,7 @@ export async function recordStep(input: {
   artifacts?: unknown[];
   duration_ms?: number;
   decisions_created?: string[];
-}): Promise<{ step_id: string; step_number: number }> {
+}): Promise<{ step_id: string; step_number: number; next_suggestion?: Record<string, unknown> }> {
   const db = getDb();
 
   // Get next step number
@@ -283,9 +283,37 @@ export async function recordStep(input: {
   // Invalidate cache so next compile gets fresh data
   invalidateSession(input.session_id);
 
+  // Phase 3: Suggest next agent (non-fatal — never breaks step recording)
+  let nextSuggestion: Record<string, unknown> | null = null;
+  try {
+    const { suggestNextAgent } = await import('../intelligence/orchestrator.js');
+    const suggestion = await suggestNextAgent(input.session_id, input.project_id);
+    nextSuggestion = suggestion as unknown as Record<string, unknown>;
+
+    // Store suggestion in state_summary as JSON
+    const summaryWithSuggestion = JSON.stringify({
+      step: stepNumber,
+      agent: input.agent_name,
+      summary: outputSummary.slice(0, 200),
+      next_suggestion: {
+        agent: suggestion.recommended_agent,
+        role: suggestion.recommended_role,
+        confidence: suggestion.confidence,
+        is_complete: suggestion.is_session_complete,
+      },
+    });
+    await db.query(
+      'UPDATE task_sessions SET state_summary = ? WHERE id = ?',
+      [summaryWithSuggestion, input.session_id],
+    );
+  } catch {
+    // Non-fatal — orchestrator suggestion is optional
+  }
+
   return {
     step_id: step.id as string,
     step_number: Number(step.step_number),
+    ...(nextSuggestion ? { next_suggestion: nextSuggestion } : {}),
   };
 }
 

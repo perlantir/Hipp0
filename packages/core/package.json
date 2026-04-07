@@ -122,6 +122,10 @@
     "./intelligence/role-signals.js": {
       "import": "./dist/intelligence/role-signals.js",
       "types": "./dist/intelligence/role-signals.d.ts"
+    },
+    "./intelligence/orchestrator.js": {
+      "import": "./dist/intelligence/orchestrator.js",
+      "types": "./dist/intelligence/orchestrator.d.ts"
     }
   },
   "scripts": {

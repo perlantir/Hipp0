@@ -406,6 +406,97 @@ export function registerAllTools(
     },
   );
 
+  // ── Tool 12: suggest_next (Super Brain Phase 3) ─────────────────────
+
+  server.registerTool(
+    'suggest_next',
+    {
+      title: 'Suggest next agent',
+      description:
+        'Get the recommended next agent for a task session. Returns who should go next, what they should do, and pre-loaded context. Zero LLM calls — pure scoring math.',
+      inputSchema: {
+        session_id: z.string().describe('Task session ID'),
+      },
+    },
+    async (args) => {
+      try {
+        const suggestion = await client.suggestNextAgent(args.session_id);
+
+        if (suggestion.is_session_complete) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `Session complete: ${suggestion.completion_reason ?? 'No more relevant agents'}`,
+            }],
+          };
+        }
+
+        const lines = [
+          `Next agent: ${suggestion.recommended_agent} (${suggestion.recommended_role})`,
+          `Confidence: ${(suggestion.confidence * 100).toFixed(0)}%`,
+          `Task: ${suggestion.task_suggestion}`,
+          '',
+          `Reasoning: ${suggestion.reasoning}`,
+        ];
+
+        if (suggestion.alternatives.length > 0) {
+          lines.push('', 'Alternatives:');
+          for (const alt of suggestion.alternatives) {
+            lines.push(`  - ${alt.agent} (${alt.role}) — ${(alt.score * 100).toFixed(0)}%: ${alt.task_suggestion}`);
+          }
+        }
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }],
+        };
+      }
+    },
+  );
+
+  // ── Tool 13: session_plan (Super Brain Phase 3) ─────────────────────
+
+  server.registerTool(
+    'session_plan',
+    {
+      title: 'Get session plan',
+      description:
+        'Get a suggested multi-step plan for a task session. Shows the optimal agent sequence in workflow order (design → build → review → deploy).',
+      inputSchema: {
+        session_id: z.string().describe('Task session ID'),
+      },
+    },
+    async (args) => {
+      try {
+        const plan = await client.getSessionPlan(args.session_id);
+
+        const lines = [
+          `Plan for: "${plan.session_title}"`,
+          `Estimated agents: ${plan.estimated_agents}`,
+          '',
+        ];
+
+        for (const step of plan.suggested_plan) {
+          lines.push(`${step.step}. ${step.agent} (${step.role}) — relevance: ${(step.relevance * 100).toFixed(0)}%`);
+          lines.push(`   Task: ${step.task}`);
+        }
+
+        lines.push('', plan.note);
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }],
+        };
+      }
+    },
+  );
+
   // ── Tool 6: check_policy ───────────────────────────────────────────
 
   server.registerTool(

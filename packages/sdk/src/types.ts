@@ -499,6 +499,50 @@ export interface ScoreTeamInput {
   sessionId?: string;
 }
 
+// ── Smart Orchestrator (Super Brain Phase 3) ──────────────────────
+
+export interface NextAgentSuggestion {
+  recommended_agent: string;
+  recommended_role: string;
+  confidence: number;
+  task_suggestion: string;
+  pre_compiled_context: string | null;
+  reasoning: string;
+  alternatives: Array<{
+    agent: string;
+    role: string;
+    score: number;
+    task_suggestion: string;
+  }>;
+  is_session_complete: boolean;
+  completion_reason?: string;
+}
+
+export interface SessionPlan {
+  session_title: string;
+  suggested_plan: Array<{
+    step: number;
+    agent: string;
+    role: string;
+    task: string;
+    relevance: number;
+  }>;
+  estimated_agents: number;
+  note: string;
+}
+
+export interface AcceptSuggestionInput {
+  accepted_agent: string;
+  override?: boolean;
+  override_reason?: string;
+}
+
+export interface AcceptSuggestionResult {
+  accepted: boolean;
+  agent: string;
+  was_override: boolean;
+}
+
 export interface DeciGraphClientOptions {
   baseUrl: string;
   apiKey?: string;
