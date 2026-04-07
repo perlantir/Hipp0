@@ -217,7 +217,7 @@ export async function suggestNextAgent(
       reasoning: 'No agents found in project',
       alternatives: [],
       is_session_complete: true,
-      completion_reason: 'No agents available',
+      completion_reason: 'No agents are configured for this project yet.',
       estimated_remaining_steps: 0,
       session_progress: 100,
     };
@@ -265,7 +265,7 @@ export async function suggestNextAgent(
         : `Best candidate score (${((candidates[0]?.score ?? 0) * 100).toFixed(0)}%) too low after ${completedSteps.length} steps`,
       alternatives: [],
       is_session_complete: true,
-      completion_reason: `Task appears complete — ${completedAgents.length} agent${completedAgents.length !== 1 ? 's' : ''} contributed (${contributorNames}). Remaining agents have low relevance to this task (<15%). No further steps recommended.`,
+      completion_reason: `Task complete — ${completedAgents.length} agent${completedAgents.length !== 1 ? 's' : ''} contributed (${contributorNames}). The remaining agents don't have the right expertise for what's left. No further steps needed.`,
       estimated_remaining_steps: 0,
       session_progress: 100,
     };
