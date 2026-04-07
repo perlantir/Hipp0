@@ -17,8 +17,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEMO_PROJECT_ID = 'demo-0000-0000-0000-000000000001';
-const DEMO_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
+const DEMO_PROJECT_ID = 'de000000-0000-4000-8000-000000000001';
 
 interface DemoAgent {
   name: string;
@@ -99,8 +98,13 @@ export async function seedDemoProject(): Promise<void> {
   console.warn('[decigraph/demo] Seeding demo project...');
 
   // ── Load demo data from JSON ────────────────────────────────────
-  const jsonPath = path.join(__dirname, 'demo-decisions.json');
-  if (!fs.existsSync(jsonPath)) {
+  const candidates = [
+    path.join(__dirname, 'demo-decisions.json'),
+    path.join(__dirname, '..', 'src', 'demo-decisions.json'),
+    path.join(process.cwd(), 'packages', 'server', 'src', 'demo-decisions.json'),
+  ];
+  const jsonPath = candidates.find((p) => fs.existsSync(p));
+  if (!jsonPath) {
     console.warn('[decigraph/demo] demo-decisions.json not found — skipping seed');
     return;
   }
@@ -108,13 +112,12 @@ export async function seedDemoProject(): Promise<void> {
 
   // ── 1. Create demo project ─────────────────────────────────────
   await db.query(
-    `INSERT INTO projects (id, name, description, tenant_id, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO projects (id, name, description, created_at)
+     VALUES (?, ?, ?, ?)`,
     [
       DEMO_PROJECT_ID,
       'AI SaaS Platform (Demo)',
       'A realistic demo project showing how DeciGraph tracks architectural, security, frontend, backend, DevOps, and business decisions for an AI SaaS product.',
-      DEMO_TENANT_ID,
       new Date().toISOString(),
     ],
   );
@@ -126,9 +129,9 @@ export async function seedDemoProject(): Promise<void> {
     agentIds[agent.name] = id;
     const profile = getRoleProfile(agent.role);
     await db.query(
-      `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens, tenant_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, DEMO_PROJECT_ID, agent.name, agent.role, JSON.stringify(profile), 50000, DEMO_TENANT_ID],
+      `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, DEMO_PROJECT_ID, agent.name, agent.role, JSON.stringify(profile), 50000],
     );
   }
 
@@ -151,8 +154,8 @@ export async function seedDemoProject(): Promise<void> {
     const madeBy = d.affects[0] || 'architect';
 
     await db.query(
-      `INSERT INTO decisions (id, project_id, title, description, reasoning, made_by, source, confidence, status, alternatives_considered, affects, tags, created_at, tenant_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO decisions (id, project_id, title, description, reasoning, made_by, source, confidence, status, alternatives_considered, affects, tags, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         DEMO_PROJECT_ID,
@@ -160,14 +163,13 @@ export async function seedDemoProject(): Promise<void> {
         d.desc,
         d.reasoning,
         madeBy,
-        'demo-seed',
+        'manual',
         d.confidence,
         'active',
         JSON.stringify(d.alts),
-        db.arrayParam(d.tags),
+        db.arrayParam(d.affects),
         db.arrayParam(d.tags),
         createdAt,
-        DEMO_TENANT_ID,
       ],
     );
   }
@@ -199,8 +201,8 @@ export async function seedDemoProject(): Promise<void> {
     if (aTitle && bTitle) {
       try {
         await db.query(
-          `INSERT INTO contradictions (id, project_id, decision_a_id, decision_b_id, similarity_score, conflict_description, status, tenant_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO contradictions (id, project_id, decision_a_id, decision_b_id, similarity_score, conflict_description, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             randomUUID(),
             DEMO_PROJECT_ID,
@@ -209,7 +211,6 @@ export async function seedDemoProject(): Promise<void> {
             c.score,
             c.desc,
             'unresolved',
-            DEMO_TENANT_ID,
           ],
         );
         contradictionsCreated++;

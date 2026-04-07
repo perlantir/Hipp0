@@ -129,7 +129,8 @@ type View =
   | 'ask-anything'
   | 'token-usage'
   | 'pricing'
-  | 'billing';
+  | 'billing'
+  | 'playground';
 
 interface NavItem {
   id: View;
@@ -140,12 +141,14 @@ interface NavItem {
 }
 
 function isPlaygroundRoute(): boolean {
-  return window.location.hash === '#playground' || window.location.pathname === '/playground';
+  // Only intercept /playground path for unauthenticated full-page access.
+  // Hash-based #playground is handled by the normal ViewContent switch inside the dashboard.
+  return window.location.pathname === '/playground';
 }
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground'];
   if (all.includes(hash)) return hash;
   return 'graph';
 }
@@ -174,6 +177,7 @@ function ViewContent({ view }: { view: View }) {
     case 'token-usage': return <TokenUsage />;
     case 'pricing': return <Pricing />;
     case 'billing': return <BillingSettings />;
+    case 'playground': return <Playground />;
     default: return <DecisionGraph />;
   }
 }
@@ -317,6 +321,7 @@ export default function App() {
 
   // Build nav items
   const navItems: NavItem[] = [
+    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'main' },
     { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'main' },
     { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'main' },
     { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'main' },

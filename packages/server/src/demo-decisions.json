@@ -47,8 +47,7 @@
       ],
       "affects": [
         "architect",
-        "backend",
-        "devops"
+        "backend"
       ],
       "confidence": "high"
     },
@@ -67,7 +66,8 @@
       ],
       "affects": [
         "architect",
-        "backend"
+        "backend",
+        "devops"
       ],
       "confidence": "high"
     },
@@ -126,7 +126,6 @@
       ],
       "affects": [
         "architect",
-        "frontend",
         "backend"
       ],
       "confidence": "high"
@@ -147,8 +146,6 @@
       ],
       "affects": [
         "architect",
-        "devops",
-        "frontend",
         "backend"
       ],
       "confidence": "high"
@@ -168,7 +165,6 @@
       ],
       "affects": [
         "architect",
-        "frontend",
         "backend"
       ],
       "confidence": "high"
@@ -188,7 +184,6 @@
       ],
       "affects": [
         "architect",
-        "devops",
         "backend"
       ],
       "confidence": "high"
@@ -208,7 +203,7 @@
       ],
       "affects": [
         "architect",
-        "devops"
+        "backend"
       ],
       "confidence": "high"
     },
@@ -227,8 +222,7 @@
       ],
       "affects": [
         "architect",
-        "backend",
-        "frontend"
+        "backend"
       ],
       "confidence": "medium"
     },
@@ -247,8 +241,9 @@
         "api"
       ],
       "affects": [
-        "security",
-        "backend"
+        "backend",
+        "frontend",
+        "security"
       ],
       "confidence": "high"
     },
@@ -265,8 +260,9 @@
         "auth"
       ],
       "affects": [
-        "security",
-        "backend"
+        "backend",
+        "frontend",
+        "security"
       ],
       "confidence": "high"
     },
@@ -284,9 +280,8 @@
         "multi-tenancy"
       ],
       "affects": [
-        "security",
         "backend",
-        "architect"
+        "security"
       ],
       "confidence": "high"
     },
@@ -304,8 +299,8 @@
         "quality"
       ],
       "affects": [
-        "security",
-        "backend"
+        "backend",
+        "security"
       ],
       "confidence": "high"
     },
@@ -323,9 +318,8 @@
         "infrastructure"
       ],
       "affects": [
-        "security",
-        "devops",
-        "backend"
+        "backend",
+        "security"
       ],
       "confidence": "high"
     },
@@ -343,8 +337,9 @@
         "performance"
       ],
       "affects": [
-        "security",
-        "backend"
+        "backend",
+        "frontend",
+        "security"
       ],
       "confidence": "high"
     },
@@ -362,9 +357,8 @@
         "frontend"
       ],
       "affects": [
-        "security",
         "backend",
-        "frontend"
+        "security"
       ],
       "confidence": "high"
     },
@@ -383,7 +377,7 @@
       ],
       "affects": [
         "frontend",
-        "architect"
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -402,7 +396,8 @@
         "tooling"
       ],
       "affects": [
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -421,7 +416,8 @@
         "components"
       ],
       "affects": [
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -439,7 +435,8 @@
         "accessibility"
       ],
       "affects": [
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "medium"
     },
@@ -477,7 +474,8 @@
         "performance"
       ],
       "affects": [
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "medium"
     },
@@ -496,7 +494,8 @@
         "state-management"
       ],
       "affects": [
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -515,8 +514,8 @@
         "tooling"
       ],
       "affects": [
-        "backend",
-        "architect"
+        "architect",
+        "backend"
       ],
       "confidence": "high"
     },
@@ -535,6 +534,7 @@
         "security"
       ],
       "affects": [
+        "architect",
         "backend",
         "security"
       ],
@@ -555,8 +555,8 @@
         "devops"
       ],
       "affects": [
-        "backend",
-        "devops"
+        "architect",
+        "backend"
       ],
       "confidence": "high"
     },
@@ -574,8 +574,8 @@
         "performance"
       ],
       "affects": [
-        "backend",
         "architect",
+        "backend",
         "devops"
       ],
       "confidence": "high"
@@ -594,8 +594,8 @@
         "performance"
       ],
       "affects": [
-        "backend",
-        "frontend"
+        "architect",
+        "backend"
       ],
       "confidence": "high"
     },
@@ -613,8 +613,8 @@
         "architecture"
       ],
       "affects": [
-        "backend",
-        "architect"
+        "architect",
+        "backend"
       ],
       "confidence": "medium"
     },
@@ -633,8 +633,8 @@
         "reliability"
       ],
       "affects": [
-        "backend",
-        "devops"
+        "architect",
+        "backend"
       ],
       "confidence": "high"
     },
@@ -653,9 +653,8 @@
         "infrastructure"
       ],
       "affects": [
-        "devops",
         "backend",
-        "frontend"
+        "devops"
       ],
       "confidence": "high"
     },
@@ -674,8 +673,8 @@
         "deployment"
       ],
       "affects": [
-        "devops",
-        "architect"
+        "backend",
+        "devops"
       ],
       "confidence": "high"
     },
@@ -694,6 +693,7 @@
         "quality"
       ],
       "affects": [
+        "backend",
         "devops"
       ],
       "confidence": "high"
@@ -712,8 +712,9 @@
         "infrastructure"
       ],
       "affects": [
-        "devops",
-        "backend"
+        "architect",
+        "backend",
+        "devops"
       ],
       "confidence": "high"
     },
@@ -732,8 +733,8 @@
         "infrastructure"
       ],
       "affects": [
-        "devops",
-        "backend"
+        "backend",
+        "devops"
       ],
       "confidence": "high"
     },
@@ -751,6 +752,7 @@
         "infrastructure"
       ],
       "affects": [
+        "backend",
         "devops"
       ],
       "confidence": "high"
@@ -770,8 +772,8 @@
         "infrastructure"
       ],
       "affects": [
-        "devops",
-        "frontend"
+        "backend",
+        "devops"
       ],
       "confidence": "high"
     },
@@ -789,8 +791,8 @@
         "marketing"
       ],
       "affects": [
-        "marketer",
-        "architect"
+        "architect",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -808,6 +810,7 @@
         "pricing"
       ],
       "affects": [
+        "architect",
         "marketer"
       ],
       "confidence": "medium"
@@ -845,8 +848,8 @@
         "conversion"
       ],
       "affects": [
-        "marketer",
-        "frontend"
+        "frontend",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -864,6 +867,7 @@
         "growth"
       ],
       "affects": [
+        "frontend",
         "marketer"
       ],
       "confidence": "medium"
@@ -882,8 +886,7 @@
         "growth"
       ],
       "affects": [
-        "marketer",
-        "frontend"
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -919,8 +922,9 @@
         "tooling"
       ],
       "affects": [
-        "frontend",
-        "backend"
+        "backend",
+        "devops",
+        "frontend"
       ],
       "confidence": "high"
     },
@@ -938,6 +942,7 @@
       ],
       "affects": [
         "backend",
+        "devops",
         "frontend"
       ],
       "confidence": "high"
@@ -958,7 +963,7 @@
       "affects": [
         "backend",
         "devops",
-        "architect"
+        "frontend"
       ],
       "confidence": "high"
     },
@@ -976,7 +981,10 @@
         "accessibility"
       ],
       "affects": [
-        "frontend"
+        "backend",
+        "devops",
+        "frontend",
+        "marketer"
       ],
       "confidence": "high"
     },
@@ -994,8 +1002,10 @@
         "performance"
       ],
       "affects": [
+        "backend",
+        "devops",
         "frontend",
-        "devops"
+        "marketer"
       ],
       "confidence": "high"
     }

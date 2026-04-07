@@ -12,7 +12,7 @@ import { getDb } from '@decigraph/core/db/index.js';
 import { compileContext } from '@decigraph/core/context-compiler/index.js';
 import type { CompileRequest } from '@decigraph/core/types.js';
 
-const DEMO_PROJECT_ID = 'demo-0000-0000-0000-000000000001';
+const DEMO_PROJECT_ID = 'de000000-0000-4000-8000-000000000001';
 
 /** Simple IP-based rate limiter for the demo compile endpoint. */
 const ipHits = new Map<string, { count: number; resetAt: number }>();
@@ -92,13 +92,13 @@ export function registerDemoRoutes(app: Hono): void {
         decisions_included: result.decisions_included,
         decisions_considered: result.decisions_considered,
         compilation_time_ms: result.compilation_time_ms,
-        decisions: result.ranked_decisions?.slice(0, 15).map((d: Record<string, unknown>) => ({
+        decisions: result.decisions.slice(0, 15).map((d) => ({
           title: d.title,
-          score: d.final_score ?? d.relevance_score,
+          score: d.combined_score,
           tags: d.tags,
           affects: d.affects,
           confidence: d.confidence,
-        })) ?? [],
+        })),
       });
     } catch (err) {
       console.error('[decigraph/demo] Compile error:', (err as Error).message);
