@@ -1,13 +1,13 @@
 {
-  "name": "@decigraph/mcp",
+  "name": "@hipp0/mcp",
   "version": "0.1.0",
-  "description": "MCP server for DeciGraph — primary entry point for AI agents",
+  "description": "MCP server for Hipp0 — primary entry point for AI agents",
   "author": "Perlantir",
-  "repository": {"type": "git", "url": "https://github.com/perlantir/decigraph"},
+  "repository": {"type": "git", "url": "https://github.com/perlantir/hipp0"},
   "type": "module",
   "main": "./dist/mcp/src/index.js",
   "bin": {
-    "decigraph-mcp": "./dist/mcp/src/index.js"
+    "hipp0-mcp": "./dist/mcp/src/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -17,7 +17,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@decigraph/core": "workspace:*",
+    "@hipp0/core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.7.0",
     "zod": "^3.23.0"
   },

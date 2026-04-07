@@ -1,11 +1,11 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseDecision, parseSession } from '@decigraph/core/db/parsers.js';
-import type { Decision } from '@decigraph/core/types.js';
-import { distill, callLLM } from '@decigraph/core/distillery/index.js';
-import { getModelIdentifier } from '@decigraph/core/distillery/extractor.js';
-import { generateEmbedding } from '@decigraph/core/decision-graph/embeddings.js';
-import { cosineSimilarity } from '@decigraph/core/decision-graph/embeddings.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseDecision, parseSession } from '@hipp0/core/db/parsers.js';
+import type { Decision } from '@hipp0/core/types.js';
+import { distill, callLLM } from '@hipp0/core/distillery/index.js';
+import { getModelIdentifier } from '@hipp0/core/distillery/extractor.js';
+import { generateEmbedding } from '@hipp0/core/decision-graph/embeddings.js';
+import { cosineSimilarity } from '@hipp0/core/decision-graph/embeddings.js';
 import {
   requireUUID,
   requireString,
@@ -47,7 +47,7 @@ export function registerDistilleryRoutes(app: Hono): void {
     try {
       questionEmbedding = await generateEmbedding(question);
     } catch (err) {
-      console.warn('[decigraph/ask] Embedding generation failed:', (err as Error).message);
+      console.warn('[hipp0/ask] Embedding generation failed:', (err as Error).message);
       questionEmbedding = [];
     }
 
@@ -97,7 +97,7 @@ export function registerDistilleryRoutes(app: Hono): void {
           };
         });
       } catch (err) {
-        console.warn('[decigraph/ask] Vector search failed:', (err as Error).message);
+        console.warn('[hipp0/ask] Vector search failed:', (err as Error).message);
       }
     }
 
@@ -136,7 +136,7 @@ export function registerDistilleryRoutes(app: Hono): void {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 10);
       } catch (err) {
-        console.warn('[decigraph/ask] Text search failed:', (err as Error).message);
+        console.warn('[hipp0/ask] Text search failed:', (err as Error).message);
       }
     }
 
@@ -178,7 +178,7 @@ export function registerDistilleryRoutes(app: Hono): void {
       // Rough token estimate: ~4 chars per token
       tokensUsed = Math.round((ASK_ANYTHING_SYSTEM_PROMPT.length + userMessage.length + answer.length) / 4);
     } catch (err) {
-      console.error('[decigraph/ask] LLM call failed:', (err as Error).message);
+      console.error('[hipp0/ask] LLM call failed:', (err as Error).message);
       // Fallback: return the decisions directly without synthesis
       answer = `Found ${relevantDecisions.length} relevant decisions but synthesis failed. Top results: ${relevantDecisions.slice(0, 3).map((d) => `"${d.title}"`).join(', ')}.`;
     }

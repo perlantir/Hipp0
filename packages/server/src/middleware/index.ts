@@ -1,11 +1,11 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { DeciGraphError } from '@decigraph/core/types.js';
-import { getDb } from '@decigraph/core/db/index.js';
+import { Hipp0Error } from '@hipp0/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import crypto from 'node:crypto';
 
 // Legacy API key — kept for backward compat (step 5 in auth flow)
-const LEGACY_API_KEY: string | undefined = process.env.DECIGRAPH_API_KEY;
+const LEGACY_API_KEY: string | undefined = process.env.HIPP0_API_KEY;
 function isDev(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
@@ -50,7 +50,7 @@ function sanitisePgError(err: unknown): string {
 
 // Error Handler
 export const errorHandler = (err: Error, c: Context) => {
-  if (err instanceof DeciGraphError) {
+  if (err instanceof Hipp0Error) {
     // 404 errors must not expose the route path
     if (err.statusCode === 404) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
@@ -62,7 +62,7 @@ export const errorHandler = (err: Error, c: Context) => {
   }
 
   // Log full error to stderr — never returned to the client
-  console.error('[decigraph] Unhandled error:', err);
+  console.error('[hipp0] Unhandled error:', err);
 
   // Check for PostgreSQL error shape
   if (
@@ -105,7 +105,7 @@ export const requestId: MiddlewareHandler = createMiddleware(async (c, next) => 
   c.header('X-Request-Id', id);
 });
 
-// CORS Middleware — Phase 3: includes decigraph.ai + localhost:3200 by default
+// CORS Middleware — Phase 3: includes hipp0.ai + localhost:3200 by default
 export const corsMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   const origin = c.req.header('Origin') ?? '';
   let allowOrigin: string;
@@ -113,8 +113,8 @@ export const corsMiddleware: MiddlewareHandler = createMiddleware(async (c, next
   if (isDev()) {
     allowOrigin = origin || '*';
   } else {
-    const defaultOrigins = ['https://decigraph.ai', 'http://localhost:3200'];
-    const envOrigins = (process.env.DECIGRAPH_CORS_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '')
+    const defaultOrigins = ['https://hipp0.ai', 'http://localhost:3200'];
+    const envOrigins = (process.env.HIPP0_CORS_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '')
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean);
@@ -154,10 +154,10 @@ const PUBLIC_ROUTES = new Set([
 
 // Auth Middleware
 // 1. Public route? pass through
-// 2. DECIGRAPH_AUTH_DISABLED=true? pass through with warning
+// 2. HIPP0_AUTH_DISABLED=true? pass through with warning
 // 3. Extract Bearer token → no header? 401
 // 4. Hash token, look up in api_keys table (not revoked, not expired)
-// 5. Not in DB? Check legacy DECIGRAPH_API_KEY env var
+// 5. Not in DB? Check legacy HIPP0_API_KEY env var
 // 6. Nothing matches? 401
 // 7. Found? Update last_used_at, attach project_id, pass through
 export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
@@ -170,10 +170,10 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
   }
 
   // Step 2: Auth explicitly disabled (local dev only)
-  if (process.env.DECIGRAPH_AUTH_DISABLED === 'true') {
+  if (process.env.HIPP0_AUTH_DISABLED === 'true') {
     if (!authDisabledWarned) {
       authDisabledWarned = true;
-      console.warn('[decigraph] \u26a0\ufe0f AUTH DISABLED \u2014 set DECIGRAPH_AUTH_DISABLED=false for production');
+      console.warn('[hipp0] \u26a0\ufe0f AUTH DISABLED \u2014 set HIPP0_AUTH_DISABLED=false for production');
     }
     await next();
     return;
@@ -187,7 +187,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     getDb().query(`INSERT INTO audit_log (event_type, details) VALUES (?, ?)`, [
       'auth_failure',
       JSON.stringify({ ip, path, reason: message }),
-    ]).catch((e: Error) => console.error('[decigraph] audit_log write error:', e.message));
+    ]).catch((e: Error) => console.error('[hipp0] audit_log write error:', e.message));
 
     return c.json({ error: { code: 'UNAUTHORIZED', message } }, 401);
   };
@@ -224,7 +224,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     // api_keys table may not exist yet — fall through to legacy check
   }
 
-  // Step 5: Check legacy DECIGRAPH_API_KEY env var
+  // Step 5: Check legacy HIPP0_API_KEY env var
   if (LEGACY_API_KEY) {
     const tokenBuf = Buffer.from(token, 'utf8');
     const keyBuf = Buffer.from(LEGACY_API_KEY, 'utf8');
@@ -268,7 +268,7 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
     'api_request',
     projectId ?? null,
     JSON.stringify({ method, path, status, ...extra }),
-  ]).catch((e: Error) => console.error('[decigraph] audit_log write error:', e.message));
+  ]).catch((e: Error) => console.error('[hipp0] audit_log write error:', e.message));
 });
 
 // Rate Limiter

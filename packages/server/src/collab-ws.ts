@@ -14,7 +14,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ export function initCollabWebSocket(): void {
     sweepTimer = setInterval(sweepStaleClients, SWEEP_INTERVAL_MS);
   }
 
-  console.warn('[decigraph] Collab Room WebSocket ready on /ws/room (noServer mode)');
+  console.warn('[hipp0] Collab Room WebSocket ready on /ws/room (noServer mode)');
 }
 
 // ── Client message handling ──────────────────────────────────────────

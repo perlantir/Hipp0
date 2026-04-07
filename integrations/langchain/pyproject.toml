@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "decigraph-langchain"
+name = "hipp0-langchain"
 version = "0.1.0"
-description = "LangChain / LangGraph integration for the DeciGraph multi-agent memory platform."
+description = "LangChain / LangGraph integration for the Hipp0 multi-agent memory platform."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "Perlantir" }]
-keywords = ["decigraph", "langchain", "langgraph", "memory", "multi-agent"]
+keywords = ["hipp0", "langchain", "langgraph", "memory", "multi-agent"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "decigraph-sdk>=0.1.0",
+    "hipp0-sdk>=0.1.0",
     "langchain-core>=0.3.0",
 ]
 
@@ -37,12 +37,12 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/perlantir/DeciGraph"
-Documentation = "https://github.com/perlantir/DeciGraph"
+Homepage = "https://github.com/perlantir/Hipp0"
+Documentation = "https://github.com/perlantir/Hipp0"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["decigraph_langchain*"]
+include = ["hipp0_langchain*"]
 
 [tool.mypy]
 python_version = "3.10"

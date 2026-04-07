@@ -2,8 +2,8 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createApp } from './app.js';
 import { logStartupDiagnostics } from './routes/status.js';
-import { initDb, closeDb } from '@decigraph/core/db/index.js';
-import { resolveLLMConfig, logLLMConfig } from '@decigraph/core';
+import { initDb, closeDb } from '@hipp0/core/db/index.js';
+import { resolveLLMConfig, logLLMConfig } from '@hipp0/core';
 import { initQueues, closeQueues } from './queue/index.js';
 import { handleExtractionJob } from './queue/extraction-worker.js';
 import { handleIngestionJob } from './queue/ingestion-worker.js';
@@ -36,9 +36,9 @@ if (process.env.SENTRY_DSN) {
       environment: NODE_ENV,
       tracesSampleRate: NODE_ENV === 'production' ? 0.1 : 1.0,
     });
-    console.warn('[decigraph] Sentry error tracking: enabled');
+    console.warn('[hipp0] Sentry error tracking: enabled');
   }).catch((err: unknown) => {
-    console.warn('[decigraph] Sentry init failed (package may not be installed):', (err as Error).message);
+    console.warn('[hipp0] Sentry init failed (package may not be installed):', (err as Error).message);
   });
 }
 
@@ -65,9 +65,9 @@ function resolveDashboardPath(): string | null {
 async function main() {
   // Validate required environment
   if (!process.env.DATABASE_URL) {
-    console.error('[decigraph] FATAL: DATABASE_URL environment variable is not set.');
-    console.error('[decigraph] Set it in .env or docker-compose.yml:');
-    console.error('  DATABASE_URL=postgresql://decigraph:decigraph_dev@postgres:5432/decigraph');
+    console.error('[hipp0] FATAL: DATABASE_URL environment variable is not set.');
+    console.error('[hipp0] Set it in .env or docker-compose.yml:');
+    console.error('  DATABASE_URL=postgresql://hipp0:hipp0_dev@postgres:5432/hipp0');
     process.exit(1);
   }
 
@@ -75,12 +75,12 @@ async function main() {
   let db;
   try {
     db = await initDb();
-    console.warn(`[decigraph] Database connected (${db.dialect})`);
+    console.warn(`[hipp0] Database connected (${db.dialect})`);
   } catch (e: unknown) {
     const err = e instanceof Error ? e : new Error(String(e));
-    console.error('[decigraph] FATAL: Cannot connect to database:', err.message);
+    console.error('[hipp0] FATAL: Cannot connect to database:', err.message);
     if (process.env.NODE_ENV !== 'production') {
-      console.error('[decigraph] Stack trace:', err.stack);
+      console.error('[hipp0] Stack trace:', err.stack);
     }
     process.exit(1);
   }
@@ -90,9 +90,9 @@ async function main() {
     const { rows } = await db.query('SELECT count(*) as c FROM decisions', []);
     const count = parseInt((rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     if (count === 0) {
-      console.warn('[decigraph] WARNING: Database has 0 decisions. If you expected data, check your Docker volume.');
+      console.warn('[hipp0] WARNING: Database has 0 decisions. If you expected data, check your Docker volume.');
     } else {
-      console.warn(`[decigraph] Database contains ${count} decisions`);
+      console.warn(`[hipp0] Database contains ${count} decisions`);
     }
   } catch { /* table may not exist yet — migrations will create it */ }
 
@@ -103,7 +103,7 @@ async function main() {
     const delResult = await db.query('DELETE FROM context_cache', []);
     const deleted = delResult.rowCount ?? 0;
     if (deleted > 0) {
-      console.warn(`[decigraph] Cleared ${deleted} stale context_cache entries on startup`);
+      console.warn(`[hipp0] Cleared ${deleted} stale context_cache entries on startup`);
     }
   } catch { /* table may not exist yet */ }
 
@@ -114,7 +114,7 @@ async function main() {
   try {
     await seedDemoProject();
   } catch (err) {
-    console.warn('[decigraph] Demo seed failed (non-fatal):', (err as Error).message);
+    console.warn('[hipp0] Demo seed failed (non-fatal):', (err as Error).message);
   }
 
   logLLMConfig(resolveLLMConfig());
@@ -136,7 +136,7 @@ async function main() {
     handleIngestionJob,
     notificationHandler,
   );
-  console.warn(`[decigraph] Queue: ${queueEnabled ? 'BullMQ (Redis connected)' : 'inline mode (Redis not configured)'}`);
+  console.warn(`[hipp0] Queue: ${queueEnabled ? 'BullMQ (Redis connected)' : 'inline mode (Redis not configured)'}`);
 
   // ── Start connectors ──────────────────────────────────────────────────
   const telegramStarted = startTelegramBot();
@@ -144,25 +144,25 @@ async function main() {
   const openclawStarted = startOpenClawWatcher();
   const discordStarted = await startDiscordBot();
   if (!openclawStarted && !telegramStarted && !discordStarted) {
-    console.warn('[decigraph] Auto-discovery: no connectors configured');
+    console.warn('[hipp0] Auto-discovery: no connectors configured');
   }
 
   // Log contradiction detection
-  console.warn('[decigraph] Contradiction detection: enabled (semantic threshold: 0.40)');
+  console.warn('[hipp0] Contradiction detection: enabled (semantic threshold: 0.40)');
 
   // Staleness cron — run on startup + every 24 hours
   const runStalenessCheck = async () => {
     try {
-      const { markStaleDecisions } = await import('@decigraph/core/intelligence/staleness-tracker.js');
-      const stalDb = (await import('@decigraph/core/db/index.js')).getDb();
+      const { markStaleDecisions } = await import('@hipp0/core/intelligence/staleness-tracker.js');
+      const stalDb = (await import('@hipp0/core/db/index.js')).getDb();
       const result = await stalDb.query('SELECT id FROM projects', []);
       for (const row of result.rows) {
         const projectId = (row as Record<string, unknown>).id as string;
         await markStaleDecisions(projectId);
       }
-      console.log('[decigraph/staleness] Staleness check completed');
+      console.log('[hipp0/staleness] Staleness check completed');
     } catch (err) {
-      console.warn('[decigraph/staleness] Check failed:', (err as Error).message);
+      console.warn('[hipp0/staleness] Check failed:', (err as Error).message);
     }
   };
   void runStalenessCheck();
@@ -171,8 +171,8 @@ async function main() {
   // Weekly digest cron — every Monday at 8:00 AM UTC
   const runWeeklyDigests = async () => {
     try {
-      const { generateDigest } = await import('@decigraph/core/intelligence/weekly-digest.js');
-      const digDb = (await import('@decigraph/core/db/index.js')).getDb();
+      const { generateDigest } = await import('@hipp0/core/intelligence/weekly-digest.js');
+      const digDb = (await import('@hipp0/core/db/index.js')).getDb();
       const projects = await digDb.query(
         `SELECT p.id FROM projects p
          JOIN decisions d ON d.project_id = p.id AND d.status = 'active'
@@ -183,13 +183,13 @@ async function main() {
         const pid = (row as Record<string, unknown>).id as string;
         try {
           await generateDigest(pid);
-          console.log(`[decigraph/digest] Generated for project ${pid}`);
+          console.log(`[hipp0/digest] Generated for project ${pid}`);
         } catch (err) {
-          console.warn(`[decigraph/digest] Failed for project ${pid}:`, (err as Error).message);
+          console.warn(`[hipp0/digest] Failed for project ${pid}:`, (err as Error).message);
         }
       }
     } catch (err) {
-      console.warn('[decigraph/digest] Weekly digest run failed:', (err as Error).message);
+      console.warn('[hipp0/digest] Weekly digest run failed:', (err as Error).message);
     }
   };
   // Schedule: check every hour, run on Monday 8 AM UTC
@@ -200,10 +200,10 @@ async function main() {
     }
     // Pattern extraction at 10 AM UTC Monday (after digests)
     if (now.getUTCDay() === 1 && now.getUTCHours() === 10 && now.getUTCMinutes() < 5) {
-      import('@decigraph/core/intelligence/pattern-extractor.js')
+      import('@hipp0/core/intelligence/pattern-extractor.js')
         .then(({ extractPatterns }) => extractPatterns())
-        .then(() => console.log('[decigraph/patterns] Weekly extraction complete'))
-        .catch((err: Error) => console.warn('[decigraph/patterns] Extraction failed:', err.message));
+        .then(() => console.log('[hipp0/patterns] Weekly extraction complete'))
+        .catch((err: Error) => console.warn('[hipp0/patterns] Extraction failed:', err.message));
     }
   }, 5 * 60 * 1000); // check every 5 minutes
 
@@ -214,8 +214,8 @@ async function main() {
 
   // ── Register GitHub PR webhook ──────────────────────────────────────────
   registerGitHubWebhook(app);
-  if (process.env.DECIGRAPH_GITHUB_WEBHOOK_SECRET) {
-    console.warn('[decigraph] GitHub PR webhook: active');
+  if (process.env.HIPP0_GITHUB_WEBHOOK_SECRET) {
+    console.warn('[hipp0] GitHub PR webhook: active');
   }
 
   // Serve the dashboard static files when they are available (non-Docker mode).
@@ -223,7 +223,7 @@ async function main() {
   if (dashboardDist) {
     app.get('/dashboard/*', serveStatic({ root: dashboardDist }));
     app.get('/dashboard', (c) => c.redirect('/dashboard/'));
-    console.warn(`[decigraph] Dashboard: http://${HOST}:${PORT}/dashboard`);
+    console.warn(`[hipp0] Dashboard: http://${HOST}:${PORT}/dashboard`);
   }
 
   const server = serve(
@@ -233,9 +233,9 @@ async function main() {
       hostname: HOST,
     },
     (info) => {
-      console.warn(`[decigraph] Server started`);
-      console.warn(`[decigraph] Listening on http://${HOST}:${info.port}`);
-      console.warn(`[decigraph] Environment: ${NODE_ENV}`);
+      console.warn(`[hipp0] Server started`);
+      console.warn(`[hipp0] Listening on http://${HOST}:${info.port}`);
+      console.warn(`[hipp0] Environment: ${NODE_ENV}`);
       // Log system diagnostics after startup
       logStartupDiagnostics().catch(() => {});
     },
@@ -279,7 +279,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
 
-    console.warn(`\n[decigraph] Received ${signal}. Shutting down gracefully...`);
+    console.warn(`\n[hipp0] Received ${signal}. Shutting down gracefully...`);
 
     // Stop connectors and workers first
     stopEvolutionWorker();
@@ -290,22 +290,22 @@ async function main() {
     await cache.close();
 
     server.close(async () => {
-      console.warn('[decigraph] HTTP server closed');
+      console.warn('[hipp0] HTTP server closed');
 
       try {
         await closeDb();
-        console.warn('[decigraph] Database closed');
+        console.warn('[hipp0] Database closed');
       } catch (err) {
-        console.error('[decigraph] Error closing database:', (err as Error).message);
+        console.error('[hipp0] Error closing database:', (err as Error).message);
       }
 
-      console.warn('[decigraph] Shutdown complete');
+      console.warn('[hipp0] Shutdown complete');
       process.exit(0);
     });
 
     // Force exit if graceful shutdown takes too long
     setTimeout(() => {
-      console.error('[decigraph] Forced shutdown after timeout');
+      console.error('[hipp0] Forced shutdown after timeout');
       process.exit(1);
     }, 10_000).unref();
   };
@@ -314,16 +314,16 @@ async function main() {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 
   process.on('uncaughtException', (err) => {
-    console.error('[decigraph] Uncaught exception:', err);
+    console.error('[hipp0] Uncaught exception:', err);
     void shutdown('uncaughtException');
   });
 
   process.on('unhandledRejection', (reason) => {
-    console.error('[decigraph] Unhandled rejection:', reason);
+    console.error('[hipp0] Unhandled rejection:', reason);
   });
 }
 
 main().catch((err) => {
-  console.error('[decigraph] Fatal startup error:', err);
+  console.error('[hipp0] Fatal startup error:', err);
   process.exit(1);
 });

@@ -1,5 +1,5 @@
 /**
- * MCP Tool definitions and handlers for DeciGraph.
+ * MCP Tool definitions and handlers for Hipp0.
  *
  * 6 tools:
  *   1. compile_context — get scored decisions for a task
@@ -11,7 +11,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { DeciGraphClient } from '../../sdk/src/index.js';
+import type { Hipp0Client } from '../../sdk/src/index.js';
 import type { Decision, Contradiction, CompileContextInput } from '../../sdk/src/types.js';
 
 export interface ToolConfig {
@@ -20,7 +20,7 @@ export interface ToolConfig {
 
 export function registerAllTools(
   server: McpServer,
-  client: DeciGraphClient,
+  client: Hipp0Client,
   config: ToolConfig,
 ): void {
   // ── Tool 1: compile_context ────────────────────────────────────────────
@@ -596,7 +596,7 @@ export function registerAllTools(
     {
       title: 'Override the orchestrator suggestion',
       description:
-        "Override the Super Brain's recommendation. You disagree with the suggested next agent and want a different agent to go next. Your reason is recorded so DeciGraph learns from the override.",
+        "Override the Super Brain's recommendation. You disagree with the suggested next agent and want a different agent to go next. Your reason is recorded so Hipp0 learns from the override.",
       inputSchema: {
         session_id: z.string().describe('The active session ID'),
         your_agent_name: z.string().describe('Your agent name'),

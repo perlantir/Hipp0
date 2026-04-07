@@ -71,7 +71,7 @@ function formatSlack(payload: WebhookPayload): Record<string, unknown> {
         elements: [
           {
             type: 'mrkdwn',
-            text: `Project: ${(payload.data.project_name as string) ?? payload.project_id} | DeciGraph Decision Memory`,
+            text: `Project: ${(payload.data.project_name as string) ?? payload.project_id} | Hipp0 Decision Memory`,
           },
         ],
       },
@@ -96,7 +96,7 @@ function formatDiscord(payload: WebhookPayload): Record<string, unknown> {
             inline: true,
           },
         ],
-        footer: { text: 'DeciGraph Decision Memory' },
+        footer: { text: 'Hipp0 Decision Memory' },
       },
     ],
   };
@@ -226,7 +226,7 @@ async function deliverWebhook(cfg: WebhookConfig, payload: WebhookPayload): Prom
       case 'telegram': {
         const tg = formatTelegram(payload, metadata);
         if (!tg) {
-          console.warn(`[decigraph:webhook] Telegram webhook "${cfg.name}" missing bot_token or chat_id`);
+          console.warn(`[hipp0:webhook] Telegram webhook "${cfg.name}" missing bot_token or chat_id`);
           return;
         }
         url = tg.url;
@@ -238,7 +238,7 @@ async function deliverWebhook(cfg: WebhookConfig, payload: WebhookPayload): Prom
     }
 
     if (cfg.secret) {
-      headers['X-DeciGraph-Signature'] = signPayload(body, cfg.secret);
+      headers['X-Hipp0-Signature'] = signPayload(body, cfg.secret);
     }
 
     const controller = new AbortController();
@@ -254,7 +254,7 @@ async function deliverWebhook(cfg: WebhookConfig, payload: WebhookPayload): Prom
 
       if (!res.ok) {
         console.warn(
-          `[decigraph:webhook] "${cfg.name}" responded ${res.status} ${res.statusText}`,
+          `[hipp0:webhook] "${cfg.name}" responded ${res.status} ${res.statusText}`,
         );
       }
     } finally {
@@ -262,7 +262,7 @@ async function deliverWebhook(cfg: WebhookConfig, payload: WebhookPayload): Prom
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[decigraph:webhook] Failed to deliver to "${cfg.name}": ${msg}`);
+    console.warn(`[hipp0:webhook] Failed to deliver to "${cfg.name}": ${msg}`);
   }
 }
 
@@ -292,7 +292,7 @@ export async function testWebhook(
     event: 'test',
     project_id: projectId,
     timestamp: new Date().toISOString(),
-    data: { message: 'This is a test webhook from DeciGraph' },
+    data: { message: 'This is a test webhook from Hipp0' },
   };
 
   try {
@@ -319,7 +319,7 @@ export async function testWebhook(
     }
 
     if (cfg.secret) {
-      headers['X-DeciGraph-Signature'] = signPayload(body, cfg.secret);
+      headers['X-Hipp0-Signature'] = signPayload(body, cfg.secret);
     }
 
     const controller = new AbortController();

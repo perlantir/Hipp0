@@ -5,7 +5,7 @@
  * Scans projects for underperforming decisions and generates evolution proposals.
  * Uses setInterval (no cron package) — checks every 5 minutes if it's the right time.
  */
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 
 let lastRunDate = '';
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -13,7 +13,7 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null;
 async function runEvolutionScan(): Promise<void> {
   const db = getDb();
 
-  console.log('[decigraph/evolution] Starting daily evolution scan...');
+  console.log('[hipp0/evolution] Starting daily evolution scan...');
 
   // Only projects with 30+ active decisions
   let projects: Array<Record<string, unknown>>;
@@ -27,17 +27,17 @@ async function runEvolutionScan(): Promise<void> {
     );
     projects = result.rows as Array<Record<string, unknown>>;
   } catch (err) {
-    console.warn('[decigraph/evolution] Failed to query projects:', (err as Error).message);
+    console.warn('[hipp0/evolution] Failed to query projects:', (err as Error).message);
     return;
   }
 
   if (projects.length === 0) {
-    console.log('[decigraph/evolution] No projects with 30+ active decisions. Skipping.');
+    console.log('[hipp0/evolution] No projects with 30+ active decisions. Skipping.');
     return;
   }
 
   const { findEvolutionCandidates, generateEvolutionProposal, simulateProposalImpact } =
-    await import('@decigraph/core/intelligence/decision-evolver.js');
+    await import('@hipp0/core/intelligence/decision-evolver.js');
 
   // Expire old proposals first
   try {
@@ -49,7 +49,7 @@ async function runEvolutionScan(): Promise<void> {
       [],
     );
     if (expired.rows.length > 0) {
-      console.log(`[decigraph/evolution] Expired ${expired.rows.length} old proposals`);
+      console.log(`[hipp0/evolution] Expired ${expired.rows.length} old proposals`);
     }
   } catch {
     // table may not exist yet
@@ -63,7 +63,7 @@ async function runEvolutionScan(): Promise<void> {
       const candidates = await findEvolutionCandidates(projectId);
       if (candidates.length === 0) continue;
 
-      console.log(`[decigraph/evolution] Found ${candidates.length} candidates in project ${projectId.slice(0, 8)}..`);
+      console.log(`[hipp0/evolution] Found ${candidates.length} candidates in project ${projectId.slice(0, 8)}..`);
 
       for (const candidate of candidates) {
         try {
@@ -75,7 +75,7 @@ async function runEvolutionScan(): Promise<void> {
               `UPDATE decisions SET validated_at = NOW(), stale = false WHERE id = ?`,
               [candidate.decision_id],
             );
-            console.log(`[decigraph/evolution] Reaffirmed decision ${candidate.decision_id.slice(0, 8)}..`);
+            console.log(`[hipp0/evolution] Reaffirmed decision ${candidate.decision_id.slice(0, 8)}..`);
             continue;
           }
 
@@ -111,31 +111,31 @@ async function runEvolutionScan(): Promise<void> {
 
           // Webhook notification (fire-and-forget)
           try {
-            const { dispatchWebhooks } = await import('@decigraph/core/webhooks/index.js');
+            const { dispatchWebhooks } = await import('@hipp0/core/webhooks/index.js');
             await dispatchWebhooks(projectId, 'evolution_proposal_created', {
               proposal_decision: candidate.title,
               trigger: candidate.trigger_reason,
               change_type: proposal.change_type,
             });
           } catch {
-            console.log(`[decigraph/evolution] Webhook: evolution_proposal_created for ${candidate.title}`);
+            console.log(`[hipp0/evolution] Webhook: evolution_proposal_created for ${candidate.title}`);
           }
         } catch (err) {
           console.warn(
-            `[decigraph/evolution] Failed for decision ${candidate.decision_id.slice(0, 8)}:`,
+            `[hipp0/evolution] Failed for decision ${candidate.decision_id.slice(0, 8)}:`,
             (err as Error).message,
           );
         }
       }
     } catch (err) {
       console.warn(
-        `[decigraph/evolution] Failed for project ${projectId.slice(0, 8)}:`,
+        `[hipp0/evolution] Failed for project ${projectId.slice(0, 8)}:`,
         (err as Error).message,
       );
     }
   }
 
-  console.log(`[decigraph/evolution] Scan complete. Created ${totalCreated} proposals.`);
+  console.log(`[hipp0/evolution] Scan complete. Created ${totalCreated} proposals.`);
 }
 
 /**
@@ -143,7 +143,7 @@ async function runEvolutionScan(): Promise<void> {
  * Runs at most once per day.
  */
 export function startEvolutionWorker(): void {
-  console.warn('[decigraph] Evolution worker: scheduled (daily 6:00 AM UTC)');
+  console.warn('[hipp0] Evolution worker: scheduled (daily 6:00 AM UTC)');
 
   intervalHandle = setInterval(() => {
     const now = new Date();
@@ -153,7 +153,7 @@ export function startEvolutionWorker(): void {
     if (now.getUTCHours() === 6 && now.getUTCMinutes() < 5 && lastRunDate !== todayKey) {
       lastRunDate = todayKey;
       runEvolutionScan().catch((err) => {
-        console.warn('[decigraph/evolution] Scan error:', (err as Error).message);
+        console.warn('[hipp0/evolution] Scan error:', (err as Error).message);
       });
     }
   }, 5 * 60 * 1000); // every 5 minutes

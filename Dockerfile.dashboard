@@ -1,4 +1,4 @@
-# DeciGraph Dashboard — multi-stage Docker build
+# Hipp0 Dashboard — multi-stage Docker build
 # Stage 1: Build the Vite React app
 # Stage 2: Serve static files via nginx
 #

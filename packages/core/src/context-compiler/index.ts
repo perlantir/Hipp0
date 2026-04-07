@@ -9,7 +9,7 @@ import {
   parseSession,
   parseNotification,
 } from '../db/parsers.js';
-import { DeciGraphError, NotFoundError } from '../types.js';
+import { Hipp0Error, NotFoundError } from '../types.js';
 import { computeFreshness, blendScores, computeEffectiveConfidence } from '../temporal/index.js';
 import type {
   Agent,
@@ -44,7 +44,7 @@ async function getEmbeddingFn(): Promise<(text: string) => Promise<number[]>> {
   } catch (err) {
     // Log but do NOT cache the fallback — retry the import next time.
     if (!_embeddingImportFailed) {
-      console.warn('[decigraph/embeddings] Failed to import embeddings module — semantic search disabled for this call:', (err as Error).message);
+      console.warn('[hipp0/embeddings] Failed to import embeddings module — semantic search disabled for this call:', (err as Error).message);
       _embeddingImportFailed = true;
     }
     return async (_text: string) => [...ZERO_VECTOR];
@@ -122,7 +122,7 @@ function deduplicateDecisions(decisions: ScoredDecision[]): ScoredDecision[] {
   return decisions.filter((d) => {
     const normalized = d.title
       .toLowerCase()
-      .replace(/\s*(in decigraph|across ops|for v1|for bouts|for agents)\s*$/i, '')
+      .replace(/\s*(in hipp0|across ops|for v1|for bouts|for agents)\s*$/i, '')
       .trim();
     if (seen.has(normalized)) return false;
     seen.add(normalized);
@@ -181,7 +181,7 @@ function finalizeResults(
   // One-line compile trace (always-on, permanent)
   const ms = Date.now() - startMs;
   console.log(
-    `[decigraph/compile] agent=${agentName} project=${(projectId ?? '').slice(0, 8)}.. scored=${scored.length} passed=${capped.length} top=${(capped[0]?.combined_score ?? 0).toFixed(3)} semantic=${scored.filter((d) => ((d.scoring_breakdown as unknown) as Record<string, unknown>)?.semantic_similarity as number > 0).length} ms=${ms}`,
+    `[hipp0/compile] agent=${agentName} project=${(projectId ?? '').slice(0, 8)}.. scored=${scored.length} passed=${capped.length} top=${(capped[0]?.combined_score ?? 0).toFixed(3)} semantic=${scored.filter((d) => ((d.scoring_breakdown as unknown) as Record<string, unknown>)?.semantic_similarity as number > 0).length} ms=${ms}`,
   );
 
   return capped;
@@ -278,7 +278,7 @@ export function scoreDecision(
   // ── Signal C: Persona Match (primaryTags overlap - excludeTags penalty) ─
   const persona = _getPersonaSafe(agent.name);
   if (!persona) {
-    console.warn(`[decigraph/scoring] No persona found for agent: "${agent.name}" — persona match signal will be 0`);
+    console.warn(`[hipp0/scoring] No persona found for agent: "${agent.name}" — persona match signal will be 0`);
   }
   let personaMatchScore = 0;
   let excludePenalty = 0;
@@ -706,7 +706,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
         [project_id, alias],
       );
       if (agentResult.rows.length > 0) {
-        console.warn(`[decigraph/compile] Agent "${agent_name}" not found, matched alias "${alias}"`);
+        console.warn(`[hipp0/compile] Agent "${agent_name}" not found, matched alias "${alias}"`);
         break;
       }
     }
@@ -722,7 +722,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
 
   // Auto-create agent if not found after all lookups
   if (agentResult.rows.length === 0) {
-    console.warn(`[decigraph/compile] Agent "${agent_name}" not found in project ${project_id.slice(0, 8)}.. — auto-creating`);
+    console.warn(`[hipp0/compile] Agent "${agent_name}" not found in project ${project_id.slice(0, 8)}.. — auto-creating`);
     const newAgent = await db.query(
       `INSERT INTO agents (id, project_id, name, role, relevance_profile, context_budget_tokens)
        VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
@@ -747,7 +747,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     // Do NOT re-run finalizeResults, which would double-normalize scores
     // and potentially filter out decisions that originally passed MIN_SCORE.
     const cachedDecisions = (cached.decisions ?? []) as ScoredDecision[];
-    console.log(`[decigraph/compile] agent=${agent_name} CACHE HIT decisions=${cachedDecisions.length} ms=${Date.now() - startMs}`);
+    console.log(`[hipp0/compile] agent=${agent_name} CACHE HIT decisions=${cachedDecisions.length} ms=${Date.now() - startMs}`);
     return { ...cached, decisions: cachedDecisions, decisions_included: cachedDecisions.length };
   }
 
@@ -772,7 +772,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     // Graceful degradation: if embedding generation fails (API down, rate limit,
     // network error), continue scoring without semantic similarity rather than
     // crashing the entire compile request.
-    console.warn(`[decigraph/compile] Embedding generation failed for agent=${agent_name} — falling back to non-semantic scoring:`, (err as Error).message);
+    console.warn(`[hipp0/compile] Embedding generation failed for agent=${agent_name} — falling back to non-semantic scoring:`, (err as Error).message);
     taskEmbedding = [...ZERO_VECTOR];
   }
 
@@ -867,7 +867,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     const rawType = typeof first.embedding;
     const isArr = Array.isArray(first.embedding);
     const embLen = isArr ? (first.embedding as number[]).length : (typeof first.embedding === 'string' ? (first.embedding as string).length : 0);
-    console.log(`[decigraph/embeddings] first_decision_embedding: type=${rawType} isArray=${isArr} len=${embLen} semanticHits=${semanticHits}/${allScored.length}`);
+    console.log(`[hipp0/embeddings] first_decision_embedding: type=${rawType} isArray=${isArr} len=${embLen} semanticHits=${semanticHits}/${allScored.length}`);
   }
   const packedDecisions = finalizeResults(allScored, agent_name, project_id, startMs);
 
@@ -880,13 +880,13 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
         [db.arrayParam(includedIds)],
       );
     } catch (err) {
-      console.warn('[decigraph/compile] Failed to update last_referenced_at:', (err as Error).message);
+      console.warn('[hipp0/compile] Failed to update last_referenced_at:', (err as Error).message);
     }
   }
 
   if (packedDecisions.length === 0 && allScored.length > 0) {
-    console.warn('[decigraph/compile] WARNING: finalizeResults returned 0 but allScored had', allScored.length, 'items for agent', agent_name);
-    console.warn('[decigraph/compile] Top score:', allScored[0]?.combined_score, 'MIN_SCORE:', MIN_SCORE);
+    console.warn('[hipp0/compile] WARNING: finalizeResults returned 0 but allScored had', allScored.length, 'items for agent', agent_name);
+    console.warn('[hipp0/compile] Top score:', allScored[0]?.combined_score, 'MIN_SCORE:', MIN_SCORE);
   }
 
   const packedArtifacts = packItems<ScoredArtifact>(
@@ -969,7 +969,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     await writeCache(agent.id, taskHash, pkg, includedDecisionIds, includedArtifactIds);
   } catch (err) {
     // Cache write failures are non-fatal
-    console.warn('[decigraph:context-compiler] Cache write failed:', (err as Error).message);
+    console.warn('[hipp0:context-compiler] Cache write failed:', (err as Error).message);
   }
 
   try {
@@ -982,11 +982,11 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
       compilation_time_ms: pkg.compilation_time_ms,
     });
   } catch (err) {
-    console.warn('[decigraph:context-compiler] Audit log write failed:', (err as Error).message);
+    console.warn('[hipp0:context-compiler] Audit log write failed:', (err as Error).message);
   }
 
   return pkg;
 }
 
 // Re-export scoreDecision and cosineSimilarity for external use
-export { DeciGraphError };
+export { Hipp0Error };

@@ -85,7 +85,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     } catch (err) {
       const connStr = this._config?.connectionString ?? process.env.DATABASE_URL ?? '<not set>';
       throw new Error(
-        `[decigraph/postgres] Failed to create connection pool. ` +
+        `[hipp0/postgres] Failed to create connection pool. ` +
         `DATABASE_URL=${connStr.replace(/:[^:@]+@/, ':***@')}. ` +
         `Original error: ${(err as Error).message}`,
       );
@@ -94,7 +94,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     if (!ok) {
       const connStr = this._config?.connectionString ?? process.env.DATABASE_URL ?? '<not set>';
       throw new Error(
-        `[decigraph/postgres] Database health check failed on connect. ` +
+        `[hipp0/postgres] Database health check failed on connect. ` +
         `DATABASE_URL=${connStr.replace(/:[^:@]+@/, ':***@')}`,
       );
     }
@@ -192,7 +192,7 @@ export class PostgresAdapter implements DatabaseAdapter {
   async runMigrations(migrationsDir: string): Promise<void> {
     // Ensure tracking table exists (PostgreSQL dialect).
     await this.query(`
-      CREATE TABLE IF NOT EXISTS _decigraph_migrations (
+      CREATE TABLE IF NOT EXISTS _hipp0_migrations (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -200,7 +200,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     `);
 
     const applied = await this.query<{ name: string }>(
-      'SELECT name FROM _decigraph_migrations ORDER BY id',
+      'SELECT name FROM _hipp0_migrations ORDER BY id',
     );
     const appliedSet = new Set((applied.rows ?? []).map((r) => r.name));
 
@@ -211,7 +211,7 @@ export class PostgresAdapter implements DatabaseAdapter {
         .filter((f) => f.endsWith('.sql'))
         .sort();
     } catch (err) {
-      console.warn(`[decigraph/postgres] Migrations directory not found: ${migrationsDir}. Skipping migrations.`);
+      console.warn(`[hipp0/postgres] Migrations directory not found: ${migrationsDir}. Skipping migrations.`);
       return;
     }
 
@@ -225,13 +225,13 @@ export class PostgresAdapter implements DatabaseAdapter {
       try {
         await this.transaction(async (txQuery) => {
           await txQuery(sql);
-          await txQuery('INSERT INTO _decigraph_migrations (name) VALUES (?)', [file]);
+          await txQuery('INSERT INTO _hipp0_migrations (name) VALUES (?)', [file]);
         });
-        console.log(`[decigraph/migrations] ✅ Applied ${file}`);
+        console.log(`[hipp0/migrations] ✅ Applied ${file}`);
       } catch (err) {
-        console.warn(`[decigraph/migrations] ⚠️ ${file} failed: ${(err as Error).message}`);
+        console.warn(`[hipp0/migrations] ⚠️ ${file} failed: ${(err as Error).message}`);
         // Mark as applied anyway so it doesn't block other migrations
-        await this.query('INSERT INTO _decigraph_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
+        await this.query('INSERT INTO _hipp0_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
       }
     }
   }
@@ -252,7 +252,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       this._config?.connectionString ?? process.env.DATABASE_URL;
 
     if (!connectionString) {
-      console.warn('[decigraph/postgres] WARNING: No connectionString or DATABASE_URL set. Pool will try default pg settings.');
+      console.warn('[hipp0/postgres] WARNING: No connectionString or DATABASE_URL set. Pool will try default pg settings.');
     }
 
     const useSSL =
@@ -268,7 +268,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     });
 
     pool.on('error', (err) => {
-      console.error('[decigraph/postgres] Unexpected pool error:', (err as Error).message);
+      console.error('[hipp0/postgres] Unexpected pool error:', (err as Error).message);
     });
 
     return pool;

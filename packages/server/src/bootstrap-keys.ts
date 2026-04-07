@@ -3,7 +3,7 @@
  * project that has zero active (non-revoked, non-expired) API keys.
  * The full key is logged once to stdout; only the SHA-256 hash is persisted.
  */
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import crypto from 'node:crypto';
 
 const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
@@ -24,7 +24,7 @@ export async function bootstrapApiKeys(): Promise<void> {
   try {
     await db.query('SELECT 1 FROM api_keys LIMIT 0', []);
   } catch {
-    console.warn('[decigraph] api_keys table does not exist yet — skipping key bootstrap');
+    console.warn('[hipp0] api_keys table does not exist yet — skipping key bootstrap');
     return;
   }
 
@@ -34,7 +34,7 @@ export async function bootstrapApiKeys(): Promise<void> {
     const result = await db.query('SELECT id, name FROM projects', []);
     projects = result.rows as Array<Record<string, unknown>>;
   } catch {
-    console.warn('[decigraph] projects table does not exist yet — skipping key bootstrap');
+    console.warn('[hipp0] projects table does not exist yet — skipping key bootstrap');
     return;
   }
 

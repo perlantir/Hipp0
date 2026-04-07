@@ -1,6 +1,6 @@
 import { getDb } from '../db/index.js';
 import { parseSubscription, parseNotification, parseAgent } from '../db/parsers.js';
-import { DeciGraphError, NotFoundError, ValidationError } from '../types.js';
+import { Hipp0Error, NotFoundError, ValidationError } from '../types.js';
 import { getRoleNotificationContext } from '../roles.js';
 import type {
   Agent,
@@ -134,12 +134,12 @@ export async function createSubscription(input: CreateSubscriptionInput): Promis
 
     const row = result.rows[0];
     if (!row) {
-      throw new DeciGraphError('Failed to create subscription', 'CREATE_FAILED', 500);
+      throw new Hipp0Error('Failed to create subscription', 'CREATE_FAILED', 500);
     }
     return parseSubscription(row);
   } catch (err) {
-    if (err instanceof DeciGraphError) throw err;
-    throw new DeciGraphError(
+    if (err instanceof Hipp0Error) throw err;
+    throw new Hipp0Error(
       `Failed to create subscription: ${(err as Error).message}`,
       'DB_ERROR',
       500,
@@ -295,7 +295,7 @@ export async function propagateChange(
   try {
     await invalidateCache(decision.id);
   } catch (err) {
-    console.warn('[decigraph:change-propagator] Cache invalidation failed:', (err as Error).message);
+    console.warn('[hipp0:change-propagator] Cache invalidation failed:', (err as Error).message);
   }
 
   try {
@@ -315,7 +315,7 @@ export async function propagateChange(
       ],
     );
   } catch (err) {
-    console.warn('[decigraph:change-propagator] Audit log write failed:', (err as Error).message);
+    console.warn('[hipp0:change-propagator] Audit log write failed:', (err as Error).message);
   }
 
   return created;
@@ -390,4 +390,4 @@ export async function markNotificationRead(notificationId: string): Promise<void
 }
 
 // Re-export error classes for convenience
-export { DeciGraphError, NotFoundError, ValidationError };
+export { Hipp0Error, NotFoundError, ValidationError };

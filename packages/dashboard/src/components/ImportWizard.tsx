@@ -353,7 +353,7 @@ export function ImportWizard() {
             </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: 15, margin: 0, lineHeight: 1.6 }}>
-            Connect a source and DeciGraph will scan it for architectural decisions,
+            Connect a source and Hipp0 will scan it for architectural decisions,
             automatically build your decision graph, and detect your team.
           </p>
         </div>
@@ -983,8 +983,8 @@ export function ImportWizard() {
       ? sourceInput.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '')
       : '';
     const installUrl = repoSlug
-      ? `https://github.com/apps/decigraph/installations/new/permissions?target_id=${repoSlug.split('/')[0]}`
-      : 'https://github.com/apps/decigraph/installations/new';
+      ? `https://github.com/apps/hipp0/installations/new/permissions?target_id=${repoSlug.split('/')[0]}`
+      : 'https://github.com/apps/hipp0/installations/new';
 
     const SYNC_STEPS = [
       { num: 1, title: 'Why permanent sync?', icon: <RefreshCw size={16} /> },
@@ -1100,7 +1100,7 @@ export function ImportWizard() {
                 {
                   icon: <GitPullRequest size={18} />,
                   title: 'Every merged PR captured',
-                  desc: 'When a PR is merged, GitHub sends a webhook event and DeciGraph automatically extracts decisions, updates the graph, and links contributors.',
+                  desc: 'When a PR is merged, GitHub sends a webhook event and Hipp0 automatically extracts decisions, updates the graph, and links contributors.',
                 },
                 {
                   icon: <Zap size={18} />,
@@ -1150,7 +1150,7 @@ export function ImportWizard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <Github size={20} color="#D97757" />
               <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
-                Install the DeciGraph GitHub App
+                Install the Hipp0 GitHub App
               </span>
             </div>
 
@@ -1161,7 +1161,7 @@ export function ImportWizard() {
               marginBottom: 20,
             }}>
               <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
-                The DeciGraph GitHub App grants read-only access to your repository's pull requests and issues.
+                The Hipp0 GitHub App grants read-only access to your repository's pull requests and issues.
                 Click below to install it{repoSlug ? ` for ${repoSlug}` : ''}.
               </div>
               <a
@@ -1190,7 +1190,7 @@ export function ImportWizard() {
                 Already installed?
               </div>
               <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
-                If the DeciGraph app is already installed on your organization or repository, skip ahead to the next step.
+                If the Hipp0 app is already installed on your organization or repository, skip ahead to the next step.
               </div>
             </div>
 
@@ -1220,7 +1220,7 @@ export function ImportWizard() {
             </div>
 
             <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
-              Add this webhook to your GitHub repository so DeciGraph receives events in real time.
+              Add this webhook to your GitHub repository so Hipp0 receives events in real time.
             </div>
 
             {/* Webhook URL copyable box */}

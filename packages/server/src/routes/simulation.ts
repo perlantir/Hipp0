@@ -2,13 +2,13 @@
  * Feature 11: What-If Simulator — API Routes
  */
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, validateTags, validateAffects } from './validation.js';
 import {
   simulateDecisionChange,
   simulateHistoricalImpact,
-} from '@decigraph/core/intelligence/whatif-simulator.js';
+} from '@hipp0/core/intelligence/whatif-simulator.js';
 
 export function registerSimulationRoutes(app: Hono): void {
   // ── POST /api/simulation/preview ──────────────────────────────────

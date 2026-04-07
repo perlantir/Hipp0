@@ -11,10 +11,10 @@ import {
   getSessionState,
   updateSessionStatus,
   listProjectSessions,
-} from '@decigraph/core/memory/session-manager.js';
-import { scoreTeamForTask } from '@decigraph/core/intelligence/role-signals.js';
-import { suggestNextAgent, generateSessionPlan } from '@decigraph/core/intelligence/orchestrator.js';
-import { getDb } from '@decigraph/core/db/index.js';
+} from '@hipp0/core/memory/session-manager.js';
+import { scoreTeamForTask } from '@hipp0/core/intelligence/role-signals.js';
+import { suggestNextAgent, generateSessionPlan } from '@hipp0/core/intelligence/orchestrator.js';
+import { getDb } from '@hipp0/core/db/index.js';
 
 export function registerSessionRoutes(app: Hono): void {
   // ── Start a new task session ────────────────────────────────────────

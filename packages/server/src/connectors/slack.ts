@@ -6,14 +6,14 @@
  * - URL verification challenge response
  * - Slack signing secret verification
  * - Message events + lock reaction capture
- * - Slash commands: /decigraph-decision, /decigraph-ask, /decigraph-status
+ * - Slash commands: /hipp0-decision, /hipp0-ask, /hipp0-status
  * - Idempotency by event_id/message_ts
  */
 import type { Hono } from 'hono';
 import crypto from 'node:crypto';
 import { submitForExtraction } from '../queue/index.js';
-import { getDb } from '@decigraph/core/db/index.js';
-import { callLLM } from '@decigraph/core/distillery/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { callLLM } from '@hipp0/core/distillery/index.js';
 
 // ── Decision pattern matching ──────────────────────────────────────────────
 const DECISION_PATTERNS: RegExp[] = [
@@ -104,21 +104,21 @@ interface SlackEvent {
  * Register Slack webhook routes on the Hono app.
  */
 export function registerSlackConnector(app: Hono): void {
-  const signingSecret = process.env.DECIGRAPH_SLACK_SIGNING_SECRET ?? '';
-  const projectId = process.env.DECIGRAPH_SLACK_PROJECT_ID
-    ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID
+  const signingSecret = process.env.HIPP0_SLACK_SIGNING_SECRET ?? '';
+  const projectId = process.env.HIPP0_SLACK_PROJECT_ID
+    ?? process.env.HIPP0_DEFAULT_PROJECT_ID
     ?? '';
   const allowedChannels = new Set(
-    (process.env.DECIGRAPH_SLACK_CHANNEL_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    (process.env.HIPP0_SLACK_CHANNEL_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   );
 
   if (!signingSecret) {
-    console.warn('[decigraph/slack] No DECIGRAPH_SLACK_SIGNING_SECRET — Slack disabled');
+    console.warn('[hipp0/slack] No HIPP0_SLACK_SIGNING_SECRET — Slack disabled');
     return;
   }
 
   if (!projectId) {
-    console.error('[decigraph/slack] DECIGRAPH_SLACK_PROJECT_ID required when Slack is enabled');
+    console.error('[hipp0/slack] HIPP0_SLACK_PROJECT_ID required when Slack is enabled');
     return;
   }
 
@@ -132,7 +132,7 @@ export function registerSlackConnector(app: Hono): void {
 
     // Verify signature
     if (!verifySlackSignature(signingSecret, slackSignature, slackTimestamp, rawBody)) {
-      console.warn('[decigraph/slack] Signature verification failed');
+      console.warn('[hipp0/slack] Signature verification failed');
       return c.json({ error: 'Invalid signature' }, 401);
     }
 
@@ -199,13 +199,13 @@ export function registerSlackConnector(app: Hono): void {
         project_id: projectId,
       });
 
-      console.log(`[decigraph/slack] Decision detected in channel ${channel} — queued for extraction`);
+      console.log(`[hipp0/slack] Decision detected in channel ${channel} — queued for extraction`);
       return c.json({ status: 'processing' });
     }
 
     // Handle lock reaction (decision capture)
     if (event.type === 'reaction_added' && event.reaction === 'lock') {
-      console.log(`[decigraph/slack] Lock reaction in channel ${event.item?.channel} — could fetch message for extraction`);
+      console.log(`[hipp0/slack] Lock reaction in channel ${event.item?.channel} — could fetch message for extraction`);
       return c.json({ status: 'reaction_noted' });
     }
 
@@ -229,7 +229,7 @@ export function registerSlackConnector(app: Hono): void {
     const userId = params.get('user_id') ?? 'slack-user';
 
     switch (command) {
-      case '/decigraph-decision': {
+      case '/hipp0-decision': {
         if (text.length < 10) {
           return c.json({ response_type: 'ephemeral', text: 'Decision text must be at least 10 characters.' });
         }
@@ -245,7 +245,7 @@ export function registerSlackConnector(app: Hono): void {
         return c.json({ response_type: 'in_channel', text: 'Processing decision...' });
       }
 
-      case '/decigraph-ask': {
+      case '/hipp0-ask': {
         if (!text) {
           return c.json({ response_type: 'ephemeral', text: 'Please provide a question.' });
         }
@@ -268,12 +268,12 @@ export function registerSlackConnector(app: Hono): void {
 
           return c.json({ response_type: 'in_channel', text: answer || 'No relevant decisions found.' });
         } catch (err) {
-          console.error('[decigraph/slack] /decigraph-ask error:', (err as Error).message);
+          console.error('[hipp0/slack] /hipp0-ask error:', (err as Error).message);
           return c.json({ response_type: 'ephemeral', text: 'Failed to process question.' });
         }
       }
 
-      case '/decigraph-status': {
+      case '/hipp0-status': {
         try {
           const db = getDb();
           const [decResult, agentResult] = await Promise.all([
@@ -283,9 +283,9 @@ export function registerSlackConnector(app: Hono): void {
           const decCount = parseInt((decResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
           const agentCount = parseInt((agentResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
 
-          return c.json({ response_type: 'in_channel', text: `DeciGraph: ${decCount} decisions, ${agentCount} agents` });
+          return c.json({ response_type: 'in_channel', text: `Hipp0: ${decCount} decisions, ${agentCount} agents` });
         } catch (err) {
-          console.error('[decigraph/slack] /decigraph-status error:', (err as Error).message);
+          console.error('[hipp0/slack] /hipp0-status error:', (err as Error).message);
           return c.json({ response_type: 'ephemeral', text: 'Failed to get status.' });
         }
       }
@@ -295,5 +295,5 @@ export function registerSlackConnector(app: Hono): void {
     }
   });
 
-  console.warn('[decigraph/slack] Webhook connector registered');
+  console.warn('[hipp0/slack] Webhook connector registered');
 }

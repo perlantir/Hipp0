@@ -1,5 +1,5 @@
 /**
- * Structured JSON logger for DeciGraph server.
+ * Structured JSON logger for Hipp0 server.
  *
  * Levels: debug, info, warn, error
  * Output: one JSON line per log entry with timestamp, level, component, request_id, message, extra.

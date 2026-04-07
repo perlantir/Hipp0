@@ -1,15 +1,15 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { DeciGraphClient } from '../../../sdk/src/index.js';
-import type { DeciGraphServerConfig } from '../server.js';
+import type { Hipp0Client } from '../../../sdk/src/index.js';
+import type { Hipp0ServerConfig } from '../server.js';
 
 export function registerContextTools(
   server: McpServer,
-  client: DeciGraphClient,
-  config: DeciGraphServerConfig,
+  client: Hipp0Client,
+  config: Hipp0ServerConfig,
 ): void {
   server.registerTool(
-    'decigraph_compile_context',
+    'hipp0_compile_context',
     {
       title: 'Compile context for a task',
       description:

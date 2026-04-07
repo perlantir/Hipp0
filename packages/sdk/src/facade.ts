@@ -1,15 +1,15 @@
 /**
- * DeciGraph — simplified facade for the SDK.
+ * Hipp0 — simplified facade for the SDK.
  *
- * Wraps DeciGraphClient with a friendlier API that auto-fills project_id
+ * Wraps Hipp0Client with a friendlier API that auto-fills project_id
  * and provides the 5 core operations: compile, addDecision, ask, search,
  * getContradictions.
  *
  * Two modes:
- *   HTTP mode:   new DeciGraph({ baseUrl: 'http://localhost:3100' })
- *   Direct mode: new DeciGraph({ databaseUrl: 'postgresql://...' })
+ *   HTTP mode:   new Hipp0({ baseUrl: 'http://localhost:3100' })
+ *   Direct mode: new Hipp0({ databaseUrl: 'postgresql://...' })
  */
-import { DeciGraphClient } from './client.js';
+import { Hipp0Client } from './client.js';
 import type {
   Decision,
   Contradiction,
@@ -17,7 +17,7 @@ import type {
   OutcomeResult,
 } from './types.js';
 
-export interface DeciGraphConfig {
+export interface Hipp0Config {
   /** HTTP API URL (e.g., http://localhost:3100) */
   baseUrl?: string;
   /** Direct PostgreSQL connection string (bypasses HTTP) */
@@ -53,35 +53,35 @@ export interface SearchOptions {
   projectId?: string;
 }
 
-export class DeciGraph {
-  private client: DeciGraphClient;
+export class Hipp0 {
+  private client: Hipp0Client;
   private defaultProjectId: string;
 
-  constructor(config: DeciGraphConfig) {
+  constructor(config: Hipp0Config) {
     if (config.databaseUrl) {
       // Direct mode — still uses HTTP client but against localhost
       // The MCP server handles direct DB; SDK facade always uses HTTP
-      console.warn('[DeciGraph] Direct DB mode not yet supported in SDK — use baseUrl with the API server');
+      console.warn('[Hipp0] Direct DB mode not yet supported in SDK — use baseUrl with the API server');
     }
 
-    this.client = new DeciGraphClient({
-      baseUrl: config.baseUrl ?? process.env.DECIGRAPH_URL ?? 'http://localhost:3100',
-      apiKey: config.apiKey ?? process.env.DECIGRAPH_API_KEY,
+    this.client = new Hipp0Client({
+      baseUrl: config.baseUrl ?? process.env.HIPP0_URL ?? 'http://localhost:3100',
+      apiKey: config.apiKey ?? process.env.HIPP0_API_KEY,
     });
 
     this.defaultProjectId = config.projectId
-      ?? process.env.DECIGRAPH_PROJECT_ID
+      ?? process.env.HIPP0_PROJECT_ID
       ?? '';
   }
 
   /** Get the underlying HTTP client for advanced operations */
-  getClient(): DeciGraphClient {
+  getClient(): Hipp0Client {
     return this.client;
   }
 
   private pid(override?: string): string {
     const id = override ?? this.defaultProjectId;
-    if (!id) throw new Error('No project_id provided. Set projectId in config or DECIGRAPH_PROJECT_ID env var.');
+    if (!id) throw new Error('No project_id provided. Set projectId in config or HIPP0_PROJECT_ID env var.');
     return id;
   }
 

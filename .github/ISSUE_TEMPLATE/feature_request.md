@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for DeciGraph
+about: Suggest a new feature for Hipp0
 title: "[Feature] "
 labels: enhancement
 assignees: ""

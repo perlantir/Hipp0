@@ -7,12 +7,12 @@ function clearLLMEnv() {
   delete process.env.OPENROUTER_API_KEY;
   delete process.env.OPENAI_API_KEY;
   delete process.env.ANTHROPIC_API_KEY;
-  delete process.env.DECIGRAPH_EMBEDDINGS_URL;
-  delete process.env.DECIGRAPH_EMBEDDINGS_KEY;
-  delete process.env.DECIGRAPH_EMBEDDINGS_MODEL;
-  delete process.env.DECIGRAPH_LLM_URL;
-  delete process.env.DECIGRAPH_LLM_KEY;
-  delete process.env.DECIGRAPH_LLM_MODEL;
+  delete process.env.HIPP0_EMBEDDINGS_URL;
+  delete process.env.HIPP0_EMBEDDINGS_KEY;
+  delete process.env.HIPP0_EMBEDDINGS_MODEL;
+  delete process.env.HIPP0_LLM_URL;
+  delete process.env.HIPP0_LLM_KEY;
+  delete process.env.HIPP0_LLM_MODEL;
   delete process.env.DISTILLERY_PROVIDER;
   delete process.env.DISTILLERY_MODEL;
   delete process.env.EMBEDDING_PROVIDER;
@@ -74,11 +74,11 @@ describe('resolveLLMConfig', () => {
     expect(config.distillery!.model).toContain('claude-opus');
   });
 
-  it('DECIGRAPH_EMBEDDINGS_URL overrides OpenRouter for embeddings', () => {
+  it('HIPP0_EMBEDDINGS_URL overrides OpenRouter for embeddings', () => {
     process.env.OPENROUTER_API_KEY = 'sk-or-test';
-    process.env.DECIGRAPH_EMBEDDINGS_URL = 'http://localhost:11434/v1';
-    process.env.DECIGRAPH_EMBEDDINGS_KEY = 'ollama';
-    process.env.DECIGRAPH_EMBEDDINGS_MODEL = 'nomic-embed-text';
+    process.env.HIPP0_EMBEDDINGS_URL = 'http://localhost:11434/v1';
+    process.env.HIPP0_EMBEDDINGS_KEY = 'ollama';
+    process.env.HIPP0_EMBEDDINGS_MODEL = 'nomic-embed-text';
     const config = resolveLLMConfig();
 
     expect(config.embeddings!.url).toBe('http://localhost:11434/v1');
@@ -90,11 +90,11 @@ describe('resolveLLMConfig', () => {
     expect(config.distillery!.provider).toBe('openrouter');
   });
 
-  it('DECIGRAPH_LLM_URL overrides OpenRouter for distillery', () => {
+  it('HIPP0_LLM_URL overrides OpenRouter for distillery', () => {
     process.env.OPENROUTER_API_KEY = 'sk-or-test';
-    process.env.DECIGRAPH_LLM_URL = 'https://api.groq.com/openai/v1';
-    process.env.DECIGRAPH_LLM_KEY = 'gsk-test';
-    process.env.DECIGRAPH_LLM_MODEL = 'llama-3.3-70b-versatile';
+    process.env.HIPP0_LLM_URL = 'https://api.groq.com/openai/v1';
+    process.env.HIPP0_LLM_KEY = 'gsk-test';
+    process.env.HIPP0_LLM_MODEL = 'llama-3.3-70b-versatile';
     const config = resolveLLMConfig();
 
     expect(config.distillery!.url).toBe('https://api.groq.com/openai/v1');
@@ -115,17 +115,17 @@ describe('resolveLLMConfig', () => {
     expect(config.distillery!.url).toBe('__anthropic_sdk__');
   });
 
-  it('DECIGRAPH_LLM_MODEL overrides default model', () => {
+  it('HIPP0_LLM_MODEL overrides default model', () => {
     process.env.OPENAI_API_KEY = 'sk-test';
-    process.env.DECIGRAPH_LLM_MODEL = 'gpt-4o';
+    process.env.HIPP0_LLM_MODEL = 'gpt-4o';
     const config = resolveLLMConfig();
 
     expect(config.distillery!.model).toBe('gpt-4o');
   });
 
-  it('DECIGRAPH_EMBEDDINGS_MODEL overrides default model', () => {
+  it('HIPP0_EMBEDDINGS_MODEL overrides default model', () => {
     process.env.OPENAI_API_KEY = 'sk-test';
-    process.env.DECIGRAPH_EMBEDDINGS_MODEL = 'text-embedding-3-large';
+    process.env.HIPP0_EMBEDDINGS_MODEL = 'text-embedding-3-large';
     const config = resolveLLMConfig();
 
     expect(config.embeddings!.model).toBe('text-embedding-3-large');
@@ -135,10 +135,10 @@ describe('resolveLLMConfig', () => {
     process.env.OPENROUTER_API_KEY = 'sk-or';
     process.env.OPENAI_API_KEY = 'sk-openai';
     process.env.ANTHROPIC_API_KEY = 'sk-ant';
-    process.env.DECIGRAPH_EMBEDDINGS_URL = 'http://custom-embed:8080/v1';
-    process.env.DECIGRAPH_EMBEDDINGS_KEY = 'custom-key';
-    process.env.DECIGRAPH_LLM_URL = 'http://custom-llm:8080/v1';
-    process.env.DECIGRAPH_LLM_KEY = 'custom-key';
+    process.env.HIPP0_EMBEDDINGS_URL = 'http://custom-embed:8080/v1';
+    process.env.HIPP0_EMBEDDINGS_KEY = 'custom-key';
+    process.env.HIPP0_LLM_URL = 'http://custom-llm:8080/v1';
+    process.env.HIPP0_LLM_KEY = 'custom-key';
     const config = resolveLLMConfig();
 
     expect(config.embeddings!.url).toBe('http://custom-embed:8080/v1');

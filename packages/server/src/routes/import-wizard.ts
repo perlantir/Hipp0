@@ -9,8 +9,8 @@
 import type { Hono } from 'hono';
 import { Octokit } from '@octokit/rest';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
-import { getDb } from '@decigraph/core/db/index.js';
-import { extractDecisions } from '@decigraph/core/distillery/extractor.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { extractDecisions } from '@hipp0/core/distillery/extractor.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 

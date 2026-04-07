@@ -1,19 +1,19 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { DeciGraphClient } from '../../../sdk/src/index.js';
-import type { DeciGraphServerConfig } from '../server.js';
+import type { Hipp0Client } from '../../../sdk/src/index.js';
+import type { Hipp0ServerConfig } from '../server.js';
 
 export function registerCaptureTools(
   server: McpServer,
-  client: DeciGraphClient,
-  config: DeciGraphServerConfig,
+  client: Hipp0Client,
+  config: Hipp0ServerConfig,
 ): void {
   server.registerTool(
-    'decigraph_auto_capture',
+    'hipp0_auto_capture',
     {
       title: 'Auto-capture decisions from conversation',
       description:
-        'Analyzes conversation text and automatically extracts decisions, assumptions, and contradictions using the DeciGraph distillery pipeline.',
+        'Analyzes conversation text and automatically extracts decisions, assumptions, and contradictions using the Hipp0 distillery pipeline.',
       inputSchema: {
         conversation_text: z
           .string()

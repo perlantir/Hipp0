@@ -45,12 +45,12 @@ jobs:
           draft: false
 
       # Publish to npm (uncomment when ready)
-      # - name: Publish @decigraph/core
+      # - name: Publish @hipp0/core
       #   run: cd packages/core && pnpm publish --access public --no-git-checks
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       #
-      # - name: Publish @decigraph/sdk
+      # - name: Publish @hipp0/sdk
       #   run: cd packages/sdk && pnpm publish --access public --no-git-checks
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

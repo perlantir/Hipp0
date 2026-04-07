@@ -72,7 +72,7 @@ describe('Wizard', () => {
       render(<Wizard onComplete={vi.fn()} />);
     });
     await waitFor(() => {
-      expect(screen.getByText(/Welcome to DeciGraph/i)).toBeTruthy();
+      expect(screen.getByText(/Welcome to Hipp0/i)).toBeTruthy();
     });
   });
 
@@ -84,7 +84,7 @@ describe('Wizard', () => {
 
     // Initially on Welcome step
     await waitFor(() => {
-      expect(screen.getByText(/Welcome to DeciGraph/i)).toBeTruthy();
+      expect(screen.getByText(/Welcome to Hipp0/i)).toBeTruthy();
     });
 
     // Click the "Set up your first project" button to advance to step 1
@@ -309,7 +309,7 @@ describe('Connectors', () => {
       {
         id: 'conn-2',
         name: 'webhook' as const,
-        config: { url: 'https://hooks.example.com/decigraph' },
+        config: { url: 'https://hooks.example.com/hipp0' },
         enabled: false,
         sources_processed: 0,
         status: 'idle' as const,

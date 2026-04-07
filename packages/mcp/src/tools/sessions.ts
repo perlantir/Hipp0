@@ -1,15 +1,15 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { DeciGraphClient } from '../../../sdk/src/index.js';
-import type { DeciGraphServerConfig } from '../server.js';
+import type { Hipp0Client } from '../../../sdk/src/index.js';
+import type { Hipp0ServerConfig } from '../server.js';
 
 export function registerSessionTools(
   server: McpServer,
-  client: DeciGraphClient,
-  config: DeciGraphServerConfig,
+  client: Hipp0Client,
+  config: Hipp0ServerConfig,
 ): void {
   server.registerTool(
-    'decigraph_record_session',
+    'hipp0_record_session',
     {
       title: 'Record a session summary',
       description:
@@ -69,7 +69,7 @@ export function registerSessionTools(
   );
 
   server.registerTool(
-    'decigraph_get_notifications',
+    'hipp0_get_notifications',
     {
       title: 'Get notifications',
       description:
@@ -114,7 +114,7 @@ export function registerSessionTools(
   );
 
   server.registerTool(
-    'decigraph_feedback',
+    'hipp0_feedback',
     {
       title: 'Record relevance feedback',
       description:

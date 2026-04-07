@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "decigraph-sdk"
+name = "hipp0-sdk"
 version = "0.1.0"
-description = "Official Python SDK for the DeciGraph multi-agent memory and decision platform."
+description = "Official Python SDK for the Hipp0 multi-agent memory and decision platform."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "Perlantir" }]
-keywords = ["decigraph", "multi-agent", "memory", "decisions", "sdk"]
+keywords = ["hipp0", "multi-agent", "memory", "decisions", "sdk"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -35,16 +35,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/perlantir/DeciGraph"
-Documentation = "https://github.com/perlantir/DeciGraph"
-Repository = "https://github.com/perlantir/DeciGraph"
+Homepage = "https://github.com/perlantir/Hipp0"
+Documentation = "https://github.com/perlantir/Hipp0"
+Repository = "https://github.com/perlantir/Hipp0"
 
 [project.scripts]
-decigraph-memory = "decigraph_memory.cli:main"
+hipp0-memory = "hipp0_memory.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["decigraph_sdk*", "decigraph_memory*"]
+include = ["hipp0_sdk*", "hipp0_memory*"]
 
 [tool.mypy]
 python_version = "3.10"

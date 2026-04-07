@@ -1,9 +1,9 @@
 {
-  "name": "@decigraph/sdk",
+  "name": "@hipp0/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK client for DeciGraph API",
+  "description": "TypeScript SDK client for Hipp0 API",
   "author": "Perlantir",
-  "repository": {"type": "git", "url": "https://github.com/perlantir/decigraph"},
+  "repository": {"type": "git", "url": "https://github.com/perlantir/hipp0"},
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

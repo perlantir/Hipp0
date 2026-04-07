@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/*  Shared types for the DeciGraph dashboard                              */
+/*  Shared types for the Hipp0 dashboard                              */
 /* ------------------------------------------------------------------ */
 
 export type DecisionStatus = 'active' | 'superseded' | 'reverted' | 'pending';

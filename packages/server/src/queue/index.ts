@@ -6,7 +6,7 @@
  *   decision-ingestion   — structured decision → validate → embed → insert
  *   decision-notification — optional: reply in Telegram / webhook
  *
- * If DECIGRAPH_REDIS_URL is not set, jobs are processed inline (no queue).
+ * If HIPP0_REDIS_URL is not set, jobs are processed inline (no queue).
  */
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { Redis } from 'ioredis';
@@ -90,7 +90,7 @@ export async function addExtractionJob(data: ExtractionJobData): Promise<void> {
       removeOnComplete: 100,
       removeOnFail: 200,
     });
-    console.log(`[decigraph/queue] Extraction job added: source=${data.source} by=${data.made_by}`);
+    console.log(`[hipp0/queue] Extraction job added: source=${data.source} by=${data.made_by}`);
   } else if (_inlineExtraction) {
     // Inline fallback — process synchronously
     _inlineStats.pending++;
@@ -99,7 +99,7 @@ export async function addExtractionJob(data: ExtractionJobData): Promise<void> {
       _inlineStats.completed++;
     } catch (err) {
       _inlineStats.failed++;
-      console.error('[decigraph/queue] Inline extraction failed:', (err as Error).message);
+      console.error('[hipp0/queue] Inline extraction failed:', (err as Error).message);
     }
     _inlineStats.pending = Math.max(0, _inlineStats.pending - 1);
   }
@@ -125,7 +125,7 @@ export async function addIngestionJob(data: IngestionJobData): Promise<void> {
     try {
       await _inlineIngestion(data);
     } catch (err) {
-      console.error('[decigraph/queue] Inline ingestion failed:', (err as Error).message);
+      console.error('[hipp0/queue] Inline ingestion failed:', (err as Error).message);
     }
   }
 }
@@ -144,7 +144,7 @@ export async function addNotificationJob(data: NotificationJobData): Promise<voi
     try {
       await _inlineNotification(data);
     } catch (err) {
-      console.error('[decigraph/queue] Inline notification failed:', (err as Error).message);
+      console.error('[hipp0/queue] Inline notification failed:', (err as Error).message);
     }
   }
 }
@@ -166,7 +166,7 @@ export async function initQueues(
   ingestionHandler: InlineIngestionHandler,
   notificationHandler: InlineNotificationHandler,
 ): Promise<boolean> {
-  const redisUrl = process.env.DECIGRAPH_REDIS_URL;
+  const redisUrl = process.env.HIPP0_REDIS_URL;
 
   // Store inline handlers regardless (used as fallback)
   _inlineExtraction = extractionHandler;
@@ -174,7 +174,7 @@ export async function initQueues(
   _inlineNotification = notificationHandler;
 
   if (!redisUrl) {
-    console.warn('[decigraph/queue] No DECIGRAPH_REDIS_URL — using inline processing (no queue)');
+    console.warn('[hipp0/queue] No HIPP0_REDIS_URL — using inline processing (no queue)');
     return false;
   }
 
@@ -185,9 +185,9 @@ export async function initQueues(
       lazyConnect: true,
     });
     await redisConnection.connect();
-    console.warn(`[decigraph/queue] Redis connected: ${redisUrl}`);
+    console.warn(`[hipp0/queue] Redis connected: ${redisUrl}`);
   } catch (err) {
-    console.warn(`[decigraph/queue] Redis unavailable (${(err as Error).message}) — using inline processing`);
+    console.warn(`[hipp0/queue] Redis unavailable (${(err as Error).message}) — using inline processing`);
     redisConnection = null;
     return false;
   }
@@ -268,11 +268,11 @@ export async function initQueues(
     w.on('failed', (job, err) => {
       const name = job?.name ?? 'unknown';
       const attempts = job?.attemptsMade ?? 0;
-      console.error(`[decigraph/queue] Job ${name} failed (attempt ${attempts}):`, err.message);
+      console.error(`[hipp0/queue] Job ${name} failed (attempt ${attempts}):`, err.message);
     });
   }
 
-  console.warn('[decigraph/queue] BullMQ queues initialized: extraction, ingestion, notification');
+  console.warn('[hipp0/queue] BullMQ queues initialized: extraction, ingestion, notification');
   return true;
 }
 
@@ -324,5 +324,5 @@ export async function closeQueues(): Promise<void> {
     try { redisConnection.disconnect(); } catch { /* ignore */ }
   }
 
-  console.warn('[decigraph/queue] Queues closed');
+  console.warn('[hipp0/queue] Queues closed');
 }

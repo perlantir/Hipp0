@@ -1,4 +1,4 @@
-# DeciGraph Troubleshooting Guide
+# Hipp0 Troubleshooting Guide
 
 ## Quick Diagnostics
 
@@ -6,13 +6,13 @@ Run these commands first to assess system health:
 
 ```bash
 # Check all containers are running
-docker ps | grep decigraph
+docker ps | grep hipp0
 
 # Check server logs
-docker logs decigraph-server --tail 20
+docker logs hipp0-server --tail 20
 
 # Check database connectivity
-docker exec decigraph-db psql -U decigraph -d decigraph -c "SELECT count(*) FROM decisions"
+docker exec hipp0-db psql -U hipp0 -d hipp0 -c "SELECT count(*) FROM decisions"
 
 # Check dashboard proxy
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3200/api/projects
@@ -31,30 +31,30 @@ curl -s "http://localhost:3100/api/projects" | head -50
 
 **File:** `packages/core/src/db/postgres-adapter.ts`
 
-### "role 'decigraph' does not exist"
+### "role 'hipp0' does not exist"
 
-**Cause:** Docker volume was renamed, creating an empty database without the expected user/database (formerly the role was named `nexus`)
+**Cause:** Docker volume was renamed, creating an empty database without the expected user/database (formerly the role was named `hipp0`)
 
 **Fix:** Check `docker-compose.yml` volume name matches the existing volume:
 
 ```bash
 docker volume ls | grep pgdata
-docker inspect decigraph-db | grep -A5 "Mounts"
+docker inspect hipp0-db | grep -A5 "Mounts"
 ```
 
-If you see `decigraph_pgdata` in the volume list but a different name in docker-compose, you need to either:
+If you see `hipp0_pgdata` in the volume list but a different name in docker-compose, you need to either:
 1. Change docker-compose to use the old volume name, or
-2. Copy data: `docker run --rm -v old_pgdata:/from -v decigraph_pgdata:/to alpine cp -a /from/. /to/`
+2. Copy data: `docker run --rm -v old_pgdata:/from -v hipp0_pgdata:/to alpine cp -a /from/. /to/`
 
 ### "FATAL: Cannot connect to database"
 
 **Cause:** Multiple possible causes
 
 **Diagnosis steps:**
-1. Check if DB container is healthy: `docker ps | grep decigraph-db`
-2. Check if DATABASE_URL reaches the container: `docker exec decigraph-server printenv DATABASE_URL`
-3. Test direct DB connection: `docker exec decigraph-db psql -U decigraph -d decigraph -c "SELECT 1"`
-4. Check Docker network: `docker network inspect decigraph_default`
+1. Check if DB container is healthy: `docker ps | grep hipp0-db`
+2. Check if DATABASE_URL reaches the container: `docker exec hipp0-server printenv DATABASE_URL`
+3. Test direct DB connection: `docker exec hipp0-db psql -U hipp0 -d hipp0 -c "SELECT 1"`
+4. Check Docker network: `docker network inspect hipp0_default`
 
 ### "Failed to load decisions" (Dashboard)
 
@@ -91,7 +91,7 @@ cat packages/dashboard/nginx.conf
 docker ps -a | grep server
 
 # 2. Get full logs (not just tail)
-docker logs decigraph-server 2>&1 | head -50
+docker logs hipp0-server 2>&1 | head -50
 
 # 3. Test DB pool directly
 docker compose run --rm server sh -c '
@@ -121,13 +121,13 @@ process.exit(0);
 ### Listing volumes
 
 ```bash
-docker volume ls | grep decigraph
+docker volume ls | grep hipp0
 ```
 
 ### Checking which volume the DB uses
 
 ```bash
-docker inspect decigraph-db | grep -A5 "Mounts"
+docker inspect hipp0-db | grep -A5 "Mounts"
 ```
 
 ### NEVER rename the volume in docker-compose.yml
@@ -140,11 +140,11 @@ Required in `.env`:
 
 ```
 NODE_ENV=development
-DATABASE_URL=postgresql://decigraph:decigraph_dev@postgres:5432/decigraph
+DATABASE_URL=postgresql://hipp0:hipp0_dev@postgres:5432/hipp0
 DATABASE_SSL=false
 ANTHROPIC_API_KEY=sk-ant-...
 DISTILLERY_PROVIDER=anthropic
-DECIGRAPH_LLM_MODEL=claude-opus-4-6
+HIPP0_LLM_MODEL=claude-opus-4-6
 ```
 
 ## Rebuilding

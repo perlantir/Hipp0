@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 // Phase A Validation — Full Pipeline Test
-// Tests the complete DeciGraph pipeline end-to-end against a real DB.
+// Tests the complete Hipp0 pipeline end-to-end against a real DB.
 // Run: pnpm validate  (or tsx scripts/phase-a-validation.ts)
 //
 // Required env vars:
 //   DATABASE_URL — PostgreSQL connection string
 // Optional:
 //   OPENAI_API_KEY — enables embedding & semantic search tests
-//   DECIGRAPH_BASE_URL — base URL for HTTP-level smoke tests (default: http://localhost:4000)
+//   HIPP0_BASE_URL — base URL for HTTP-level smoke tests (default: http://localhost:4000)
 
 import { getPool, closePool, healthCheck, query } from '../packages/core/src/db/pool.js';
 import {
@@ -74,7 +74,7 @@ async function qOne<T = Record<string, unknown>>(sql: string, params?: unknown[]
 
 /**
  * Clean up all test data inserted during this run.
- * Relies on a test project named exactly "decigraph-phase-a-test".
+ * Relies on a test project named exactly "hipp0-phase-a-test".
  */
 async function cleanup(projectId: string | null) {
   if (!projectId) return;
@@ -103,7 +103,7 @@ async function cleanup(projectId: string | null) {
 // ── Main Validation ───────────────────────────────────────────────────────────
 
 async function validate() {
-  console.log(`\n${BOLD}${CYAN}🔍 DeciGraph Phase A Validation${RESET}\n`);
+  console.log(`\n${BOLD}${CYAN}🔍 Hipp0 Phase A Validation${RESET}\n`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:\/\/([^:]+):[^@]+@/, '://$1:***@') : '(not set)'}`);
 
@@ -219,12 +219,12 @@ async function validate() {
     section('2. Project Creation');
 
     // Remove any leftover test project from a previous run
-    await query(`DELETE FROM projects WHERE name = 'decigraph-phase-a-test'`);
+    await query(`DELETE FROM projects WHERE name = 'hipp0-phase-a-test'`);
 
     const projectRow = await qOne(
       `INSERT INTO projects (name, description, metadata)
        VALUES ($1, $2, $3) RETURNING *`,
-      ['decigraph-phase-a-test', 'Phase A validation project', '{}'],
+      ['hipp0-phase-a-test', 'Phase A validation project', '{}'],
     );
 
     if (projectRow && projectRow['id']) {

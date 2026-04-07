@@ -35,7 +35,7 @@ export interface ImpactAnalysis {
 async function callSonnet(systemPrompt: string, userMessage: string): Promise<string> {
   const endpoint = resolveLLMConfig().distillery;
   if (!endpoint) {
-    console.warn('[decigraph/impact] No LLM provider configured');
+    console.warn('[hipp0/impact] No LLM provider configured');
     return '{}';
   }
 
@@ -51,7 +51,7 @@ async function callSonnet(systemPrompt: string, userMessage: string): Promise<st
         messages: [{ role: 'user', content: userMessage }],
       });
 
-      console.log(`[decigraph/impact] LLM call: model=${SONNET_MODEL}`);
+      console.log(`[hipp0/impact] LLM call: model=${SONNET_MODEL}`);
       const block = response.content[0];
       return block?.type === 'text' ? block.text : '{}';
     }
@@ -59,7 +59,7 @@ async function callSonnet(systemPrompt: string, userMessage: string): Promise<st
     const { callLLM } = await import('../distillery/index.js');
     return await callLLM(systemPrompt, userMessage);
   } catch (err) {
-    console.error('[decigraph/impact] LLM call failed:', (err as Error).message);
+    console.error('[hipp0/impact] LLM call failed:', (err as Error).message);
     throw err;
   }
 }
@@ -141,7 +141,7 @@ export async function analyzeImpact(proposedDecision: string, projectId: string)
         }
       }
     } catch (err) {
-      console.warn(`[decigraph/impact] Check failed for "${candTitle}":`, (err as Error).message);
+      console.warn(`[hipp0/impact] Check failed for "${candTitle}":`, (err as Error).message);
     }
   }
 

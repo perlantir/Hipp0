@@ -11,7 +11,7 @@ import type {
   CreateDecisionInput,
   CreateEdgeInput,
 } from '../types.js';
-import { NotFoundError, DeciGraphError } from '../types.js';
+import { NotFoundError, Hipp0Error } from '../types.js';
 
 function buildEmbeddingText(input: CreateDecisionInput): string {
   return [

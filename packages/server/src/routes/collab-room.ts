@@ -6,7 +6,7 @@
  */
 import type { Hono } from 'hono';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { randomBytes } from 'crypto';
 import { broadcastToRoom } from '../collab-ws.js';
 

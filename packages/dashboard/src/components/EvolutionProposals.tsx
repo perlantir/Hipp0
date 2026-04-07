@@ -283,7 +283,7 @@ export function EvolutionProposals() {
           <Zap size={32} className="mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {tab === 'proposed'
-              ? 'No evolution proposals. DeciGraph analyzes decisions daily and proposes improvements when it detects underperformance.'
+              ? 'No evolution proposals. Hipp0 analyzes decisions daily and proposes improvements when it detects underperformance.'
               : `No ${tab} proposals.`}
           </p>
         </div>

@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseProject } from '@decigraph/core/db/parsers.js';
-import { NotFoundError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseProject } from '@hipp0/core/db/parsers.js';
+import { NotFoundError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
 import { generateApiKey } from '../bootstrap-keys.js';
 

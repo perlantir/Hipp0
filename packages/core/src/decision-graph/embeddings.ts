@@ -22,8 +22,8 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   const ctx = getEmbeddingClient();
 
   if (!ctx) {
-    console.warn('\n⚠️  [decigraph:embeddings] No embedding provider configured — returning zero-vector!');
-    console.warn('    Set OPENAI_API_KEY or DECIGRAPH_EMBEDDINGS_URL in .env to enable semantic search.');
+    console.warn('\n⚠️  [hipp0:embeddings] No embedding provider configured — returning zero-vector!');
+    console.warn('    Set OPENAI_API_KEY or HIPP0_EMBEDDINGS_URL in .env to enable semantic search.');
     console.warn('    Without embeddings, context compilation cannot differentiate by semantic similarity.\n');
     return new Array(EMBEDDING_DIM).fill(0) as number[];
   }
@@ -35,7 +35,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     });
     return response.data[0]?.embedding ?? (new Array(EMBEDDING_DIM).fill(0) as number[]);
   } catch (err) {
-    console.error('[decigraph:embeddings] Failed to generate embedding:', err);
+    console.error('[hipp0:embeddings] Failed to generate embedding:', err);
     throw err;
   }
 }

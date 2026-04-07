@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createDeciGraphServer } from '../src/server.js';
-import { DeciGraphClient } from '../../sdk/src/index.js';
+import { createHipp0Server } from '../src/server.js';
+import { Hipp0Client } from '../../sdk/src/index.js';
 import type {
   Decision,
   ContextPackage,
@@ -8,15 +8,15 @@ import type {
 } from '../../sdk/src/index.js';
 
 vi.mock('../../sdk/src/index.js', () => {
-  const DeciGraphClient = vi.fn();
-  DeciGraphClient.prototype.compileContext = vi.fn();
-  DeciGraphClient.prototype.createDecision = vi.fn();
-  DeciGraphClient.prototype.ask = vi.fn();
-  DeciGraphClient.prototype.searchDecisions = vi.fn();
-  DeciGraphClient.prototype.listDecisions = vi.fn();
-  DeciGraphClient.prototype.getContradictions = vi.fn();
-  DeciGraphClient.prototype.health = vi.fn();
-  return { DeciGraphClient };
+  const Hipp0Client = vi.fn();
+  Hipp0Client.prototype.compileContext = vi.fn();
+  Hipp0Client.prototype.createDecision = vi.fn();
+  Hipp0Client.prototype.ask = vi.fn();
+  Hipp0Client.prototype.searchDecisions = vi.fn();
+  Hipp0Client.prototype.listDecisions = vi.fn();
+  Hipp0Client.prototype.getContradictions = vi.fn();
+  Hipp0Client.prototype.health = vi.fn();
+  return { Hipp0Client };
 });
 
 const BASE_CONFIG = {
@@ -50,16 +50,16 @@ function makeDecision(overrides: Partial<Decision> = {}): Decision {
   };
 }
 
-let server: ReturnType<typeof createDeciGraphServer>;
-let mockClient: DeciGraphClient;
+let server: ReturnType<typeof createHipp0Server>;
+let mockClient: Hipp0Client;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  server = createDeciGraphServer(BASE_CONFIG);
-  mockClient = (DeciGraphClient as unknown as ReturnType<typeof vi.fn>).mock.results[0]?.value as DeciGraphClient;
+  server = createHipp0Server(BASE_CONFIG);
+  mockClient = (Hipp0Client as unknown as ReturnType<typeof vi.fn>).mock.results[0]?.value as Hipp0Client;
 });
 
-describe('createDeciGraphServer — tool registration', () => {
+describe('createHipp0Server — tool registration', () => {
   it('registers all 5 tools', () => {
     // The server should have registered 5 tools
     const toolNames = ['compile_context', 'add_decision', 'ask_decisions', 'search_decisions', 'get_contradictions'];

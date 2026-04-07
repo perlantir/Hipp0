@@ -7,8 +7,8 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { submitForExtraction } from '../queue/index.js';
 import type { NotificationJobData } from '../queue/index.js';
-import { getDb } from '@decigraph/core/db/index.js';
-import { callLLM } from '@decigraph/core/distillery/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { callLLM } from '@hipp0/core/distillery/index.js';
 
 // ── Decision pattern matching ──────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ export async function handleTelegramNotification(data: NotificationJobData): Pro
     }
     await bot.sendMessage(data.chat_id, text, opts);
   } catch (err) {
-    console.warn('[decigraph/telegram] Failed to send reply:', (err as Error).message);
+    console.warn('[hipp0/telegram] Failed to send reply:', (err as Error).message);
   }
 }
 
@@ -74,30 +74,30 @@ export async function handleTelegramNotification(data: NotificationJobData): Pro
  * Start the Telegram bot listener.
  */
 export function startTelegramBot(): boolean {
-  const token = process.env.DECIGRAPH_TELEGRAM_BOT_TOKEN;
+  const token = process.env.HIPP0_TELEGRAM_BOT_TOKEN;
   if (!token) {
-    console.warn('[decigraph/telegram] No DECIGRAPH_TELEGRAM_BOT_TOKEN — Telegram disabled');
+    console.warn('[hipp0/telegram] No HIPP0_TELEGRAM_BOT_TOKEN — Telegram disabled');
     return false;
   }
 
-  _projectId = process.env.DECIGRAPH_TELEGRAM_PROJECT_ID ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID ?? '';
+  _projectId = process.env.HIPP0_TELEGRAM_PROJECT_ID ?? process.env.HIPP0_DEFAULT_PROJECT_ID ?? '';
   if (!_projectId) {
-    console.error('[decigraph/telegram] DECIGRAPH_TELEGRAM_PROJECT_ID required when Telegram is enabled');
+    console.error('[hipp0/telegram] HIPP0_TELEGRAM_PROJECT_ID required when Telegram is enabled');
     return false;
   }
 
   // Parse allowed chat IDs
-  const chatIdsStr = process.env.DECIGRAPH_TELEGRAM_CHAT_IDS ?? '';
+  const chatIdsStr = process.env.HIPP0_TELEGRAM_CHAT_IDS ?? '';
   if (chatIdsStr) {
     _allowedChatIds = new Set(chatIdsStr.split(',').map((s) => s.trim()).filter(Boolean));
   }
 
-  _shouldReply = process.env.DECIGRAPH_INGEST_REPLY_ENABLED === 'true' || process.env.DECIGRAPH_TELEGRAM_REPLY === 'true';
+  _shouldReply = process.env.HIPP0_INGEST_REPLY_ENABLED === 'true' || process.env.HIPP0_TELEGRAM_REPLY === 'true';
 
   try {
     bot = new TelegramBot(token, { polling: true });
   } catch (err) {
-    console.error('[decigraph/telegram] Failed to create bot:', (err as Error).message);
+    console.error('[hipp0/telegram] Failed to create bot:', (err as Error).message);
     return false;
   }
 
@@ -105,7 +105,7 @@ export function startTelegramBot(): boolean {
     try {
       await handleMessage(msg);
     } catch (err) {
-      console.error('[decigraph/telegram] Error handling message:', (err as Error).message);
+      console.error('[hipp0/telegram] Error handling message:', (err as Error).message);
     }
   });
 
@@ -115,7 +115,7 @@ export function startTelegramBot(): boolean {
     try {
       await handleDecisionCommand(msg, match[1]);
     } catch (err) {
-      console.error('[decigraph/telegram] Error handling /decision command:', (err as Error).message);
+      console.error('[hipp0/telegram] Error handling /decision command:', (err as Error).message);
     }
   });
 
@@ -150,7 +150,7 @@ export function startTelegramBot(): boolean {
         reply_to_message_id: msg.message_id,
       });
     } catch (err) {
-      console.error('[decigraph/telegram] /ask error:', (err as Error).message);
+      console.error('[hipp0/telegram] /ask error:', (err as Error).message);
       try {
         await bot!.sendMessage(msg.chat.id, '❌ Failed to process question.', { reply_to_message_id: msg.message_id });
       } catch { /* ignore */ }
@@ -171,9 +171,9 @@ export function startTelegramBot(): boolean {
       const decCount = parseInt((decResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
       const agentCount = parseInt((agentResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
 
-      await bot!.sendMessage(msg.chat.id, `📊 DeciGraph: ${decCount} decisions, ${agentCount} agents, watcher active`);
+      await bot!.sendMessage(msg.chat.id, `📊 Hipp0: ${decCount} decisions, ${agentCount} agents, watcher active`);
     } catch (err) {
-      console.error('[decigraph/telegram] /status error:', (err as Error).message);
+      console.error('[hipp0/telegram] /status error:', (err as Error).message);
     }
   });
 
@@ -202,7 +202,7 @@ export function startTelegramBot(): boolean {
 
       await bot!.sendMessage(msg.chat.id, `📋 Recent decisions:\n\n${lines.join('\n')}`);
     } catch (err) {
-      console.error('[decigraph/telegram] /recent error:', (err as Error).message);
+      console.error('[hipp0/telegram] /recent error:', (err as Error).message);
     }
   });
 
@@ -212,7 +212,7 @@ export function startTelegramBot(): boolean {
     if (_allowedChatIds.size > 0 && !_allowedChatIds.has(chatId)) return;
 
     await bot!.sendMessage(msg.chat.id, [
-      '📖 DeciGraph Bot Commands:',
+      '📖 Hipp0 Bot Commands:',
       '',
       '/decision <text> — Record a decision',
       '/ask <question> — Ask about decisions',
@@ -225,10 +225,10 @@ export function startTelegramBot(): boolean {
   });
 
   bot.on('polling_error', (err) => {
-    console.error('[decigraph/telegram] Polling error:', err.message);
+    console.error('[hipp0/telegram] Polling error:', err.message);
   });
 
-  console.warn(`[decigraph/telegram] Bot started (chats: ${_allowedChatIds.size > 0 ? [..._allowedChatIds].join(', ') : 'all'}, reply: ${_shouldReply})`);
+  console.warn(`[hipp0/telegram] Bot started (chats: ${_allowedChatIds.size > 0 ? [..._allowedChatIds].join(', ') : 'all'}, reply: ${_shouldReply})`);
   return true;
 }
 
@@ -239,7 +239,7 @@ export function stopTelegramBot(): void {
   if (bot) {
     bot.stopPolling();
     bot = null;
-    console.warn('[decigraph/telegram] Bot stopped');
+    console.warn('[hipp0/telegram] Bot stopped');
   }
 }
 

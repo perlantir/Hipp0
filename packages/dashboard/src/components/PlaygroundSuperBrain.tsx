@@ -510,13 +510,13 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         {/* With vs Without comparison */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <div style={{ ...glassCard(), opacity: 0.7 }}>
-            <div style={{ fontWeight: 700, color: '#6b7280', marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITHOUT DECIGRAPH</div>
+            <div style={{ fontWeight: 700, color: '#6b7280', marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITHOUT HIPP0</div>
             <div style={{ color: '#9ca3af', fontSize: 13, lineHeight: 1.6 }}>
               Every agent sees all {scenario.totalDecisions} decisions or none. No agent knows what the previous one decided. Wasted tokens, repeated work, missed context.
             </div>
           </div>
           <div style={{ padding: '20px 24px', borderRadius: 12, border: `1px solid ${GREEN_BORDER}`, backgroundColor: GREEN_BG }}>
-            <div style={{ fontWeight: 700, color: GREEN, marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITH DECIGRAPH</div>
+            <div style={{ fontWeight: 700, color: GREEN, marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITH HIPP0</div>
             <div style={{ color: '#d1d5db', fontSize: 13, lineHeight: 1.6 }}>
               Each agent sees only what matters to them. Every step builds on the last. The brain coordinates the whole team automatically.
             </div>
@@ -528,7 +528,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           <div style={{ fontWeight: 700, color: '#f9fafb', marginBottom: 16, fontSize: 18 }}>
             Give your agents a shared brain
           </div>
-          <a href="https://github.com/perlantir/DeciGraph" target="_blank" rel="noopener"
+          <a href="https://github.com/perlantir/Hipp0" target="_blank" rel="noopener"
             style={{
               display: 'inline-block', padding: '12px 28px',
               backgroundColor: COPPER, color: '#fff', borderRadius: 10,
@@ -539,7 +539,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           </a>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
             {[
-              'npx @decigraph/cli init my-project',
+              'npx @hipp0/cli init my-project',
               'docker compose up -d',
             ].map((cmd, i) => (
               <button key={i} onClick={() => navigator.clipboard?.writeText(cmd)} style={{

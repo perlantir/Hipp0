@@ -5,8 +5,8 @@
  * depends_on, supersedes, related_to, blocks
  */
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, optionalString } from './validation.js';
 
 const VALID_EDGE_TYPES = ['depends_on', 'supersedes', 'related_to', 'blocks'] as const;

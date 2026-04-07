@@ -5,7 +5,7 @@
  */
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { phase3AuthMiddleware, requireRole, getUser } from '../auth/middleware.js';
 import { requireUUID } from './validation.js';
 import crypto from 'node:crypto';
@@ -33,7 +33,7 @@ function logAudit(tenantId: string, userId: string, action: string, resourceType
     `INSERT INTO audit_log_v2 (tenant_id, user_id, action, resource_type, resource_id, details, ip_address)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [tenantId, userId, action, resourceType, resourceId, JSON.stringify(details), ip],
-  ).catch((err: Error) => console.error('[decigraph:api-keys] Audit error:', err.message));
+  ).catch((err: Error) => console.error('[hipp0:api-keys] Audit error:', err.message));
 }
 
 export function registerApiKeyRoutes(app: Hono): void {

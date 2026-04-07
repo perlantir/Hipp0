@@ -1,6 +1,6 @@
-# Self-Hosting DeciGraph
+# Self-Hosting Hipp0
 
-This guide covers everything you need to run DeciGraph in production: Docker Compose deployment, manual installation, reverse proxy configuration, TLS/SSL, database backups, and monitoring.
+This guide covers everything you need to run Hipp0 in production: Docker Compose deployment, manual installation, reverse proxy configuration, TLS/SSL, database backups, and monitoring.
 
 ---
 
@@ -17,13 +17,13 @@ This guide covers everything you need to run DeciGraph in production: Docker Com
 - [Monitoring & Observability](#monitoring--observability)
 - [Scaling Considerations](#scaling-considerations)
 - [Security Hardening](#security-hardening)
-- [Upgrading DeciGraph](#upgrading-decigraph)
+- [Upgrading Hipp0](#upgrading-hipp0)
 
 ---
 
 ## Architecture Overview
 
-A production DeciGraph deployment consists of three services:
+A production Hipp0 deployment consists of three services:
 
 ```
 Internet
@@ -31,9 +31,9 @@ Internet
    ▼
 nginx (80/443)
    │
-   ├──── /api/*    ──▶  decigraph-server   (port 3100)
+   ├──── /api/*    ──▶  hipp0-server   (port 3100)
    │                        │
-   └──── /*         ──▶  decigraph-dashboard (port 3200)
+   └──── /*         ──▶  hipp0-dashboard (port 3200)
                             │
                      PostgreSQL 17 + pgvector
                           (port 5432)
@@ -50,8 +50,8 @@ This is the recommended production deployment method.
 ### Step 1: Clone and Configure
 
 ```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
+git clone https://github.com/perlantir/hipp0.git
+cd hipp0
 
 # Copy the example environment file
 cp .env.example .env
@@ -85,9 +85,9 @@ Expected output:
 
 ```
 NAME                STATUS          PORTS
-decigraph-postgres-1    Up (healthy)    5432/tcp
-decigraph-server-1      Up              0.0.0.0:3100->3100/tcp
-decigraph-dashboard-1   Up              0.0.0.0:3200->3200/tcp
+hipp0-postgres-1    Up (healthy)    5432/tcp
+hipp0-server-1      Up              0.0.0.0:3100->3100/tcp
+hipp0-dashboard-1   Up              0.0.0.0:3200->3200/tcp
 ```
 
 ### Step 4: Run Migrations
@@ -99,7 +99,7 @@ docker compose exec server pnpm db:migrate
 Or run migrations directly against the database:
 
 ```bash
-docker compose exec postgres psql -U decigraph -d decigraph \
+docker compose exec postgres psql -U hipp0 -d hipp0 \
   -f /migrations/001_initial_schema.sql \
   -f /migrations/002_audit_log.sql \
   -f /migrations/003_relevance_feedback.sql
@@ -122,13 +122,13 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: decigraph
-      POSTGRES_PASSWORD: decigraph_dev   # Override in production!
-      POSTGRES_DB: decigraph
+      POSTGRES_USER: hipp0
+      POSTGRES_PASSWORD: hipp0_dev   # Override in production!
+      POSTGRES_DB: hipp0
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U decigraph"]
+      test: ["CMD-SHELL", "pg_isready -U hipp0"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -140,7 +140,7 @@ services:
     ports:
       - "3100:3100"
     environment:
-      DATABASE_URL: postgresql://decigraph:decigraph_dev@postgres:5432/decigraph
+      DATABASE_URL: postgresql://hipp0:hipp0_dev@postgres:5432/hipp0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     depends_on:
@@ -177,7 +177,7 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      DECIGRAPH_API_KEY: ${DECIGRAPH_API_KEY}
+      HIPP0_API_KEY: ${HIPP0_API_KEY}
     # Remove public port binding — nginx handles it
     ports: []
 
@@ -241,19 +241,19 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ```bash
 # Create user and database
 sudo -u postgres psql <<EOF
-CREATE USER decigraph WITH PASSWORD 'your_strong_password';
-CREATE DATABASE decigraph OWNER decigraph;
-\c decigraph
+CREATE USER hipp0 WITH PASSWORD 'your_strong_password';
+CREATE DATABASE hipp0 OWNER hipp0;
+\c hipp0
 CREATE EXTENSION IF NOT EXISTS vector;
-GRANT ALL PRIVILEGES ON DATABASE decigraph TO decigraph;
+GRANT ALL PRIVILEGES ON DATABASE hipp0 TO hipp0;
 EOF
 ```
 
 ### Install Dependencies and Build
 
 ```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
+git clone https://github.com/perlantir/hipp0.git
+cd hipp0
 
 # Install all workspace dependencies
 pnpm install
@@ -265,13 +265,13 @@ pnpm build
 ### Run Migrations
 
 ```bash
-# Using the DeciGraph CLI
-DECIGRAPH_API_URL=http://localhost:3100 pnpm --filter @decigraph/server db:migrate
+# Using the Hipp0 CLI
+HIPP0_API_URL=http://localhost:3100 pnpm --filter @hipp0/server db:migrate
 
 # Or apply SQL files directly
-psql -U decigraph -d decigraph -f supabase/migrations/001_initial_schema.sql
-psql -U decigraph -d decigraph -f supabase/migrations/002_audit_log.sql
-psql -U decigraph -d decigraph -f supabase/migrations/003_relevance_feedback.sql
+psql -U hipp0 -d hipp0 -f supabase/migrations/001_initial_schema.sql
+psql -U hipp0 -d hipp0 -f supabase/migrations/002_audit_log.sql
+psql -U hipp0 -d hipp0 -f supabase/migrations/003_relevance_feedback.sql
 ```
 
 ### Start the Server
@@ -286,49 +286,49 @@ NODE_ENV=production node packages/server/dist/index.js
 
 ### Systemd Service
 
-Create `/etc/systemd/system/decigraph-server.service`:
+Create `/etc/systemd/system/hipp0-server.service`:
 
 ```ini
 [Unit]
-Description=DeciGraph Decision Memory Server
+Description=Hipp0 Decision Memory Server
 After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
 Type=simple
-User=decigraph
-WorkingDirectory=/opt/decigraph
-EnvironmentFile=/opt/decigraph/.env
+User=hipp0
+WorkingDirectory=/opt/hipp0
+EnvironmentFile=/opt/hipp0/.env
 ExecStart=/usr/bin/node packages/server/dist/index.js
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=decigraph-server
+SyslogIdentifier=hipp0-server
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/decigraph
+ReadWritePaths=/opt/hipp0
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Create `/etc/systemd/system/decigraph-dashboard.service`:
+Create `/etc/systemd/system/hipp0-dashboard.service`:
 
 ```ini
 [Unit]
-Description=DeciGraph Dashboard
-After=decigraph-server.service
-Requires=decigraph-server.service
+Description=Hipp0 Dashboard
+After=hipp0-server.service
+Requires=hipp0-server.service
 
 [Service]
 Type=simple
-User=decigraph
-WorkingDirectory=/opt/decigraph
-EnvironmentFile=/opt/decigraph/.env
+User=hipp0
+WorkingDirectory=/opt/hipp0
+EnvironmentFile=/opt/hipp0/.env
 ExecStart=/usr/bin/node packages/dashboard/dist/server.js
 Restart=on-failure
 RestartSec=5
@@ -343,9 +343,9 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable decigraph-server decigraph-dashboard
-sudo systemctl start decigraph-server decigraph-dashboard
-sudo systemctl status decigraph-server
+sudo systemctl enable hipp0-server hipp0-dashboard
+sudo systemctl start hipp0-server hipp0-dashboard
+sudo systemctl status hipp0-server
 ```
 
 ---
@@ -358,7 +358,7 @@ Copy `.env.example` to `.env` and configure the following variables:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://decigraph:your_password@localhost:5432/decigraph
+DATABASE_URL=postgresql://hipp0:your_password@localhost:5432/hipp0
 DATABASE_POOL_MIN=2
 DATABASE_POOL_MAX=10
 
@@ -373,10 +373,10 @@ HOST=0.0.0.0
 NODE_ENV=production
 
 # Security
-DECIGRAPH_API_KEY=<random 64-char hex string>
+HIPP0_API_KEY=<random 64-char hex string>
 ```
 
-Generate a strong `DECIGRAPH_API_KEY`:
+Generate a strong `HIPP0_API_KEY`:
 
 ```bash
 openssl rand -hex 64
@@ -416,7 +416,7 @@ OPENAI_DISTILLERY_MODEL=gpt-4o-mini
 
 ## LLM Provider Configuration
 
-DeciGraph makes two types of optional LLM calls internally:
+Hipp0 makes two types of optional LLM calls internally:
 
 | Feature | What it does | Without a key |
 |---------|-------------|---------------|
@@ -463,84 +463,84 @@ Embeddings via OpenAI, distillery via Anthropic Claude.
 
 **Ollama (local, free, private)**
 ```dotenv
-DECIGRAPH_EMBEDDINGS_URL=http://localhost:11434/v1
-DECIGRAPH_EMBEDDINGS_KEY=ollama
-DECIGRAPH_EMBEDDINGS_MODEL=nomic-embed-text
-DECIGRAPH_LLM_URL=http://localhost:11434/v1
-DECIGRAPH_LLM_KEY=ollama
-DECIGRAPH_LLM_MODEL=llama3
+HIPP0_EMBEDDINGS_URL=http://localhost:11434/v1
+HIPP0_EMBEDDINGS_KEY=ollama
+HIPP0_EMBEDDINGS_MODEL=nomic-embed-text
+HIPP0_LLM_URL=http://localhost:11434/v1
+HIPP0_LLM_KEY=ollama
+HIPP0_LLM_MODEL=llama3
 ```
 Requires Ollama running locally with the models pulled.
 
 **Together AI**
 ```dotenv
-DECIGRAPH_EMBEDDINGS_URL=https://api.together.xyz/v1
-DECIGRAPH_EMBEDDINGS_KEY=your-together-key
-DECIGRAPH_EMBEDDINGS_MODEL=togethercomputer/m2-bert-80M-8k-retrieval
-DECIGRAPH_LLM_URL=https://api.together.xyz/v1
-DECIGRAPH_LLM_KEY=your-together-key
-DECIGRAPH_LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
+HIPP0_EMBEDDINGS_URL=https://api.together.xyz/v1
+HIPP0_EMBEDDINGS_KEY=your-together-key
+HIPP0_EMBEDDINGS_MODEL=togethercomputer/m2-bert-80M-8k-retrieval
+HIPP0_LLM_URL=https://api.together.xyz/v1
+HIPP0_LLM_KEY=your-together-key
+HIPP0_LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
 ```
 
 **Groq (fast inference)**
 ```dotenv
-DECIGRAPH_LLM_URL=https://api.groq.com/openai/v1
-DECIGRAPH_LLM_KEY=gsk_your-groq-key
-DECIGRAPH_LLM_MODEL=llama-3.3-70b-versatile
+HIPP0_LLM_URL=https://api.groq.com/openai/v1
+HIPP0_LLM_KEY=gsk_your-groq-key
+HIPP0_LLM_MODEL=llama-3.3-70b-versatile
 ```
 Note: Groq does not offer embeddings. Use with a separate embeddings provider or rely on text search.
 
 **Azure OpenAI**
 ```dotenv
-DECIGRAPH_EMBEDDINGS_URL=https://your-resource.openai.azure.com/openai/deployments/your-embedding-deployment
-DECIGRAPH_EMBEDDINGS_KEY=your-azure-key
-DECIGRAPH_EMBEDDINGS_MODEL=text-embedding-3-small
-DECIGRAPH_LLM_URL=https://your-resource.openai.azure.com/openai/deployments/your-chat-deployment
-DECIGRAPH_LLM_KEY=your-azure-key
-DECIGRAPH_LLM_MODEL=gpt-4o-mini
+HIPP0_EMBEDDINGS_URL=https://your-resource.openai.azure.com/openai/deployments/your-embedding-deployment
+HIPP0_EMBEDDINGS_KEY=your-azure-key
+HIPP0_EMBEDDINGS_MODEL=text-embedding-3-small
+HIPP0_LLM_URL=https://your-resource.openai.azure.com/openai/deployments/your-chat-deployment
+HIPP0_LLM_KEY=your-azure-key
+HIPP0_LLM_MODEL=gpt-4o-mini
 ```
 
 **LiteLLM Proxy**
 ```dotenv
-DECIGRAPH_EMBEDDINGS_URL=http://localhost:4000/v1
-DECIGRAPH_EMBEDDINGS_KEY=your-litellm-key
-DECIGRAPH_EMBEDDINGS_MODEL=text-embedding-3-small
-DECIGRAPH_LLM_URL=http://localhost:4000/v1
-DECIGRAPH_LLM_KEY=your-litellm-key
-DECIGRAPH_LLM_MODEL=claude-haiku-4-5-20251001
+HIPP0_EMBEDDINGS_URL=http://localhost:4000/v1
+HIPP0_EMBEDDINGS_KEY=your-litellm-key
+HIPP0_EMBEDDINGS_MODEL=text-embedding-3-small
+HIPP0_LLM_URL=http://localhost:4000/v1
+HIPP0_LLM_KEY=your-litellm-key
+HIPP0_LLM_MODEL=claude-haiku-4-5-20251001
 ```
 
 ### Verifying Your Configuration
 
-After starting DeciGraph, check the logs:
+After starting Hipp0, check the logs:
 ```bash
-docker compose logs server | grep decigraph
+docker compose logs server | grep hipp0
 ```
 
 You should see:
 ```
-[decigraph] Embeddings: openai/text-embedding-3-small via openrouter
-[decigraph] Distillery: anthropic/claude-haiku-4-5-20251001 via openrouter
+[hipp0] Embeddings: openai/text-embedding-3-small via openrouter
+[hipp0] Distillery: anthropic/claude-haiku-4-5-20251001 via openrouter
 ```
 
 Or if no keys are configured:
 ```
-[decigraph] Embeddings: disabled (text search fallback)
-[decigraph] Distillery: disabled (manual recording only)
+[hipp0] Embeddings: disabled (text search fallback)
+[hipp0] Distillery: disabled (manual recording only)
 ```
 
 ### Priority Order
 
-If multiple keys are set, DeciGraph uses this priority:
+If multiple keys are set, Hipp0 uses this priority:
 
 **Embeddings:**
-1. `DECIGRAPH_EMBEDDINGS_URL` + `DECIGRAPH_EMBEDDINGS_KEY` (explicit override)
+1. `HIPP0_EMBEDDINGS_URL` + `HIPP0_EMBEDDINGS_KEY` (explicit override)
 2. `OPENROUTER_API_KEY`
 3. `OPENAI_API_KEY`
 4. Text search fallback
 
 **Distillery:**
-1. `DECIGRAPH_LLM_URL` + `DECIGRAPH_LLM_KEY` (explicit override)
+1. `HIPP0_LLM_URL` + `HIPP0_LLM_KEY` (explicit override)
 2. `OPENROUTER_API_KEY`
 3. `ANTHROPIC_API_KEY` (direct Anthropic SDK)
 4. `OPENAI_API_KEY`
@@ -558,22 +558,22 @@ sudo apt install nginx
 
 ### Configuration
 
-Create `/etc/nginx/sites-available/decigraph`:
+Create `/etc/nginx/sites-available/hipp0`:
 
 ```nginx
-upstream decigraph_api {
+upstream hipp0_api {
     server 127.0.0.1:3100;
     keepalive 32;
 }
 
-upstream decigraph_dashboard {
+upstream hipp0_dashboard {
     server 127.0.0.1:3200;
     keepalive 16;
 }
 
 server {
     listen 80;
-    server_name decigraph.yourdomain.com;
+    server_name hipp0.yourdomain.com;
 
     # Redirect all HTTP to HTTPS
     return 301 https://$host$request_uri;
@@ -581,11 +581,11 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name decigraph.yourdomain.com;
+    server_name hipp0.yourdomain.com;
 
     # SSL certificates (configured by Certbot)
-    ssl_certificate /etc/letsencrypt/live/decigraph.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/decigraph.yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/hipp0.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hipp0.yourdomain.com/privkey.pem;
     ssl_session_timeout 1d;
     ssl_session_cache shared:SSL:50m;
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -600,7 +600,7 @@ server {
 
     # API routes
     location /api/ {
-        proxy_pass http://decigraph_api;
+        proxy_pass http://hipp0_api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -619,7 +619,7 @@ server {
 
     # Health endpoint (bypass auth for load balancers)
     location /health {
-        proxy_pass http://decigraph_api;
+        proxy_pass http://hipp0_api;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         access_log off;
@@ -627,7 +627,7 @@ server {
 
     # Dashboard
     location / {
-        proxy_pass http://decigraph_dashboard;
+        proxy_pass http://hipp0_dashboard;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -642,7 +642,7 @@ server {
 Enable and test:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/decigraph /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/hipp0 /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -659,7 +659,7 @@ server {
     # ... (same SSL config)
 
     location / {
-        proxy_pass http://decigraph_api;
+        proxy_pass http://hipp0_api;
         # ... (same proxy settings)
     }
 }
@@ -671,7 +671,7 @@ server {
     # ... (same SSL config)
 
     location / {
-        proxy_pass http://decigraph_dashboard;
+        proxy_pass http://hipp0_dashboard;
         # ... (same proxy settings)
     }
 }
@@ -692,7 +692,7 @@ sudo apt install certbot python3-certbot-nginx
 ### Obtain Certificate
 
 ```bash
-sudo certbot --nginx -d decigraph.yourdomain.com
+sudo certbot --nginx -d hipp0.yourdomain.com
 ```
 
 Certbot automatically modifies your nginx config to add the SSL certificate paths and enables auto-renewal.
@@ -727,13 +727,13 @@ sudo certbot certonly \
 **Docker Compose:**
 
 ```bash
-docker compose exec postgres psql -U decigraph -d decigraph
+docker compose exec postgres psql -U hipp0 -d hipp0
 ```
 
 **Manual install:**
 
 ```bash
-psql -U decigraph -h localhost -d decigraph
+psql -U hipp0 -h localhost -d hipp0
 ```
 
 ### Useful Queries
@@ -795,15 +795,15 @@ SHOW max_connections;
 
 ### Automated pg_dump Backup
 
-Create `/opt/decigraph/scripts/backup.sh`:
+Create `/opt/hipp0/scripts/backup.sh`:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
-BACKUP_DIR="/var/backups/decigraph"
+BACKUP_DIR="/var/backups/hipp0"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/decigraph_${DATE}.dump"
+BACKUP_FILE="${BACKUP_DIR}/hipp0_${DATE}.dump"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -814,12 +814,12 @@ pg_dump \
   --no-acl \
   --no-owner \
   --file="$BACKUP_FILE" \
-  "postgresql://decigraph:${POSTGRES_PASSWORD}@localhost:5432/decigraph"
+  "postgresql://hipp0:${POSTGRES_PASSWORD}@localhost:5432/hipp0"
 
 echo "Backup written to $BACKUP_FILE"
 
 # Delete backups older than 30 days
-find "$BACKUP_DIR" -name "decigraph_*.dump" -mtime +30 -delete
+find "$BACKUP_DIR" -name "hipp0_*.dump" -mtime +30 -delete
 
 echo "Backup complete: $(ls -lh $BACKUP_FILE | awk '{print $5}')"
 ```
@@ -827,34 +827,34 @@ echo "Backup complete: $(ls -lh $BACKUP_FILE | awk '{print $5}')"
 Make executable and schedule:
 
 ```bash
-chmod +x /opt/decigraph/scripts/backup.sh
+chmod +x /opt/hipp0/scripts/backup.sh
 
 # Run daily at 2am
-echo "0 2 * * * decigraph /opt/decigraph/scripts/backup.sh >> /var/log/decigraph-backup.log 2>&1" \
-  | sudo tee -a /etc/cron.d/decigraph-backup
+echo "0 2 * * * hipp0 /opt/hipp0/scripts/backup.sh >> /var/log/hipp0-backup.log 2>&1" \
+  | sudo tee -a /etc/cron.d/hipp0-backup
 ```
 
 ### Restoring from Backup
 
 ```bash
 # Stop the server
-sudo systemctl stop decigraph-server
+sudo systemctl stop hipp0-server
 
 # Drop and recreate the database
-sudo -u postgres psql -c "DROP DATABASE decigraph;"
-sudo -u postgres psql -c "CREATE DATABASE decigraph OWNER decigraph;"
-sudo -u postgres psql -d decigraph -c "CREATE EXTENSION IF NOT EXISTS vector;"
+sudo -u postgres psql -c "DROP DATABASE hipp0;"
+sudo -u postgres psql -c "CREATE DATABASE hipp0 OWNER hipp0;"
+sudo -u postgres psql -d hipp0 -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 # Restore
 pg_restore \
   --format=custom \
   --no-acl \
   --no-owner \
-  --dbname="postgresql://decigraph:your_password@localhost:5432/decigraph" \
-  /var/backups/decigraph/decigraph_20260101_020000.dump
+  --dbname="postgresql://hipp0:your_password@localhost:5432/hipp0" \
+  /var/backups/hipp0/hipp0_20260101_020000.dump
 
 # Restart the server
-sudo systemctl start decigraph-server
+sudo systemctl start hipp0-server
 ```
 
 ### Docker Compose Backup
@@ -862,11 +862,11 @@ sudo systemctl start decigraph-server
 ```bash
 # Backup
 docker compose exec postgres pg_dump \
-  -U decigraph -Fc decigraph > decigraph_backup_$(date +%Y%m%d).dump
+  -U hipp0 -Fc hipp0 > hipp0_backup_$(date +%Y%m%d).dump
 
 # Restore
 docker compose exec -T postgres pg_restore \
-  -U decigraph -d decigraph < decigraph_backup_20260101.dump
+  -U hipp0 -d hipp0 < hipp0_backup_20260101.dump
 ```
 
 ### Continuous Archiving with WAL-G (Advanced)
@@ -901,7 +901,7 @@ Schedule base backups:
 
 ### Health Check Endpoint
 
-DeciGraph exposes a health endpoint at `/health`:
+Hipp0 exposes a health endpoint at `/health`:
 
 ```bash
 curl http://localhost:3100/health
@@ -920,7 +920,7 @@ Use this for load balancer health checks and uptime monitoring.
 
 ### Prometheus Metrics (if enabled)
 
-If your DeciGraph build includes the metrics middleware, metrics are available at `/metrics`:
+If your Hipp0 build includes the metrics middleware, metrics are available at `/metrics`:
 
 ```bash
 curl http://localhost:3100/metrics
@@ -930,7 +930,7 @@ Example Prometheus scrape config:
 
 ```yaml
 scrape_configs:
-  - job_name: decigraph
+  - job_name: hipp0
     static_configs:
       - targets: ['localhost:3100']
     metrics_path: /metrics
@@ -939,7 +939,7 @@ scrape_configs:
 
 ### Structured Logging
 
-Set `LOG_LEVEL=info` (or `debug` for verbose output). DeciGraph logs structured JSON to stdout:
+Set `LOG_LEVEL=info` (or `debug` for verbose output). Hipp0 logs structured JSON to stdout:
 
 ```json
 {
@@ -965,7 +965,7 @@ services:
       driver: loki
       options:
         loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-labels: "app=decigraph-server"
+        loki-labels: "app=hipp0-server"
 ```
 
 **With systemd and journald → Grafana:**
@@ -976,11 +976,11 @@ sudo apt install promtail
 
 # Configure /etc/promtail/config.yml
 scrape_configs:
-  - job_name: decigraph
+  - job_name: hipp0
     journal:
       labels:
-        job: decigraph-server
-      matches: _SYSTEMD_UNIT=decigraph-server.service
+        job: hipp0-server
+      matches: _SYSTEMD_UNIT=hipp0-server.service
 ```
 
 ### Alerting Rules
@@ -1001,7 +1001,7 @@ Example uptime check (cron-based):
 #!/bin/bash
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3100/health)
 if [ "$STATUS" != "200" ]; then
-  echo "DeciGraph server unhealthy (HTTP $STATUS)" | mail -s "ALERT: DeciGraph down" ops@yourdomain.com
+  echo "Hipp0 server unhealthy (HTTP $STATUS)" | mail -s "ALERT: Hipp0 down" ops@yourdomain.com
 fi
 ```
 
@@ -1011,10 +1011,10 @@ fi
 
 ### Horizontal Server Scaling
 
-The DeciGraph server is stateless — all state lives in PostgreSQL. You can run multiple server instances behind a load balancer:
+The Hipp0 server is stateless — all state lives in PostgreSQL. You can run multiple server instances behind a load balancer:
 
 ```nginx
-upstream decigraph_api {
+upstream hipp0_api {
     least_conn;
     server 10.0.1.10:3100;
     server 10.0.1.11:3100;
@@ -1023,7 +1023,7 @@ upstream decigraph_api {
 }
 ```
 
-Ensure all instances share the same `DATABASE_URL`, `OPENAI_API_KEY`, and `DECIGRAPH_API_KEY`.
+Ensure all instances share the same `DATABASE_URL`, `OPENAI_API_KEY`, and `HIPP0_API_KEY`.
 
 ### PostgreSQL Read Replicas
 
@@ -1031,15 +1031,15 @@ For read-heavy workloads (context compilation is read-heavy), configure a replic
 
 ```bash
 # Primary
-DATABASE_URL=postgresql://decigraph:password@primary:5432/decigraph
+DATABASE_URL=postgresql://hipp0:password@primary:5432/hipp0
 
 # Read replica for compile_context and search
-DATABASE_READ_URL=postgresql://decigraph:password@replica:5432/decigraph
+DATABASE_READ_URL=postgresql://hipp0:password@replica:5432/hipp0
 ```
 
 ### Managed Database Services
 
-DeciGraph works with any PostgreSQL 17 service that supports pgvector:
+Hipp0 works with any PostgreSQL 17 service that supports pgvector:
 
 | Service | pgvector support | Notes |
 |---------|-----------------|-------|
@@ -1064,7 +1064,7 @@ REDIS_URL=redis://redis:6379
 
 ### API Key Authentication
 
-Enable API key authentication by setting `DECIGRAPH_API_KEY` in your environment. Create keys via the API:
+Enable API key authentication by setting `HIPP0_API_KEY` in your environment. Create keys via the API:
 
 ```bash
 curl -X POST http://localhost:3100/api/keys \
@@ -1097,17 +1097,17 @@ Add rate limiting to prevent abuse:
 
 ```nginx
 # In the http block
-limit_req_zone $binary_remote_addr zone=decigraph_api:10m rate=30r/m;
-limit_req_zone $binary_remote_addr zone=decigraph_compile:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=hipp0_api:10m rate=30r/m;
+limit_req_zone $binary_remote_addr zone=hipp0_compile:10m rate=10r/m;
 
 # In the server block
 location /api/ {
-    limit_req zone=decigraph_api burst=20 nodelay;
+    limit_req zone=hipp0_api burst=20 nodelay;
     # ...
 }
 
 location /api/projects/*/compile {
-    limit_req zone=decigraph_compile burst=5 nodelay;
+    limit_req zone=hipp0_compile burst=5 nodelay;
     # ...
 }
 ```
@@ -1115,7 +1115,7 @@ location /api/projects/*/compile {
 ### Firewall Rules
 
 ```bash
-# Allow only nginx to access DeciGraph ports
+# Allow only nginx to access Hipp0 ports
 sudo ufw allow from 127.0.0.1 to any port 3100
 sudo ufw allow from 127.0.0.1 to any port 3200
 sudo ufw deny 3100
@@ -1134,21 +1134,21 @@ Never commit `.env` to version control. For production, use a secrets manager:
 
 ```bash
 aws secretsmanager get-secret-value \
-  --secret-id decigraph/production \
+  --secret-id hipp0/production \
   --query SecretString \
-  --output text | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /opt/decigraph/.env
+  --output text | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /opt/hipp0/.env
 ```
 
 **HashiCorp Vault:**
 
 ```bash
-vault kv get -format=json secret/decigraph/production \
-  | jq -r '.data.data | to_entries | .[] | "\(.key)=\(.value)"' > /opt/decigraph/.env
+vault kv get -format=json secret/hipp0/production \
+  | jq -r '.data.data | to_entries | .[] | "\(.key)=\(.value)"' > /opt/hipp0/.env
 ```
 
 ---
 
-## Upgrading DeciGraph
+## Upgrading Hipp0
 
 ### Docker Compose Upgrade
 
@@ -1177,14 +1177,14 @@ pnpm install
 pnpm build
 
 # Apply migrations
-psql -U decigraph -d decigraph -f supabase/migrations/$(ls supabase/migrations/ | tail -1)
+psql -U hipp0 -d hipp0 -f supabase/migrations/$(ls supabase/migrations/ | tail -1)
 
-sudo systemctl restart decigraph-server decigraph-dashboard
+sudo systemctl restart hipp0-server hipp0-dashboard
 ```
 
 ### Migration Safety
 
-DeciGraph migrations are always additive (no destructive DDL in migrations). Before upgrading:
+Hipp0 migrations are always additive (no destructive DDL in migrations). Before upgrading:
 
 1. Take a database backup
 2. Review the migration files in `supabase/migrations/`

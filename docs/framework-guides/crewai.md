@@ -1,6 +1,6 @@
 # CrewAI Integration Guide
 
-The `decigraph-crewai` package gives CrewAI agents persistent, shared decision memory backed by DeciGraph. Task outputs are automatically extracted by the distillery pipeline, so every agent in the crew benefits from decisions made by every other agent — across sessions.
+The `hipp0-crewai` package gives CrewAI agents persistent, shared decision memory backed by Hipp0. Task outputs are automatically extracted by the distillery pipeline, so every agent in the crew benefits from decisions made by every other agent — across sessions.
 
 ---
 
@@ -9,12 +9,12 @@ The `decigraph-crewai` package gives CrewAI agents persistent, shared decision m
 - [How It Works](#how-it-works)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [DeciGraphCrewMemory](#decigraphcrewmemory)
+- [Hipp0CrewMemory](#hipp0crewmemory)
   - [Constructor Parameters](#constructor-parameters)
   - [The `save()` Method](#the-save-method)
   - [The `search()` Method](#the-search-method)
   - [Batched Distillation](#batched-distillation)
-- [DeciGraphCrewCallback](#decigraphcrewcallback)
+- [Hipp0CrewCallback](#hipp0crewcallback)
   - [Constructor Parameters](#constructor-parameters-1)
   - [Task Lifecycle Hooks](#task-lifecycle-hooks)
   - [Crew Lifecycle Hooks](#crew-lifecycle-hooks)
@@ -33,74 +33,74 @@ The `decigraph-crewai` package gives CrewAI agents persistent, shared decision m
 CrewAI Task completes
        │
        ▼
-DeciGraphCrewCallback.on_task_complete(task, output)
+Hipp0CrewCallback.on_task_complete(task, output)
        │
-       ├──► DeciGraph Distillery  ──► Extracts decisions from task output
+       ├──► Hipp0 Distillery  ──► Extracts decisions from task output
        │                     ──► Stores in PostgreSQL
        │
        ▼
 Next Task: agent.search("What did we decide about X?")
        │
        ▼
-DeciGraphCrewMemory.search(query)
+Hipp0CrewMemory.search(query)
        │
        ▼
-DeciGraph compile_context  ──► 5-signal scoring ──► Ranked decisions
+Hipp0 compile_context  ──► 5-signal scoring ──► Ranked decisions
        │
        ▼
 Returns [(context_blob, score=1.0), (decision1, score), ...]
 ```
 
-Each agent in your crew gets memory scoped to its role. When agent B asks "what architectural decisions have been made?", DeciGraph returns decisions sorted by relevance to B's role and task — including decisions made by agent A in a previous session.
+Each agent in your crew gets memory scoped to its role. When agent B asks "what architectural decisions have been made?", Hipp0 returns decisions sorted by relevance to B's role and task — including decisions made by agent A in a previous session.
 
 ---
 
 ## Installation
 
 ```bash
-pip install decigraph-sdk decigraph-crewai crewai
+pip install hipp0-sdk hipp0-crewai crewai
 ```
 
 Or install from the repository:
 
 ```bash
-cd /path/to/decigraph/integrations/crewai
+cd /path/to/hipp0/integrations/crewai
 pip install -e .
 ```
 
 **Supported versions:**
 - Python 3.10+
 - CrewAI 0.28+
-- decigraph-sdk 0.1+
+- hipp0-sdk 0.1+
 
 ---
 
 ## Quick Start
 
 ```python
-from decigraph_sdk import DeciGraphClient
-from decigraph_crewai import DeciGraphCrewMemory, DeciGraphCrewCallback
+from hipp0_sdk import Hipp0Client
+from hipp0_crewai import Hipp0CrewMemory, Hipp0CrewCallback
 from crewai import Agent, Task, Crew, Process
 
-# 1. Initialize DeciGraph
-client = DeciGraphClient(base_url="http://localhost:3100")
+# 1. Initialize Hipp0
+client = Hipp0Client(base_url="http://localhost:3100")
 PROJECT_ID = "proj_01hx..."
 
 # 2. Create memory backend for each agent
-researcher_memory = DeciGraphCrewMemory(
+researcher_memory = Hipp0CrewMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="researcher",
 )
 
-writer_memory = DeciGraphCrewMemory(
+writer_memory = Hipp0CrewMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="writer",
 )
 
 # 3. Create callback for automatic extraction
-callback = DeciGraphCrewCallback(
+callback = Hipp0CrewCallback(
     client=client,
     project_id=PROJECT_ID,
     agent_name="crew",
@@ -151,21 +151,21 @@ crew = Crew(
 
 result = crew.kickoff()
 
-# 8. Finalize — creates a session summary in DeciGraph
+# 8. Finalize — creates a session summary in Hipp0
 callback.on_crew_complete(crew_output=result, crew=crew)
 ```
 
 ---
 
-## DeciGraphCrewMemory
+## Hipp0CrewMemory
 
-`DeciGraphCrewMemory` implements the CrewAI memory backend interface. Attach it to an agent to give that agent access to DeciGraph-backed recall.
+`Hipp0CrewMemory` implements the CrewAI memory backend interface. Attach it to an agent to give that agent access to Hipp0-backed recall.
 
 ### Constructor Parameters
 
 ```python
-DeciGraphCrewMemory(
-    client: DeciGraphClient,
+Hipp0CrewMemory(
+    client: Hipp0Client,
     project_id: str,
     agent_name: str,
     default_task_description: str = "Perform the current crew task.",
@@ -176,8 +176,8 @@ DeciGraphCrewMemory(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `client` | `DeciGraphClient` | required | Initialized DeciGraph client |
-| `project_id` | `str` | required | DeciGraph project ID |
+| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
+| `project_id` | `str` | required | Hipp0 project ID |
 | `agent_name` | `str` | required | Agent name for context scoping and attribution |
 | `default_task_description` | `str` | `"Perform the current crew task."` | Fallback task description for `search()` calls |
 | `max_tokens` | `int \| None` | `None` | Token budget for context compilation |
@@ -195,12 +195,12 @@ memory.save(
 )
 ```
 
-When `distill_on_save=True` (default), the text is immediately sent to the DeciGraph distillery. The distillery uses an LLM to extract structured decisions, which are stored with embeddings in the decision graph.
+When `distill_on_save=True` (default), the text is immediately sent to the Hipp0 distillery. The distillery uses an LLM to extract structured decisions, which are stored with embeddings in the decision graph.
 
 When `distill_on_save=False`, saves are buffered and must be flushed manually:
 
 ```python
-memory = DeciGraphCrewMemory(client=client, project_id=PROJECT_ID, agent_name="researcher", distill_on_save=False)
+memory = Hipp0CrewMemory(client=client, project_id=PROJECT_ID, agent_name="researcher", distill_on_save=False)
 
 # ... crew runs ...
 
@@ -233,7 +233,7 @@ The first element is always the full compiled context text. Subsequent elements 
 For long-running crews with many tasks, batching reduces API calls:
 
 ```python
-memory = DeciGraphCrewMemory(
+memory = Hipp0CrewMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="researcher",
@@ -252,21 +252,21 @@ memory.flush()
 ### Resetting the Buffer
 
 ```python
-# Discard buffered (not-yet-distilled) content without sending to DeciGraph
+# Discard buffered (not-yet-distilled) content without sending to Hipp0
 memory.reset()
 ```
 
 ---
 
-## DeciGraphCrewCallback
+## Hipp0CrewCallback
 
-`DeciGraphCrewCallback` hooks into CrewAI's callback system to automatically capture task outputs and create session summaries.
+`Hipp0CrewCallback` hooks into CrewAI's callback system to automatically capture task outputs and create session summaries.
 
 ### Constructor Parameters
 
 ```python
-DeciGraphCrewCallback(
-    client: DeciGraphClient,
+Hipp0CrewCallback(
+    client: Hipp0Client,
     project_id: str,
     agent_name: str = "crew",
     create_session_on_crew_end: bool = True,
@@ -275,8 +275,8 @@ DeciGraphCrewCallback(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `client` | `DeciGraphClient` | required | Initialized DeciGraph client |
-| `project_id` | `str` | required | DeciGraph project ID |
+| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
+| `project_id` | `str` | required | Hipp0 project ID |
 | `agent_name` | `str` | `"crew"` | Default agent name for session summaries |
 | `create_session_on_crew_end` | `bool` | `True` | Create a `SessionSummary` when `on_crew_complete()` is called |
 
@@ -298,7 +298,7 @@ CrewAI passes the `Task` object and its `TaskOutput`. The callback:
 
 1. Extracts the output text (handles `str`, `TaskOutput.raw`, `TaskOutput.result`, etc.)
 2. Formats it as `"Task: {description}\n\nOutput:\n{text}"`
-3. Sends it to the DeciGraph distillery
+3. Sends it to the Hipp0 distillery
 4. Accumulates extracted decision IDs for the final session summary
 
 #### `on_step(step)`
@@ -306,7 +306,7 @@ CrewAI passes the `Task` object and its `TaskOutput`. The callback:
 Pass as `step_callback` to hook into individual agent steps. The default implementation is a no-op — override or subclass to capture intermediate reasoning:
 
 ```python
-class MyCallback(DeciGraphCrewCallback):
+class MyCallback(Hipp0CrewCallback):
     def on_step(self, step):
         print(f"Agent step: {step}")
         super().on_step(step)
@@ -328,14 +328,14 @@ callback.on_crew_complete(crew_output=result, crew=crew)
 
 This:
 1. Builds a session summary including task count and the final output preview
-2. Creates a `SessionSummary` in DeciGraph linking all decisions extracted during the run
+2. Creates a `SessionSummary` in Hipp0 linking all decisions extracted during the run
 3. Resets the callback's internal state for potential re-use
 
 If `create_session_on_crew_end=False`, only the reset happens.
 
 #### Using the Callback as a Callable
 
-`DeciGraphCrewCallback` is directly callable, so it can be passed to CrewAI's `task_callback` without `.on_task_complete`:
+`Hipp0CrewCallback` is directly callable, so it can be passed to CrewAI's `task_callback` without `.on_task_complete`:
 
 ```python
 crew = Crew(
@@ -351,34 +351,34 @@ A full end-to-end example with persistent memory across runs:
 
 ```python
 import os
-from decigraph_sdk import DeciGraphClient
-from decigraph_crewai import DeciGraphCrewMemory, DeciGraphCrewCallback
+from hipp0_sdk import Hipp0Client
+from hipp0_crewai import Hipp0CrewMemory, Hipp0CrewCallback
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from langchain_openai import ChatOpenAI
 
 # Initialize
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 llm = ChatOpenAI(model="gpt-4o", temperature=0.1)
 
 # Create memories (one per agent role)
 memories = {
-    "architect": DeciGraphCrewMemory(
+    "architect": Hipp0CrewMemory(
         client=client,
         project_id=PROJECT_ID,
         agent_name="architect",
         default_task_description="Design the system architecture.",
         max_tokens=4096,
     ),
-    "security": DeciGraphCrewMemory(
+    "security": Hipp0CrewMemory(
         client=client,
         project_id=PROJECT_ID,
         agent_name="security",
         default_task_description="Review security implications.",
         max_tokens=4096,
     ),
-    "reviewer": DeciGraphCrewMemory(
+    "reviewer": Hipp0CrewMemory(
         client=client,
         project_id=PROJECT_ID,
         agent_name="reviewer",
@@ -388,7 +388,7 @@ memories = {
 }
 
 # Callback for automatic session capture
-callback = DeciGraphCrewCallback(
+callback = Hipp0CrewCallback(
     client=client,
     project_id=PROJECT_ID,
     agent_name="architecture-crew",
@@ -437,7 +437,7 @@ tech_reviewer._memory_handler = memories["reviewer"]
 # Tasks
 architecture_task = Task(
     description=(
-        "Design the authentication system for the DeciGraph API. "
+        "Design the authentication system for the Hipp0 API. "
         "Consider: token types (JWT vs API keys), expiry policies, "
         "refresh mechanisms, and integration with existing auth providers. "
         "Document your decisions clearly with rationale."
@@ -491,27 +491,27 @@ crew = Crew(
 print("Starting architecture review crew...")
 result = crew.kickoff()
 
-# Finalize — creates a SessionSummary in DeciGraph
+# Finalize — creates a SessionSummary in Hipp0
 callback.on_crew_complete(crew_output=result, crew=crew)
 
 print("\n=== Crew Complete ===")
 print(f"Final output:\n{result}")
-print("\nDecisions have been captured in DeciGraph and are available for future crews.")
+print("\nDecisions have been captured in Hipp0 and are available for future crews.")
 ```
 
 ---
 
 ## Multi-Agent Crew with Role-Based Context
 
-DeciGraph has 16 built-in role templates. When your agent name matches a role (e.g., `"architect"`, `"security"`, `"reviewer"`), DeciGraph automatically applies higher relevance scoring for decisions tagged with that role.
+Hipp0 has 16 built-in role templates. When your agent name matches a role (e.g., `"architect"`, `"security"`, `"reviewer"`), Hipp0 automatically applies higher relevance scoring for decisions tagged with that role.
 
 ```python
-from decigraph_sdk import DeciGraphClient
-from decigraph_crewai import DeciGraphCrewMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_crewai import Hipp0CrewMemory
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 
-# These names map to DeciGraph built-in roles — agents automatically
+# These names map to Hipp0 built-in roles — agents automatically
 # get higher relevance scores for decisions affecting their role
 ROLE_AGENTS = [
     "architect",    # architectural decisions
@@ -523,7 +523,7 @@ ROLE_AGENTS = [
 ]
 
 memories = {
-    role: DeciGraphCrewMemory(
+    role: Hipp0CrewMemory(
         client=client,
         project_id="proj_01hx...",
         agent_name=role,
@@ -547,9 +547,9 @@ curl http://localhost:3100/api/projects/proj_01hx.../agents \
 For critical decisions, bypass the distillery and record them directly with full metadata:
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 
 # Record a specific decision with full metadata
 decision = client.record_decision(
@@ -576,11 +576,11 @@ print(f"Decision recorded: {decision['id']}")
 
 ## Configuration Reference
 
-### DeciGraphClient Options
+### Hipp0Client Options
 
 ```python
-client = DeciGraphClient(
-    base_url="http://localhost:3100",  # DeciGraph API URL
+client = Hipp0Client(
+    base_url="http://localhost:3100",  # Hipp0 API URL
     api_key="nxk_...",                 # optional API key
     timeout=30,                        # request timeout in seconds
 )
@@ -591,20 +591,20 @@ client = DeciGraphClient(
 If you prefer environment-based configuration:
 
 ```bash
-export DECIGRAPH_API_URL=http://localhost:3100
-export DECIGRAPH_PROJECT_ID=proj_01hx...
-export DECIGRAPH_API_KEY=nxk_...
+export HIPP0_API_URL=http://localhost:3100
+export HIPP0_PROJECT_ID=proj_01hx...
+export HIPP0_API_KEY=nxk_...
 ```
 
 Then instantiate without arguments:
 
 ```python
 import os
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(
-    base_url=os.environ["DECIGRAPH_API_URL"],
-    api_key=os.environ.get("DECIGRAPH_API_KEY"),
+client = Hipp0Client(
+    base_url=os.environ["HIPP0_API_URL"],
+    api_key=os.environ.get("HIPP0_API_KEY"),
 )
 ```
 
@@ -612,22 +612,22 @@ client = DeciGraphClient(
 
 ## Best Practices
 
-**One memory instance per agent role.** Don't share a single `DeciGraphCrewMemory` across multiple agents — each agent should have its own instance with its own `agent_name`. This ensures context is compiled with the correct role-based weighting.
+**One memory instance per agent role.** Don't share a single `Hipp0CrewMemory` across multiple agents — each agent should have its own instance with its own `agent_name`. This ensures context is compiled with the correct role-based weighting.
 
 **Use `distill_on_save=False` for large crews.** If you have 10+ tasks producing long outputs, batching reduces API latency and cost. Call `memory.flush()` at the end.
 
-**Set `default_task_description` accurately.** This description is used when `search()` is called without an explicit task context. The more specific it is, the better DeciGraph can rank relevant context.
+**Set `default_task_description` accurately.** This description is used when `search()` is called without an explicit task context. The more specific it is, the better Hipp0 can rank relevant context.
 
-**Name agents to match DeciGraph roles.** Using `agent_name="architect"`, `"security"`, `"qa"`, etc. activates the built-in role templates and improves context relevance automatically.
+**Name agents to match Hipp0 roles.** Using `agent_name="architect"`, `"security"`, `"qa"`, etc. activates the built-in role templates and improves context relevance automatically.
 
-**Always call `on_crew_complete()`.** Without this call, no session summary is created in DeciGraph, and the crew run will not appear in the dashboard or contribute to cross-session context.
+**Always call `on_crew_complete()`.** Without this call, no session summary is created in Hipp0, and the crew run will not appear in the dashboard or contribute to cross-session context.
 
 **Check for contradictions before long runs.** If your crew is about to make architectural decisions, fetch current contradictions first:
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 contradictions = client.get_contradictions(project_id="proj_01hx...")
 if contradictions:
     print(f"Warning: {len(contradictions)} contradictions found. Resolve before running crew.")
@@ -641,7 +641,7 @@ if contradictions:
 
 ### Memory search returns empty results
 
-Ensure the DeciGraph server is running and has decisions stored:
+Ensure the Hipp0 server is running and has decisions stored:
 
 ```bash
 curl http://localhost:3100/api/projects/proj_01hx.../decisions | jq length
@@ -682,9 +682,9 @@ For CrewAI ≥ 0.41, use the custom memory API directly:
 ```python
 from crewai.memory.storage.interface import Storage
 
-class DeciGraphStorage(Storage):
-    def __init__(self, decigraph_memory):
-        self._mem = decigraph_memory
+class Hipp0Storage(Storage):
+    def __init__(self, hipp0_memory):
+        self._mem = hipp0_memory
 
     def save(self, value, metadata=None, **kwargs):
         self._mem.save(value, metadata=metadata)
@@ -699,12 +699,12 @@ agent = Agent(
 )
 ```
 
-### ImportError: decigraph_crewai not found
+### ImportError: hipp0_crewai not found
 
 Install from the repository:
 
 ```bash
-cd /path/to/decigraph/integrations/crewai
+cd /path/to/hipp0/integrations/crewai
 pip install -e .
 ```
 
@@ -712,5 +712,5 @@ Or ensure you are using the correct virtual environment:
 
 ```bash
 which python
-pip show decigraph-crewai
+pip show hipp0-crewai
 ```

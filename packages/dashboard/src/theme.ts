@@ -1,7 +1,7 @@
 /**
  * Theme context for dark/light mode toggle.
  *
- * - Persists preference in localStorage ('decigraph-theme')
+ * - Persists preference in localStorage ('hipp0-theme')
  * - Defaults to system preference (prefers-color-scheme)
  * - Sets data-theme attribute on <html> for CSS variable switching
  */
@@ -10,7 +10,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'decigraph-theme';
+const STORAGE_KEY = 'hipp0-theme';
 
 function getSystemPreference(): Theme {
   if (typeof window === 'undefined') return 'light';

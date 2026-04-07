@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
 const mockQuery = vi.fn();
-vi.mock('@decigraph/core/db/index.js', () => ({
+vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
     transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
@@ -18,13 +18,13 @@ vi.mock('@decigraph/core/db/index.js', () => ({
   closeDb: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/db/pool.js', () => ({
+vi.mock('@hipp0/core/db/pool.js', () => ({
   query: mockQuery, getPool: vi.fn(), getClient: vi.fn(), closePool: vi.fn(),
   healthCheck: vi.fn().mockResolvedValue(true),
   transaction: vi.fn().mockImplementation(async (fn: Function) => fn({ query: mockQuery })),
 }));
 
-vi.mock('@decigraph/core/db/parsers.js', () => ({
+vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseProject: vi.fn((r: Record<string, unknown>) => r),
   parseAgent: vi.fn((r: Record<string, unknown>) => ({ ...r, relevance_profile: { weights: {}, decision_depth: 2, freshness_preference: 'balanced', include_superseded: false }, role: r.role ?? 'builder' })),
   parseDecision: vi.fn((r: Record<string, unknown>) => r),
@@ -38,7 +38,7 @@ vi.mock('@decigraph/core/db/parsers.js', () => ({
   parseAuditEntry: vi.fn((r: Record<string, unknown>) => r),
 }));
 
-vi.mock('@decigraph/core/context-compiler/index.js', () => ({
+vi.mock('@hipp0/core/context-compiler/index.js', () => ({
   compileContext: vi.fn().mockResolvedValue({
     agent: { name: 'builder', role: 'builder' },
     task: 'Build auth module',

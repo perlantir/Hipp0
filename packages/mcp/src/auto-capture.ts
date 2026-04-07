@@ -1,7 +1,7 @@
 // Monitors conversation text and automatically extracts decision-worthy content
 // once buffer and time thresholds are exceeded.
 
-import { DeciGraphClient } from '../../sdk/src/index.js';
+import { Hipp0Client } from '../../sdk/src/index.js';
 import type { DistilleryResult } from '../../sdk/src/index.js';
 
 export class AutoCapture {
@@ -11,7 +11,7 @@ export class AutoCapture {
   private extractionInterval = 300000; // 5 minutes in ms
 
   constructor(
-    private readonly client: DeciGraphClient,
+    private readonly client: Hipp0Client,
     private readonly projectId: string,
     private readonly agentName: string,
   ) {}

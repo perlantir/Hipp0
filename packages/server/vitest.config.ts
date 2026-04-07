@@ -10,9 +10,9 @@ export default defineConfig({
       include: ['src/**/*.ts'],
     },
     testTimeout: 30000,
-    // Allow mocking of @decigraph/core modules
+    // Allow mocking of @hipp0/core modules
     deps: {
-      inline: ['@decigraph/core'],
+      inline: ['@hipp0/core'],
     },
   },
 });

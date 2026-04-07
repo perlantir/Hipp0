@@ -84,7 +84,7 @@ export async function processChunk(
     decisionsExtracted = result.decisions_extracted;
   } catch (err) {
     console.error(
-      `[decigraph:auto-discovery] distill() failed for source "${chunk.source_id}":`,
+      `[hipp0:auto-discovery] distill() failed for source "${chunk.source_id}":`,
       err,
     );
     // Still mark as processed with an error note so we don't retry endlessly
@@ -141,7 +141,7 @@ export async function processBatch(
     } catch (err) {
       errors++;
       console.error(
-        `[decigraph:auto-discovery] Unexpected error processing chunk "${chunk.source_id}":`,
+        `[hipp0:auto-discovery] Unexpected error processing chunk "${chunk.source_id}":`,
         err,
       );
     }

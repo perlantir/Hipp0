@@ -9,8 +9,8 @@
  * Thread support: reads thread messages as well
  */
 import { submitForExtraction } from '../queue/index.js';
-import { getDb } from '@decigraph/core/db/index.js';
-import { callLLM } from '@decigraph/core/distillery/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { callLLM } from '@hipp0/core/distillery/index.js';
 
 // Types from discord.js — dynamically imported to avoid crashes when not installed
 type Client = import('discord.js').Client;
@@ -55,26 +55,26 @@ export function getDiscordStatus(): Record<string, unknown> {
 }
 
 export async function startDiscordBot(): Promise<boolean> {
-  const token = process.env.DECIGRAPH_DISCORD_BOT_TOKEN;
+  const token = process.env.HIPP0_DISCORD_BOT_TOKEN;
   if (!token) {
-    console.warn('[decigraph/discord] No DECIGRAPH_DISCORD_BOT_TOKEN — Discord disabled');
+    console.warn('[hipp0/discord] No HIPP0_DISCORD_BOT_TOKEN — Discord disabled');
     return false;
   }
 
-  _projectId = process.env.DECIGRAPH_DISCORD_PROJECT_ID
-    ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID
+  _projectId = process.env.HIPP0_DISCORD_PROJECT_ID
+    ?? process.env.HIPP0_DEFAULT_PROJECT_ID
     ?? '';
   if (!_projectId) {
-    console.error('[decigraph/discord] DECIGRAPH_DISCORD_PROJECT_ID required when Discord is enabled');
+    console.error('[hipp0/discord] HIPP0_DISCORD_PROJECT_ID required when Discord is enabled');
     return false;
   }
 
   // Parse guild/channel filters
-  const guildIds = process.env.DECIGRAPH_DISCORD_GUILD_IDS ?? '';
+  const guildIds = process.env.HIPP0_DISCORD_GUILD_IDS ?? '';
   if (guildIds) {
     _allowedGuildIds = new Set(guildIds.split(',').map((s) => s.trim()).filter(Boolean));
   }
-  const channelIds = process.env.DECIGRAPH_DISCORD_CHANNEL_IDS ?? '';
+  const channelIds = process.env.HIPP0_DISCORD_CHANNEL_IDS ?? '';
   if (channelIds) {
     _allowedChannelIds = new Set(channelIds.split(',').map((s) => s.trim()).filter(Boolean));
   }
@@ -91,14 +91,14 @@ export async function startDiscordBot(): Promise<boolean> {
     });
 
     client.once(Events.ClientReady, (readyClient) => {
-      console.warn(`[decigraph/discord] Bot ready as ${readyClient.user.tag} (guilds: ${readyClient.guilds.cache.size})`);
+      console.warn(`[hipp0/discord] Bot ready as ${readyClient.user.tag} (guilds: ${readyClient.guilds.cache.size})`);
     });
 
     client.on(Events.MessageCreate, async (message: Message) => {
       try {
         await handleMessage(message);
       } catch (err) {
-        console.error('[decigraph/discord] Error handling message:', (err as Error).message);
+        console.error('[hipp0/discord] Error handling message:', (err as Error).message);
       }
     });
 
@@ -107,14 +107,14 @@ export async function startDiscordBot(): Promise<boolean> {
       try {
         await handleSlashCommand(interaction as Interaction);
       } catch (err) {
-        console.error('[decigraph/discord] Error handling command:', (err as Error).message);
+        console.error('[hipp0/discord] Error handling command:', (err as Error).message);
       }
     });
 
     await client.login(token);
     return true;
   } catch (err) {
-    console.error('[decigraph/discord] Failed to start bot:', (err as Error).message);
+    console.error('[hipp0/discord] Failed to start bot:', (err as Error).message);
     client = null;
     return false;
   }
@@ -124,7 +124,7 @@ export async function stopDiscordBot(): Promise<void> {
   if (client) {
     await client.destroy();
     client = null;
-    console.warn('[decigraph/discord] Bot stopped');
+    console.warn('[hipp0/discord] Bot stopped');
   }
 }
 
@@ -236,7 +236,7 @@ async function handleSlashCommand(interaction: Interaction): Promise<void> {
 
         await interaction.editReply(answer || 'No relevant decisions found.');
       } catch (err) {
-        console.error('[decigraph/discord] /ask error:', (err as Error).message);
+        console.error('[hipp0/discord] /ask error:', (err as Error).message);
         await interaction.editReply('Failed to process question.');
       }
       break;
@@ -252,9 +252,9 @@ async function handleSlashCommand(interaction: Interaction): Promise<void> {
         const decCount = parseInt((decResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
         const agentCount = parseInt((agentResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
 
-        await interaction.reply(`DeciGraph: ${decCount} decisions, ${agentCount} agents`);
+        await interaction.reply(`Hipp0: ${decCount} decisions, ${agentCount} agents`);
       } catch (err) {
-        console.error('[decigraph/discord] /status error:', (err as Error).message);
+        console.error('[hipp0/discord] /status error:', (err as Error).message);
         await interaction.reply({ content: 'Failed to get status.', ephemeral: true });
       }
       break;
@@ -281,7 +281,7 @@ async function handleSlashCommand(interaction: Interaction): Promise<void> {
 
         await interaction.reply(`**Recent decisions:**\n${lines.join('\n')}`);
       } catch (err) {
-        console.error('[decigraph/discord] /recent error:', (err as Error).message);
+        console.error('[hipp0/discord] /recent error:', (err as Error).message);
         await interaction.reply({ content: 'Failed to get recent decisions.', ephemeral: true });
       }
       break;

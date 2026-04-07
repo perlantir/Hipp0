@@ -1,6 +1,6 @@
-# DeciGraph Agent Decision Protocol v1.0
+# Hipp0 Agent Decision Protocol v1.0
 
-Standard protocol for any agent (OpenClaw, Hermes, CrewAI, LangGraph, custom) to interpret and act on signals from the DeciGraph Super Brain.
+Standard protocol for any agent (OpenClaw, Hermes, CrewAI, LangGraph, custom) to interpret and act on signals from the Hipp0 Super Brain.
 
 Include the relevant sections in every agent's SOUL.md or system prompt.
 
@@ -8,16 +8,16 @@ Include the relevant sections in every agent's SOUL.md or system prompt.
 
 ## 1. When You Receive a Compile Response
 
-DeciGraph returns `recommended_action` and `action_reason` with every compile that includes role signals.
+Hipp0 returns `recommended_action` and `action_reason` with every compile that includes role signals.
 
 ### Action Table
 
 | recommended_action | What You Should Do |
 |---|---|
 | PROCEED | You are a strong fit. Start working on the task immediately using the compiled decisions as context. |
-| PROCEED_WITH_NOTE | Proceed with the task, but add to your output: "DeciGraph recommends [override_to_agent] review this for [domain]." |
+| PROCEED_WITH_NOTE | Proceed with the task, but add to your output: "Hipp0 recommends [override_to_agent] review this for [domain]." |
 | SKIP | Do NOT work on this task. Record a step with `status: skipped` and include the action_reason. Move to the next task in your queue. |
-| OVERRIDE_TO | Skip yourself. The named agent (`override_to_agent`) should go next. Call `decigraph_follow_orchestrator` or hand off. |
+| OVERRIDE_TO | Skip yourself. The named agent (`override_to_agent`) should go next. Call `hipp0_follow_orchestrator` or hand off. |
 | ASK_FOR_CLARIFICATION | Information is missing. Record a step with `status: pending` and list what you need in the output. |
 
 ### Example
@@ -31,7 +31,7 @@ override_to_agent: "forge"
 ```
 
 Your behavior: Complete your work, then add to your output:
-"Note: DeciGraph recommends forge review this for code quality."
+"Note: Hipp0 recommends forge review this for code quality."
 
 ---
 
@@ -41,8 +41,8 @@ After each step, the orchestrator suggests who should go next.
 
 | Situation | Action |
 |---|---|
-| You agree with the suggestion | Call `decigraph_follow_orchestrator` with the session ID. It records the accept and returns pre-compiled context. |
-| You disagree | Call `decigraph_override_orchestrator` with your preferred agent and a reason. DeciGraph learns from overrides. |
+| You agree with the suggestion | Call `hipp0_follow_orchestrator` with the session ID. It records the accept and returns pre-compiled context. |
+| You disagree | Call `hipp0_override_orchestrator` with your preferred agent and a reason. Hipp0 learns from overrides. |
 | Session marked complete but you see remaining work | Start a NEW session for the remaining work. Don't reopen completed sessions. |
 | No suggestion returned | The brain believes the task is complete. Review the session summary and move on. |
 
@@ -82,7 +82,7 @@ The orchestrator will automatically suggest the next agent after your step is re
 
 ## 5. Golden Rules
 
-1. **You never talk directly to other agents.** You only talk to DeciGraph. The Super Brain connects the dots.
+1. **You never talk directly to other agents.** You only talk to Hipp0. The Super Brain connects the dots.
 
 2. **Always check recommended_action before starting work.** If it says SKIP, you skip. No exceptions unless a human explicitly overrides.
 

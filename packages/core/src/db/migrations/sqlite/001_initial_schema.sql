@@ -1,4 +1,4 @@
--- DeciGraph Initial Schema — SQLite edition
+-- Hipp0 Initial Schema — SQLite edition
 --
 -- Mapping notes (PostgreSQL → SQLite):
 --   UUID PRIMARY KEY DEFAULT uuid_generate_v4()  → TEXT PRIMARY KEY  (UUIDs generated in application code)

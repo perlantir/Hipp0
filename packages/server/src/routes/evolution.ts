@@ -2,8 +2,8 @@
  * Feature 10: Autonomous Decision Evolution — API Routes
  */
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, optionalString, mapDbError } from './validation.js';
 
 // In-memory rate limit for manual trigger (1 per hour per project)
@@ -187,7 +187,7 @@ export function registerEvolutionRoutes(app: Hono): void {
 
     // Run async — don't block the response
     const { findEvolutionCandidates, generateEvolutionProposal, simulateProposalImpact } =
-      await import('@decigraph/core/intelligence/decision-evolver.js');
+      await import('@hipp0/core/intelligence/decision-evolver.js');
 
     const db = getDb();
     const candidates = await findEvolutionCandidates(projectId);
@@ -235,7 +235,7 @@ export function registerEvolutionRoutes(app: Hono): void {
         );
         created++;
       } catch (err) {
-        console.warn(`[decigraph/evolution] Failed for decision ${candidate.decision_id}:`, (err as Error).message);
+        console.warn(`[hipp0/evolution] Failed for decision ${candidate.decision_id}:`, (err as Error).message);
       }
     }
 
@@ -264,7 +264,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     const d = decisionResult.rows[0] as Record<string, unknown>;
 
     const { generateEvolutionProposal, simulateProposalImpact } =
-      await import('@decigraph/core/intelligence/decision-evolver.js');
+      await import('@hipp0/core/intelligence/decision-evolver.js');
 
     const candidate = {
       decision_id: d.id as string,

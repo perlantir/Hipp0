@@ -20,12 +20,12 @@ export function resolveLLMConfig(): LLMConfig {
 }
 
 function resolveEmbeddings(): LLMEndpoint | null {
-  if (process.env.DECIGRAPH_EMBEDDINGS_URL && process.env.DECIGRAPH_EMBEDDINGS_KEY) {
+  if (process.env.HIPP0_EMBEDDINGS_URL && process.env.HIPP0_EMBEDDINGS_KEY) {
     return {
-      url: process.env.DECIGRAPH_EMBEDDINGS_URL,
-      key: process.env.DECIGRAPH_EMBEDDINGS_KEY,
-      model: process.env.DECIGRAPH_EMBEDDINGS_MODEL || 'text-embedding-3-small',
-      provider: new URL(process.env.DECIGRAPH_EMBEDDINGS_URL).hostname,
+      url: process.env.HIPP0_EMBEDDINGS_URL,
+      key: process.env.HIPP0_EMBEDDINGS_KEY,
+      model: process.env.HIPP0_EMBEDDINGS_MODEL || 'text-embedding-3-small',
+      provider: new URL(process.env.HIPP0_EMBEDDINGS_URL).hostname,
     };
   }
 
@@ -42,7 +42,7 @@ function resolveEmbeddings(): LLMEndpoint | null {
     return {
       url: 'https://api.openai.com/v1',
       key: process.env.OPENAI_API_KEY,
-      model: process.env.DECIGRAPH_EMBEDDINGS_MODEL || 'text-embedding-3-small',
+      model: process.env.HIPP0_EMBEDDINGS_MODEL || 'text-embedding-3-small',
       provider: 'openai',
     };
   }
@@ -51,12 +51,12 @@ function resolveEmbeddings(): LLMEndpoint | null {
 }
 
 function resolveDistillery(): LLMEndpoint | null {
-  if (process.env.DECIGRAPH_LLM_URL && process.env.DECIGRAPH_LLM_KEY) {
+  if (process.env.HIPP0_LLM_URL && process.env.HIPP0_LLM_KEY) {
     return {
-      url: process.env.DECIGRAPH_LLM_URL,
-      key: process.env.DECIGRAPH_LLM_KEY,
-      model: process.env.DECIGRAPH_LLM_MODEL || 'gpt-4o-mini',
-      provider: new URL(process.env.DECIGRAPH_LLM_URL).hostname,
+      url: process.env.HIPP0_LLM_URL,
+      key: process.env.HIPP0_LLM_KEY,
+      model: process.env.HIPP0_LLM_MODEL || 'gpt-4o-mini',
+      provider: new URL(process.env.HIPP0_LLM_URL).hostname,
     };
   }
 
@@ -64,7 +64,7 @@ function resolveDistillery(): LLMEndpoint | null {
     return {
       url: 'https://openrouter.ai/api/v1',
       key: process.env.OPENROUTER_API_KEY,
-      model: process.env.DECIGRAPH_LLM_MODEL || 'anthropic/claude-opus-4-6',
+      model: process.env.HIPP0_LLM_MODEL || 'anthropic/claude-opus-4-6',
       provider: 'openrouter',
     };
   }
@@ -73,7 +73,7 @@ function resolveDistillery(): LLMEndpoint | null {
     return {
       url: '__anthropic_sdk__',
       key: process.env.ANTHROPIC_API_KEY,
-      model: process.env.DECIGRAPH_LLM_MODEL || 'claude-opus-4-6',
+      model: process.env.HIPP0_LLM_MODEL || 'claude-opus-4-6',
       provider: 'anthropic',
     };
   }
@@ -82,7 +82,7 @@ function resolveDistillery(): LLMEndpoint | null {
     return {
       url: 'https://api.openai.com/v1',
       key: process.env.OPENAI_API_KEY,
-      model: process.env.DECIGRAPH_LLM_MODEL || 'gpt-4o-mini',
+      model: process.env.HIPP0_LLM_MODEL || 'gpt-4o-mini',
       provider: 'openai',
     };
   }
@@ -94,8 +94,8 @@ export function createLLMClient(endpoint: LLMEndpoint): OpenAI {
   const headers: Record<string, string> = {};
 
   if (endpoint.url.includes('openrouter.ai')) {
-    headers['HTTP-Referer'] = 'https://github.com/perlantir/decigraph';
-    headers['X-Title'] = 'DeciGraph';
+    headers['HTTP-Referer'] = 'https://github.com/perlantir/hipp0';
+    headers['X-Title'] = 'Hipp0';
   }
 
   return new OpenAI({
@@ -108,17 +108,17 @@ export function createLLMClient(endpoint: LLMEndpoint): OpenAI {
 export function logLLMConfig(config: LLMConfig): void {
   if (config.embeddings) {
     console.warn(
-      `[decigraph] Embeddings: ${config.embeddings.model} via ${config.embeddings.provider}`,
+      `[hipp0] Embeddings: ${config.embeddings.model} via ${config.embeddings.provider}`,
     );
   } else {
-    console.warn('[decigraph] Embeddings: disabled (text search fallback)');
+    console.warn('[hipp0] Embeddings: disabled (text search fallback)');
   }
 
   if (config.distillery) {
     console.warn(
-      `[decigraph] Distillery: ${config.distillery.model} via ${config.distillery.provider}`,
+      `[hipp0] Distillery: ${config.distillery.model} via ${config.distillery.provider}`,
     );
   } else {
-    console.warn('[decigraph] Distillery: disabled (manual recording only)');
+    console.warn('[hipp0] Distillery: disabled (manual recording only)');
   }
 }

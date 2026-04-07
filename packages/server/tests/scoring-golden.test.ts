@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── DB Mock ─────────────────────────────────────────────────────────────────
 
 const mockQuery = vi.fn();
-vi.mock('@decigraph/core/db/index.js', () => ({
+vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
     transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
@@ -21,7 +21,7 @@ vi.mock('@decigraph/core/db/index.js', () => ({
   closeDb: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/db/parsers.js', () => ({
+vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseDecision: vi.fn((row: Record<string, unknown>) => ({
     ...row,
     tags: Array.isArray(row.tags) ? row.tags : JSON.parse((row.tags as string) ?? '[]'),

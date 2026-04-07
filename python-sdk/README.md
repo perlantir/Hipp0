@@ -1,11 +1,11 @@
-# decigraph-sdk
+# hipp0-sdk
 
-Official Python SDK for the [DeciGraph](https://github.com/perlantir/DeciGraph) multi-agent memory and decision platform.
+Official Python SDK for the [Hipp0](https://github.com/perlantir/Hipp0) multi-agent memory and decision platform.
 
 ## Installation
 
 ```bash
-pip install decigraph-sdk
+pip install hipp0-sdk
 ```
 
 Or for local development:
@@ -18,9 +18,9 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100", api_key="my-key")
+client = Hipp0Client(base_url="http://localhost:3100", api_key="my-key")
 
 # Create a project
 project = client.create_project("My Project", "A demonstration project")
@@ -63,4 +63,4 @@ print(f"Extracted {len(result['decisions_created'])} decisions")
 
 ## API Reference
 
-See the inline docstrings in `decigraph_sdk/client.py` for the full API surface.
+See the inline docstrings in `hipp0_sdk/client.py` for the full API surface.

@@ -28,7 +28,7 @@ export function Login({ onLogin, error }: LoginProps) {
           <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center">
             <span className="text-white font-bold text-sm">N</span>
           </div>
-          <span className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>DeciGraph</span>
+          <span className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Hipp0</span>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -69,7 +69,7 @@ export function Login({ onLogin, error }: LoginProps) {
             Check your server logs for your API key.
           </p>
           <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
-            Run: docker logs decigraph-server | grep "dg_live_"
+            Run: docker logs hipp0-server | grep "dg_live_"
           </p>
         </div>
       </div>

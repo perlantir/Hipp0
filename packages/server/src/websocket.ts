@@ -1,5 +1,5 @@
 /**
- * WebSocket server — real-time event broadcasting for the DeciGraph dashboard.
+ * WebSocket server — real-time event broadcasting for the Hipp0 dashboard.
  *
  * Usage:
  *   import { initWebSocket, broadcast } from './websocket.js';
@@ -31,7 +31,7 @@ export function initWebSocket(): void {
     }));
 
     ws.on('error', (err) => {
-      console.warn('[decigraph/ws] Client error:', err.message);
+      console.warn('[hipp0/ws] Client error:', err.message);
     });
 
     ws.on('close', () => {
@@ -39,7 +39,7 @@ export function initWebSocket(): void {
     });
   });
 
-  console.warn('[decigraph] WebSocket server ready on /ws (noServer mode)');
+  console.warn('[hipp0] WebSocket server ready on /ws (noServer mode)');
 }
 
 export function broadcast(event: string, data: unknown): void {

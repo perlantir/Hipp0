@@ -1,18 +1,18 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: decigraph-db
+    container_name: hipp0-db
     environment:
-      POSTGRES_USER: decigraph
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-decigraph_dev}
-      POSTGRES_DB: decigraph
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus_dev}
+      POSTGRES_DB: nexus
     ports:
       - "5432:5432"
     volumes:
-      - decigraph_pgdata:/var/lib/postgresql/data
+      - nexus_nexus_pgdata:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U decigraph"]
+      test: ["CMD-SHELL", "pg_isready -U nexus"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,12 +21,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: decigraph-server
+    container_name: hipp0-server
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://decigraph:${POSTGRES_PASSWORD:-decigraph_dev}@postgres:5432/decigraph}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@postgres:5432/nexus}
       DATABASE_SSL: ${DATABASE_SSL:-false}
       PORT: 3100
       HOST: 0.0.0.0
@@ -34,15 +34,15 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      DECIGRAPH_EMBEDDINGS_URL: ${DECIGRAPH_EMBEDDINGS_URL:-}
-      DECIGRAPH_EMBEDDINGS_KEY: ${DECIGRAPH_EMBEDDINGS_KEY:-}
-      DECIGRAPH_EMBEDDINGS_MODEL: ${DECIGRAPH_EMBEDDINGS_MODEL:-}
-      DECIGRAPH_LLM_URL: ${DECIGRAPH_LLM_URL:-}
-      DECIGRAPH_LLM_KEY: ${DECIGRAPH_LLM_KEY:-}
-      DECIGRAPH_LLM_MODEL: ${DECIGRAPH_LLM_MODEL:-}
+      HIPP0_EMBEDDINGS_URL: ${HIPP0_EMBEDDINGS_URL:-}
+      HIPP0_EMBEDDINGS_KEY: ${HIPP0_EMBEDDINGS_KEY:-}
+      HIPP0_EMBEDDINGS_MODEL: ${HIPP0_EMBEDDINGS_MODEL:-}
+      HIPP0_LLM_URL: ${HIPP0_LLM_URL:-}
+      HIPP0_LLM_KEY: ${HIPP0_LLM_KEY:-}
+      HIPP0_LLM_MODEL: ${HIPP0_LLM_MODEL:-}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       DISTILLERY_PROVIDER: ${DISTILLERY_PROVIDER:-}
-      DECIGRAPH_CORS_ORIGINS: ${DECIGRAPH_CORS_ORIGINS:-}
+      HIPP0_CORS_ORIGINS: ${HIPP0_CORS_ORIGINS:-}
     ports:
       - "3100:3100"
     volumes:
@@ -65,7 +65,7 @@ services:
       args:
         VITE_API_URL: ""
         CACHE_BUSTER: ${CACHE_BUSTER:-1}
-    container_name: decigraph-dashboard
+    container_name: hipp0-dashboard
     depends_on:
       server:
         condition: service_healthy
@@ -74,8 +74,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  # CRITICAL: Do NOT rename this volume. It contains all production data.
-  # Renaming creates a new empty volume and loses all decisions.
-  # If migrating from 'nexus_nexus_pgdata', use: docker volume create --name decigraph_pgdata
-  # then: docker run --rm -v nexus_nexus_pgdata:/from -v decigraph_pgdata:/to alpine cp -a /from/. /to/
-  decigraph_pgdata:
+  # CRITICAL: Do NOT rename this volume — it contains all production data.
+  # The volume was created under the old 'nexus' stack name.
+  nexus_nexus_pgdata:
+    external: true

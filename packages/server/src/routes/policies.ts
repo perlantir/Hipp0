@@ -12,7 +12,7 @@
  */
 
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { randomUUID } from 'node:crypto';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */

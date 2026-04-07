@@ -1,12 +1,12 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseDecision, parseEdge } from '@decigraph/core/db/parsers.js';
-import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
-import type { Decision, DecisionEdge, NotificationType } from '@decigraph/core/types.js';
-import { propagateChange } from '@decigraph/core/change-propagator/index.js';
-import { checkForContradictions } from '@decigraph/core/contradiction-detector/index.js';
-import { dispatchWebhooks } from '@decigraph/core/webhooks/index.js';
-import { findCascadeImpact, notifyCascade } from '@decigraph/core/dependency-cascade/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseDecision, parseEdge } from '@hipp0/core/db/parsers.js';
+import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
+import type { Decision, DecisionEdge, NotificationType } from '@hipp0/core/types.js';
+import { propagateChange } from '@hipp0/core/change-propagator/index.js';
+import { checkForContradictions } from '@hipp0/core/contradiction-detector/index.js';
+import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
+import { findCascadeImpact, notifyCascade } from '@hipp0/core/dependency-cascade/index.js';
 import { randomUUID } from 'node:crypto';
 import {
   requireUUID,
@@ -146,19 +146,19 @@ export function registerDecisionRoutes(app: Hono): void {
       invalidateDecisionCaches(projectId).catch(() => {});
 
       propagateChange(decision, 'decision_created').catch((err) =>
-        console.error('[decigraph] Change propagation failed:', (err as Error).message),
+        console.error('[hipp0] Change propagation failed:', (err as Error).message),
       );
 
       dispatchWebhooks(projectId, 'decision_created', {
         decision_id: decision.id,
         title: decision.title,
         made_by: decision.made_by,
-      }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+      }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
       broadcast('decision_created', { id: decision.id, title: decision.title, project_id: projectId });
 
       checkForContradictions(decision).catch((err) =>
-        console.error('[decigraph] Contradiction check failed:', (err as Error).message),
+        console.error('[hipp0] Contradiction check failed:', (err as Error).message),
       );
 
       // Create "requires" edges from depends_on
@@ -320,7 +320,7 @@ export function registerDecisionRoutes(app: Hono): void {
     invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     propagateChange(decision, 'decision_updated').catch((err) =>
-      console.error('[decigraph] Change propagation failed:', (err as Error).message),
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
 
     broadcast('decision_updated', { id: decision.id, title: decision.title, project_id: decision.project_id });
@@ -414,21 +414,21 @@ export function registerDecisionRoutes(app: Hono): void {
     invalidateDecisionCaches((result.newDecision as Decision).project_id).catch(() => {});
 
     propagateChange(result.newDecision as Decision, 'decision_superseded').catch((err) =>
-      console.error('[decigraph] Change propagation failed:', (err as Error).message),
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
 
     dispatchWebhooks((result.newDecision as Decision).project_id, 'decision_superseded', {
       decision_id: (result.newDecision as Decision).id,
       title: (result.newDecision as Decision).title,
       old_decision_id: oldId,
-    }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+    }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
     // Notify linked open PRs about superseded decision (fire-and-forget)
     notifySupersededDecision(
       oldId,
       (result.newDecision as Decision).id,
       (result.newDecision as Decision).title,
-    ).catch((err) => console.warn('[decigraph/github] Supersede notify failed:', (err as Error).message));
+    ).catch((err) => console.warn('[hipp0/github] Supersede notify failed:', (err as Error).message));
 
     // Cascade impact detection (fire-and-forget notifications, but include in response)
     let cascadeImpact: { decisions_affected: number; chain: Array<Record<string, unknown>> } = { decisions_affected: 0, chain: [] };
@@ -445,17 +445,17 @@ export function registerDecisionRoutes(app: Hono): void {
       };
       // Fire-and-forget: send notifications + webhooks
       notifyCascade(cascade, (result.newDecision as Decision).project_id, 'superseded').catch(
-        (err) => console.warn('[decigraph:cascade]', (err as Error).message),
+        (err) => console.warn('[hipp0:cascade]', (err as Error).message),
       );
       if (cascade.total_affected > 0) {
         dispatchWebhooks((result.newDecision as Decision).project_id, 'cascade_detected', {
           changed_decision_id: oldId,
           changed_decision_title: cascade.changed_decision_title,
           total_affected: cascade.total_affected,
-        }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+        }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
       }
     } catch (err) {
-      console.warn('[decigraph:cascade] Error:', (err as Error).message);
+      console.warn('[hipp0:cascade] Error:', (err as Error).message);
     }
 
     return c.json({ ...result, cascade_impact: cascadeImpact }, 201);
@@ -481,13 +481,13 @@ export function registerDecisionRoutes(app: Hono): void {
     invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     propagateChange(decision, 'decision_reverted').catch((err) =>
-      console.error('[decigraph] Change propagation failed:', (err as Error).message),
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
 
     dispatchWebhooks(decision.project_id, 'decision_reverted', {
       decision_id: decision.id,
       title: decision.title,
-    }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+    }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
     // Cascade detection for revert (fire-and-forget)
     findCascadeImpact(id, decision.project_id).then((cascade) => {
@@ -499,7 +499,7 @@ export function registerDecisionRoutes(app: Hono): void {
           total_affected: cascade.total_affected,
         }).catch(() => {});
       }
-    }).catch((err) => console.warn('[decigraph:cascade]', (err as Error).message));
+    }).catch((err) => console.warn('[hipp0:cascade]', (err as Error).message));
 
     return c.json(decision);
   });
@@ -934,14 +934,14 @@ export function registerDecisionRoutes(app: Hono): void {
     });
 
     propagateChange(decision, 'decision_validated' as NotificationType).catch((err) =>
-      console.error('[decigraph] Change propagation failed:', (err as Error).message),
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
 
     dispatchWebhooks(decision.project_id, 'decision_validated', {
       decision_id: decision.id,
       title: decision.title,
       validation_source,
-    }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+    }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
     return c.json(decision);
   });
@@ -981,13 +981,13 @@ export function registerDecisionRoutes(app: Hono): void {
     });
 
     propagateChange(decision, 'decision_invalidated' as NotificationType).catch((err) =>
-      console.error('[decigraph] Change propagation failed:', (err as Error).message),
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
 
     dispatchWebhooks(decision.project_id, 'decision_invalidated', {
       decision_id: decision.id,
       title: decision.title,
-    }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+    }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
     return c.json(decision);
   });
@@ -1047,7 +1047,7 @@ export function registerDecisionRoutes(app: Hono): void {
     for (const row of results as Array<Record<string, unknown>>) {
       const dec = parseDecision(row);
       propagateChange(dec, 'decision_validated' as NotificationType).catch((err) =>
-        console.error('[decigraph] Change propagation failed:', (err as Error).message),
+        console.error('[hipp0] Change propagation failed:', (err as Error).message),
       );
     }
 

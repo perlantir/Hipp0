@@ -3,8 +3,8 @@
  */
 import type { Hono } from 'hono';
 import { randomUUID } from 'node:crypto';
-import { getDb } from '@decigraph/core/db/index.js';
-import { NotFoundError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { NotFoundError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
 import { getGitHubClient } from '../connectors/github-client.js';
 
@@ -126,8 +126,8 @@ export function registerLinkRoutes(app: Hono): void {
 
     return c.json({
       connected,
-      app_id: process.env.DECIGRAPH_GITHUB_APP_ID ?? null,
-      installation_id: process.env.DECIGRAPH_GITHUB_APP_INSTALLATION_ID ?? null,
+      app_id: process.env.HIPP0_GITHUB_APP_ID ?? null,
+      installation_id: process.env.HIPP0_GITHUB_APP_INSTALLATION_ID ?? null,
       total_links: parseInt(String(row.total_links ?? '0'), 10),
       open_pr_links: parseInt(String(row.open_pr_links ?? '0'), 10),
       merged_pr_links: parseInt(String(row.merged_pr_links ?? '0'), 10),

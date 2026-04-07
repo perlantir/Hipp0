@@ -10,7 +10,7 @@ import { createApp } from '../src/app.js';
 // ── DB Mock ─────────────────────────────────────────────────────────────────
 
 const mockQuery = vi.fn();
-vi.mock('@decigraph/core/db/index.js', () => ({
+vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
     transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
@@ -22,7 +22,7 @@ vi.mock('@decigraph/core/db/index.js', () => ({
   closeDb: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/db/parsers.js', () => ({
+vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseProject: vi.fn((row: Record<string, unknown>) => row),
   parseAgent: vi.fn((row: Record<string, unknown>) => row),
   parseDecision: vi.fn((row: Record<string, unknown>) => ({
@@ -57,7 +57,7 @@ vi.mock('../src/cache/redis.js', () => ({
 }));
 
 // Mock external modules
-vi.mock('@decigraph/core/context-compiler/index.js', () => ({
+vi.mock('@hipp0/core/context-compiler/index.js', () => ({
   compileContext: vi.fn().mockResolvedValue({
     decisions: [],
     decisions_included: 0,
@@ -68,19 +68,19 @@ vi.mock('@decigraph/core/context-compiler/index.js', () => ({
   }),
 }));
 
-vi.mock('@decigraph/core/change-propagator/index.js', () => ({
+vi.mock('@hipp0/core/change-propagator/index.js', () => ({
   propagateChange: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/contradiction-detector/index.js', () => ({
+vi.mock('@hipp0/core/contradiction-detector/index.js', () => ({
   checkForContradictions: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/webhooks/index.js', () => ({
+vi.mock('@hipp0/core/webhooks/index.js', () => ({
   dispatchWebhooks: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/dependency-cascade/index.js', () => ({
+vi.mock('@hipp0/core/dependency-cascade/index.js', () => ({
   findCascadeImpact: vi.fn().mockResolvedValue({ total_affected: 0, impacts: [], changed_decision_title: '' }),
   notifyCascade: vi.fn().mockResolvedValue(undefined),
 }));

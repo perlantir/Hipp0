@@ -7,8 +7,8 @@
  */
 
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { generateDigest } from '@decigraph/core/intelligence/weekly-digest.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { generateDigest } from '@hipp0/core/intelligence/weekly-digest.js';
 
 export function registerDigestRoutes(app: Hono): void {
   // Trigger digest generation manually
@@ -19,7 +19,7 @@ export function registerDigestRoutes(app: Hono): void {
       const result = await generateDigest(projectId);
       return c.json(result, 201);
     } catch (err) {
-      console.error('[decigraph:digest] Generation failed:', (err as Error).message);
+      console.error('[hipp0:digest] Generation failed:', (err as Error).message);
       return c.json({ error: 'Digest generation failed' }, 500);
     }
   });

@@ -107,7 +107,7 @@ export async function findEvolutionCandidates(
       pendingSet.add(id);
     }
   } catch (err) {
-    console.warn('[decigraph/evolution] Low alignment query failed:', (err as Error).message);
+    console.warn('[hipp0/evolution] Low alignment query failed:', (err as Error).message);
   }
 
   // Trigger 2: Frequently contradicted
@@ -142,7 +142,7 @@ export async function findEvolutionCandidates(
       pendingSet.add(id);
     }
   } catch (err) {
-    console.warn('[decigraph/evolution] Contradiction query failed:', (err as Error).message);
+    console.warn('[hipp0/evolution] Contradiction query failed:', (err as Error).message);
   }
 
   // Trigger 3: Frequently superseded (has been superseded multiple times)
@@ -177,7 +177,7 @@ export async function findEvolutionCandidates(
       pendingSet.add(id);
     }
   } catch (err) {
-    console.warn('[decigraph/evolution] Superseded query failed:', (err as Error).message);
+    console.warn('[hipp0/evolution] Superseded query failed:', (err as Error).message);
   }
 
   // Trigger 4: Stale decisions (stale = true and no recent validation)
@@ -214,7 +214,7 @@ export async function findEvolutionCandidates(
       pendingSet.add(id);
     }
   } catch (err) {
-    console.warn('[decigraph/evolution] Stale query failed:', (err as Error).message);
+    console.warn('[hipp0/evolution] Stale query failed:', (err as Error).message);
   }
 
   // Max 5 candidates per run
@@ -417,7 +417,7 @@ export async function simulateProposalImpact(
       }
     }
   } catch (err) {
-    console.warn('[decigraph/evolution] Simulation failed:', (err as Error).message);
+    console.warn('[hipp0/evolution] Simulation failed:', (err as Error).message);
   }
 
   return result;

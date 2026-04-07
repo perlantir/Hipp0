@@ -38,7 +38,7 @@ export function getPool(config?: DbConfig): pg.Pool {
   });
 
   pool.on('error', (err) => {
-    console.error('[decigraph] Unexpected database pool error:', err.message);
+    console.error('[hipp0] Unexpected database pool error:', err.message);
   });
 
   return pool;

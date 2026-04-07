@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { NotFoundError, ValidationError } from '@decigraph/core/types.js';
-import { testWebhook } from '@decigraph/core/webhooks/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
+import { testWebhook } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, requireString, mapDbError, logAudit } from './validation.js';
 import { randomUUID } from 'node:crypto';
 

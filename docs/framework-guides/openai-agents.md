@@ -1,6 +1,6 @@
 # OpenAI Agents SDK Integration Guide
 
-The `decigraph-openai-agents` package integrates DeciGraph decision memory into the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) via the `AgentHooks` protocol. It provides `DeciGraphAgentHooks`, which automatically injects compiled DeciGraph context into agent instructions at run start, captures all tool outputs and LLM responses for decision extraction, handles handoffs between agents, and creates session summaries when each run finishes.
+The `hipp0-openai-agents` package integrates Hipp0 decision memory into the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) via the `AgentHooks` protocol. It provides `Hipp0AgentHooks`, which automatically injects compiled Hipp0 context into agent instructions at run start, captures all tool outputs and LLM responses for decision extraction, handles handoffs between agents, and creates session summaries when each run finishes.
 
 ---
 
@@ -9,7 +9,7 @@ The `decigraph-openai-agents` package integrates DeciGraph decision memory into 
 - [How It Works](#how-it-works)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [DeciGraphAgentHooks Reference](#decigraphagenthooks-reference)
+- [Hipp0AgentHooks Reference](#hipp0agenthooks-reference)
   - [Constructor Parameters](#constructor-parameters)
   - [`on_start`](#on_start)
   - [`on_end`](#on_end)
@@ -35,47 +35,47 @@ The `decigraph-openai-agents` package integrates DeciGraph decision memory into 
 Runner.run(agent, "Help me design the API.")
     │
     ▼
-DeciGraphAgentHooks.on_start(context, agent)
+Hipp0AgentHooks.on_start(context, agent)
     ├── compile_context(agent_name, task_description + input)
-    ├── Prepend [DeciGraph Context] to run_context.run_instructions
+    ├── Prepend [Hipp0 Context] to run_context.run_instructions
     └── Add user input to _run_buffer
 
     (Agent runs, calls tools)
     │
     ▼
-DeciGraphAgentHooks.on_tool_output(context, agent, tool, result)
+Hipp0AgentHooks.on_tool_output(context, agent, tool, result)
     └── Append "[Tool: {name}]\n{result}" to _run_buffer
 
     (Agent generates final response)
     │
     ▼
-DeciGraphAgentHooks.on_end(context, agent, output)
+Hipp0AgentHooks.on_end(context, agent, output)
     ├── Append "Assistant: {output}" to _run_buffer
     ├── _flush_buffer() → distillery → extracts decisions
     └── _create_session_summary() → links decisions
 ```
 
-The hooks inject context into `run_context.run_instructions` — the SDK's mechanism for dynamic instructions that override or augment the agent's static `instructions` field. The context injection is non-destructive: it prepends the DeciGraph block, leaving the agent's existing instructions intact.
+The hooks inject context into `run_context.run_instructions` — the SDK's mechanism for dynamic instructions that override or augment the agent's static `instructions` field. The context injection is non-destructive: it prepends the Hipp0 block, leaving the agent's existing instructions intact.
 
 ---
 
 ## Installation
 
 ```bash
-pip install decigraph-sdk decigraph-openai-agents openai-agents
+pip install hipp0-sdk hipp0-openai-agents openai-agents
 ```
 
 Or install from the repository:
 
 ```bash
-cd /path/to/decigraph/integrations/openai-agents
+cd /path/to/hipp0/integrations/openai-agents
 pip install -e .
 ```
 
 **Supported versions:**
 - Python 3.10+
 - openai-agents ≥ 0.0.3
-- decigraph-sdk 0.1+
+- hipp0-sdk 0.1+
 
 ---
 
@@ -85,21 +85,21 @@ pip install -e .
 import asyncio
 import os
 from agents import Agent, Runner
-from decigraph_sdk import DeciGraphClient
-from decigraph_openai_agents import DeciGraphAgentHooks
+from hipp0_sdk import Hipp0Client
+from hipp0_openai_agents import Hipp0AgentHooks
 
 # Initialize
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
 
 # Create hooks — attach these to any Agent
-hooks = DeciGraphAgentHooks(
+hooks = Hipp0AgentHooks(
     client=client,
-    project_id=os.environ["DECIGRAPH_PROJECT_ID"],
+    project_id=os.environ["HIPP0_PROJECT_ID"],
     agent_name="assistant",
     task_description="Help design and implement the payments service.",
 )
 
-# Create an agent with DeciGraph hooks
+# Create an agent with Hipp0 hooks
 agent = Agent(
     name="assistant",
     instructions="You are a helpful software engineer specializing in payment systems.",
@@ -116,17 +116,17 @@ async def main():
 asyncio.run(main())
 ```
 
-On `on_start`, DeciGraph compiles all relevant decisions for `"assistant"` and the given task. The compiled context is prepended to `run_instructions` so the agent sees it alongside its static instructions. On `on_end`, the conversation is sent to the distillery for decision extraction.
+On `on_start`, Hipp0 compiles all relevant decisions for `"assistant"` and the given task. The compiled context is prepended to `run_instructions` so the agent sees it alongside its static instructions. On `on_end`, the conversation is sent to the distillery for decision extraction.
 
 ---
 
-## DeciGraphAgentHooks Reference
+## Hipp0AgentHooks Reference
 
 ### Constructor Parameters
 
 ```python
-DeciGraphAgentHooks(
-    client: DeciGraphClient,
+Hipp0AgentHooks(
+    client: Hipp0Client,
     project_id: str,
     agent_name: str,
     task_description: str = "Perform the current task.",
@@ -139,14 +139,14 @@ DeciGraphAgentHooks(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `client` | `DeciGraphClient` | required | Initialized DeciGraph client |
-| `project_id` | `str` | required | DeciGraph project ID |
+| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
+| `project_id` | `str` | required | Hipp0 project ID |
 | `agent_name` | `str` | required | Agent name for context scoping and attribution |
 | `task_description` | `str` | `"Perform the current task."` | Baseline task description; appended with run input |
 | `max_tokens` | `int \| None` | `None` | Token budget for context compilation |
-| `inject_context_into_instructions` | `bool` | `True` | Prepend DeciGraph context to `run_context.run_instructions` on start |
+| `inject_context_into_instructions` | `bool` | `True` | Prepend Hipp0 context to `run_context.run_instructions` on start |
 | `capture_tool_outputs` | `bool` | `True` | Include tool call results in the distillery buffer |
-| `create_session_on_end` | `bool` | `True` | Create a `SessionSummary` in DeciGraph on run end |
+| `create_session_on_end` | `bool` | `True` | Create a `SessionSummary` in Hipp0 on run end |
 
 ### `on_start`
 
@@ -156,10 +156,10 @@ Behavior:
 1. Resets the run buffer and session start time
 2. Extracts the run input and adds it to the buffer
 3. Calls `compile_context` with `task_description + "\n\nCurrent input: " + input`
-4. If `inject_context_into_instructions=True`, prepends `[DeciGraph Context]\n{text}\n\n` to `run_context.run_instructions`
+4. If `inject_context_into_instructions=True`, prepends `[Hipp0 Context]\n{text}\n\n` to `run_context.run_instructions`
 5. If context injection is disabled, logs a debug message instead
 
-The injection is idempotent — if the DeciGraph block is already in `run_instructions`, it is not duplicated.
+The injection is idempotent — if the Hipp0 block is already in `run_instructions`, it is not duplicated.
 
 ### `on_end`
 
@@ -168,7 +168,7 @@ Called by the SDK when the agent run finishes.
 Behavior:
 1. Extracts `output` text and appends `"Assistant: {text}"` to the buffer
 2. Calls `_flush_buffer()` → sends the accumulated buffer to the distillery
-3. If `create_session_on_end=True`, calls `_create_session_summary()` → creates a DeciGraph `SessionSummary` linking all extracted decisions
+3. If `create_session_on_end=True`, calls `_create_session_summary()` → creates a Hipp0 `SessionSummary` linking all extracted decisions
 4. Resets internal state for the next run
 
 ### `on_tool_call`
@@ -176,7 +176,7 @@ Behavior:
 Called before a tool is invoked. Currently a no-op — subclass to add pre-call logging:
 
 ```python
-class MyHooks(DeciGraphAgentHooks):
+class MyHooks(Hipp0AgentHooks):
     async def on_tool_call(self, context, agent, tool):
         tool_name = getattr(tool, "name", str(tool))
         print(f"[{agent.name}] Calling tool: {tool_name}")
@@ -195,7 +195,7 @@ Called after a tool returns a result. When `capture_tool_outputs=True`:
 Called when control is handed off to this agent from another. Logs the handoff source at DEBUG level. Override to refresh context on handoff:
 
 ```python
-class MyHooks(DeciGraphAgentHooks):
+class MyHooks(Hipp0AgentHooks):
     async def on_handoff(self, context, agent, source):
         source_name = getattr(source, "name", str(source))
         print(f"Handoff: {source_name} → {agent.name}")
@@ -223,20 +223,20 @@ for iteration in range(10):
 import asyncio
 import os
 from agents import Agent, Runner
-from decigraph_sdk import DeciGraphClient
-from decigraph_openai_agents import DeciGraphAgentHooks
+from hipp0_sdk import Hipp0Client
+from hipp0_openai_agents import Hipp0AgentHooks
 
-client = DeciGraphClient(
-    base_url=os.environ["DECIGRAPH_API_URL"],
-    api_key=os.environ.get("DECIGRAPH_API_KEY"),
+client = Hipp0Client(
+    base_url=os.environ["HIPP0_API_URL"],
+    api_key=os.environ.get("HIPP0_API_KEY"),
 )
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
-hooks = DeciGraphAgentHooks(
+hooks = Hipp0AgentHooks(
     client=client,
     project_id=PROJECT_ID,
     agent_name="architect",
-    task_description="Design the authentication system for the DeciGraph API.",
+    task_description="Design the authentication system for the Hipp0 API.",
     max_tokens=6000,
     inject_context_into_instructions=True,
     capture_tool_outputs=True,
@@ -272,7 +272,7 @@ async def run_architecture_session():
         result = await Runner.run(agent, question)
         print(f"A: {result.final_output}")
 
-    print("\nAll decisions captured in DeciGraph.")
+    print("\nAll decisions captured in Hipp0.")
 
 asyncio.run(run_architecture_session())
 ```
@@ -281,20 +281,20 @@ asyncio.run(run_architecture_session())
 
 ## Complete Example: Multi-Agent Handoffs
 
-The OpenAI Agents SDK supports agent-to-agent handoffs. `DeciGraphAgentHooks.on_handoff` is called when the receiving agent gets control.
+The OpenAI Agents SDK supports agent-to-agent handoffs. `Hipp0AgentHooks.on_handoff` is called when the receiving agent gets control.
 
 ```python
 import asyncio
 import os
 from agents import Agent, Runner, handoff
-from decigraph_sdk import DeciGraphClient
-from decigraph_openai_agents import DeciGraphAgentHooks
+from hipp0_sdk import Hipp0Client
+from hipp0_openai_agents import Hipp0AgentHooks
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
-def make_hooks(role: str, task: str) -> DeciGraphAgentHooks:
-    return DeciGraphAgentHooks(
+def make_hooks(role: str, task: str) -> Hipp0AgentHooks:
+    return Hipp0AgentHooks(
         client=client,
         project_id=PROJECT_ID,
         agent_name=role,
@@ -346,7 +346,7 @@ asyncio.run(run_design_with_review())
 ```
 
 When the architect hands off to security, the security agent's `on_start` fires:
-1. DeciGraph compiles context scoped to the `"security"` role (decisions tagged with `security`, high-priority security role tags)
+1. Hipp0 compiles context scoped to the `"security"` role (decisions tagged with `security`, high-priority security role tags)
 2. The security context is injected into the security agent's instructions
 3. The security agent's output is buffered and distilled on `on_end`
 4. Two separate `SessionSummary` records are created — one per agent
@@ -359,11 +359,11 @@ When the architect hands off to security, the security agent's `on_start` fires:
 import asyncio
 import os
 from agents import Agent, Runner, function_tool
-from decigraph_sdk import DeciGraphClient
-from decigraph_openai_agents import DeciGraphAgentHooks
+from hipp0_sdk import Hipp0Client
+from hipp0_openai_agents import Hipp0AgentHooks
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
 @function_tool
 def search_codebase(query: str) -> str:
@@ -378,11 +378,11 @@ def run_security_scan(component: str) -> str:
 
 @function_tool
 def check_existing_decisions(topic: str) -> str:
-    """Check if decisions related to this topic already exist in DeciGraph."""
-    # Call the DeciGraph API directly
+    """Check if decisions related to this topic already exist in Hipp0."""
+    # Call the Hipp0 API directly
     import requests
     resp = requests.get(
-        f"{os.environ['DECIGRAPH_API_URL']}/api/projects/{PROJECT_ID}/decisions/search",
+        f"{os.environ['HIPP0_API_URL']}/api/projects/{PROJECT_ID}/decisions/search",
         params={"query": topic, "limit": 5},
     )
     if resp.ok:
@@ -393,9 +393,9 @@ def check_existing_decisions(topic: str) -> str:
         for d in decisions:
             lines.append(f"  [{d['status']}] {d['title']}")
         return "\n".join(lines)
-    return "Could not query DeciGraph for existing decisions."
+    return "Could not query Hipp0 for existing decisions."
 
-hooks = DeciGraphAgentHooks(
+hooks = Hipp0AgentHooks(
     client=client,
     project_id=PROJECT_ID,
     agent_name="security-reviewer",
@@ -425,7 +425,7 @@ async def run_security_review():
         "Perform a security review of the authentication and session management components.",
     )
     print(result.final_output)
-    print("\nSecurity decisions extracted and stored in DeciGraph.")
+    print("\nSecurity decisions extracted and stored in Hipp0.")
 
 asyncio.run(run_security_review())
 ```
@@ -440,13 +440,13 @@ For scenarios where the same agent runs many times in a loop, use `flush()` for 
 import asyncio
 import os
 from agents import Agent, Runner
-from decigraph_sdk import DeciGraphClient
-from decigraph_openai_agents import DeciGraphAgentHooks
+from hipp0_sdk import Hipp0Client
+from hipp0_openai_agents import Hipp0AgentHooks
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
-hooks = DeciGraphAgentHooks(
+hooks = Hipp0AgentHooks(
     client=client,
     project_id=PROJECT_ID,
     agent_name="code-reviewer",
@@ -485,7 +485,7 @@ async def review_all_prs():
     await hooks.flush()
 
     # Create a single session summary for the entire review batch
-    from decigraph_sdk import DeciGraphClient
+    from hipp0_sdk import Hipp0Client
     session = client.create_session_summary(
         project_id=PROJECT_ID,
         agent_name="code-reviewer",
@@ -501,12 +501,12 @@ asyncio.run(review_all_prs())
 
 ## Accessing Compiled Context Directly
 
-If you need the compiled DeciGraph context before creating an agent (e.g., for conditional logic), access the DeciGraph client directly:
+If you need the compiled Hipp0 context before creating an agent (e.g., for conditional logic), access the Hipp0 client directly:
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 
 context_package = client.compile_context(
     project_id="proj_01hx...",
@@ -538,7 +538,7 @@ from agents import Agent
 
 agent = Agent(
     name="architect",
-    instructions=f"""[DeciGraph Context]
+    instructions=f"""[Hipp0 Context]
 {context_package['compiled_text']}
 
 You are a software architect...""",
@@ -553,9 +553,9 @@ You are a software architect...""",
 For high-confidence decisions made outside of conversation, record them directly:
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 
 decision = client.record_decision(
     project_id="proj_01hx...",
@@ -580,10 +580,10 @@ print(f"Decision: {decision['id']}")
 
 ## Configuration Reference
 
-### DeciGraphClient
+### Hipp0Client
 
 ```python
-DeciGraphClient(
+Hipp0Client(
     base_url="http://localhost:3100",
     api_key="nxk_...",   # optional
     timeout=30,
@@ -593,9 +593,9 @@ DeciGraphClient(
 ### Environment Variables
 
 ```bash
-DECIGRAPH_API_URL=http://localhost:3100
-DECIGRAPH_PROJECT_ID=proj_01hx...
-DECIGRAPH_API_KEY=nxk_...
+HIPP0_API_URL=http://localhost:3100
+HIPP0_PROJECT_ID=proj_01hx...
+HIPP0_API_KEY=nxk_...
 ```
 
 ### OpenAI Agents SDK Environment Variables
@@ -608,20 +608,20 @@ OPENAI_API_KEY=sk-...
 
 ## Best Practices
 
-**Create one `DeciGraphAgentHooks` instance per agent.** Each instance tracks its own run buffer and session start time. Sharing hooks across agents will conflate their decision histories.
+**Create one `Hipp0AgentHooks` instance per agent.** Each instance tracks its own run buffer and session start time. Sharing hooks across agents will conflate their decision histories.
 
-**Use `agent_name` values that match DeciGraph role templates.** Names like `"architect"`, `"security"`, `"reviewer"`, `"qa"` activate the built-in role templates and improve context relevance through signal C (role relevance) weighting.
+**Use `agent_name` values that match Hipp0 role templates.** Names like `"architect"`, `"security"`, `"reviewer"`, `"qa"` activate the built-in role templates and improve context relevance through signal C (role relevance) weighting.
 
 **Set `task_description` to match the agent's actual task.** This is combined with the run input for context compilation. The better it describes the agent's domain, the higher the quality of retrieved context.
 
-**For multi-agent pipelines, give each agent distinct hooks.** Even if multiple agents share the same `project_id`, they should have separate `DeciGraphAgentHooks` instances with their own `agent_name` and `task_description`.
+**For multi-agent pipelines, give each agent distinct hooks.** Even if multiple agents share the same `project_id`, they should have separate `Hipp0AgentHooks` instances with their own `agent_name` and `task_description`.
 
 **Set `create_session_on_end=False` for tight loops.** If an agent runs hundreds of times (e.g., processing a queue), avoid creating hundreds of session summaries. Instead, set `create_session_on_end=False`, call `flush()` periodically, and create a single summary at the end.
 
 **Subclass for custom behavior.** The `AgentHooks` protocol is designed for subclassing. Override `on_handoff` to refresh context, `on_tool_call` to log pre-call, or `on_end` to post-process output before distillation:
 
 ```python
-class MyProductionHooks(DeciGraphAgentHooks):
+class MyProductionHooks(Hipp0AgentHooks):
     async def on_end(self, context, agent, output):
         # Custom pre-processing
         output_text = str(output)
@@ -638,7 +638,7 @@ class MyProductionHooks(DeciGraphAgentHooks):
 
 ### Context not appearing in agent instructions
 
-Verify `inject_context_into_instructions=True` (the default) and that the DeciGraph project has decisions:
+Verify `inject_context_into_instructions=True` (the default) and that the Hipp0 project has decisions:
 
 ```bash
 curl http://localhost:3100/api/projects/proj_01hx.../decisions | jq length
@@ -648,7 +648,7 @@ Check if the SDK exposes `run_context.run_instructions` as a mutable attribute �
 
 ```python
 # If injection silently fails, use manual injection instead:
-hooks = DeciGraphAgentHooks(
+hooks = Hipp0AgentHooks(
     ...,
     inject_context_into_instructions=False,  # disable automatic injection
 )
@@ -656,7 +656,7 @@ hooks = DeciGraphAgentHooks(
 # And manually prepend context:
 context = client.compile_context(project_id=PROJECT_ID, agent_name="agent", task_description="...")
 agent = Agent(
-    instructions=f"[DeciGraph Context]\n{context['compiled_text']}\n\nYou are...",
+    instructions=f"[Hipp0 Context]\n{context['compiled_text']}\n\nYou are...",
     hooks=hooks,  # still captures outputs for distillation
 )
 ```
@@ -681,10 +681,10 @@ Update the OpenAI Agents SDK:
 pip install --upgrade openai-agents
 ```
 
-If `DeciGraphAgentHooks` is imported but `AgentHooks` is unavailable, the module defines stub classes and will log a warning:
+If `Hipp0AgentHooks` is imported but `AgentHooks` is unavailable, the module defines stub classes and will log a warning:
 
 ```python
-from decigraph_openai_agents.hooks import _AGENTS_SDK_AVAILABLE
+from hipp0_openai_agents.hooks import _AGENTS_SDK_AVAILABLE
 print(_AGENTS_SDK_AVAILABLE)  # False if SDK not installed
 ```
 
@@ -697,7 +697,7 @@ Ensure `capture_tool_outputs=True` (the default) and that your tools are registe
 Verify the `on_tool_output` hook fires by subclassing:
 
 ```python
-class DebugHooks(DeciGraphAgentHooks):
+class DebugHooks(Hipp0AgentHooks):
     async def on_tool_output(self, context, agent, tool, result):
         print(f"[DEBUG] Tool output: {str(result)[:100]}")
         await super().on_tool_output(context, agent, tool, result)
@@ -714,7 +714,7 @@ The first `compile_context` call for a new agent involves:
 Subsequent calls for the same `(agent_name, task_description)` are cached for 1 hour. If the first call is consistently slow (> 2s), check the HNSW index:
 
 ```bash
-docker compose exec postgres psql -U decigraph -d decigraph -c "\d decisions"
+docker compose exec postgres psql -U hipp0 -d hipp0 -c "\d decisions"
 # Look for: "embedding_hnsw_cosine_idx" btree (embedding vector_cosine_ops)
 ```
 

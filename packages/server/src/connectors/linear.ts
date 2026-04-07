@@ -7,7 +7,7 @@
  */
 import type { Hono } from 'hono';
 import crypto from 'node:crypto';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { logAudit } from '../routes/validation.js';
 
 /* ------------------------------------------------------------------ */
@@ -104,7 +104,7 @@ export async function createLinearIssueForDecision(
       `**Reasoning:** ${decision.reasoning}`,
       '',
       `---`,
-      `_Created automatically by DeciGraph_`,
+      `_Created automatically by Hipp0_`,
     ].join('\n');
 
     const data = await linearGraphQL(token,
@@ -145,7 +145,7 @@ export async function createLinearIssueForDecision(
       });
     }
   } catch (err) {
-    console.error('[decigraph/linear] Failed to create issue:', (err as Error).message);
+    console.error('[hipp0/linear] Failed to create issue:', (err as Error).message);
   }
 }
 
@@ -155,7 +155,7 @@ export async function createLinearIssueForDecision(
 
 export function registerLinearConnector(app: Hono): void {
   const config = getLinearConfig();
-  const defaultProjectId = process.env.DECIGRAPH_DEFAULT_PROJECT_ID ?? '';
+  const defaultProjectId = process.env.HIPP0_DEFAULT_PROJECT_ID ?? '';
 
   // ── OAuth: Install (redirect to Linear) ─────────────────────────
   app.get('/api/linear/install', (c) => {
@@ -408,7 +408,7 @@ export function registerLinearConnector(app: Hono): void {
     // Verify signature if secret is configured
     if (config.webhookSecret) {
       if (!verifyWebhookSignature(rawBody, signature, config.webhookSecret)) {
-        console.warn('[decigraph/linear] Webhook signature verification failed');
+        console.warn('[hipp0/linear] Webhook signature verification failed');
         return c.json({ error: 'Invalid signature' }, 401);
       }
     }

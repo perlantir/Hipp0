@@ -1,6 +1,6 @@
 # GitHub Deep Integration
 
-Bidirectional linking between DeciGraph decisions and GitHub pull requests.
+Bidirectional linking between Hipp0 decisions and GitHub pull requests.
 
 ## Features
 
@@ -25,18 +25,18 @@ Bidirectional linking between DeciGraph decisions and GitHub pull requests.
 4. Install the app on your organization/repositories
 5. Note the **App ID** and **Installation ID** from the app settings
 
-### 2. Configure DeciGraph
+### 2. Configure Hipp0
 
 Add the following to your `.env` file:
 
 ```bash
 # GitHub Deep Integration
-DECIGRAPH_GITHUB_APP_ID=123456
-DECIGRAPH_GITHUB_APP_PRIVATE_KEY=<base64-encoded PEM>
-DECIGRAPH_GITHUB_APP_INSTALLATION_ID=78901234
-DECIGRAPH_GITHUB_WEBHOOK_SECRET=your-webhook-secret
-DECIGRAPH_GITHUB_DEFAULT_PROJECT_ID=<uuid>
-DECIGRAPH_DASHBOARD_URL=http://localhost:3200
+HIPP0_GITHUB_APP_ID=123456
+HIPP0_GITHUB_APP_PRIVATE_KEY=<base64-encoded PEM>
+HIPP0_GITHUB_APP_INSTALLATION_ID=78901234
+HIPP0_GITHUB_WEBHOOK_SECRET=your-webhook-secret
+HIPP0_GITHUB_DEFAULT_PROJECT_ID=<uuid>
+HIPP0_DASHBOARD_URL=http://localhost:3200
 ```
 
 To base64-encode your PEM key:
@@ -50,12 +50,12 @@ base64 -w 0 < your-app.private-key.pem
 In your GitHub App settings, set the webhook URL to:
 
 ```
-https://your-decigraph-instance.com/api/webhooks/github
+https://your-hipp0-instance.com/api/webhooks/github
 ```
 
-Set the webhook secret to match `DECIGRAPH_GITHUB_WEBHOOK_SECRET`.
+Set the webhook secret to match `HIPP0_GITHUB_WEBHOOK_SECRET`.
 
-### 4. Restart DeciGraph
+### 4. Restart Hipp0
 
 ```bash
 docker compose restart server

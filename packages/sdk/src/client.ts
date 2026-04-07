@@ -1,6 +1,6 @@
 import {
-  DeciGraphApiError,
-  type DeciGraphClientOptions,
+  Hipp0ApiError,
+  type Hipp0ClientOptions,
   type Project,
   type CreateProjectInput,
   type Agent,
@@ -45,11 +45,11 @@ import {
   type AcceptSuggestionResult,
 } from './types.js';
 
-export class DeciGraphClient {
+export class Hipp0Client {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
 
-  constructor(opts: DeciGraphClientOptions) {
+  constructor(opts: Hipp0ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.apiKey = opts.apiKey;
   }
@@ -95,7 +95,7 @@ export class DeciGraphClient {
     try {
       res = await fetch(url, opts);
     } catch (err) {
-      throw new DeciGraphApiError(`Network error: ${(err as Error).message}`, 'NETWORK_ERROR', 0);
+      throw new Hipp0ApiError(`Network error: ${(err as Error).message}`, 'NETWORK_ERROR', 0);
     }
 
     if (!res.ok) {
@@ -107,7 +107,7 @@ export class DeciGraphClient {
       }
       const code = errorBody.error?.code ?? 'API_ERROR';
       const message = errorBody.error?.message ?? res.statusText;
-      throw new DeciGraphApiError(message, code, res.status, errorBody.error?.details);
+      throw new Hipp0ApiError(message, code, res.status, errorBody.error?.details);
     }
 
     // 204 No Content

@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { resolveLLMConfig } from '@decigraph/core/config/llm.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { resolveLLMConfig } from '@hipp0/core/config/llm.js';
 import { getQueueStats, isQueueEnabled } from '../queue/index.js';
 import { getTelegramStatus } from '../connectors/telegram.js';
 import { getOpenClawStatus } from '../connectors/openclaw-watcher.js';
@@ -15,7 +15,7 @@ export function registerStatusRoutes(app: Hono): void {
     try {
       const result = await db.query('DELETE FROM context_cache', []);
       const deleted = result.rowCount ?? 0;
-      console.warn(`[decigraph] Cache cleared manually: ${deleted} entries removed`);
+      console.warn(`[hipp0] Cache cleared manually: ${deleted} entries removed`);
       return c.json({ cleared: deleted, timestamp: new Date().toISOString() });
     } catch (err) {
       return c.json({ error: (err as Error).message }, 500);
@@ -38,7 +38,7 @@ export function registerStatusRoutes(app: Hono): void {
     const decisionCount = parseInt((decisions.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
 
     // Check if embeddings are configured
-    const hasEmbeddings = !!(process.env.OPENAI_API_KEY || process.env.DECIGRAPH_EMBEDDINGS_URL);
+    const hasEmbeddings = !!(process.env.OPENAI_API_KEY || process.env.HIPP0_EMBEDDINGS_URL);
 
     // Check how many decisions have embeddings
     let decisionsWithEmbeddings = 0;
@@ -139,17 +139,17 @@ export async function logStartupDiagnostics(): Promise<void> {
     const aCount = parseInt((agents.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     const dCount = parseInt((decisions.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     const names = agentNames.rows.map((r) => (r as Record<string, unknown>).name).join(', ');
-    const hasEmb = !!(process.env.OPENAI_API_KEY || process.env.DECIGRAPH_EMBEDDINGS_URL);
+    const hasEmb = !!(process.env.OPENAI_API_KEY || process.env.HIPP0_EMBEDDINGS_URL);
 
-    console.warn('[decigraph] === Startup Diagnostics ===');
-    console.warn(`[decigraph]   Projects: ${pCount}`);
-    console.warn(`[decigraph]   Agents: ${aCount}${names ? ` (${names})` : ''}`);
-    console.warn(`[decigraph]   Decisions: ${dCount}`);
-    console.warn(`[decigraph]   Embeddings: ${hasEmb ? 'enabled' : 'disabled'}`);
-    console.warn(`[decigraph]   Distillery: ${llm.distillery?.model ?? 'not configured'}`);
-    console.warn('[decigraph]   Compile route: registered');
-    console.warn('[decigraph] === Ready ===');
+    console.warn('[hipp0] === Startup Diagnostics ===');
+    console.warn(`[hipp0]   Projects: ${pCount}`);
+    console.warn(`[hipp0]   Agents: ${aCount}${names ? ` (${names})` : ''}`);
+    console.warn(`[hipp0]   Decisions: ${dCount}`);
+    console.warn(`[hipp0]   Embeddings: ${hasEmb ? 'enabled' : 'disabled'}`);
+    console.warn(`[hipp0]   Distillery: ${llm.distillery?.model ?? 'not configured'}`);
+    console.warn('[hipp0]   Compile route: registered');
+    console.warn('[hipp0] === Ready ===');
   } catch (err) {
-    console.warn('[decigraph] Startup diagnostics failed:', (err as Error).message);
+    console.warn('[hipp0] Startup diagnostics failed:', (err as Error).message);
   }
 }

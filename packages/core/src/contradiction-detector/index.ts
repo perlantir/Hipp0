@@ -61,7 +61,7 @@ interface SimilarDecision {
 async function findSimilarDecisions(newDecision: Decision): Promise<SimilarDecision[]> {
   if (!newDecision.embedding || newDecision.embedding.length === 0) {
     console.warn(
-      `[decigraph:contradiction] Decision "${newDecision.id}" has no embedding — skipping similarity scan.`,
+      `[hipp0:contradiction] Decision "${newDecision.id}" has no embedding — skipping similarity scan.`,
     );
     return [];
   }
@@ -86,7 +86,7 @@ async function findSimilarDecisions(newDecision: Decision): Promise<SimilarDecis
     rows = result.rows;
   } catch (err) {
     console.error(
-      '[decigraph:contradiction] Stage 1 pgvector query failed:',
+      '[hipp0:contradiction] Stage 1 pgvector query failed:',
       (err as Error).message,
     );
     return [];
@@ -104,7 +104,7 @@ async function findSimilarDecisions(newDecision: Decision): Promise<SimilarDecis
         delete cleanRow['_distance'];
         similar.push({ decision: parseDecision(cleanRow), similarity });
       } catch (err) {
-        console.warn('[decigraph:contradiction] Failed to parse similar decision row:', err);
+        console.warn('[hipp0:contradiction] Failed to parse similar decision row:', err);
       }
     }
   }
@@ -175,7 +175,7 @@ async function analyzeConflict(
 ): Promise<ContradictionAnalysis | null> {
   if (!checkContradictionRateLimit()) {
     console.warn(
-      '[decigraph:contradiction] Rate limit exceeded (max 5/min); skipping LLM conflict check.',
+      '[hipp0:contradiction] Rate limit exceeded (max 5/min); skipping LLM conflict check.',
     );
     return null;
   }
@@ -193,7 +193,7 @@ async function analyzeConflict(
     rawResponse = await callLLM(CONTRADICTION_SYSTEM_PROMPT, userMessage);
   } catch (err) {
     console.error(
-      '[decigraph:contradiction] LLM call failed for conflict analysis:',
+      '[hipp0:contradiction] LLM call failed for conflict analysis:',
       (err as Error).message,
     );
     return null;
@@ -206,7 +206,7 @@ async function analyzeConflict(
     Array.isArray(parsed)
   ) {
     console.warn(
-      '[decigraph:contradiction] LLM returned unexpected shape; treating as no conflict.',
+      '[hipp0:contradiction] LLM returned unexpected shape; treating as no conflict.',
     );
     return null;
   }
@@ -214,7 +214,7 @@ async function analyzeConflict(
   const obj = parsed as Record<string, unknown>;
 
   if (typeof obj['conflicts'] !== 'boolean') {
-    console.warn('[decigraph:contradiction] LLM response missing "conflicts" boolean field.');
+    console.warn('[hipp0:contradiction] LLM response missing "conflicts" boolean field.');
     return null;
   }
 
@@ -286,7 +286,7 @@ async function storeContradiction(
     });
   } catch (err) {
     console.error(
-      '[decigraph:contradiction] Failed to store contradiction:',
+      '[hipp0:contradiction] Failed to store contradiction:',
       (err as Error).message,
     );
     return null;
@@ -335,14 +335,14 @@ async function notifyGovernors(
         notified++;
       } catch (err) {
         console.warn(
-          `[decigraph:contradiction] Failed to notify governor agent ${agentId}:`,
+          `[hipp0:contradiction] Failed to notify governor agent ${agentId}:`,
           (err as Error).message,
         );
       }
     }
   } catch (err) {
     console.warn(
-      '[decigraph:contradiction] Failed to query governor agents:',
+      '[hipp0:contradiction] Failed to query governor agents:',
       (err as Error).message,
     );
   }
@@ -380,7 +380,7 @@ export async function checkForContradictions(decision: Decision): Promise<Contra
         analysis = await analyzeConflict(decision, existingDecision);
       } catch (err) {
         console.error(
-          '[decigraph:contradiction] Unexpected error during conflict analysis:',
+          '[hipp0:contradiction] Unexpected error during conflict analysis:',
           (err as Error).message,
         );
         continue;
@@ -405,7 +405,7 @@ export async function checkForContradictions(decision: Decision): Promise<Contra
         await propagateChange(decision, 'contradiction_detected');
       } catch (err) {
         console.warn(
-          '[decigraph:contradiction] propagateChange failed:',
+          '[hipp0:contradiction] propagateChange failed:',
           (err as Error).message,
         );
       }
@@ -416,20 +416,20 @@ export async function checkForContradictions(decision: Decision): Promise<Contra
         decision_a_title: decision.title,
         decision_b_title: existingDecision.title,
         severity: analysis.severity,
-      }).catch((err) => console.warn('[decigraph:webhook]', (err as Error).message));
+      }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
       // Stage 3c: Always notify governor agents regardless of subscriptions
       const governorCount = await notifyGovernors(decision, existingDecision, analysis);
 
       console.warn(
-        `[decigraph:contradiction] ${analysis.severity.toUpperCase()}: ` +
+        `[hipp0:contradiction] ${analysis.severity.toUpperCase()}: ` +
           `"${decision.title}" conflicts with "${existingDecision.title}" ` +
           `— notifying ${governorCount} agents`,
       );
     }
   } catch (err) {
     console.error(
-      '[decigraph:contradiction] Unexpected top-level error in checkForContradictions:',
+      '[hipp0:contradiction] Unexpected top-level error in checkForContradictions:',
       (err as Error).message,
     );
   }
@@ -471,13 +471,13 @@ export async function scanProjectContradictions(
       try {
         decisions.push(parseDecision(row));
       } catch (err) {
-        console.warn('[decigraph:contradiction] Failed to parse decision during scan:', err);
+        console.warn('[hipp0:contradiction] Failed to parse decision during scan:', err);
       }
     }
 
     if (decisions.length < 2) {
       console.warn(
-        `[decigraph:contradiction] scanProjectContradictions: fewer than 2 decisions with ` +
+        `[hipp0:contradiction] scanProjectContradictions: fewer than 2 decisions with ` +
           `embeddings in project ${projectId} — nothing to scan.`,
       );
       return { pairs_checked: 0, contradictions_found: 0 };
@@ -545,7 +545,7 @@ export async function scanProjectContradictions(
           }
         } catch (err) {
           console.warn(
-            '[decigraph:contradiction] Duplicate check query failed:',
+            '[hipp0:contradiction] Duplicate check query failed:',
             (err as Error).message,
           );
         }
@@ -556,7 +556,7 @@ export async function scanProjectContradictions(
           analysis = await analyzeConflict(decisionA, decisionB);
         } catch (err) {
           console.error(
-            '[decigraph:contradiction] scanProjectContradictions: analysis error:',
+            '[hipp0:contradiction] scanProjectContradictions: analysis error:',
             (err as Error).message,
           );
           continue;
@@ -580,7 +580,7 @@ export async function scanProjectContradictions(
           await propagateChange(decisionA, 'contradiction_detected');
         } catch (err) {
           console.warn(
-            '[decigraph:contradiction] propagateChange failed during scan:',
+            '[hipp0:contradiction] propagateChange failed during scan:',
             (err as Error).message,
           );
         }
@@ -588,7 +588,7 @@ export async function scanProjectContradictions(
         const governorCount = await notifyGovernors(decisionA, decisionB, analysis);
 
         console.warn(
-          `[decigraph:contradiction] ${analysis.severity.toUpperCase()}: ` +
+          `[hipp0:contradiction] ${analysis.severity.toUpperCase()}: ` +
             `"${decisionA.title}" conflicts with "${decisionB.title}" ` +
             `— notifying ${governorCount} agents`,
         );
@@ -602,7 +602,7 @@ export async function scanProjectContradictions(
     }
   } catch (err) {
     console.error(
-      '[decigraph:contradiction] Unexpected top-level error in scanProjectContradictions:',
+      '[hipp0:contradiction] Unexpected top-level error in scanProjectContradictions:',
       (err as Error).message,
     );
   }
@@ -618,12 +618,12 @@ export function logContradictionConfig(): void {
   const config = resolveLLMConfig();
   if (config.distillery) {
     console.warn(
-      `[decigraph:contradiction] Contradiction detection enabled ` +
+      `[hipp0:contradiction] Contradiction detection enabled ` +
         `(${config.distillery.model} via ${config.distillery.provider})`,
     );
   } else {
     console.warn(
-      '[decigraph:contradiction] Contradiction detection disabled — no LLM provider configured.',
+      '[hipp0:contradiction] Contradiction detection disabled — no LLM provider configured.',
     );
   }
 }

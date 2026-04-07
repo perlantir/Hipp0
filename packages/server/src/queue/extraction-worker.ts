@@ -5,8 +5,8 @@
  * Uses Sonnet (not Opus) for extraction — structured JSON output at 1/10th
  * the cost. Opus is reserved for Ask Anything (synthesis needs reasoning).
  */
-import { scrubSecrets, INJECTION_GUARD } from '@decigraph/core/distillery/index.js';
-import { resolveLLMConfig } from '@decigraph/core/config/llm.js';
+import { scrubSecrets, INJECTION_GUARD } from '@hipp0/core/distillery/index.js';
+import { resolveLLMConfig } from '@hipp0/core/config/llm.js';
 import type { ExtractionJobData, IngestionJobData } from './index.js';
 import { addIngestionJob } from './index.js';
 
@@ -55,7 +55,7 @@ async function callExtractionLLM(systemPrompt: string, userMessage: string): Pro
   const endpoint = resolveLLMConfig().distillery;
 
   if (!endpoint) {
-    console.warn('[decigraph/extraction] No LLM provider configured');
+    console.warn('[hipp0/extraction] No LLM provider configured');
     return '[]';
   }
 
@@ -78,10 +78,10 @@ async function callExtractionLLM(systemPrompt: string, userMessage: string): Pro
 
     // Non-Anthropic path — fall back to the configured distillery callLLM.
     // Can't force Sonnet here, but it still works with whatever model is configured.
-    const { callLLM } = await import('@decigraph/core/distillery/index.js');
+    const { callLLM } = await import('@hipp0/core/distillery/index.js');
     return await callLLM(systemPrompt, userMessage);
   } catch (err) {
-    console.error('[decigraph/extraction] LLM call failed:', (err as Error).message);
+    console.error('[hipp0/extraction] LLM call failed:', (err as Error).message);
     throw err;
   }
 }
@@ -93,13 +93,13 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
   const scrubbed = scrubSecrets(data.raw_text);
   const userMessage = INJECTION_GUARD + scrubbed;
 
-  console.log(`[decigraph/extraction] Processing: source=${data.source} by=${data.made_by} len=${data.raw_text.length} model=${EXTRACTION_MODEL}`);
+  console.log(`[hipp0/extraction] Processing: source=${data.source} by=${data.made_by} len=${data.raw_text.length} model=${EXTRACTION_MODEL}`);
 
   const llmResponse = await callExtractionLLM(EXTRACTION_SYSTEM_PROMPT, userMessage);
 
   // Check if Distillery thinks this is not a decision
   if (!llmResponse || llmResponse.trim() === 'null' || llmResponse.trim() === 'NO_DECISION' || llmResponse.trim() === '[]') {
-    console.log(`[decigraph/extraction] No decision found in message from ${data.made_by}`);
+    console.log(`[hipp0/extraction] No decision found in message from ${data.made_by}`);
     return;
   }
 
@@ -113,13 +113,13 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
     }
     parsed = JSON.parse(cleaned) as ExtractedResult;
   } catch {
-    console.warn(`[decigraph/extraction] Failed to parse LLM response as JSON:`, llmResponse.slice(0, 200));
+    console.warn(`[hipp0/extraction] Failed to parse LLM response as JSON:`, llmResponse.slice(0, 200));
     return;
   }
 
   // Validate required fields
   if (!parsed.title || typeof parsed.title !== 'string') {
-    console.warn('[decigraph/extraction] Missing or invalid title in extracted decision');
+    console.warn('[hipp0/extraction] Missing or invalid title in extracted decision');
     return;
   }
 
@@ -139,5 +139,5 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
   };
 
   await addIngestionJob(ingestionData);
-  console.log(`[decigraph/extraction] Decision extracted: "${ingestionData.title}" → ingestion queue`);
+  console.log(`[hipp0/extraction] Decision extracted: "${ingestionData.title}" → ingestion queue`);
 }

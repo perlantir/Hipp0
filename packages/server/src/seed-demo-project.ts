@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { DEMO_DATA } from './demo-data.js';
 
 const DEMO_PROJECT_ID = 'de000000-0000-4000-8000-000000000001';
@@ -40,7 +40,7 @@ function defaultProfile(role: string): Record<string, unknown> {
 /** Try to import getRoleProfile, fall back to default */
 async function safeGetRoleProfile(role: string): Promise<Record<string, unknown>> {
   try {
-    const mod = await import('@decigraph/core/roles.js');
+    const mod = await import('@hipp0/core/roles.js');
     return (mod.getRoleProfile as unknown as (r: string) => Record<string, unknown>)(role);
   } catch {
     return defaultProfile(role);
@@ -123,12 +123,12 @@ async function updateDemoAgentProfiles(): Promise<void> {
       );
       updated++;
     } catch (err) {
-      console.warn(`[decigraph/demo] Failed to update profile for ${agentName}:`, (err as Error).message);
+      console.warn(`[hipp0/demo] Failed to update profile for ${agentName}:`, (err as Error).message);
     }
   }
 
   if (updated > 0) {
-    console.warn(`[decigraph/demo] Updated ${updated} demo agent relevance profiles`);
+    console.warn(`[hipp0/demo] Updated ${updated} demo agent relevance profiles`);
   }
 }
 
@@ -144,7 +144,7 @@ export async function seedDemoProject(): Promise<void> {
     );
     if (existing.rows.length > 0) {
       // Project exists — update agent profiles and return
-      console.warn('[decigraph/demo] Demo project exists — updating agent profiles');
+      console.warn('[hipp0/demo] Demo project exists — updating agent profiles');
       await updateDemoAgentProfiles();
       return;
     }
@@ -152,7 +152,7 @@ export async function seedDemoProject(): Promise<void> {
     // Table might not exist yet; let it fail later if so
   }
 
-  console.warn('[decigraph/demo] Seeding demo project...');
+  console.warn('[hipp0/demo] Seeding demo project...');
 
   // ── 1. Create demo project ────────────────────────────────────
   await db.query(
@@ -161,7 +161,7 @@ export async function seedDemoProject(): Promise<void> {
     [
       DEMO_PROJECT_ID,
       'AI SaaS Platform (Demo)',
-      'A realistic demo project showing how DeciGraph tracks architectural, security, frontend, backend, DevOps, and business decisions for an AI SaaS product.',
+      'A realistic demo project showing how Hipp0 tracks architectural, security, frontend, backend, DevOps, and business decisions for an AI SaaS product.',
       new Date().toISOString(),
     ],
   );
@@ -243,6 +243,6 @@ export async function seedDemoProject(): Promise<void> {
   }
 
   console.warn(
-    `[decigraph/demo] Seeded: 1 project, ${data.agents.length} agents, ${data.decisions.length} decisions, ${edgesCreated} edges, ${contradictionsCreated} contradictions`,
+    `[hipp0/demo] Seeded: 1 project, ${data.agents.length} agents, ${data.decisions.length} decisions, ${edgesCreated} edges, ${contradictionsCreated} contradictions`,
   );
 }

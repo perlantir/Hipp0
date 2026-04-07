@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { createInterface } from 'node:readline';
-import { DeciGraphClient, DeciGraphApiError } from '@decigraph/sdk';
+import { Hipp0Client, Hipp0ApiError } from '@hipp0/sdk';
 import type {
   Decision,
   Agent,
@@ -9,19 +9,19 @@ import type {
   ProjectStats,
   GraphResult,
   DecisionEdge,
-} from '@decigraph/sdk';
+} from '@hipp0/sdk';
 
-export function getClient(): DeciGraphClient {
-  const baseUrl = process.env.DECIGRAPH_API_URL ?? 'http://localhost:3000';
-  const apiKey = process.env.DECIGRAPH_API_KEY;
-  return new DeciGraphClient({ baseUrl, apiKey });
+export function getClient(): Hipp0Client {
+  const baseUrl = process.env.HIPP0_API_URL ?? 'http://localhost:3000';
+  const apiKey = process.env.HIPP0_API_KEY;
+  return new Hipp0Client({ baseUrl, apiKey });
 }
 
 export function getProjectId(): string {
-  const id = process.env.DECIGRAPH_PROJECT_ID;
+  const id = process.env.HIPP0_PROJECT_ID;
   if (!id) {
-    console.error(chalk.red('Error: DECIGRAPH_PROJECT_ID environment variable is not set.'));
-    console.error(chalk.dim('Run `decigraph init` to create a project, then set DECIGRAPH_PROJECT_ID.'));
+    console.error(chalk.red('Error: HIPP0_PROJECT_ID environment variable is not set.'));
+    console.error(chalk.dim('Run `hipp0 init` to create a project, then set HIPP0_PROJECT_ID.'));
     process.exit(1);
   }
   return id;
@@ -29,7 +29,7 @@ export function getProjectId(): string {
 
 export function handleError(err: unknown, spinner?: ReturnType<typeof ora>): never {
   if (spinner) spinner.fail();
-  if (err instanceof DeciGraphApiError) {
+  if (err instanceof Hipp0ApiError) {
     console.error(chalk.red(`API Error (${err.code}): ${err.message}`));
     if (err.details) {
       console.error(chalk.dim(JSON.stringify(err.details, null, 2)));

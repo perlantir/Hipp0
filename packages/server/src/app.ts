@@ -55,7 +55,7 @@ import { registerImportWizardRoutes } from './routes/import-wizard.js';
 import { registerCollabRoomRoutes } from './routes/collab-room.js';
 
 import { tierEnforcement } from './middleware/tierEnforcement.js';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 
 const SERVER_START_TIME = Date.now();
 
@@ -87,7 +87,7 @@ export function createApp() {
   app.onError(errorHandler);
 
   // ── Phase 3: Auth middleware ───────────────────────────────────────
-  // When DECIGRAPH_AUTH_REQUIRED=false (default), optionalAuth is used.
+  // When HIPP0_AUTH_REQUIRED=false (default), optionalAuth is used.
   // When true, phase3AuthMiddleware enforces JWT or API key.
   // Public routes are always exempt.
   app.use('/api/*', async (c, next) => {
@@ -134,9 +134,9 @@ export function createApp() {
       await phase3AuthMiddleware(c, next);
     } else {
       // Legacy: optionalAuth attaches user if token present, defaults to nick tenant
-      // Then fall through to original authMiddleware for DECIGRAPH_API_KEY compat
+      // Then fall through to original authMiddleware for HIPP0_API_KEY compat
       await optionalAuth(c, async () => {
-        if (process.env.DECIGRAPH_API_KEY) {
+        if (process.env.HIPP0_API_KEY) {
           await authMiddleware(c, next);
         } else {
           await next();

@@ -1,6 +1,6 @@
 /**
- * decigraph start  — start the DeciGraph server using decigraph.db in the current dir.
- * decigraph stop   — send SIGTERM to the server recorded in .decigraph.pid.
+ * hipp0 start  — start the Hipp0 server using hipp0.db in the current dir.
+ * hipp0 stop   — send SIGTERM to the server recorded in .hipp0.pid.
  */
 
 import type { Command } from 'commander';
@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 
 const _require = createRequire(import.meta.url);
 
-const PID_FILE = '.decigraph.pid';
+const PID_FILE = '.hipp0.pid';
 const DEFAULT_PORT = 3100;
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ function isRunning(pid: number): boolean {
 }
 
 /**
- * Generate a DeciGraph-style API key: "nx_" + 16 random alphanumeric characters.
+ * Generate a Hipp0-style API key: "nx_" + 16 random alphanumeric characters.
  */
 function generateApiKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -57,16 +57,16 @@ function generateApiKey(): string {
 }
 
 /**
- * Locate the @decigraph/server entry-point, tolerating both installed and
+ * Locate the @hipp0/server entry-point, tolerating both installed and
  * monorepo layouts.
  */
 function resolveServerEntry(): string {
   try {
-    return _require.resolve('@decigraph/server');
+    return _require.resolve('@hipp0/server');
   } catch {
     // Monorepo fallback: look relative to this package.
     return path.resolve(
-      path.dirname(_require.resolve('@decigraph/cli/package.json')),
+      path.dirname(_require.resolve('@hipp0/cli/package.json')),
       '..',
       'server',
       'dist',
@@ -95,8 +95,8 @@ function spawnServer(
         ...process.env,
         PORT: String(port),
         HOST: '127.0.0.1',
-        DECIGRAPH_SQLITE_PATH: sqlitePath,
-        DECIGRAPH_API_KEY: apiKey,
+        HIPP0_SQLITE_PATH: sqlitePath,
+        HIPP0_API_KEY: apiKey,
       },
       cwd: dir,
     });
@@ -110,7 +110,7 @@ function spawnServer(
       return;
     }
 
-    // Persist the PID so `decigraph stop` can find it.
+    // Persist the PID so `hipp0 stop` can find it.
     fs.writeFileSync(pidFilePath(dir), String(pid), 'utf-8');
 
     resolve(pid);
@@ -122,21 +122,21 @@ function spawnServer(
 // ---------------------------------------------------------------------------
 
 export function registerServerCommands(program: Command): void {
-  // ── decigraph start ──────────────────────────────────────────────────────────
+  // ── hipp0 start ──────────────────────────────────────────────────────────
   program
     .command('start')
-    .description('Start the DeciGraph server (uses decigraph.db in the current directory)')
+    .description('Start the Hipp0 server (uses hipp0.db in the current directory)')
     .option('-p, --port <port>', 'Port to listen on', String(DEFAULT_PORT))
     .option('--api-key <key>', 'API key (generated automatically if omitted)')
     .action(async (opts: { port?: string; apiKey?: string }) => {
       const dir = process.cwd();
       const port = parseInt(opts.port ?? String(DEFAULT_PORT), 10);
-      const sqlitePath = path.join(dir, 'decigraph.db');
+      const sqlitePath = path.join(dir, 'hipp0.db');
 
-      // If no database exists, delegate to decigraph init to do full initialisation.
+      // If no database exists, delegate to hipp0 init to do full initialisation.
       if (!fs.existsSync(sqlitePath)) {
         console.warn(
-          chalk.yellow('No decigraph.db found in the current directory. Running `decigraph init`…'),
+          chalk.yellow('No hipp0.db found in the current directory. Running `hipp0 init`…'),
         );
         // Re-invoke the CLI with `init` so we get the full init flow.
         const cliEntry = process.argv[1];
@@ -156,7 +156,7 @@ export function registerServerCommands(program: Command): void {
       const existingPid = readPid(dir);
       if (existingPid !== null && isRunning(existingPid)) {
         console.warn(
-          chalk.yellow(`[decigraph] Server is already running (PID ${existingPid})`),
+          chalk.yellow(`[hipp0] Server is already running (PID ${existingPid})`),
         );
         console.warn(chalk.dim(`  API:       http://localhost:${port}`));
         console.warn(chalk.dim(`  Dashboard: http://localhost:${port}/dashboard`));
@@ -164,7 +164,7 @@ export function registerServerCommands(program: Command): void {
       }
 
       const apiKey = opts.apiKey ?? generateApiKey();
-      const spinner = ora('Starting DeciGraph server…').start();
+      const spinner = ora('Starting Hipp0 server…').start();
 
       try {
         const pid = await spawnServer(dir, sqlitePath, apiKey, port);
@@ -176,15 +176,15 @@ export function registerServerCommands(program: Command): void {
           process.exit(1);
         }
 
-        spinner.succeed(chalk.green('DeciGraph server started'));
+        spinner.succeed(chalk.green('Hipp0 server started'));
         console.warn('');
         console.warn(`  ${chalk.bold('API:')}       http://localhost:${port}`);
         console.warn(`  ${chalk.bold('Dashboard:')} http://localhost:${port}/dashboard`);
-        console.warn(`  ${chalk.bold('Database:')}  ./decigraph.db`);
+        console.warn(`  ${chalk.bold('Database:')}  ./hipp0.db`);
         console.warn(`  ${chalk.bold('API Key:')}   ${chalk.cyan(apiKey)}`);
         console.warn(`  ${chalk.bold('PID:')}       ${pid}`);
         console.warn('');
-        console.warn(chalk.dim(`  To stop: decigraph stop`));
+        console.warn(chalk.dim(`  To stop: hipp0 stop`));
       } catch (err) {
         spinner.fail('Failed to start server');
         console.error(chalk.red((err as Error).message));
@@ -192,10 +192,10 @@ export function registerServerCommands(program: Command): void {
       }
     });
 
-  // ── decigraph stop ───────────────────────────────────────────────────────────
+  // ── hipp0 stop ───────────────────────────────────────────────────────────
   program
     .command('stop')
-    .description('Stop the running DeciGraph server')
+    .description('Stop the running Hipp0 server')
     .action(async () => {
       const dir = process.cwd();
       const pid = readPid(dir);
@@ -203,7 +203,7 @@ export function registerServerCommands(program: Command): void {
       if (pid === null) {
         console.error(
           chalk.red(
-            `No .decigraph.pid file found in ${dir}. Is the server running from this directory?`,
+            `No .hipp0.pid file found in ${dir}. Is the server running from this directory?`,
           ),
         );
         process.exit(1);
@@ -231,7 +231,7 @@ export function registerServerCommands(program: Command): void {
           process.kill(pid, 'SIGKILL');
           spinner.warn(chalk.yellow('Server did not stop gracefully; sent SIGKILL.'));
         } else {
-          spinner.succeed(chalk.green('DeciGraph server stopped.'));
+          spinner.succeed(chalk.green('Hipp0 server stopped.'));
         }
 
         // Remove the PID file.

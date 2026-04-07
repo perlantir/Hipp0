@@ -1,4 +1,4 @@
-// SDK-local type definitions — mirrors core types without depending on @decigraph/core,
+// SDK-local type definitions — mirrors core types without depending on @hipp0/core,
 // so the SDK works in any environment (browser, edge, Node).
 
 export interface Project {
@@ -543,18 +543,18 @@ export interface AcceptSuggestionResult {
   was_override: boolean;
 }
 
-export interface DeciGraphClientOptions {
+export interface Hipp0ClientOptions {
   baseUrl: string;
   apiKey?: string;
 }
 
-export interface DeciGraphError {
+export interface Hipp0Error {
   code: string;
   message: string;
   details?: unknown;
 }
 
-export class DeciGraphApiError extends Error {
+export class Hipp0ApiError extends Error {
   constructor(
     message: string,
     public readonly code: string,
@@ -562,6 +562,6 @@ export class DeciGraphApiError extends Error {
     public readonly details?: unknown,
   ) {
     super(message);
-    this.name = 'DeciGraphApiError';
+    this.name = 'Hipp0ApiError';
   }
 }

@@ -161,7 +161,7 @@ export async function notifyCascade(
           ],
         );
       } catch (err) {
-        console.warn(`[decigraph:cascade] Notification failed for agent "${agentName}": ${(err as Error).message}`);
+        console.warn(`[hipp0:cascade] Notification failed for agent "${agentName}": ${(err as Error).message}`);
       }
     }
   }
@@ -186,11 +186,11 @@ export async function notifyCascade(
         [randomUUID(), gov.id, cascade.changed_decision_id, governorMessage],
       );
     } catch (err) {
-      console.warn(`[decigraph:cascade] Governor notification failed for "${gov.name}": ${(err as Error).message}`);
+      console.warn(`[hipp0:cascade] Governor notification failed for "${gov.name}": ${(err as Error).message}`);
     }
   }
 
   console.warn(
-    `[decigraph:cascade] ${cascade.changed_decision_title} ${eventVerb} — ${cascade.total_affected} downstream decisions affected`,
+    `[hipp0:cascade] ${cascade.changed_decision_title} ${eventVerb} — ${cascade.total_affected} downstream decisions affected`,
   );
 }

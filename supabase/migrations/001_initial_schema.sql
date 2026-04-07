@@ -1,4 +1,4 @@
--- DeciGraph Initial Schema
+-- Hipp0 Initial Schema
 -- PostgreSQL 17 + pgvector
 
 -- Extensions

@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import type { Decision } from '@decigraph/sdk';
+import type { Decision } from '@hipp0/sdk';
 import {
   getClient,
   getProjectId,
@@ -11,7 +11,7 @@ import {
   formatDecision,
   renderAsciiGraph,
 } from '../cli-helpers.js';
-import type { GraphResult } from '@decigraph/sdk';
+import type { GraphResult } from '@hipp0/sdk';
 
 export function registerDecisionCommands(program: Command): void {
   const decisions = program.command('decisions').description('Manage decisions');

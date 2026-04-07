@@ -102,29 +102,29 @@ export function getOpenClawStatus(): Record<string, unknown> {
  * Start polling the OpenClaw workspace for session files.
  */
 export function startOpenClawWatcher(): boolean {
-  _watchPath = process.env.DECIGRAPH_OPENCLAW_PATH ?? process.env.DECIGRAPH_WATCH_DIR ?? '';
+  _watchPath = process.env.HIPP0_OPENCLAW_PATH ?? process.env.HIPP0_WATCH_DIR ?? '';
   if (!_watchPath) {
-    console.warn('[decigraph/openclaw] No DECIGRAPH_OPENCLAW_PATH or DECIGRAPH_WATCH_DIR — watcher disabled');
+    console.warn('[hipp0/openclaw] No HIPP0_OPENCLAW_PATH or HIPP0_WATCH_DIR — watcher disabled');
     return false;
   }
 
-  _projectId = process.env.DECIGRAPH_OPENCLAW_PROJECT_ID
-    ?? process.env.DECIGRAPH_DEFAULT_PROJECT_ID
-    ?? process.env.DECIGRAPH_TELEGRAM_PROJECT_ID
+  _projectId = process.env.HIPP0_OPENCLAW_PROJECT_ID
+    ?? process.env.HIPP0_DEFAULT_PROJECT_ID
+    ?? process.env.HIPP0_TELEGRAM_PROJECT_ID
     ?? '';
   if (!_projectId) {
-    console.error('[decigraph/openclaw] No project ID configured — watcher disabled');
+    console.error('[hipp0/openclaw] No project ID configured — watcher disabled');
     return false;
   }
 
   // Verify directory exists
   if (!fs.existsSync(_watchPath)) {
-    console.error(`[decigraph/openclaw] Watch path does not exist: ${_watchPath}`);
+    console.error(`[hipp0/openclaw] Watch path does not exist: ${_watchPath}`);
     return false;
   }
 
   // Cursor stored in /tmp to avoid permission issues on mounted volumes
-  _cursorPath = process.env.DECIGRAPH_CURSOR_PATH || '/tmp/.decigraph-cursor.json';
+  _cursorPath = process.env.HIPP0_CURSOR_PATH || '/tmp/.hipp0-cursor.json';
   loadCursors();
 
   // Count workspace dirs for startup log
@@ -135,7 +135,7 @@ export function startOpenClawWatcher(): boolean {
   // Run first poll immediately
   void pollOnce();
 
-  console.warn(`[decigraph/openclaw] Polling: ${_watchPath} (${workspaceDirs.length} workspace dirs, interval: ${POLL_INTERVAL / 1000}s)`);
+  console.warn(`[hipp0/openclaw] Polling: ${_watchPath} (${workspaceDirs.length} workspace dirs, interval: ${POLL_INTERVAL / 1000}s)`);
   return true;
 }
 
@@ -147,7 +147,7 @@ export async function stopOpenClawWatcher(): Promise<void> {
     clearInterval(_pollTimer);
     _pollTimer = null;
     saveCursors();
-    console.warn('[decigraph/openclaw] Watcher stopped');
+    console.warn('[hipp0/openclaw] Watcher stopped');
   }
 }
 
@@ -193,7 +193,7 @@ function listWorkspaceDirs(): string[] {
       .filter((e) => e.isDirectory() && e.name.startsWith('workspace-'))
       .map((e) => path.join(_watchPath, e.name));
   } catch (err) {
-    console.warn('[decigraph/openclaw] Failed to list workspace dirs:', (err as Error).message);
+    console.warn('[hipp0/openclaw] Failed to list workspace dirs:', (err as Error).message);
     return [];
   }
 }
@@ -254,7 +254,7 @@ async function pollOnce(): Promise<void> {
     _filesTracked = trackedCount;
     _filesSkipped = skippedCount;
   } catch (err) {
-    console.error('[decigraph/openclaw] Poll error:', (err as Error).message);
+    console.error('[hipp0/openclaw] Poll error:', (err as Error).message);
   } finally {
     _polling = false;
   }
@@ -301,11 +301,11 @@ async function checkAndProcessFile(filePath: string): Promise<void> {
     fs.closeSync(fd);
     newContent = buffer.toString('utf-8');
   } catch (err) {
-    console.warn(`[decigraph/openclaw] Failed to read ${key}:`, (err as Error).message);
+    console.warn(`[hipp0/openclaw] Failed to read ${key}:`, (err as Error).message);
     return;
   }
 
-  console.log(`[decigraph/openclaw] New content in ${key} (${newBytes} bytes)`);
+  console.log(`[hipp0/openclaw] New content in ${key} (${newBytes} bytes)`);
 
   const agentName = extractAgentName(filePath);
   const lines = newContent.split('\n').filter((l) => l.trim());
@@ -351,7 +351,7 @@ async function checkAndProcessFile(filePath: string): Promise<void> {
     decisionsFound++;
 
     const snippet = truncatedText.slice(0, 80).replace(/\n/g, ' ');
-    console.log(`[decigraph/openclaw] Decision captured from ${agentName}: "${snippet}"`);
+    console.log(`[hipp0/openclaw] Decision captured from ${agentName}: "${snippet}"`);
   }
 
   if (decisionsFound > 0) {
@@ -390,10 +390,10 @@ function loadCursors(): void {
         _cursors.set(key, entry);
       }
       _filesTracked = _cursors.size;
-      console.log(`[decigraph/openclaw] Loaded ${_cursors.size} cursors from ${_cursorPath}`);
+      console.log(`[hipp0/openclaw] Loaded ${_cursors.size} cursors from ${_cursorPath}`);
     }
   } catch (err) {
-    console.warn('[decigraph/openclaw] Failed to load cursors:', (err as Error).message);
+    console.warn('[hipp0/openclaw] Failed to load cursors:', (err as Error).message);
   }
 }
 
@@ -405,6 +405,6 @@ function saveCursors(): void {
     }
     fs.writeFileSync(_cursorPath, JSON.stringify(obj, null, 2), 'utf-8');
   } catch (err) {
-    console.warn('[decigraph/openclaw] Failed to save cursors:', (err as Error).message);
+    console.warn('[hipp0/openclaw] Failed to save cursors:', (err as Error).message);
   }
 }

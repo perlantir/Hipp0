@@ -475,7 +475,7 @@ export function Playground() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#D97706' }}>
               <span className="text-white font-bold text-sm">D</span>
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">DeciGraph</span>
+            <span className="text-white font-bold text-lg tracking-tight">Hipp0</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
             Playground
@@ -640,7 +640,7 @@ export function Playground() {
             className="text-xl sm:text-2xl font-bold mb-2"
             style={{ color: 'var(--text-primary)' }}
           >
-            Same 50 decisions. Different views. That's DeciGraph.
+            Same 50 decisions. Different views. That's Hipp0.
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
             Every agent sees what matters to them. No noise. No missed context.
@@ -654,7 +654,7 @@ export function Playground() {
               Get Started Free <ArrowRight size={16} />
             </a>
             <a
-              href="https://github.com/perlantir/DeciGraph"
+              href="https://github.com/perlantir/Hipp0"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"

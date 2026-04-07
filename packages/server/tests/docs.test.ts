@@ -8,7 +8,7 @@ import { createApp } from '../src/app.js';
 // ── DB Mock (same pattern as app.test.ts) ─────────────────────────────────
 
 const mockQuery = vi.fn();
-vi.mock('@decigraph/core/db/index.js', () => ({
+vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
     transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
@@ -20,7 +20,7 @@ vi.mock('@decigraph/core/db/index.js', () => ({
   closeDb: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@decigraph/core/db/pool.js', () => ({
+vi.mock('@hipp0/core/db/pool.js', () => ({
   query: mockQuery,
   getPool: vi.fn(),
   getClient: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('@decigraph/core/db/pool.js', () => ({
   transaction: vi.fn().mockImplementation(async (fn: Function) => fn({ query: mockQuery })),
 }));
 
-vi.mock('@decigraph/core/db/parsers.js', () => ({
+vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseProject: vi.fn((row: Record<string, unknown>) => row),
   parseAgent: vi.fn((row: Record<string, unknown>) => row),
   parseDecision: vi.fn((row: Record<string, unknown>) => row),
@@ -57,7 +57,7 @@ async function request(
 // ── Setup ─────────────────────────────────────────────────────────────────
 
 // Set a real API key so auth is enforced for protected routes
-vi.stubEnv('DECIGRAPH_API_KEY', 'test-secret-key-12345');
+vi.stubEnv('HIPP0_API_KEY', 'test-secret-key-12345');
 
 let app: ReturnType<typeof createApp>;
 

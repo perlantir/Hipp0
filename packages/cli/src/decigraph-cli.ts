@@ -15,8 +15,8 @@ import { registerShortcutCommands } from './commands/shortcuts.js';
 const program = new Command();
 
 program
-  .name('decigraph')
-  .description('DeciGraph — AI team memory, decision tracking, and context compilation')
+  .name('hipp0')
+  .description('Hipp0 — AI team memory, decision tracking, and context compilation')
   .version('0.1.0');
 
 // Top-level shortcut commands (add, ask, search, list)

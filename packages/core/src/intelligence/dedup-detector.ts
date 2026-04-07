@@ -21,7 +21,7 @@ export async function detectDuplicates(newDecisionId: string, projectId: string)
   const newDec = newResult.rows[0] as Record<string, unknown>;
 
   if (!newDec.embedding) {
-    console.log(`[decigraph/dedup] No embedding for decision "${newDec.title}" — skipping`);
+    console.log(`[hipp0/dedup] No embedding for decision "${newDec.title}" — skipping`);
     return;
   }
 
@@ -40,7 +40,7 @@ export async function detectDuplicates(newDecisionId: string, projectId: string)
       [embeddingStr, projectId, newDecisionId, embeddingStr],
     );
   } catch {
-    console.warn('[decigraph/dedup] Vector search not available — skipping');
+    console.warn('[hipp0/dedup] Vector search not available — skipping');
     return;
   }
 
@@ -56,7 +56,7 @@ export async function detectDuplicates(newDecisionId: string, projectId: string)
     );
 
     console.log(
-      `[decigraph/dedup] Potential duplicate: "${newDec.title}" ~ "${topMatch.title}" (${similarity.toFixed(2)})`,
+      `[hipp0/dedup] Potential duplicate: "${newDec.title}" ~ "${topMatch.title}" (${similarity.toFixed(2)})`,
     );
   }
 }

@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseDecision, parseEdge, parseAuditEntry } from '@decigraph/core/db/parsers.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseDecision, parseEdge, parseAuditEntry } from '@hipp0/core/db/parsers.js';
 import { requireUUID } from './validation.js';
 import { cache, projectStatsKey, CACHE_TTL } from '../cache/redis.js';
 

@@ -1,229 +1,188 @@
 ```
-██████╗ ███████╗ ██████╗██╗ ██████╗ ██████╗  █████╗ ██████╗ ██╗  ██╗
-██╔══██╗██╔════╝██╔════╝██║██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██║  ██║
-██║  ██║█████╗  ██║     ██║██║  ███╗██████╔╝███████║██████╔╝███████║
-██║  ██║██╔══╝  ██║     ██║██║   ██║██╔══██╗██╔══██║██╔═══╝ ██╔══██║
-██████╔╝███████╗╚██████╗██║╚██████╔╝██║  ██║██║  ██║██║     ██║  ██║
-╚═════╝ ╚══════╝ ╚═════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝
+    __  __ _             ___
+   / / / /(_)___  ____  / _ \
+  / /_/ // // _ \/ __ \/ // /
+ / __  // // ___/ /_/ /\__ \
+/_/ /_//_// \___/ .___/____/
+         |_/   /_/
 ```
 
-# DeciGraph — The shared brain for multi-agent AI teams
+# Hipp0
 
-## Install
+**The memory and intelligence compiler for AI agent teams.**
 
-**Docker Compose (recommended):**
-
-```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
-cp .env.example .env       # Edit with your API key
-docker compose up -d        # PostgreSQL + API + Dashboard
-```
-
-**One-line install:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/perlantir/decigraph/main/install.sh | bash
-```
-
-Or see the full [Getting Started Guide](docs/getting-started.md).
-
-[![CI](https://github.com/perlantir/decigraph/actions/workflows/ci.yml/badge.svg)](https://github.com/perlantir/decigraph/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Node 22+](https://img.shields.io/badge/node-22%2B-green)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
-[![PostgreSQL 17](https://img.shields.io/badge/postgres-17%20%2B%20pgvector-blue)](https://github.com/pgvector/pgvector)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-
-Maintained by [Perlantir](https://github.com/perlantir).
-
-DeciGraph is an open-source decision-memory platform that keeps multi-agent AI teams aligned. Agents record what they decide, why they decided it, and what changed — then compile that knowledge into a ranked, token-budgeted context package before every task. No more contradictory agents, no more lost decisions, no more context amnesia.
-
----
-
-## Getting Started
-
-Deploy DeciGraph in under 10 minutes:
-
-```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
-cp .env.example .env       # Edit with your API key
-docker compose up -d        # That's it
-```
-
-See the full [Getting Started Guide](docs/getting-started.md) for step-by-step instructions with verification at each step.
-
----
-
-## Why DeciGraph?
-
-When you run multiple AI agents on a shared codebase or product, they constantly step on each other:
-
-- **Builder** implements an API endpoint that **Architect** already decided to deprecate.
-- **Reviewer** approves code that violates a security decision made two sessions ago.
-- A new Claude session starts with no memory of the 200 decisions the team made last week.
-
-DeciGraph solves this with a persistent, searchable decision graph, automatic contradiction detection, a 5-signal relevance scorer, and first-class MCP support so Claude and other LLM clients can read and write the shared brain without any code changes.
+Hipp0 gives every AI agent on your team a shared decision memory — a structured graph of what was decided, why, by whom, and how it connects to everything else. Agents query context before acting, record decisions after acting, and the graph grows smarter over time. One API, any framework, any model.
 
 ---
 
 ## Features
 
-### Decision Graph
-Every decision is a node. Relationships between decisions (`supersedes`, `requires`, `blocks`, `contradicts`, `enables`, `depends_on`, `refines`, `reverts`) are typed edges. You can traverse the graph, detect cycles, and analyse downstream impact before committing a change.
+### Decision Graph Engine
+- **5-signal relevance scoring** — directAffect, tagMatch, personaMatch, semanticSimilarity, temporal — with per-agent weight profiles
+- **Role-differentiated context compilation** — each agent gets context tuned to its role and current task
+- **Tag matcher with stemming** — exact → substring → stemmed fallback for flexible matching
+- **PostgreSQL + pgvector** — embeddings via OpenAI `text-embedding-3-small` for semantic search
+- **Change Propagator + Dependency Cascade** — when a decision changes, affected decisions are flagged and downstream impacts traced
 
-### 5-Signal Context Compiler
-When an agent asks "what do I need to know to do this task?", DeciGraph runs a 5-signal scoring algorithm across every decision in the project:
-- **Direct affect** (0.40 weight): Is this agent or role explicitly in the decision's `affects` list?
-- **Tag matching** (0.20): Do the decision's tags match the agent's relevance profile?
-- **Role relevance** (0.15): How many high-priority tags align with the agent's role?
-- **Semantic similarity** (0.25): Cosine similarity between the task embedding and the decision embedding (pgvector).
-- **Status penalty**: `active` × 1.0, `superseded` × 0.4 or 0.1, `reverted` × 0.05.
+### Super Brain Orchestration
+- **Session management** with multi-step workflows and recommended actions
+- **Agent Decision Protocol** — `PROCEED` / `PROCEED_WITH_NOTE` / `SKIP` / `OVERRIDE_TO` / `ASK_FOR_CLARIFICATION` + `action_reason`
+- **2 MCP orchestrator tools** — `hipp0_follow_orchestrator` and `hipp0_override_orchestrator`
 
-Results are packed into a token budget, cached for 1 hour, and returned as formatted Markdown or JSON.
+### Import Wizard
+- **GitHub scanning via Octokit** — real PR extraction (titles, descriptions, labels, reviewers, file paths)
+- **Full execute pipeline** — scan → preview → selective import with confidence scoring
+- **Permanent GitHub Sync wizard** — 3-step guided setup for webhook-driven continuous import
+
+### Collaboration Rooms
+- **Real-time WebSocket** — presence tracking, typing indicators, `@mention` autocomplete
+- **Cross-platform agent communication** — humans, OpenClaw, Hermes, Claude Code, CrewAI, any agent on any platform
+- **Session timeline** with Brain suggestion accept/override
+
+### Interactive Playground
+- 4 built-in demo scenarios with with/without comparison
+- Speed controls and step-by-step execution
+- Live visualization of scoring and context compilation
 
 ### Distillery
-Feed DeciGraph a raw conversation transcript and an LLM (Anthropic Claude or OpenAI GPT-4o-mini) extracts structured decisions, assumptions, open questions, and a session summary automatically. No manual tagging required.
+- **Auto-extract decisions from conversations** using Claude (Anthropic)
+- Deduplication, contradiction detection, and graph integration
+- Session summarization
 
-### Change Propagator
-When a decision is updated or superseded, DeciGraph identifies every agent whose `affects` or subscription list includes the changed domain, generates role-specific notification messages, and queues them as unread notifications ready for the next context compile.
+### Governance
+- Weekly digest generation
+- Outcomes tracking with impact analysis
+- Decision evolution proposals
 
-### Temporal Engine
-Decisions carry a `confidence_decay_rate`. Freshness scores decay over time. The compiler surfaces `⚠️ Open questions` and `🔷 Assumptions` inline so agents know exactly where to validate.
-
-### MCP Server
-A zero-config Model Context Protocol server exposes 12 tools and 7 resources. Add two lines to `claude_desktop_config.json` and Claude can record decisions, compile context, and search the graph natively — no code changes to your prompts.
-
-### Super Brain: Session Memory + Orchestration
-Multi-step task sessions where each agent sees the previous agent's actual output. The Smart Orchestrator recommends who should go next, what they should do, and pre-loads their context — zero LLM calls, pure tag-matching math. Role Signals score every agent's relevance and recommend abstention when an agent has nothing to add.
-
-### Playground
-Interactive step-by-step agent simulation. Walk through a task session one agent at a time, see context compilation in real time, and experiment with different agent orderings.
-
-### Outcome Tracking
-Track whether decisions led to the expected outcomes. Record results, link them back to the original decision, and build an institutional feedback loop.
-
-### Governance & Violations
-Define governance rules (e.g., "security review required for auth changes") and automatically detect violations when decisions bypass required steps.
-
-### What-If Simulator
-Preview the impact of a hypothetical decision before committing it. See which agents would be affected, what contradictions would arise, and how the graph topology changes.
-
-### Decision Evolution
-Visualize how decisions evolve over time — supersession chains, confidence decay, and the full audit trail from initial proposal to current state.
-
-### Time Travel
-View the state of the decision graph at any point in the past. See what each agent knew at a specific moment.
-
-### Export / Import
-Export your entire decision graph as JSON for backup, migration, or analysis. Import decisions from external sources.
-
-### Review Queue
-A prioritized queue of decisions that need human review — contradictions, low-confidence decisions, and governance violations surface automatically.
-
-### Ask Anything
-Natural-language search across all decisions. Ask questions like "what did we decide about authentication?" and get ranked, contextualized answers.
-
-### Weekly Digest
-Automated summary of the week's decisions, contradictions resolved, and agents' activity — delivered as structured markdown.
-
-### GitHub Integration
-Bidirectional PR-to-decision linking. Decisions reference PRs, PRs reference decisions. Webhook-driven — no polling.
-
-### Linear Integration
-Connect your Linear workspace to automatically create decisions from issues and link issue status back to the decision graph.
-
-### Webhooks
-Push decision events to external systems. Configurable per-project with HMAC signature verification.
-
-### Discord, Slack & Telegram Bots
-Ingest decisions directly from chat. Send a message in your team channel and DeciGraph extracts and records decisions automatically.
-
-### Dashboard
-A React + Tailwind dashboard gives you a live view of 25+ views — see the Dashboard section below. Available at `http://localhost:3200` after `docker compose up`.
-
-### Framework Integrations (Experimental)
-Drop-in integrations for LangChain/LangGraph, CrewAI, AutoGen, and OpenAI Agents SDK. One import and your existing agents gain persistent decision memory. These integrations are experimental and may change.
+### Integrations
+- **18+ MCP tools** for any MCP-compatible client
+- **Framework adapters** — LangChain, CrewAI, AutoGen, OpenAI Agents SDK
+- **TypeScript SDK** (`@hipp0/sdk`), **Python SDK** (`hipp0-sdk`), **CLI** (`@hipp0/cli`)
+- **BYOK model support** — bring your own API keys for OpenAI, Anthropic, or OpenRouter
 
 ---
 
 ## Quick Start
 
-### 1. Clone and configure
+### Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
+git clone https://github.com/perlantir/DeciGraph.git
+cd DeciGraph
+
+# Create .env from template
 cp .env.example .env
-```
+# Edit .env — add at minimum: ANTHROPIC_API_KEY
 
-Edit `.env` — add your preferred LLM provider:
-
-```bash
-# Pick one:
-OPENROUTER_API_KEY=sk-or-your-key    # Recommended: one key, all features
-# OPENAI_API_KEY=sk-your-key          # Alternative: OpenAI direct
-# ANTHROPIC_API_KEY=sk-ant-your-key   # Alternative: Anthropic direct
-# Or leave all blank — DeciGraph works without LLM keys
-```
-
-### 2. Start everything with Docker Compose
-
-```bash
+# Start everything
 docker compose up -d
 ```
 
-This starts:
-- **PostgreSQL 17 + pgvector** on port 5432 (with migrations auto-applied)
-- **DeciGraph API server** on port 3100
-- **Dashboard** on port 3200
+The stack starts three services:
+| Service | Port | Description |
+|---------|------|-------------|
+| `hipp0-server` | 3100 | API + WebSocket server |
+| `hipp0-dashboard` | 3200 | React dashboard |
+| `hipp0-db` | 5432 | PostgreSQL 17 + pgvector |
 
-### 3. Create your first project
+### API Key Setup
+
+On first startup, Hipp0 auto-generates an API key for the default project. Retrieve it:
 
 ```bash
-export DECIGRAPH_API_URL=http://localhost:3100
-curl -s -X POST $DECIGRAPH_API_URL/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-project", "description": "Testing DeciGraph"}' | jq .id
-# → "proj-uuid-here"
-export DECIGRAPH_PROJECT_ID="proj-uuid-here"
+curl http://localhost:3100/api/projects
+# → returns project_id
+
+curl http://localhost:3100/api/api-keys?project_id=<PROJECT_ID>
+# → returns your API key
 ```
 
-### 4. Register an agent
+Include it in all requests:
 
-```bash
-curl -s -X POST $DECIGRAPH_API_URL/api/projects/$DECIGRAPH_PROJECT_ID/agents \
-  -H "Content-Type: application/json" \
-  -d '{"name": "alice", "role": "architect", "context_budget_tokens": 50000}' | jq .
+```
+Authorization: Bearer <API_KEY>
 ```
 
-### 5. Record a decision
+---
 
-```bash
-curl -s -X POST $DECIGRAPH_API_URL/api/projects/$DECIGRAPH_PROJECT_ID/decisions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Use PostgreSQL as primary database",
-    "description": "All persistent state lives in PostgreSQL 17.",
-    "reasoning": "Team familiarity, strong JSON support, and pgvector for embeddings.",
-    "made_by": "alice",
-    "tags": ["database", "architecture"],
-    "affects": ["builder", "ops"],
-    "confidence": "high"
-  }' | jq .id
+## MCP Configuration
+
+Add to your MCP client config (Claude Desktop, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "hipp0": {
+      "command": "npx",
+      "args": ["-y", "@hipp0/mcp"],
+      "env": {
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_API_KEY": "<YOUR_API_KEY>",
+        "HIPP0_PROJECT_ID": "<YOUR_PROJECT_ID>"
+      }
+    }
+  }
+}
 ```
 
-### 6. Compile context before a task
+This exposes 18+ tools including `record_decision`, `get_context`, `search_decisions`, `hipp0_follow_orchestrator`, and `hipp0_override_orchestrator`.
 
-```bash
-curl -s -X POST $DECIGRAPH_API_URL/api/compile \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_name": "alice",
-    "project_id": "'$DECIGRAPH_PROJECT_ID'",
-    "task_description": "Design the data layer for user authentication"
-  }' | jq .formatted_markdown
+---
+
+## SDK Usage
+
+### TypeScript
+
+```typescript
+import { Hipp0Client } from '@hipp0/sdk';
+
+const client = new Hipp0Client({
+  baseUrl: 'http://localhost:3100',
+  apiKey: 'your-api-key',
+  projectId: 'your-project-id',
+});
+
+// Record a decision
+await client.recordDecision({
+  title: 'Use JWT for auth',
+  description: 'Chose JWT over session cookies for stateless API auth',
+  made_by: 'backend-agent',
+  tags: ['auth', 'security'],
+  confidence: 'high',
+});
+
+// Get context for an agent
+const context = await client.compile({
+  agent_name: 'backend-agent',
+  task: 'implement refresh token rotation',
+});
+```
+
+### Python
+
+```python
+from hipp0_sdk import Hipp0Client
+
+client = Hipp0Client(
+    base_url="http://localhost:3100",
+    api_key="your-api-key",
+    project_id="your-project-id",
+)
+
+# Record a decision
+client.record_decision(
+    title="Use JWT for auth",
+    description="Chose JWT over session cookies for stateless API auth",
+    made_by="backend-agent",
+    tags=["auth", "security"],
+    confidence="high",
+)
+
+# Get context
+context = client.compile(
+    agent_name="backend-agent",
+    task="implement refresh token rotation",
+)
 ```
 
 ---
@@ -231,403 +190,79 @@ curl -s -X POST $DECIGRAPH_API_URL/api/compile \
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         DeciGraph Platform                          │
-│                                                                 │
-│   ┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐  │
-│   │  Claude  │   │LangChain/ │   │ CrewAI / │   │  CLI /   │  │
-│   │ (via MCP)│   │ LangGraph │   │ AutoGen  │   │ REST API │  │
-│   └────┬─────┘   └─────┬─────┘   └────┬─────┘   └────┬─────┘  │
-│        │               │              │               │         │
-│        └───────────────┴──────────────┴───────────────┘         │
-│                                 │                               │
-│                    ┌────────────▼────────────┐                  │
-│                    │    Hono REST API :3100   │                  │
-│                    │  Auth · Audit · CORS     │                  │
-│                    └────────────┬────────────┘                  │
-│                                 │                               │
-│         ┌───────────────────────┼───────────────────────┐       │
-│         │                       │                       │       │
-│  ┌──────▼──────┐  ┌─────────────▼────────┐  ┌──────────▼─────┐ │
-│  │  Decision   │  │  Context Compiler    │  │  Distillery    │ │
-│  │   Graph     │  │  5-signal scoring    │  │  LLM extract   │ │
-│  │  + Edges    │  │  Token budget pack   │  │  decisions     │ │
-│  └──────┬──────┘  │  Cache (1h SHA256)   │  └──────┬─────────┘ │
-│         │         └─────────────┬────────┘         │           │
-│         │                       │                  │           │
-│  ┌──────▼───────────────────────▼──────────────────▼──────┐    │
-│  │          Change Propagator · Temporal Engine            │    │
-│  │  Contradiction detection · Supersession chains         │    │
-│  │  Notification fan-out · Freshness decay                 │    │
-│  └──────────────────────────┬──────────────────────────────┘    │
-│                             │                                   │
-│              ┌──────────────▼──────────────┐                    │
-│              │  PostgreSQL 17 + pgvector   │                    │
-│              │  HNSW index (cosine ops)    │                    │
-│              └─────────────────────────────┘                    │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Hipp0 Dashboard                       │
+│              (React + Vite · port 3200)                  │
+└────────────────────────┬────────────────────────────────┘
+                         │ HTTP / WebSocket
+┌────────────────────────▼────────────────────────────────┐
+│                    Hipp0 Server                           │
+│               (Hono + Node · port 3100)                  │
+│                                                          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
+│  │ Context  │ │  Super   │ │ Distill- │ │   Import   │ │
+│  │ Compiler │ │  Brain   │ │   ery    │ │   Wizard   │ │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
+│  │  Collab  │ │ Change   │ │ Contra-  │ │   MCP      │ │
+│  │  Rooms   │ │ Propag.  │ │ dictions │ │  (18+ tools│ │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│             PostgreSQL 17 + pgvector                     │
+│         Decisions · Agents · Edges · Sessions            │
+│         Embeddings · Collab Rooms · Import Scans         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## MCP Quickstart (Claude Desktop)
-
-Add DeciGraph to your Claude Desktop configuration:
-
-```json
-// ~/Library/Application Support/Claude/claude_desktop_config.json
-{
-  "mcpServers": {
-    "decigraph": {
-      "command": "node",
-      "args": ["/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
-      "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "your-project-uuid"
-      }
-    }
-  }
-}
-```
-
-Restart Claude Desktop. You now have 12 tools available:
-
-- `decigraph_compile_context` — load relevant decisions before any task
-- `decigraph_record_decision` — record a decision into the graph
-- `decigraph_auto_capture` — extract decisions from a conversation automatically
-- `decigraph_search_decisions` — semantic search across all decisions
-- `decigraph_supersede_decision` — replace an outdated decision
-- `decigraph_get_impact` — analyse downstream impact of a change
-- `decigraph_get_contradictions` — surface conflicting decisions
-- `decigraph_get_graph` — traverse the decision graph
-- `decigraph_record_session` — save a session summary
-- `decigraph_get_notifications` — read pending alerts
-- `decigraph_feedback` — teach DeciGraph which decisions were useful
-- `decigraph_list_decisions` — browse decisions with filters
-
-See [docs/mcp-setup.md](docs/mcp-setup.md) for full configuration options and Cursor integration.
-
----
-
-## Framework Integrations
-
-### LangChain
-
-```python
-from decigraph_sdk import DeciGraphClient
-from decigraph_langchain import DeciGraphMemory
-
-client = DeciGraphClient(base_url="http://localhost:3100")
-memory = DeciGraphMemory(client=client, project_id="proj-id", agent_name="coder")
-chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
-```
-
-### LangGraph
-
-```python
-from decigraph_langchain import DeciGraphCheckpointer
-
-checkpointer = DeciGraphCheckpointer(client=client, project_id="proj-id", agent_name="orchestrator")
-app = graph.compile(checkpointer=checkpointer)
-result = app.invoke({"messages": [...]}, config={"configurable": {"thread_id": "t1"}})
-```
-
-### CrewAI
-
-```python
-from decigraph_crewai import DeciGraphCrewMemory, DeciGraphCrewCallback
-
-memory = DeciGraphCrewMemory(client=client, project_id="proj-id", agent_name="researcher")
-cb = DeciGraphCrewCallback(client=client, project_id="proj-id")
-crew = Crew(agents=[...], tasks=[...], task_callback=cb.on_task_complete)
-```
-
-### AutoGen
-
-```python
-from decigraph_autogen import DeciGraphAutoGenMemory
-
-mem = DeciGraphAutoGenMemory(client=client, project_id="proj-id", agent_name="assistant")
-system_ctx = mem.get_context()
-assistant = autogen.AssistantAgent(name="assistant",
-    system_message=f"{system_ctx}\n\nYou are a helpful assistant.")
-```
-
-### OpenAI Agents SDK
-
-```python
-from decigraph_openai_agents import DeciGraphAgentHooks
-
-hooks = DeciGraphAgentHooks(client=client, project_id="proj-id", agent_name="assistant")
-agent = Agent(name="assistant", instructions="You are helpful.", hooks=hooks)
-result = await Runner.run(agent, "Help me design the API.")
-```
-
----
-
-## Python SDK
-
-```python
-from decigraph_sdk import DeciGraphClient
-
-client = DeciGraphClient(base_url="http://localhost:3100", api_key="nx_...")
-
-# Create a project
-project = client.create_project("My Project")
-
-# Record a decision
-decision = client.create_decision(
-    project_id=project["id"],
-    title="Use Redis for session cache",
-    description="Session data will be stored in Redis with a 24h TTL.",
-    reasoning="Latency requirements rule out database round-trips for auth checks.",
-    made_by="architect-agent",
-    tags=["architecture", "performance", "security"],
-)
-
-# Compile context before a task
-ctx = client.compile_context(
-    project_id=project["id"],
-    agent_name="builder",
-    task_description="Implement the user login endpoint",
-)
-print(ctx["formatted_markdown"])
-
-# Distil decisions from a conversation
-result = client.distill(
-    project_id=project["id"],
-    conversation_text=open("session.txt").read(),
-    agent_name="builder",
-)
-print(f"Extracted {result['decisions_extracted']} decisions")
-```
-
----
-
-## TypeScript SDK
-
-```typescript
-import { DeciGraphClient } from '@decigraph/sdk';
-
-const client = new DeciGraphClient({ baseUrl: 'http://localhost:3100' });
-
-// Create a project and register an agent
-const project = await client.createProject({ name: 'My Project' });
-const agent = await client.createAgent(project.id, {
-  name: 'alice',
-  role: 'architect',
-  context_budget_tokens: 50000,
-});
-
-// Record a decision
-const decision = await client.createDecision(project.id, {
-  title: 'Use Hono as HTTP framework',
-  description: 'The REST API is built with Hono for edge compatibility.',
-  reasoning: 'Hono is 3x faster than Express and runs on Cloudflare Workers.',
-  made_by: 'alice',
-  tags: ['architecture', 'api'],
-  affects: ['builder', 'ops'],
-  confidence: 'high',
-});
-
-// Compile context
-const ctx = await client.compileContext({
-  agent_name: 'alice',
-  project_id: project.id,
-  task_description: 'Add rate limiting to the API',
-});
-console.log(ctx.formatted_markdown);
-```
-
----
-
-## CLI Usage
-
-```bash
-# Install globally
-npm install -g @decigraph/cli
-
-# Set environment
-export DECIGRAPH_API_URL=http://localhost:3100
-export DECIGRAPH_PROJECT_ID=your-project-id
-
-# Create a project
-decigraph init "My Project" --description "Production AI team"
-
-# List decisions
-decigraph decisions list --status active --tags architecture
-
-# Add a decision interactively
-decigraph decisions add
-
-# Semantic search
-decigraph decisions search "authentication approach"
-
-# View decision graph as ASCII tree
-decigraph decisions graph <decision-id> --depth 3
-
-# Analyse downstream impact
-decigraph decisions impact <decision-id>
-
-# Supersede a decision
-decigraph decisions supersede <old-decision-id>
-
-# Compile context for an agent
-decigraph compile alice "Implement the payments module" --markdown
-
-# Distil decisions from a conversation file
-decigraph distill ./session.txt --agent alice --session
-
-# View project stats
-decigraph status
-
-# Check for contradictions
-decigraph contradictions
-
-# Show agent notifications
-decigraph notifications --agent <agent-id>
-```
-
----
-
-## Dashboard
-
-Open [http://localhost:3200](http://localhost:3200) after `docker compose up` to access 25+ views:
-
-- **Decision Graph** — force-directed visualization with edge labels and filtering
-- **Session History** — timeline of all agent sessions with linked decisions
-- **Contradictions** — unresolved conflicts with resolution workflow
-- **Context Comparison** — side-by-side view of what different agents see
-- **Impact Analysis** — downstream effect visualizer for any decision
-- **Notifications Feed** — real-time feed of changes affecting each agent
-- **Playground** — interactive step-by-step agent simulation
-- **Outcome Tracking** — decision result recording and feedback loop
-- **Governance Dashboard** — rule definitions and violation feed
-- **What-If Simulator** — hypothetical decision impact preview
-- **Decision Evolution** — supersession chains and confidence decay timeline
-- **Time Travel** — historical graph state viewer
-- **Review Queue** — prioritized list of decisions needing attention
-- **Ask Anything** — natural-language decision search
-- **Weekly Digest** — automated activity summary
-- **Export / Import** — JSON backup and migration tools
-- **Smart Orchestrator** — next-agent recommendation with progress tracking
-- **Session Memory** — multi-step task context viewer
-- **Role Signals** — agent relevance scoring breakdown
-- **GitHub Integration** — PR-to-decision linking status
-- **Linear Integration** — issue-to-decision sync dashboard
-- **Webhook Manager** — configure and monitor outbound webhooks
-- **Agent Profiles** — relevance weights and persona configuration
-- **Project Settings** — API keys, team members, and configuration
-- **Health & Stats** — system health, decision counts, and performance metrics
-
----
-
-## Self-Hosting
-
-See [docs/self-hosting.md](docs/self-hosting.md) for complete setup instructions including:
-- Docker Compose (recommended)
-- Manual setup with `pnpm`
-- PostgreSQL 17 + pgvector installation
-- Nginx reverse proxy configuration
-- SSL/TLS setup
-- Backup and restore procedures
-- Monitoring with health endpoints
-
----
-
-## Contributing
-
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-
-### Development Setup
-
-```bash
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
-pnpm install
-cp .env.example .env
-# Fill in API keys
-docker compose up -d postgres   # start only the database
-pnpm dev                        # start server in watch mode
-```
-
-### Package Structure
-
-```
-decigraph/
-├── packages/
-│   ├── core/        TypeScript core library (scoring, context compiler, roles)
-│   ├── server/      Hono REST API server
-│   ├── sdk/         TypeScript client SDK
-│   ├── mcp/         Model Context Protocol server
-│   ├── cli/         Command-line interface
-│   └── dashboard/   React + Tailwind web dashboard
-├── integrations/
-│   ├── langchain/   LangChain / LangGraph integration
-│   ├── crewai/      CrewAI integration
-│   ├── autogen/     Microsoft AutoGen integration
-│   └── openai-agents/ OpenAI Agents SDK integration
-├── python-sdk/      Python client SDK
-└── supabase/
-    └── migrations/  PostgreSQL schema migrations
-```
-
-### Running Tests
-
-```bash
-pnpm test                # run all tests
-pnpm test --filter core  # run core package tests only
-```
+## Environment Variables
+
+See [`.env.example`](.env.example) for the full reference. Key variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | For Distillery (decision extraction via Claude) |
+| `OPENAI_API_KEY` | No | For semantic embeddings (`text-embedding-3-small`) |
+| `HIPP0_AUTH_DISABLED` | No | Set `true` for local dev (skips API key auth) |
+| `HIPP0_LLM_MODEL` | No | Override default LLM model |
+| `HIPP0_CORS_ORIGINS` | No | Allowed CORS origins (production) |
+| `DATABASE_URL` | No | Custom PostgreSQL connection string |
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [docs/quickstart.md](docs/quickstart.md) | Step-by-step getting started guide |
-| [docs/architecture.md](docs/architecture.md) | Deep dive into the 5 core layers |
-| [docs/api-reference.md](docs/api-reference.md) | Complete REST API reference |
-| [docs/mcp-setup.md](docs/mcp-setup.md) | MCP server setup for Claude and Cursor |
-| [docs/self-hosting.md](docs/self-hosting.md) | Production deployment guide |
-| [docs/framework-guides/langgraph.md](docs/framework-guides/langgraph.md) | LangChain / LangGraph integration |
-| [docs/framework-guides/crewai.md](docs/framework-guides/crewai.md) | CrewAI integration |
-| [docs/framework-guides/autogen.md](docs/framework-guides/autogen.md) | Microsoft AutoGen integration |
-| [docs/framework-guides/openai-agents.md](docs/framework-guides/openai-agents.md) | OpenAI Agents SDK integration |
-| [docs/github-integration.md](docs/github-integration.md) | GitHub App setup and PR linking |
-| [docs/storage.md](docs/storage.md) | Storage backends and data management |
+- [Getting Started](docs/getting-started.md)
+- [Quick Start](docs/quickstart.md)
+- [Architecture](docs/architecture.md)
+- [API Reference](docs/api-reference.md)
+- [MCP Setup](docs/mcp-setup.md)
+- [Agent Decision Protocol](docs/agent-protocol.md)
+- [GitHub Integration](docs/github-integration.md)
+- [Self-Hosting](docs/self-hosting.md)
+- [Storage & Database](docs/storage.md)
+- [Framework Guides](docs/framework-guides/) — LangChain, CrewAI, AutoGen, OpenAI Agents
+
+---
+
+## Links
+
+- **Dashboard**: `http://localhost:3200` (after Docker Compose)
+- **API**: `http://localhost:3100/api`
+- **Health check**: `http://localhost:3100/api/health`
+- **API docs**: `http://localhost:3100/api/docs`
 
 ---
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) for full text.
+MIT
 
-You are free to use, modify, and distribute DeciGraph in commercial projects. Attribution is appreciated but not required.
+---
 
-## Troubleshooting
-
-### `ENOENT: scandir '/app/supabase/migrations'`
-
-The server needs access to the SQL migration files. If running via Docker Compose, make sure the volume mount is present:
-
-```yaml
-server:
-  volumes:
-    - ./supabase/migrations:/app/supabase/migrations:ro
-```
-
-This is already configured in the default `docker-compose.yml`. If you're running a custom setup, copy the `supabase/migrations` directory into your container or mount it as a volume.
-
-### `401 Unauthorized` on all requests
-
-By default, `NODE_ENV` is set to `development` which allows unauthenticated requests. If you've set `NODE_ENV=production`, you must also set `DECIGRAPH_API_KEY` and include it as a `Bearer` token in all requests:
-
-```bash
-export DECIGRAPH_API_KEY=your-secret-key
-curl -H "Authorization: Bearer your-secret-key" http://localhost:3100/api/health
-```
-
-### Docker volume name `decigraph_pgdata`
-
-On existing deployments that were set up before the rename from Nexus to DeciGraph, the Docker volume may still be named with the old prefix. This is expected — Docker volumes persist across name changes. Do not rename or delete the volume as it contains your database data.
+<p align="center">
+  Built by <strong>Perlantir AI Studio</strong>
+</p>

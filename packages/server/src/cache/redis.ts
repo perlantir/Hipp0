@@ -185,7 +185,7 @@ export async function invalidateDecisionCaches(projectId: string): Promise<void>
 let cache: CacheClient;
 
 async function createCache(): Promise<CacheClient> {
-  const redisUrl = process.env.REDIS_URL || process.env.DECIGRAPH_REDIS_URL;
+  const redisUrl = process.env.REDIS_URL || process.env.HIPP0_REDIS_URL;
 
   if (redisUrl) {
     try {
@@ -200,14 +200,14 @@ async function createCache(): Promise<CacheClient> {
         lazyConnect: true,
       });
       await client.connect();
-      console.warn('[decigraph/cache] Redis connected:', redisUrl.replace(/\/\/.*@/, '//<credentials>@'));
+      console.warn('[hipp0/cache] Redis connected:', redisUrl.replace(/\/\/.*@/, '//<credentials>@'));
       return new RedisCache(client);
     } catch (err) {
-      console.warn('[decigraph/cache] Redis unavailable, falling back to in-memory:', (err as Error).message);
+      console.warn('[hipp0/cache] Redis unavailable, falling back to in-memory:', (err as Error).message);
     }
   }
 
-  console.warn('[decigraph/cache] Using in-memory cache (REDIS_URL not set)');
+  console.warn('[hipp0/cache] Using in-memory cache (REDIS_URL not set)');
   return new InMemoryCache();
 }
 

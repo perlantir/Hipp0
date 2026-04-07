@@ -7,14 +7,14 @@
 
 import crypto from 'node:crypto';
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { compileContext } from '@decigraph/core/context-compiler/index.js';
-import type { CompileRequest } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { compileContext } from '@hipp0/core/context-compiler/index.js';
+import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
-import { getSessionContext } from '@decigraph/core/memory/session-manager.js';
-import { generateRoleSignal, computeRecommendedAction } from '@decigraph/core/intelligence/role-signals.js';
+import { getSessionContext } from '@hipp0/core/memory/session-manager.js';
+import { generateRoleSignal, computeRecommendedAction } from '@hipp0/core/intelligence/role-signals.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -68,8 +68,8 @@ export function registerCompileRoutes(app: Hono): void {
       .update(result.formatted_markdown)
       .digest('hex');
 
-    // Privacy: store hash by default, raw text only if DECIGRAPH_STORE_RAW_TASKS=true
-    const storeRawTasks = process.env.DECIGRAPH_STORE_RAW_TASKS === 'true';
+    // Privacy: store hash by default, raw text only if HIPP0_STORE_RAW_TASKS=true
+    const storeRawTasks = process.env.HIPP0_STORE_RAW_TASKS === 'true';
     const taskForStorage = storeRawTasks
       ? task_description
       : crypto.createHash('sha256').update(task_description).digest('hex');
@@ -117,7 +117,7 @@ export function registerCompileRoutes(app: Hono): void {
         ],
       );
     } catch (err) {
-      console.warn('[decigraph:compile] History recording failed:', (err as Error).message);
+      console.warn('[hipp0:compile] History recording failed:', (err as Error).message);
     }
 
     // ── Debug info (optional) ────────────────────────────────────────
@@ -206,7 +206,7 @@ export function registerCompileRoutes(app: Hono): void {
         }
       }
     } catch (err) {
-      console.warn('[decigraph:compile] Policy overlay failed:', (err as Error).message);
+      console.warn('[hipp0:compile] Policy overlay failed:', (err as Error).message);
     }
 
     // ── Session Memory: prepend session context when task_session_id is provided ──
@@ -225,7 +225,7 @@ export function registerCompileRoutes(app: Hono): void {
           agents_involved: sessionCtx.session.agents_involved,
         };
       } catch (err) {
-        console.warn('[decigraph:compile] Session context failed:', (err as Error).message);
+        console.warn('[hipp0:compile] Session context failed:', (err as Error).message);
       }
     }
 
@@ -251,7 +251,7 @@ export function registerCompileRoutes(app: Hono): void {
           abstentionMarkdown = `> **Abstention Notice:** ${agent_name} has low relevance for this task (score: ${signal.relevance_score}, rank: ${signal.rank_among_agents}/${signal.total_agents}). Consider delegating to a more relevant agent.\n\n`;
         }
       } catch (err) {
-        console.warn('[decigraph:compile] Role signal generation failed:', (err as Error).message);
+        console.warn('[hipp0:compile] Role signal generation failed:', (err as Error).message);
       }
     }
 
@@ -296,7 +296,7 @@ export function registerCompileRoutes(app: Hono): void {
     }
 
     // ── Response ─────────────────────────────────────────────────────
-    console.log("[decigraph/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
+    console.log("[hipp0/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
     return c.json(responsePayload);
 
   });

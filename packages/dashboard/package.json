@@ -1,11 +1,11 @@
 {
-  "name": "@decigraph/dashboard",
+  "name": "@hipp0/dashboard",
   "version": "0.1.0",
-  "description": "React web dashboard for DeciGraph",
+  "description": "React web dashboard for Hipp0",
   "author": "Perlantir",
   "repository": {
     "type": "git",
-    "url": "https://github.com/perlantir/decigraph"
+    "url": "https://github.com/perlantir/hipp0"
   },
   "type": "module",
   "scripts": {

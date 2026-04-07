@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { ValidationError } from '@hipp0/core/types.js';
 import { getUser, getTenantId } from '../auth/middleware.js';
 import Stripe from 'stripe';
 

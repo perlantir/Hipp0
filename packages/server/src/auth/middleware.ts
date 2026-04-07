@@ -6,19 +6,19 @@
  * - optionalAuth: Attaches user if present, passes through if not
  * - apiKeyOrAuth: Accepts either Bearer JWT or dg_* API key
  *
- * Feature flag: DECIGRAPH_AUTH_REQUIRED (default: false)
+ * Feature flag: HIPP0_AUTH_REQUIRED (default: false)
  * When false, optionalAuth is used everywhere and defaults to the "nick" tenant.
  */
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { getSupabase } from './supabase.js';
 import crypto from 'node:crypto';
 
 const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
 
 export function isAuthRequired(): boolean {
-  return process.env.DECIGRAPH_AUTH_REQUIRED === 'true';
+  return process.env.HIPP0_AUTH_REQUIRED === 'true';
 }
 
 export interface AuthUser {
@@ -204,7 +204,7 @@ async function authenticateToken(token: string, c: Context): Promise<AuthUser | 
 
 /**
  * Strict auth middleware — returns 401 if no valid auth.
- * When DECIGRAPH_AUTH_REQUIRED=false, defaults to nick tenant.
+ * When HIPP0_AUTH_REQUIRED=false, defaults to nick tenant.
  */
 export const phase3AuthMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   if (!isAuthRequired()) {
@@ -236,7 +236,7 @@ export const phase3AuthMiddleware: MiddlewareHandler = createMiddleware(async (c
 
 /**
  * Optional auth — attaches user if present, defaults to nick tenant if not.
- * Used for backward compatibility when DECIGRAPH_AUTH_REQUIRED=false.
+ * Used for backward compatibility when HIPP0_AUTH_REQUIRED=false.
  */
 export const optionalAuth: MiddlewareHandler = createMiddleware(async (c, next) => {
   const token = extractToken(c);

@@ -1,5 +1,5 @@
 /**
- * db/index.ts — primary entry point for the DeciGraph database layer.
+ * db/index.ts — primary entry point for the Hipp0 database layer.
  *
  * Provides a module-level singleton adapter with a simple lifecycle:
  *
@@ -60,7 +60,7 @@ export async function initDb(config?: DatabaseConfig): Promise<DatabaseAdapter> 
 export function getDb(): DatabaseAdapter {
   if (!_db) {
     throw new Error(
-      '[decigraph/db] Database not initialised. Call initDb() before getDb().',
+      '[hipp0/db] Database not initialised. Call initDb() before getDb().',
     );
   }
   return _db;

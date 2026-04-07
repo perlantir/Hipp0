@@ -2,8 +2,8 @@
  * GitHub App client — singleton Octokit with GitHub App authentication.
  *
  * Returns null when env vars are not configured (feature disabled).
- * Env: DECIGRAPH_GITHUB_APP_ID, DECIGRAPH_GITHUB_APP_PRIVATE_KEY (base64),
- *      DECIGRAPH_GITHUB_APP_INSTALLATION_ID
+ * Env: HIPP0_GITHUB_APP_ID, HIPP0_GITHUB_APP_PRIVATE_KEY (base64),
+ *      HIPP0_GITHUB_APP_INSTALLATION_ID
  */
 import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
@@ -13,9 +13,9 @@ let _client: Octokit | null | undefined;
 export function getGitHubClient(): Octokit | null {
   if (_client !== undefined) return _client;
 
-  const appId = process.env.DECIGRAPH_GITHUB_APP_ID;
-  const privateKeyB64 = process.env.DECIGRAPH_GITHUB_APP_PRIVATE_KEY;
-  const installationId = process.env.DECIGRAPH_GITHUB_APP_INSTALLATION_ID;
+  const appId = process.env.HIPP0_GITHUB_APP_ID;
+  const privateKeyB64 = process.env.HIPP0_GITHUB_APP_PRIVATE_KEY;
+  const installationId = process.env.HIPP0_GITHUB_APP_INSTALLATION_ID;
 
   if (!appId || !privateKeyB64 || !installationId) {
     _client = null;

@@ -1,6 +1,6 @@
-# DeciGraph — Migration to Fly.io / Railway
+# Hipp0 — Migration to Fly.io / Railway
 
-This guide covers migrating a self-hosted DeciGraph deployment to a managed platform.
+This guide covers migrating a self-hosted Hipp0 deployment to a managed platform.
 
 ## Prerequisites
 
@@ -20,25 +20,25 @@ fly auth login
 ### 2. Create Fly app
 
 ```bash
-fly launch --name decigraph --no-deploy
+fly launch --name hipp0 --no-deploy
 ```
 
 ### 3. Configure PostgreSQL
 
 ```bash
 # Create a Fly Postgres cluster
-fly postgres create --name decigraph-db
+fly postgres create --name hipp0-db
 
 # Attach to the app
-fly postgres attach decigraph-db --app decigraph
+fly postgres attach hipp0-db --app hipp0
 ```
 
 ### 4. Import database
 
 ```bash
 # Restore from backup
-gunzip -c backups/decigraph_YYYYMMDD_HHMMSS.sql.gz | \
-  fly postgres connect -a decigraph-db -d decigraph
+gunzip -c backups/hipp0_YYYYMMDD_HHMMSS.sql.gz | \
+  fly postgres connect -a hipp0-db -d hipp0
 ```
 
 ### 5. Set secrets
@@ -46,7 +46,7 @@ gunzip -c backups/decigraph_YYYYMMDD_HHMMSS.sql.gz | \
 ```bash
 fly secrets set \
   ANTHROPIC_API_KEY=sk-ant-... \
-  DECIGRAPH_API_KEY=your-key \
+  HIPP0_API_KEY=your-key \
   NODE_ENV=production
 ```
 
@@ -86,7 +86,7 @@ fly deploy
 
 ```bash
 fly status
-curl https://decigraph.fly.dev/api/health
+curl https://hipp0.fly.dev/api/health
 ```
 
 ---
@@ -119,7 +119,7 @@ railway add --plugin postgresql
 railway variables | grep DATABASE_URL
 
 # Restore from backup
-gunzip -c backups/decigraph_YYYYMMDD_HHMMSS.sql.gz | \
+gunzip -c backups/hipp0_YYYYMMDD_HHMMSS.sql.gz | \
   psql "$RAILWAY_DATABASE_URL"
 ```
 
@@ -127,7 +127,7 @@ gunzip -c backups/decigraph_YYYYMMDD_HHMMSS.sql.gz | \
 
 ```bash
 railway variables set ANTHROPIC_API_KEY=sk-ant-...
-railway variables set DECIGRAPH_API_KEY=your-key
+railway variables set HIPP0_API_KEY=your-key
 railway variables set NODE_ENV=production
 railway variables set PORT=3100
 ```
@@ -184,7 +184,7 @@ Both Fly.io and Railway offer Redis add-ons:
 
 ```bash
 # Fly.io
-fly redis create --name decigraph-redis
+fly redis create --name hipp0-redis
 # Sets REDIS_URL automatically
 
 # Railway

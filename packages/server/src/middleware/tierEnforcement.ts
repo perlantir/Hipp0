@@ -12,7 +12,7 @@
  */
 import type { MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import type { AuthUser } from '../auth/middleware.js';
 
 // ── Tier limits ────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseArtifact } from '@decigraph/core/db/parsers.js';
-import { ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseArtifact } from '@hipp0/core/db/parsers.js';
+import { ValidationError } from '@hipp0/core/types.js';
 import {
   requireUUID,
   requireString,

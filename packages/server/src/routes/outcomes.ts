@@ -1,12 +1,12 @@
 import crypto from 'node:crypto';
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { requireUUID, logAudit } from './validation.js';
 import { randomUUID } from 'node:crypto';
 import {
   recordBatchFeedback,
   computeAndApplyWeightUpdates,
-} from '@decigraph/core/relevance-learner/index.js';
+} from '@hipp0/core/relevance-learner/index.js';
 
 // ---------------------------------------------------------------------------
 // Alignment analysis (keyword-based v1)
@@ -120,9 +120,9 @@ async function processOutcomeSignals(agentId: string): Promise<void> {
       syntheticRatings,
     );
     await computeAndApplyWeightUpdates(agentId);
-    console.log(`[decigraph:outcomes] Processed ${syntheticRatings.length} synthetic signals for agent ${agentId}`);
+    console.log(`[hipp0:outcomes] Processed ${syntheticRatings.length} synthetic signals for agent ${agentId}`);
   } catch (err) {
-    console.warn('[decigraph:outcomes] Auto-learning failed:', (err as Error).message);
+    console.warn('[hipp0:outcomes] Auto-learning failed:', (err as Error).message);
   }
 }
 

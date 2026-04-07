@@ -11,8 +11,8 @@
  * We map these to valid DB values and store the original source info
  * in a metadata-enriched description.
  */
-import { getDb } from '@decigraph/core/db/index.js';
-import { generateEmbedding } from '@decigraph/core/decision-graph/embeddings.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { generateEmbedding } from '@hipp0/core/decision-graph/embeddings.js';
 import crypto from 'node:crypto';
 import type { IngestionJobData, NotificationJobData } from './index.js';
 import { addNotificationJob } from './index.js';
@@ -62,7 +62,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     ? deterministicUUID(data.source_session_id)
     : null;
 
-  console.log(`[decigraph/ingestion] Processing: "${data.title}" source=${data.source}→${dbSource} by=${data.made_by} project=${data.project_id.slice(0, 8)}..`);
+  console.log(`[hipp0/ingestion] Processing: "${data.title}" source=${data.source}→${dbSource} by=${data.made_by} project=${data.project_id.slice(0, 8)}..`);
 
   // ── Dedupe check by deterministic UUID ───────────────────────────────────
   if (dbSessionId) {
@@ -72,11 +72,11 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
         [dbSessionId],
       );
       if (existing.rows.length > 0) {
-        console.log(`[decigraph/ingestion] Duplicate skipped: "${data.title}" (session_id=${dbSessionId.slice(0, 8)}..)`);
+        console.log(`[hipp0/ingestion] Duplicate skipped: "${data.title}" (session_id=${dbSessionId.slice(0, 8)}..)`);
         return;
       }
     } catch (err) {
-      console.warn('[decigraph/ingestion] Dedupe check failed:', (err as Error).message);
+      console.warn('[hipp0/ingestion] Dedupe check failed:', (err as Error).message);
       // Continue — better to potentially duplicate than to drop a decision
     }
   }
@@ -89,7 +89,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
       vectorLiteral = `[${embedding.join(',')}]`;
     }
   } catch (err) {
-    console.warn(`[decigraph/ingestion] Embedding failed for "${data.title}":`, (err as Error).message);
+    console.warn(`[hipp0/ingestion] Embedding failed for "${data.title}":`, (err as Error).message);
     // Continue without embedding — decision still gets inserted
   }
 
@@ -97,11 +97,11 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
   try {
     const proj = await db.query('SELECT id FROM projects WHERE id = ?', [data.project_id]);
     if (proj.rows.length === 0) {
-      console.error(`[decigraph/ingestion] Project not found: ${data.project_id} — cannot insert decision "${data.title}"`);
+      console.error(`[hipp0/ingestion] Project not found: ${data.project_id} — cannot insert decision "${data.title}"`);
       return;
     }
   } catch (err) {
-    console.error(`[decigraph/ingestion] Project check failed:`, (err as Error).message);
+    console.error(`[hipp0/ingestion] Project check failed:`, (err as Error).message);
     return;
   }
 
@@ -112,12 +112,12 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     : data.description;
 
   const confidenceScore = data.confidence === 'high' ? 0.9 : data.confidence === 'medium' ? 0.6 : 0.3;
-  const autoApproveThreshold = parseFloat(process.env.DECIGRAPH_AUTO_APPROVE_THRESHOLD ?? '0.85');
+  const autoApproveThreshold = parseFloat(process.env.HIPP0_AUTO_APPROVE_THRESHOLD ?? '0.85');
   const autoApproved = confidenceScore >= autoApproveThreshold;
   const decisionStatus = autoApproved ? 'active' : 'pending';
   const reviewStatus = autoApproved ? 'approved' : 'pending_review';
 
-  console.log(`[decigraph/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus}`);
+  console.log(`[hipp0/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus}`);
 
   try {
     const result = await db.query(
@@ -149,25 +149,25 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     const inserted = result.rows[0] as Record<string, unknown> | undefined;
     const decisionId = (inserted?.id as string) ?? 'unknown';
 
-    console.log(`[decigraph/ingestion] ✓ Inserted decision ${decisionId} into DB: "${data.title}" (source=${data.source}, db_source=${dbSource})`);
+    console.log(`[hipp0/ingestion] ✓ Inserted decision ${decisionId} into DB: "${data.title}" (source=${data.source}, db_source=${dbSource})`);
 
     // ── Phase 2 Intelligence hooks (fire-and-forget, never block ingestion) ──
     try {
-      const { detectContradictions } = await import('@decigraph/core/intelligence/contradiction-detector.js');
+      const { detectContradictions } = await import('@hipp0/core/intelligence/contradiction-detector.js');
       detectContradictions(decisionId, data.project_id).catch((err: Error) =>
-        console.warn('[decigraph/ingestion] Contradiction detection failed:', err.message),
+        console.warn('[hipp0/ingestion] Contradiction detection failed:', err.message),
       );
     } catch (err) {
-      console.warn('[decigraph/ingestion] Could not load contradiction detector:', (err as Error).message);
+      console.warn('[hipp0/ingestion] Could not load contradiction detector:', (err as Error).message);
     }
 
     try {
-      const { detectDuplicates } = await import('@decigraph/core/intelligence/dedup-detector.js');
+      const { detectDuplicates } = await import('@hipp0/core/intelligence/dedup-detector.js');
       detectDuplicates(decisionId, data.project_id).catch((err: Error) =>
-        console.warn('[decigraph/ingestion] Dedup detection failed:', err.message),
+        console.warn('[hipp0/ingestion] Dedup detection failed:', err.message),
       );
     } catch (err) {
-      console.warn('[decigraph/ingestion] Could not load dedup detector:', (err as Error).message);
+      console.warn('[hipp0/ingestion] Could not load dedup detector:', (err as Error).message);
     }
 
     // ── Forward to notification queue ────────────────────────────────────
@@ -186,8 +186,8 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
 
     await addNotificationJob(notificationData);
   } catch (err) {
-    console.error(`[decigraph/ingestion] ✗ INSERT FAILED for "${data.title}":`, (err as Error).message);
-    console.error(`[decigraph/ingestion] Debug: project_id=${data.project_id} source=${dbSource} session_id=${dbSessionId} confidence=${data.confidence}`);
+    console.error(`[hipp0/ingestion] ✗ INSERT FAILED for "${data.title}":`, (err as Error).message);
+    console.error(`[hipp0/ingestion] Debug: project_id=${data.project_id} source=${dbSource} session_id=${dbSessionId} confidence=${data.confidence}`);
     throw err; // Re-throw so BullMQ retries
   }
 }

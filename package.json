@@ -1,12 +1,12 @@
 {
-  "name": "decigraph",
+  "name": "hipp0",
   "version": "0.1.0",
   "private": true,
   "description": "The Multi-Agent Project Intelligence Layer — shared brain for AI agent teams",
   "author": "Perlantir",
   "repository": {
     "type": "git",
-    "url": "https://github.com/perlantir/decigraph"
+    "url": "https://github.com/perlantir/hipp0"
   },
   "license": "Apache-2.0",
   "scripts": {

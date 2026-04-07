@@ -1,16 +1,16 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { DeciGraphClient } from '../../../sdk/src/index.js';
-import type { DeciGraphServerConfig } from '../server.js';
+import type { Hipp0Client } from '../../../sdk/src/index.js';
+import type { Hipp0ServerConfig } from '../server.js';
 
 export function registerResources(
   server: McpServer,
-  client: DeciGraphClient,
-  config: DeciGraphServerConfig,
+  client: Hipp0Client,
+  config: Hipp0ServerConfig,
 ): void {
   server.registerResource(
-    'decigraph-decisions',
-    'decigraph://decisions',
+    'hipp0-decisions',
+    'hipp0://decisions',
     {
       description: 'All active decisions for the current project in readable list format.',
       mimeType: 'text/plain',
@@ -29,7 +29,7 @@ export function registerResources(
       return {
         contents: [
           {
-            uri: 'decigraph://decisions',
+            uri: 'hipp0://decisions',
             mimeType: 'text/plain',
             text:
               lines.length > 0
@@ -42,8 +42,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-decision-detail',
-    new ResourceTemplate('decigraph://decisions/{id}', { list: undefined }),
+    'hipp0-decision-detail',
+    new ResourceTemplate('hipp0://decisions/{id}', { list: undefined }),
     {
       description: 'Full detail for a single decision by ID.',
       mimeType: 'application/json',
@@ -65,8 +65,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-decision-graph',
-    new ResourceTemplate('decigraph://decisions/{id}/graph', { list: undefined }),
+    'hipp0-decision-graph',
+    new ResourceTemplate('hipp0://decisions/{id}/graph', { list: undefined }),
     {
       description: 'Decision graph rooted at the given decision ID (depth 2).',
       mimeType: 'application/json',
@@ -88,8 +88,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-contradictions',
-    'decigraph://contradictions',
+    'hipp0-contradictions',
+    'hipp0://contradictions',
     {
       description: 'All unresolved contradictions detected between project decisions.',
       mimeType: 'application/json',
@@ -100,7 +100,7 @@ export function registerResources(
       return {
         contents: [
           {
-            uri: 'decigraph://contradictions',
+            uri: 'hipp0://contradictions',
             mimeType: 'application/json',
             text: JSON.stringify(contradictions, null, 2),
           },
@@ -110,8 +110,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-sessions',
-    'decigraph://sessions',
+    'hipp0-sessions',
+    'hipp0://sessions',
     {
       description: 'Recent session summaries for the current project.',
       mimeType: 'application/json',
@@ -122,7 +122,7 @@ export function registerResources(
       return {
         contents: [
           {
-            uri: 'decigraph://sessions',
+            uri: 'hipp0://sessions',
             mimeType: 'application/json',
             text: JSON.stringify(sessions, null, 2),
           },
@@ -132,8 +132,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-agents',
-    'decigraph://agents',
+    'hipp0-agents',
+    'hipp0://agents',
     {
       description: 'All agents registered for the current project.',
       mimeType: 'application/json',
@@ -144,7 +144,7 @@ export function registerResources(
       return {
         contents: [
           {
-            uri: 'decigraph://agents',
+            uri: 'hipp0://agents',
             mimeType: 'application/json',
             text: JSON.stringify(agents, null, 2),
           },
@@ -154,8 +154,8 @@ export function registerResources(
   );
 
   server.registerResource(
-    'decigraph-project-status',
-    'decigraph://project/status',
+    'hipp0-project-status',
+    'hipp0://project/status',
     {
       description:
         'Project health overview — decision counts, contradiction count, agent activity.',
@@ -201,7 +201,7 @@ export function registerResources(
       return {
         contents: [
           {
-            uri: 'decigraph://project/status',
+            uri: 'hipp0://project/status',
             mimeType: 'text/plain',
             text,
           },

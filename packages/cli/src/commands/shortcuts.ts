@@ -1,10 +1,10 @@
 /**
- * Top-level shortcut commands for the DeciGraph CLI.
+ * Top-level shortcut commands for the Hipp0 CLI.
  *
- * decigraph add "title" --tags x,y --affects a,b
- * decigraph ask "question"
- * decigraph search --tags security --agent counsel
- * decigraph list --limit 20
+ * hipp0 add "title" --tags x,y --affects a,b
+ * hipp0 ask "question"
+ * hipp0 search --tags security --agent counsel
+ * hipp0 list --limit 20
  */
 import type { Command } from 'commander';
 import chalk from 'chalk';

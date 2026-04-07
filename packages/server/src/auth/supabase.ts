@@ -17,7 +17,7 @@ export function getSupabase(): SupabaseClient {
 
     if (!url || !anonKey) {
       throw new Error(
-        'SUPABASE_URL and SUPABASE_ANON_KEY are required when DECIGRAPH_AUTH_REQUIRED=true',
+        'SUPABASE_URL and SUPABASE_ANON_KEY are required when HIPP0_AUTH_REQUIRED=true',
       );
     }
 

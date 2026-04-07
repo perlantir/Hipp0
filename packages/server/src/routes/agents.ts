@@ -1,8 +1,8 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseAgent } from '@decigraph/core/db/parsers.js';
-import { NotFoundError } from '@decigraph/core/types.js';
-import { getRoleProfile } from '@decigraph/core/roles.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseAgent } from '@hipp0/core/db/parsers.js';
+import { NotFoundError } from '@hipp0/core/types.js';
+import { getRoleProfile } from '@hipp0/core/roles.js';
 import { requireUUID, requireString, mapDbError } from './validation.js';
 import { randomUUID } from 'node:crypto';
 import { cache, agentListKey, CACHE_TTL } from '../cache/redis.js';

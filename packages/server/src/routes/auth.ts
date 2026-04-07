@@ -4,7 +4,7 @@
  */
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 import { getSupabase, getSupabaseAdmin, isSupabaseConfigured } from '../auth/supabase.js';
 import { phase3AuthMiddleware, getUser, isAuthRequired } from '../auth/middleware.js';
 import crypto from 'node:crypto';
@@ -309,7 +309,7 @@ export function registerAuthRoutes(app: Hono): void {
 
     if (error) {
       // Don't reveal whether email exists
-      console.warn('[decigraph:auth] Password reset error:', error.message);
+      console.warn('[hipp0:auth] Password reset error:', error.message);
     }
 
     // Always return success to avoid email enumeration

@@ -1,19 +1,19 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { DeciGraphClient } from '../../../sdk/src/index.js';
-import type { DeciGraphServerConfig } from '../server.js';
+import type { Hipp0Client } from '../../../sdk/src/index.js';
+import type { Hipp0ServerConfig } from '../server.js';
 
 export function registerDecisionTools(
   server: McpServer,
-  client: DeciGraphClient,
-  config: DeciGraphServerConfig,
+  client: Hipp0Client,
+  config: Hipp0ServerConfig,
 ): void {
   server.registerTool(
-    'decigraph_record_decision',
+    'hipp0_record_decision',
     {
       title: 'Record a decision',
       description:
-        'Manually records an important decision into the DeciGraph knowledge graph. Use this for explicit architectural, product, or implementation decisions.',
+        'Manually records an important decision into the Hipp0 knowledge graph. Use this for explicit architectural, product, or implementation decisions.',
       inputSchema: {
         title: z.string().min(1).describe('Short, descriptive title for the decision.'),
         description: z.string().min(1).describe('What was decided and the full context.'),
@@ -91,7 +91,7 @@ export function registerDecisionTools(
   );
 
   server.registerTool(
-    'decigraph_list_decisions',
+    'hipp0_list_decisions',
     {
       title: 'List decisions',
       description:
@@ -138,7 +138,7 @@ export function registerDecisionTools(
   );
 
   server.registerTool(
-    'decigraph_search_decisions',
+    'hipp0_search_decisions',
     {
       title: 'Search decisions',
       description:
@@ -187,7 +187,7 @@ export function registerDecisionTools(
   );
 
   server.registerTool(
-    'decigraph_supersede_decision',
+    'hipp0_supersede_decision',
     {
       title: 'Supersede a decision',
       description:

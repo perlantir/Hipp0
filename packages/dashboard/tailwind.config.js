@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        nexus: {
+        hipp0: {
           bg: {
             light: '#FAFAF8',
             dark: '#171614',

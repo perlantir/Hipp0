@@ -32,7 +32,7 @@ async function checkContradiction(
   try {
     rawResponse = await callLLM(CONTRADICTION_SYSTEM_PROMPT, userMessage);
   } catch (err) {
-    console.error('[decigraph:distillery] checkContradiction LLM call failed');
+    console.error('[hipp0:distillery] checkContradiction LLM call failed');
     return { contradicts: false, explanation: '' };
   }
 
@@ -75,7 +75,7 @@ export async function detectContradictions(
       embedding = await generateEmbedding(textToEmbed);
     } catch (err) {
       console.error(
-        `[decigraph:distillery] detectContradictions: embedding failed for "${newDecision.title}":`,
+        `[hipp0:distillery] detectContradictions: embedding failed for "${newDecision.title}":`,
         err,
       );
       continue;
@@ -105,7 +105,7 @@ export async function detectContradictions(
       similar = result.rows;
     } catch (err) {
       console.error(
-        `[decigraph:distillery] detectContradictions: similarity query failed for "${newDecision.title}":`,
+        `[hipp0:distillery] detectContradictions: similarity query failed for "${newDecision.title}":`,
         err,
       );
       continue;
@@ -150,12 +150,12 @@ export async function detectContradictions(
            ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
           [newDecision.id, existingRow.id, explanation, existingRow.similarity],
         ).catch((err: unknown) => {
-          console.warn('[decigraph:distillery] Failed to insert contradicts edge:', err);
+          console.warn('[hipp0:distillery] Failed to insert contradicts edge:', err);
         });
 
         await propagateChange(newDecision, 'contradiction_detected' as NotificationType).catch(
           (err: unknown) => {
-            console.warn('[decigraph:distillery] propagateChange failed for contradiction:', err);
+            console.warn('[hipp0:distillery] propagateChange failed for contradiction:', err);
           },
         );
 
@@ -173,10 +173,10 @@ export async function detectContradictions(
         detected.push(contradiction);
 
         console.warn(
-          `[decigraph:distillery] Contradiction: "${newDecision.title}" ↔ "${existingRow.title}"`,
+          `[hipp0:distillery] Contradiction: "${newDecision.title}" ↔ "${existingRow.title}"`,
         );
       } catch (err) {
-        console.error('[decigraph:distillery] Failed to persist contradiction:', err);
+        console.error('[hipp0:distillery] Failed to persist contradiction:', err);
       }
     }
   }

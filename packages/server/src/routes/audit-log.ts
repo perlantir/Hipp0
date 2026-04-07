@@ -4,7 +4,7 @@
  */
 import type { Hono } from 'hono';
 import { phase3AuthMiddleware, requireRole, getUser } from '../auth/middleware.js';
-import { getDb } from '@decigraph/core/db/index.js';
+import { getDb } from '@hipp0/core/db/index.js';
 
 export function registerAuditLogRoutes(app: Hono): void {
   // GET /api/audit-log — paginated audit log

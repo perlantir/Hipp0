@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, X, ExternalLink } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 
-const STORAGE_KEY = 'decigraph-onboarding-dismissed';
+const STORAGE_KEY = 'hipp0-onboarding-dismissed';
 
 interface OnboardingChecklistProps {
   onNavigate: (view: string) => void;
@@ -105,7 +105,7 @@ export function OnboardingChecklist({ onNavigate }: OnboardingChecklistProps) {
     <div className="onboarding-card">
       <div className="onboarding-header">
         <div>
-          <h3 className="onboarding-title">Get started with DeciGraph</h3>
+          <h3 className="onboarding-title">Get started with Hipp0</h3>
           <p className="onboarding-subtitle">
             {completedCount}/{items.length} steps completed
           </p>

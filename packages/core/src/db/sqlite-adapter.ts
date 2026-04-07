@@ -219,7 +219,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
       return { rows: [], rowCount: 0 };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`[decigraph/sqlite] Query failed: ${message}\nSQL: ${sql.slice(0, 200)}`);
+      throw new Error(`[hipp0/sqlite] Query failed: ${message}\nSQL: ${sql.slice(0, 200)}`);
     }
   }
 
@@ -259,7 +259,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   ): Promise<QueryResult> {
     if (!this._vecLoaded) {
       console.warn(
-        '[decigraph/sqlite] sqlite-vec extension not loaded — vector search unavailable. ' +
+        '[hipp0/sqlite] sqlite-vec extension not loaded — vector search unavailable. ' +
         'Install sqlite-vec and ensure the shared library is discoverable.',
       );
       return { rows: [], rowCount: 0 };
@@ -299,7 +299,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
       return await this.query(sql, params);
     } catch (err) {
       console.warn(
-        `[decigraph/sqlite] vectorSearch failed (${(err as Error).message}). ` +
+        `[hipp0/sqlite] vectorSearch failed (${(err as Error).message}). ` +
         'Ensure the vec0 virtual table is created and sqlite-vec is loaded.',
       );
       return { rows: [], rowCount: 0 };
@@ -311,7 +311,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   async runMigrations(migrationsDir: string): Promise<void> {
     // Ensure the tracking table exists.
     await this.query(`
-      CREATE TABLE IF NOT EXISTS _decigraph_migrations (
+      CREATE TABLE IF NOT EXISTS _hipp0_migrations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -319,7 +319,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     `);
 
     const applied = await this.query<{ name: string }>(
-      'SELECT name FROM _decigraph_migrations ORDER BY id',
+      'SELECT name FROM _hipp0_migrations ORDER BY id',
     );
     const appliedSet = new Set(applied.rows.map((r) => r.name));
 
@@ -331,7 +331,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
         .sort();
     } catch (err) {
       throw new Error(
-        `[decigraph/sqlite] Cannot read migrations directory "${migrationsDir}": ${(err as Error).message}`,
+        `[hipp0/sqlite] Cannot read migrations directory "${migrationsDir}": ${(err as Error).message}`,
       );
     }
 
@@ -345,12 +345,12 @@ export class SQLiteAdapter implements DatabaseAdapter {
         // Execute the full migration SQL (may contain multiple statements).
         this._execScript(sql);
         await txQuery(
-          'INSERT INTO _decigraph_migrations (name) VALUES (?)',
+          'INSERT INTO _hipp0_migrations (name) VALUES (?)',
           [file],
         );
       });
 
-      console.warn(`[decigraph/sqlite] Migration applied: ${file}`);
+      console.warn(`[hipp0/sqlite] Migration applied: ${file}`);
     }
   }
 
@@ -365,7 +365,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   private _getDb(): Database.Database {
     if (!this._db) {
       throw new Error(
-        '[decigraph/sqlite] Database not connected. Call connect() before querying.',
+        '[hipp0/sqlite] Database not connected. Call connect() before querying.',
       );
     }
     return this._db;
@@ -424,11 +424,11 @@ export class SQLiteAdapter implements DatabaseAdapter {
       if (vecPath) {
         db.loadExtension(vecPath);
         this._vecLoaded = true;
-        console.warn('[decigraph/sqlite] sqlite-vec extension loaded successfully.');
+        console.warn('[hipp0/sqlite] sqlite-vec extension loaded successfully.');
       }
     } catch (err) {
       console.warn(
-        `[decigraph/sqlite] sqlite-vec extension could not be loaded (${(err as Error).message}). ` +
+        `[hipp0/sqlite] sqlite-vec extension could not be loaded (${(err as Error).message}). ` +
         'Vector search will return empty results.',
       );
     }

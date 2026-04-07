@@ -435,7 +435,7 @@ export interface ProjectStats {
 }
 
 // --- Error Types ---
-export class DeciGraphError extends Error {
+export class Hipp0Error extends Error {
   constructor(
     message: string,
     public code: string,
@@ -443,23 +443,23 @@ export class DeciGraphError extends Error {
     public details?: unknown,
   ) {
     super(message);
-    this.name = 'DeciGraphError';
+    this.name = 'Hipp0Error';
   }
 }
 
-export class NotFoundError extends DeciGraphError {
+export class NotFoundError extends Hipp0Error {
   constructor(resource: string, id: string) {
     super(`${resource} not found: ${id}`, 'NOT_FOUND', 404);
   }
 }
 
-export class ValidationError extends DeciGraphError {
+export class ValidationError extends Hipp0Error {
   constructor(message: string, details?: unknown) {
     super(message, 'VALIDATION_ERROR', 400, details);
   }
 }
 
-export class ConflictError extends DeciGraphError {
+export class ConflictError extends Hipp0Error {
   constructor(message: string) {
     super(message, 'CONFLICT', 409);
   }

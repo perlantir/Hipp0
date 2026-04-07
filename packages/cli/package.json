@@ -1,12 +1,12 @@
 {
-  "name": "@decigraph/cli",
+  "name": "@hipp0/cli",
   "version": "0.1.0",
-  "description": "Command-line interface for DeciGraph",
+  "description": "Command-line interface for Hipp0",
   "author": "Perlantir",
-  "repository": {"type": "git", "url": "https://github.com/perlantir/decigraph"},
+  "repository": {"type": "git", "url": "https://github.com/perlantir/hipp0"},
   "type": "module",
   "bin": {
-    "decigraph": "./dist/decigraph-cli.js"
+    "hipp0": "./dist/hipp0-cli.js"
   },
   "files": [
     "dist",
@@ -14,14 +14,14 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/decigraph-cli.ts",
+    "dev": "tsx src/hipp0-cli.ts",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@decigraph/core": "workspace:*",
-    "@decigraph/sdk": "workspace:*",
-    "@decigraph/server": "workspace:*",
+    "@hipp0/core": "workspace:*",
+    "@hipp0/sdk": "workspace:*",
+    "@hipp0/server": "workspace:*",
     "better-sqlite3": "^12.8.0",
     "commander": "^12.1.0",
     "chalk": "^5.3.0",

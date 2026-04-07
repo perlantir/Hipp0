@@ -5,7 +5,7 @@
  */
 import type { Hono } from 'hono';
 import { requireUUID, requireString } from './validation.js';
-import { analyzeImpact } from '@decigraph/core/intelligence/impact-analyzer.js';
+import { analyzeImpact } from '@hipp0/core/intelligence/impact-analyzer.js';
 
 export function registerImpactRoutes(app: Hono): void {
   app.post('/api/projects/:id/impact', async (c) => {

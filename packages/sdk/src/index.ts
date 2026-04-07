@@ -1,10 +1,10 @@
-export { DeciGraphClient } from './client.js';
-export { DeciGraph } from './facade.js';
-export type { DeciGraphConfig, CompileOptions, AddDecisionOptions, SearchOptions } from './facade.js';
+export { Hipp0Client } from './client.js';
+export { Hipp0 } from './facade.js';
+export type { Hipp0Config, CompileOptions, AddDecisionOptions, SearchOptions } from './facade.js';
 
 export type {
   // Client options
-  DeciGraphClientOptions,
+  Hipp0ClientOptions,
 
   // Domain types
   Project,
@@ -51,9 +51,9 @@ export type {
   ImpactAnalysis,
   AuditEntry,
   ProjectStats,
-  DeciGraphError,
+  Hipp0Error,
   OutcomeResult,
   ReportOutcomeInput,
 } from './types.js';
 
-export { DeciGraphApiError } from './types.js';
+export { Hipp0ApiError } from './types.js';

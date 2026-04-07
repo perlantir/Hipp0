@@ -310,7 +310,7 @@ function SidebarContent({
         <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center shrink-0">
           <span className="text-white font-bold text-sm">N</span>
         </div>
-        {!collapsed && <span className="font-bold text-lg text-white tracking-tight">DeciGraph</span>}
+        {!collapsed && <span className="font-bold text-lg text-white tracking-tight">Hipp0</span>}
       </div>
 
       {/* Nav groups */}
@@ -572,7 +572,7 @@ export default function App() {
         <button onClick={() => setMenuOpen(true)} className="p-2 -ml-2 touch-target">
           <Menu className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
         </button>
-        <span className="ml-3 font-semibold text-lg flex-1" style={{ color: 'var(--text-primary)' }}>DeciGraph</span>
+        <span className="ml-3 font-semibold text-lg flex-1" style={{ color: 'var(--text-primary)' }}>Hipp0</span>
         <ConnectionStatus status={connected} />
         <ThemeToggle />
       </header>

@@ -170,7 +170,7 @@ function CancelModal({
               Special offer: Stay and get 20% off your next 3 months!
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-              Contact support@decigraph.ai to claim this offer.
+              Contact support@hipp0.ai to claim this offer.
             </p>
           </div>
         </div>

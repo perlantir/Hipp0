@@ -1,13 +1,13 @@
 // Error Types Unit Tests
 
 import { describe, it, expect } from 'vitest';
-import { DeciGraphError, NotFoundError, ValidationError, ConflictError } from '../src/types.js';
+import { Hipp0Error, NotFoundError, ValidationError, ConflictError } from '../src/types.js';
 
-// ── DeciGraphError ────────────────────────────────────────────────────────────────
+// ── Hipp0Error ────────────────────────────────────────────────────────────────
 
-describe('DeciGraphError', () => {
+describe('Hipp0Error', () => {
   it('constructs with message, code, and default statusCode 500', () => {
-    const err = new DeciGraphError('Something broke', 'INTERNAL_ERROR');
+    const err = new Hipp0Error('Something broke', 'INTERNAL_ERROR');
     expect(err.message).toBe('Something broke');
     expect(err.code).toBe('INTERNAL_ERROR');
     expect(err.statusCode).toBe(500);
@@ -15,34 +15,34 @@ describe('DeciGraphError', () => {
   });
 
   it('accepts a custom statusCode', () => {
-    const err = new DeciGraphError('Not allowed', 'FORBIDDEN', 403);
+    const err = new Hipp0Error('Not allowed', 'FORBIDDEN', 403);
     expect(err.statusCode).toBe(403);
   });
 
   it('accepts optional details', () => {
     const details = { field: 'name', issue: 'required' };
-    const err = new DeciGraphError('Bad input', 'BAD_REQUEST', 400, details);
+    const err = new Hipp0Error('Bad input', 'BAD_REQUEST', 400, details);
     expect(err.details).toEqual(details);
   });
 
   it('is an instance of Error', () => {
-    const err = new DeciGraphError('oops', 'OOPS');
+    const err = new Hipp0Error('oops', 'OOPS');
     expect(err).toBeInstanceOf(Error);
   });
 
-  it('has name = "DeciGraphError"', () => {
-    const err = new DeciGraphError('oops', 'OOPS');
-    expect(err.name).toBe('DeciGraphError');
+  it('has name = "Hipp0Error"', () => {
+    const err = new Hipp0Error('oops', 'OOPS');
+    expect(err.name).toBe('Hipp0Error');
   });
 
   it('has a stack trace', () => {
-    const err = new DeciGraphError('oops', 'OOPS');
+    const err = new Hipp0Error('oops', 'OOPS');
     expect(err.stack).toBeDefined();
   });
 
-  it('is instance of DeciGraphError', () => {
-    const err = new DeciGraphError('oops', 'OOPS');
-    expect(err).toBeInstanceOf(DeciGraphError);
+  it('is instance of Hipp0Error', () => {
+    const err = new Hipp0Error('oops', 'OOPS');
+    expect(err).toBeInstanceOf(Hipp0Error);
   });
 });
 
@@ -56,10 +56,10 @@ describe('NotFoundError', () => {
     expect(err.statusCode).toBe(404);
   });
 
-  it('is an instance of DeciGraphError and Error', () => {
+  it('is an instance of Hipp0Error and Error', () => {
     const err = new NotFoundError('Decision', 'def-456');
     expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(DeciGraphError);
+    expect(err).toBeInstanceOf(Hipp0Error);
     expect(err).toBeInstanceOf(NotFoundError);
   });
 
@@ -78,7 +78,7 @@ describe('NotFoundError', () => {
     expect(err.code).toBe('NOT_FOUND');
   });
 
-  it('can be caught as a DeciGraphError', () => {
+  it('can be caught as a Hipp0Error', () => {
     function mayThrow() {
       throw new NotFoundError('Foo', 'bar');
     }
@@ -87,10 +87,10 @@ describe('NotFoundError', () => {
       mayThrow();
       expect.fail('Should have thrown');
     } catch (e) {
-      expect(e).toBeInstanceOf(DeciGraphError);
-      const decigraphErr = e as DeciGraphError;
-      expect(decigraphErr.statusCode).toBe(404);
-      expect(decigraphErr.code).toBe('NOT_FOUND');
+      expect(e).toBeInstanceOf(Hipp0Error);
+      const hipp0Err = e as Hipp0Error;
+      expect(hipp0Err.statusCode).toBe(404);
+      expect(hipp0Err.code).toBe('NOT_FOUND');
     }
   });
 });
@@ -112,10 +112,10 @@ describe('ValidationError', () => {
     expect(err.details).toEqual(details);
   });
 
-  it('is an instance of DeciGraphError and Error', () => {
+  it('is an instance of Hipp0Error and Error', () => {
     const err = new ValidationError('bad input');
     expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(DeciGraphError);
+    expect(err).toBeInstanceOf(Hipp0Error);
     expect(err).toBeInstanceOf(ValidationError);
   });
 
@@ -148,10 +148,10 @@ describe('ConflictError', () => {
     expect(err.statusCode).toBe(409);
   });
 
-  it('is an instance of DeciGraphError and Error', () => {
+  it('is an instance of Hipp0Error and Error', () => {
     const err = new ConflictError('duplicate key');
     expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(DeciGraphError);
+    expect(err).toBeInstanceOf(Hipp0Error);
     expect(err).toBeInstanceOf(ConflictError);
   });
 
@@ -175,7 +175,7 @@ describe('ConflictError', () => {
 
 describe('Error hierarchy discrimination', () => {
   const errors = [
-    new DeciGraphError('base', 'BASE'),
+    new Hipp0Error('base', 'BASE'),
     new NotFoundError('X', 'y'),
     new ValidationError('bad'),
     new ConflictError('conflict'),
@@ -187,9 +187,9 @@ describe('Error hierarchy discrimination', () => {
     }
   });
 
-  it('all errors are instances of DeciGraphError', () => {
+  it('all errors are instances of Hipp0Error', () => {
     for (const e of errors) {
-      expect(e).toBeInstanceOf(DeciGraphError);
+      expect(e).toBeInstanceOf(Hipp0Error);
     }
   });
 
@@ -207,7 +207,7 @@ describe('Error hierarchy discrimination', () => {
   });
 
   it('switch-on statusCode correctly routes error types', () => {
-    function classify(err: DeciGraphError): string {
+    function classify(err: Hipp0Error): string {
       switch (err.statusCode) {
         case 400:
           return 'validation';
@@ -223,6 +223,6 @@ describe('Error hierarchy discrimination', () => {
     expect(classify(new ValidationError('bad'))).toBe('validation');
     expect(classify(new NotFoundError('X', 'y'))).toBe('not_found');
     expect(classify(new ConflictError('conflict'))).toBe('conflict');
-    expect(classify(new DeciGraphError('oops', 'ERR', 500))).toBe('server_error');
+    expect(classify(new Hipp0Error('oops', 'ERR', 500))).toBe('server_error');
   });
 });

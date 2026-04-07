@@ -68,7 +68,7 @@ describe('SQLite Integration — Full Lifecycle', () => {
   it('creates a project', async () => {
     const insertResult = await db.query(
       `INSERT INTO projects (id, name, description) VALUES (?, ?, ?)`,
-      [PROJECT_ID, 'DeciGraph Test Project', 'Integration test project'],
+      [PROJECT_ID, 'Hipp0 Test Project', 'Integration test project'],
     );
     expect(insertResult.rowCount).toBe(1);
 
@@ -78,7 +78,7 @@ describe('SQLite Integration — Full Lifecycle', () => {
     );
     expect(selectResult.rows[0]).toMatchObject({
       id: PROJECT_ID,
-      name: 'DeciGraph Test Project',
+      name: 'Hipp0 Test Project',
     });
   });
 

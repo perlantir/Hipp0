@@ -1,6 +1,6 @@
 # MCP Setup Guide
 
-DeciGraph ships a fully compliant [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your decision graph to any MCP-compatible client — Claude Desktop, Cursor, Continue, or any custom host. Once connected, AI assistants can read decisions, compile context, record new decisions, and detect contradictions without you writing a single API call.
+Hipp0 ships a fully compliant [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your decision graph to any MCP-compatible client — Claude Desktop, Cursor, Continue, or any custom host. Once connected, AI assistants can read decisions, compile context, record new decisions, and detect contradictions without you writing a single API call.
 
 ---
 
@@ -32,20 +32,20 @@ Claude Desktop / Cursor / any MCP host
         │
         │  HTTP REST
         ▼
-  DeciGraph Server  (localhost:3100)
+  Hipp0 Server  (localhost:3100)
         │
         ▼
   PostgreSQL + pgvector
 ```
 
-The MCP server is a thin stdio transport layer. It reads environment variables for the DeciGraph URL, project ID, and optional API key, then proxies tool calls and resource reads to the DeciGraph REST API. Your client never talks directly to the database.
+The MCP server is a thin stdio transport layer. It reads environment variables for the Hipp0 URL, project ID, and optional API key, then proxies tool calls and resource reads to the Hipp0 REST API. Your client never talks directly to the database.
 
 ---
 
 ## Prerequisites
 
-- DeciGraph server running (`pnpm dev` or Docker Compose) at `http://localhost:3100`
-- A DeciGraph project created (get the project ID from `GET /api/projects`)
+- Hipp0 server running (`pnpm dev` or Docker Compose) at `http://localhost:3100`
+- A Hipp0 project created (get the project ID from `GET /api/projects`)
 - Node.js ≥ 20 (the MCP server is a compiled JS bundle)
 
 ---
@@ -55,9 +55,9 @@ The MCP server is a thin stdio transport layer. It reads environment variables f
 If you are running from source, build the MCP package before configuring any client:
 
 ```bash
-cd /path/to/decigraph
+cd /path/to/hipp0
 pnpm install
-pnpm --filter @decigraph/mcp build
+pnpm --filter @hipp0/mcp build
 ```
 
 The compiled entrypoint will be at:
@@ -91,44 +91,44 @@ Open the config file (create it if it does not exist) and add a `mcpServers` ent
 ```json
 {
   "mcpServers": {
-    "decigraph": {
+    "hipp0": {
       "command": "node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx..."
       }
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/decigraph` with the real path to your cloned repository and `proj_01hx...` with your project ID.
+Replace `/absolute/path/to/hipp0` with the real path to your cloned repository and `proj_01hx...` with your project ID.
 
 ### Full Configuration (with API key and agent identity)
 
 ```json
 {
   "mcpServers": {
-    "decigraph": {
+    "hipp0": {
       "command": "node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx...",
-        "DECIGRAPH_API_KEY": "nx_...",
-        "DECIGRAPH_AGENT_ID": "agent_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx...",
+        "HIPP0_API_KEY": "nx_...",
+        "HIPP0_AGENT_ID": "agent_01hx..."
       }
     }
   }
 }
 ```
 
-Setting `DECIGRAPH_AGENT_ID` allows `decigraph_get_notifications` to return notifications targeted at the specific agent identity Claude is operating as.
+Setting `HIPP0_AGENT_ID` allows `hipp0_get_notifications` to return notifications targeted at the specific agent identity Claude is operating as.
 
 ### Restarting Claude Desktop
 
-After editing the config file, fully quit and relaunch Claude Desktop (the menu bar icon is not enough — use **Quit** from the app menu). The DeciGraph tools should appear in the tool picker within the chat window.
+After editing the config file, fully quit and relaunch Claude Desktop (the menu bar icon is not enough — use **Quit** from the app menu). The Hipp0 tools should appear in the tool picker within the chat window.
 
 ---
 
@@ -141,12 +141,12 @@ Create or edit `.cursor/mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "decigraph": {
+    "hipp0": {
       "command": "node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx..."
       }
     }
   }
@@ -160,12 +160,12 @@ For a global config that applies to all workspaces, edit the Cursor settings JSO
 ```json
 {
   "mcp.servers": {
-    "decigraph": {
+    "hipp0": {
       "command": "node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx..."
       }
     }
   }
@@ -184,12 +184,12 @@ Edit `~/.continue/config.json`:
 {
   "mcpServers": [
     {
-      "name": "decigraph",
+      "name": "hipp0",
       "command": "node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx..."
       }
     }
   ]
@@ -200,52 +200,52 @@ Edit `~/.continue/config.json`:
 
 ## Custom MCP Hosts
 
-Any MCP host that supports the stdio transport can connect to DeciGraph. The server reads three environment variables and starts listening on stdin/stdout:
+Any MCP host that supports the stdio transport can connect to Hipp0. The server reads three environment variables and starts listening on stdin/stdout:
 
 ```bash
-DECIGRAPH_API_URL=http://localhost:3100 \
-DECIGRAPH_PROJECT_ID=proj_01hx... \
-node /path/to/decigraph/packages/mcp/dist/mcp/src/index.js
+HIPP0_API_URL=http://localhost:3100 \
+HIPP0_PROJECT_ID=proj_01hx... \
+node /path/to/hipp0/packages/mcp/dist/mcp/src/index.js
 ```
 
-For hosts that support HTTP/SSE transport instead of stdio, you can run the server as a daemon and point your client at it. Set `MCP_TRANSPORT=sse` in your environment to enable the SSE transport (check your DeciGraph version for SSE support status).
+For hosts that support HTTP/SSE transport instead of stdio, you can run the server as a daemon and point your client at it. Set `MCP_TRANSPORT=sse` in your environment to enable the SSE transport (check your Hipp0 version for SSE support status).
 
 ---
 
 ## Available Tools
 
-The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the DeciGraph REST API and returns a JSON response.
+The Hipp0 MCP server registers 12 tools. Every tool call is forwarded to the Hipp0 REST API and returns a JSON response.
 
 ### Context & Compilation
 
 | Tool | Description |
 |------|-------------|
-| `decigraph_compile_context` | Compile a ranked context package for the current agent and task. Returns compiled text plus relevant decisions, notifications, and session summaries. Call this at the start of every new task. |
-| `decigraph_auto_capture` | Analyze a conversation snippet and auto-extract decisions, assumptions, and contradictions via the distillery pipeline. |
+| `hipp0_compile_context` | Compile a ranked context package for the current agent and task. Returns compiled text plus relevant decisions, notifications, and session summaries. Call this at the start of every new task. |
+| `hipp0_auto_capture` | Analyze a conversation snippet and auto-extract decisions, assumptions, and contradictions via the distillery pipeline. |
 
 ### Decision Management
 
 | Tool | Description |
 |------|-------------|
-| `decigraph_record_decision` | Manually record a single decision with title, description, rationale, tags, affects list, and confidence. |
-| `decigraph_search_decisions` | Semantic + keyword search across all decisions in the project. |
-| `decigraph_list_decisions` | List all decisions, optionally filtered by status or tag. |
-| `decigraph_supersede_decision` | Mark an existing decision as superseded by a new one. |
-| `decigraph_get_graph` | Retrieve the decision graph as a list of nodes and weighted edges. |
-| `decigraph_get_impact` | Analyze the downstream impact of a specific decision. |
+| `hipp0_record_decision` | Manually record a single decision with title, description, rationale, tags, affects list, and confidence. |
+| `hipp0_search_decisions` | Semantic + keyword search across all decisions in the project. |
+| `hipp0_list_decisions` | List all decisions, optionally filtered by status or tag. |
+| `hipp0_supersede_decision` | Mark an existing decision as superseded by a new one. |
+| `hipp0_get_graph` | Retrieve the decision graph as a list of nodes and weighted edges. |
+| `hipp0_get_impact` | Analyze the downstream impact of a specific decision. |
 
 ### Analysis & Monitoring
 
 | Tool | Description |
 |------|-------------|
-| `decigraph_get_contradictions` | Find pairs of decisions that contradict each other. |
-| `decigraph_get_notifications` | Fetch unread notifications for the current agent. |
-| `decigraph_record_session` | Persist a session summary linking decisions made during the current conversation. |
-| `decigraph_feedback` | Submit positive or negative relevance feedback on a context compilation result. |
+| `hipp0_get_contradictions` | Find pairs of decisions that contradict each other. |
+| `hipp0_get_notifications` | Fetch unread notifications for the current agent. |
+| `hipp0_record_session` | Persist a session summary linking decisions made during the current conversation. |
+| `hipp0_feedback` | Submit positive or negative relevance feedback on a context compilation result. |
 
 ### Tool Input Schemas
 
-#### `decigraph_compile_context`
+#### `hipp0_compile_context`
 
 ```json
 {
@@ -256,7 +256,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_record_decision`
+#### `hipp0_record_decision`
 
 ```json
 {
@@ -270,7 +270,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_auto_capture`
+#### `hipp0_auto_capture`
 
 ```json
 {
@@ -280,7 +280,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_search_decisions`
+#### `hipp0_search_decisions`
 
 ```json
 {
@@ -290,7 +290,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_get_impact`
+#### `hipp0_get_impact`
 
 ```json
 {
@@ -298,7 +298,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_supersede_decision`
+#### `hipp0_supersede_decision`
 
 ```json
 {
@@ -308,7 +308,7 @@ The DeciGraph MCP server registers 12 tools. Every tool call is forwarded to the
 }
 ```
 
-#### `decigraph_feedback`
+#### `hipp0_feedback`
 
 ```json
 {
@@ -327,21 +327,21 @@ The MCP server exposes 7 resources that clients can read directly via URI.
 
 | URI | Description |
 |-----|-------------|
-| `decigraph://decisions` | List of all active decisions in the project |
-| `decigraph://decisions/{id}` | Full detail for a specific decision |
-| `decigraph://decisions/{id}/graph` | Graph neighborhood for a specific decision |
-| `decigraph://contradictions` | All detected contradiction pairs |
-| `decigraph://sessions` | Recent session summaries |
-| `decigraph://agents` | All registered agents and their profiles |
-| `decigraph://project/status` | Project health: decision count, contradiction count, pending notifications |
+| `hipp0://decisions` | List of all active decisions in the project |
+| `hipp0://decisions/{id}` | Full detail for a specific decision |
+| `hipp0://decisions/{id}/graph` | Graph neighborhood for a specific decision |
+| `hipp0://contradictions` | All detected contradiction pairs |
+| `hipp0://sessions` | Recent session summaries |
+| `hipp0://agents` | All registered agents and their profiles |
+| `hipp0://project/status` | Project health: decision count, contradiction count, pending notifications |
 
 ### Reading Resources in Claude
 
 Ask Claude to read these resources directly:
 
-> "Read `decigraph://project/status` and tell me how healthy this project's decision graph is."
+> "Read `hipp0://project/status` and tell me how healthy this project's decision graph is."
 
-> "Show me the decisions in `decigraph://decisions` that are tagged `security`."
+> "Show me the decisions in `hipp0://decisions` that are tagged `security`."
 
 ---
 
@@ -349,10 +349,10 @@ Ask Claude to read these resources directly:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DECIGRAPH_API_URL` | Yes | Base URL of the DeciGraph REST API (e.g. `http://localhost:3100`) |
-| `DECIGRAPH_PROJECT_ID` | Yes | The project all tools operate against |
-| `DECIGRAPH_API_KEY` | No | API key for authenticated DeciGraph servers |
-| `DECIGRAPH_AGENT_ID` | No | Agent ID for notification lookup via `decigraph_get_notifications` |
+| `HIPP0_API_URL` | Yes | Base URL of the Hipp0 REST API (e.g. `http://localhost:3100`) |
+| `HIPP0_PROJECT_ID` | Yes | The project all tools operate against |
+| `HIPP0_API_KEY` | No | API key for authenticated Hipp0 servers |
+| `HIPP0_AGENT_ID` | No | Agent ID for notification lookup via `hipp0_get_notifications` |
 | `MCP_TRANSPORT` | No | Transport mode: `stdio` (default) or `sse` |
 
 ---
@@ -363,24 +363,24 @@ Ask Claude to read these resources directly:
 
 Configure Claude's system prompt or use a Project Custom Instructions block:
 
-> At the start of every coding task, call `decigraph_compile_context` with your agent name and a description of the task. Reference the returned context throughout the task.
+> At the start of every coding task, call `hipp0_compile_context` with your agent name and a description of the task. Reference the returned context throughout the task.
 
 Example prompt injection:
 
 ```
 Before beginning any implementation task:
-1. Call decigraph_compile_context with agent_name="claude" and the task description
+1. Call hipp0_compile_context with agent_name="claude" and the task description
 2. Review all returned decisions relevant to what you are about to do
-3. Do not contradict any active decisions without first using decigraph_get_contradictions to check for conflicts
-4. When you make a significant architectural or implementation choice, record it with decigraph_record_decision
+3. Do not contradict any active decisions without first using hipp0_get_contradictions to check for conflicts
+4. When you make a significant architectural or implementation choice, record it with hipp0_record_decision
 ```
 
 ### Pattern 2: End-of-Session Capture
 
-At the end of a long conversation, use `decigraph_auto_capture` to extract everything:
+At the end of a long conversation, use `hipp0_auto_capture` to extract everything:
 
 ```
-decigraph_auto_capture({
+hipp0_auto_capture({
   "conversation_text": "<paste full conversation>",
   "session_id": "sess_abc123"
 })
@@ -393,20 +393,20 @@ This runs the distillery pipeline and extracts structured decisions automaticall
 Before implementing a design that might conflict with existing decisions:
 
 ```
-decigraph_get_contradictions()
-decigraph_search_decisions({ "query": "authentication approach" })
+hipp0_get_contradictions()
+hipp0_search_decisions({ "query": "authentication approach" })
 ```
 
-If contradictions are found, resolve them with `decigraph_supersede_decision` before proceeding.
+If contradictions are found, resolve them with `hipp0_supersede_decision` before proceeding.
 
 ### Pattern 4: Project Health Check
 
 Start each week by checking project status:
 
 ```
-Read decigraph://project/status
-decigraph_get_notifications()
-decigraph_get_contradictions()
+Read hipp0://project/status
+hipp0_get_notifications()
+hipp0_get_contradictions()
 ```
 
 ---
@@ -415,16 +415,16 @@ decigraph_get_contradictions()
 
 ### "Connection refused" errors
 
-The MCP server cannot reach DeciGraph. Check:
+The MCP server cannot reach Hipp0. Check:
 
 ```bash
 curl http://localhost:3100/health
 ```
 
-If that fails, ensure the DeciGraph server is running:
+If that fails, ensure the Hipp0 server is running:
 
 ```bash
-pnpm dev        # from the decigraph project root
+pnpm dev        # from the hipp0 project root
 # or
 docker compose up
 ```
@@ -439,7 +439,7 @@ docker compose up
 
 ### "Project not found" errors
 
-Verify the project ID in `DECIGRAPH_PROJECT_ID`:
+Verify the project ID in `HIPP0_PROJECT_ID`:
 
 ```bash
 curl http://localhost:3100/api/projects | jq '.[].id'
@@ -452,12 +452,12 @@ If Node.js is installed via nvm or homebrew, Claude Desktop may not have access 
 ```json
 {
   "mcpServers": {
-    "decigraph": {
+    "hipp0": {
       "command": "/Users/yourname/.nvm/versions/node/v22.0.0/bin/node",
-      "args": ["/absolute/path/to/decigraph/packages/mcp/dist/mcp/src/index.js"],
+      "args": ["/absolute/path/to/hipp0/packages/mcp/dist/mcp/src/index.js"],
       "env": {
-        "DECIGRAPH_API_URL": "http://localhost:3100",
-        "DECIGRAPH_PROJECT_ID": "proj_01hx..."
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_PROJECT_ID": "proj_01hx..."
       }
     }
   }
@@ -471,8 +471,8 @@ Find your node path with: `which node`
 Run the MCP server manually to see its stderr output:
 
 ```bash
-DECIGRAPH_API_URL=http://localhost:3100 \
-DECIGRAPH_PROJECT_ID=proj_01hx... \
+HIPP0_API_URL=http://localhost:3100 \
+HIPP0_PROJECT_ID=proj_01hx... \
 node packages/mcp/dist/mcp/src/index.js 2>&1
 ```
 
@@ -489,6 +489,6 @@ Then open `http://localhost:5173` to interactively call tools and read resources
 
 Context compilation involves an embedding lookup and graph traversal. If responses are slow:
 
-- Check that the PostgreSQL HNSW index is built: `pnpm --filter @decigraph/server db:migrate`
+- Check that the PostgreSQL HNSW index is built: `pnpm --filter @hipp0/server db:migrate`
 - Verify `DATABASE_POOL_MAX` is adequate (default 10)
 - Check `LOG_LEVEL=debug` server logs for slow query timing

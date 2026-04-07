@@ -1,6 +1,6 @@
 # AutoGen Integration Guide
 
-The `decigraph-autogen` package integrates DeciGraph decision memory into Microsoft AutoGen agents. It provides `DeciGraphAutoGenMemory`, which injects compiled project context into agent system messages, buffers conversation messages for automatic decision extraction, and creates session summaries when a conversation ends.
+The `hipp0-autogen` package integrates Hipp0 decision memory into Microsoft AutoGen agents. It provides `Hipp0AutoGenMemory`, which injects compiled project context into agent system messages, buffers conversation messages for automatic decision extraction, and creates session summaries when a conversation ends.
 
 ---
 
@@ -9,7 +9,7 @@ The `decigraph-autogen` package integrates DeciGraph decision memory into Micros
 - [How It Works](#how-it-works)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [DeciGraphAutoGenMemory Reference](#decigraphautogenmemory-reference)
+- [Hipp0AutoGenMemory Reference](#hipp0autogenmemory-reference)
   - [Constructor Parameters](#constructor-parameters)
   - [`get_context()`](#get_context)
   - [`get_relevant_decisions()`](#get_relevant_decisions)
@@ -37,19 +37,19 @@ The `decigraph-autogen` package integrates DeciGraph decision memory into Micros
 AutoGen Agent conversation starts
          │
          ▼
-decigraph_mem.get_context()           — compile_context (5-signal scoring)
+hipp0_mem.get_context()           — compile_context (5-signal scoring)
          │
          ▼
-Prepend [DeciGraph Context] to system message
+Prepend [Hipp0 Context] to system message
          │
          ▼
 Agent conversation runs
          │
-    (each message) ──► decigraph_mem.store_message(role, content)
+    (each message) ──► hipp0_mem.store_message(role, content)
          │                    └── auto-flush every N messages
          │
          ▼
-decigraph_mem.on_session_end()
+hipp0_mem.on_session_end()
          │
     ├── flush_to_distillery()   — LLM extracts decisions
     └── create_session_summary() — links all extracted decisions
@@ -62,19 +62,19 @@ The memory object is attached at the Python level — there is no modification t
 ## Installation
 
 ```bash
-pip install decigraph-sdk decigraph-autogen pyautogen
+pip install hipp0-sdk hipp0-autogen pyautogen
 ```
 
 For AutoGen v0.4+:
 
 ```bash
-pip install decigraph-sdk decigraph-autogen autogen-agentchat
+pip install hipp0-sdk hipp0-autogen autogen-agentchat
 ```
 
 Or install from the repository:
 
 ```bash
-cd /path/to/decigraph/integrations/autogen
+cd /path/to/hipp0/integrations/autogen
 pip install -e .
 ```
 
@@ -82,7 +82,7 @@ pip install -e .
 - Python 3.10+
 - AutoGen 0.2.x, 0.3.x (ConversableAgent)
 - AutoGen 0.4+ (agentchat, TransformMessages)
-- decigraph-sdk 0.1+
+- hipp0-sdk 0.1+
 
 ---
 
@@ -91,15 +91,15 @@ pip install -e .
 ```python
 import os
 import autogen
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
 # Initialize
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
 # Create memory for the assistant agent
-decigraph_mem = DeciGraphAutoGenMemory(
+hipp0_mem = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="assistant",
@@ -107,13 +107,13 @@ decigraph_mem = DeciGraphAutoGenMemory(
     distill_every=10,
 )
 
-# Get DeciGraph context to inject into the system message
-decigraph_context = decigraph_mem.get_context()
+# Get Hipp0 context to inject into the system message
+hipp0_context = hipp0_mem.get_context()
 
-# Create AutoGen agents with DeciGraph context
+# Create AutoGen agents with Hipp0 context
 assistant = autogen.AssistantAgent(
     name="assistant",
-    system_message=f"""{decigraph_context}
+    system_message=f"""{hipp0_context}
 
 You are a helpful software engineer. When you make implementation decisions,
 state them clearly with rationale.""",
@@ -126,12 +126,12 @@ user_proxy = autogen.UserProxyAgent(
     max_consecutive_auto_reply=5,
 )
 
-# Register a reply hook to capture messages for DeciGraph
+# Register a reply hook to capture messages for Hipp0
 original_receive = assistant.receive
 
 def tracked_receive(message, sender, **kwargs):
     content = message if isinstance(message, str) else message.get("content", "")
-    decigraph_mem.store_message(role="user", content=content, name=sender.name)
+    hipp0_mem.store_message(role="user", content=content, name=sender.name)
     return original_receive(message, sender, **kwargs)
 
 assistant.receive = tracked_receive
@@ -145,23 +145,23 @@ user_proxy.initiate_chat(
 # Capture the assistant's final message
 for msg in assistant.chat_messages.get(user_proxy, []):
     if msg.get("role") == "assistant":
-        decigraph_mem.store_message(role="assistant", content=msg["content"])
+        hipp0_mem.store_message(role="assistant", content=msg["content"])
 
 # Finalize — flushes remaining messages and creates a SessionSummary
-decigraph_mem.on_session_end(
+hipp0_mem.on_session_end(
     summary="Discussed payment retry and idempotency strategy."
 )
 ```
 
 ---
 
-## DeciGraphAutoGenMemory Reference
+## Hipp0AutoGenMemory Reference
 
 ### Constructor Parameters
 
 ```python
-DeciGraphAutoGenMemory(
-    client: DeciGraphClient,
+Hipp0AutoGenMemory(
+    client: Hipp0Client,
     project_id: str,
     agent_name: str,
     task_description: str = "Perform the current task.",
@@ -173,35 +173,35 @@ DeciGraphAutoGenMemory(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `client` | `DeciGraphClient` | required | Initialized DeciGraph client |
-| `project_id` | `str` | required | DeciGraph project ID |
+| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
+| `project_id` | `str` | required | Hipp0 project ID |
 | `agent_name` | `str` | required | Agent name for context scoping and attribution |
 | `task_description` | `str` | `"Perform the current task."` | Used for context compilation and session summaries |
 | `max_tokens` | `int \| None` | `None` | Token budget for context compilation |
 | `distill_every` | `int` | `10` | Auto-flush to distillery after this many stored messages (0 = manual only) |
-| `create_session_on_end` | `bool` | `True` | Create a `SessionSummary` in DeciGraph on `on_session_end()` |
+| `create_session_on_end` | `bool` | `True` | Create a `SessionSummary` in Hipp0 on `on_session_end()` |
 
 ### `get_context()`
 
-Compiles and returns relevant DeciGraph context as a plain string. Call once at the start of a session to populate the system message.
+Compiles and returns relevant Hipp0 context as a plain string. Call once at the start of a session to populate the system message.
 
 ```python
-context_text: str = decigraph_mem.get_context(
+context_text: str = hipp0_mem.get_context(
     task_description="Implement the payments module.",  # optional override
 )
 
 # Use in system message
-system = f"[DeciGraph Context]\n{context_text}\n\nYou are a helpful engineer."
+system = f"[Hipp0 Context]\n{context_text}\n\nYou are a helpful engineer."
 ```
 
-Returns an empty string if DeciGraph is unreachable (fails gracefully).
+Returns an empty string if Hipp0 is unreachable (fails gracefully).
 
 ### `get_relevant_decisions()`
 
 Returns a list of decision dicts ranked by relevance to a query:
 
 ```python
-decisions: list[dict] = decigraph_mem.get_relevant_decisions(
+decisions: list[dict] = hipp0_mem.get_relevant_decisions(
     query="What database technology did we select?",  # optional, defaults to task_description
 )
 
@@ -214,7 +214,7 @@ for dec in decisions:
 Buffer a single message for later distillation:
 
 ```python
-decigraph_mem.store_message(
+hipp0_mem.store_message(
     role="user",       # "user" | "assistant" | "system" | "tool" | "function"
     content="We should use idempotency keys for all payment operations.",
     name="user_proxy",  # optional sender name
@@ -230,7 +230,7 @@ Store multiple messages at once from AutoGen's native message format:
 ```python
 # AutoGen stores conversation history as a list of dicts
 messages = assistant.chat_messages.get(user_proxy, [])
-decigraph_mem.store_messages_batch(messages)
+hipp0_mem.store_messages_batch(messages)
 ```
 
 Each dict must have at least `"role"` and `"content"` keys. The optional `"name"` field is also read.
@@ -240,7 +240,7 @@ Each dict must have at least `"role"` and `"content"` keys. The optional `"name"
 Manually send all buffered messages to the distillery:
 
 ```python
-decigraph_mem.flush_to_distillery()
+hipp0_mem.flush_to_distillery()
 ```
 
 Use this when `distill_every=0` or when you want to checkpoint mid-conversation.
@@ -250,7 +250,7 @@ Use this when `distill_every=0` or when you want to checkpoint mid-conversation.
 Finalize the session: flushes remaining messages and optionally creates a `SessionSummary`:
 
 ```python
-session = decigraph_mem.on_session_end(
+session = hipp0_mem.on_session_end(
     summary="Designed payment retry strategy with exponential backoff.",  # optional
     additional_decision_ids=["dec_01hx...", "dec_02hx..."],               # optional
 )
@@ -264,10 +264,10 @@ After `on_session_end()`, the memory object resets its internal state and can be
 
 ### `transform_messages_hook()`
 
-An AutoGen v0.4 `TransformMessages`-compatible hook. Prepends compiled DeciGraph context as a system message to every LLM call:
+An AutoGen v0.4 `TransformMessages`-compatible hook. Prepends compiled Hipp0 context as a system message to every LLM call:
 
 ```python
-hook = decigraph_mem.transform_messages_hook
+hook = hipp0_mem.transform_messages_hook
 
 # Use directly as a transform
 transformed = hook(messages)
@@ -279,20 +279,20 @@ Or pass to `TransformMessages`:
 from autogen.agentchat.contrib.capabilities.transform_messages import TransformMessages
 
 transform = TransformMessages(
-    transforms=[decigraph_mem.transform_messages_hook]
+    transforms=[hipp0_mem.transform_messages_hook]
 )
 ```
 
 The hook:
 1. Calls `get_context()` to compile relevant decisions
-2. Prepends `{"role": "system", "content": "[DeciGraph Context]\n{context}"}` if not already present
-3. Returns the (possibly augmented) message list unchanged if DeciGraph is unreachable
+2. Prepends `{"role": "system", "content": "[Hipp0 Context]\n{context}"}` if not already present
+3. Returns the (possibly augmented) message list unchanged if Hipp0 is unreachable
 
 ---
 
 ## AutoGen v0.4 — TransformMessages Hook
 
-AutoGen v0.4 introduces the `TransformMessages` capability for modifying message lists before LLM calls. `DeciGraphAutoGenMemory.transform_messages_hook` is designed for this API.
+AutoGen v0.4 introduces the `TransformMessages` capability for modifying message lists before LLM calls. `Hipp0AutoGenMemory.transform_messages_hook` is designed for this API.
 
 ```python
 import asyncio
@@ -301,14 +301,14 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.teams import RoundRobinGroupChat
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
 # Memory instances for each agent
-arch_memory = DeciGraphAutoGenMemory(
+arch_memory = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="architect",
@@ -316,7 +316,7 @@ arch_memory = DeciGraphAutoGenMemory(
     distill_every=8,
 )
 
-sec_memory = DeciGraphAutoGenMemory(
+sec_memory = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="security",
@@ -335,14 +335,14 @@ architect = AssistantAgent(
     name="architect",
     model_client=model_client,
     system_message="You are a software architect. Design scalable solutions.",
-    # Use the transform hook to inject DeciGraph context
+    # Use the transform hook to inject Hipp0 context
     model_context=None,  # let the transform handle context
 )
 
 # Manually apply the transform hook by wrapping the agent's model calls
 # (The exact API depends on your AutoGen v0.4 version)
 
-async def run_with_decigraph():
+async def run_with_hipp0():
     team = RoundRobinGroupChat(
         participants=[architect],
         max_turns=4,
@@ -350,7 +350,7 @@ async def run_with_decigraph():
 
     # Stream the conversation
     async for msg in team.run_stream(task="Design an API gateway for microservices."):
-        # Capture messages for DeciGraph
+        # Capture messages for Hipp0
         if hasattr(msg, "content") and hasattr(msg, "source"):
             memory_for = arch_memory if msg.source == "architect" else sec_memory
             memory_for.store_message(
@@ -364,7 +364,7 @@ async def run_with_decigraph():
     arch_memory.on_session_end(summary="Designed API gateway architecture.")
     sec_memory.on_session_end(summary="Reviewed API gateway security.")
 
-asyncio.run(run_with_decigraph())
+asyncio.run(run_with_hipp0())
 ```
 
 ### Direct Hook Usage (Any Version)
@@ -373,11 +373,11 @@ The `transform_messages_hook` works independently of the AutoGen version:
 
 ```python
 import openai
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
-client = DeciGraphClient(base_url="http://localhost:3100")
-decigraph_mem = DeciGraphAutoGenMemory(
+client = Hipp0Client(base_url="http://localhost:3100")
+hipp0_mem = Hipp0AutoGenMemory(
     client=client,
     project_id="proj_01hx...",
     agent_name="assistant",
@@ -389,9 +389,9 @@ messages = [
     {"role": "user", "content": "What caching strategy should we use?"}
 ]
 
-# Inject DeciGraph context
-augmented_messages = decigraph_mem.transform_messages_hook(messages)
-# augmented_messages[0] is now a system message with DeciGraph context
+# Inject Hipp0 context
+augmented_messages = hipp0_mem.transform_messages_hook(messages)
+# augmented_messages[0] is now a system message with Hipp0 context
 # augmented_messages[1] is the original user message
 
 # Send to OpenAI (or any LLM)
@@ -402,8 +402,8 @@ response = openai_client.chat.completions.create(
 )
 
 # Store the exchange
-decigraph_mem.store_message(role="user", content=messages[0]["content"])
-decigraph_mem.store_message(role="assistant", content=response.choices[0].message.content)
+hipp0_mem.store_message(role="user", content=messages[0]["content"])
+hipp0_mem.store_message(role="assistant", content=response.choices[0].message.content)
 ```
 
 ---
@@ -415,13 +415,13 @@ For AutoGen v0.2/v0.3, use the `ConversableAgent` reply hooks to capture message
 ```python
 import os
 import autogen
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
-decigraph_mem = DeciGraphAutoGenMemory(
+hipp0_mem = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="assistant",
@@ -430,11 +430,11 @@ decigraph_mem = DeciGraphAutoGenMemory(
 )
 
 # Get context before starting
-context = decigraph_mem.get_context()
+context = hipp0_mem.get_context()
 
 assistant = autogen.AssistantAgent(
     name="assistant",
-    system_message=f"[DeciGraph Context]\n{context}\n\nYou are a data engineer.",
+    system_message=f"[Hipp0 Context]\n{context}\n\nYou are a data engineer.",
     llm_config={"model": "gpt-4o"},
 )
 
@@ -454,7 +454,7 @@ def capture_message_hook(recipient, messages, sender, config):
         content = last_msg.get("content", "")
         name = last_msg.get("name", sender.name if sender else "unknown")
         if content:
-            decigraph_mem.store_message(role=role, content=content, name=name)
+            hipp0_mem.store_message(role=role, content=content, name=name)
     return False, None  # Don't intercept — just observe
 
 assistant.register_reply(
@@ -470,7 +470,7 @@ user_proxy.initiate_chat(
 )
 
 # Finalize
-decigraph_mem.on_session_end(
+hipp0_mem.on_session_end(
     summary=f"Designed data pipeline architecture: {user_proxy.last_message(assistant)['content'][:200]}"
 )
 ```
@@ -482,14 +482,14 @@ decigraph_mem.on_session_end(
 ```python
 import os
 import autogen
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
 # Create memories for both agents
-architect_mem = DeciGraphAutoGenMemory(
+architect_mem = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="architect",
@@ -498,7 +498,7 @@ architect_mem = DeciGraphAutoGenMemory(
     distill_every=6,
 )
 
-reviewer_mem = DeciGraphAutoGenMemory(
+reviewer_mem = Hipp0AutoGenMemory(
     client=client,
     project_id=PROJECT_ID,
     agent_name="reviewer",
@@ -523,7 +523,7 @@ if decisions:
 # Create agents
 architect = autogen.AssistantAgent(
     name="architect",
-    system_message=f"""[DeciGraph Context — Existing Decisions]
+    system_message=f"""[Hipp0 Context — Existing Decisions]
 {arch_context}
 
 You are a software architect specializing in authentication systems.
@@ -536,7 +536,7 @@ When proposing a decision, state clearly:
 
 reviewer = autogen.AssistantAgent(
     name="reviewer",
-    system_message=f"""[DeciGraph Context — Existing Decisions]
+    system_message=f"""[Hipp0 Context — Existing Decisions]
 {reviewer_context}
 
 You are a technical reviewer. Your job is to:
@@ -555,8 +555,8 @@ user_proxy = autogen.UserProxyAgent(
     is_termination_msg=lambda x: "REVIEW COMPLETE" in x.get("content", ""),
 )
 
-# Capture replies for DeciGraph
-def make_capture_hook(memory: DeciGraphAutoGenMemory, agent_name: str):
+# Capture replies for Hipp0
+def make_capture_hook(memory: Hipp0AutoGenMemory, agent_name: str):
     def hook(recipient, messages, sender, config):
         if messages:
             msg = messages[-1]
@@ -602,7 +602,7 @@ rev_session = reviewer_mem.on_session_end(
 
 print(f"Architect session: {arch_session['id'] if arch_session else 'none'}")
 print(f"Reviewer session: {rev_session['id'] if rev_session else 'none'}")
-print("All decisions captured in DeciGraph.")
+print("All decisions captured in Hipp0.")
 ```
 
 ---
@@ -612,16 +612,16 @@ print("All decisions captured in DeciGraph.")
 ```python
 import os
 import autogen
-from decigraph_sdk import DeciGraphClient
-from decigraph_autogen import DeciGraphAutoGenMemory
+from hipp0_sdk import Hipp0Client
+from hipp0_autogen import Hipp0AutoGenMemory
 
-client = DeciGraphClient(base_url=os.environ["DECIGRAPH_API_URL"])
-PROJECT_ID = os.environ["DECIGRAPH_PROJECT_ID"]
+client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
+PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
 
 # Each participant gets its own memory object
 ROLES = ["architect", "security", "devops", "qa"]
 memories = {
-    role: DeciGraphAutoGenMemory(
+    role: Hipp0AutoGenMemory(
         client=client,
         project_id=PROJECT_ID,
         agent_name=role,
@@ -639,7 +639,7 @@ contexts = {role: mem.get_context() for role, mem in memories.items()}
 agents = {
     role: autogen.AssistantAgent(
         name=role,
-        system_message=f"[DeciGraph Context]\n{contexts[role]}\n\nYou are the {role} specialist.",
+        system_message=f"[Hipp0 Context]\n{contexts[role]}\n\nYou are the {role} specialist.",
         llm_config={"model": "gpt-4o"},
     )
     for role in ROLES
@@ -671,7 +671,7 @@ user_proxy.initiate_chat(
     message="Let's decide on our Kubernetes deployment strategy. Each specialist should contribute.",
 )
 
-# After the chat, extract all messages per role and store in DeciGraph
+# After the chat, extract all messages per role and store in Hipp0
 for message in groupchat.messages:
     speaker_name = message.get("name", "")
     content = message.get("content", "")
@@ -697,9 +697,9 @@ for role, mem in memories.items():
 For high-confidence decisions, bypass the distillery and record directly:
 
 ```python
-from decigraph_sdk import DeciGraphClient
+from hipp0_sdk import Hipp0Client
 
-client = DeciGraphClient(base_url="http://localhost:3100")
+client = Hipp0Client(base_url="http://localhost:3100")
 
 decision = client.record_decision(
     project_id="proj_01hx...",
@@ -725,11 +725,11 @@ print(f"Decision recorded: {decision['id']}")
 
 ## Cross-Session Memory
 
-DeciGraph decisions persist across Python processes. Start a new session and all previous decisions are available:
+Hipp0 decisions persist across Python processes. Start a new session and all previous decisions are available:
 
 ```python
 # Session 1 — Monday
-mem = DeciGraphAutoGenMemory(client=client, project_id=PROJECT_ID, agent_name="architect", ...)
+mem = Hipp0AutoGenMemory(client=client, project_id=PROJECT_ID, agent_name="architect", ...)
 context = mem.get_context()
 # context includes all decisions from previous sessions
 
@@ -739,7 +739,7 @@ mem.on_session_end(summary="Monday architecture session.")
 # ----- New process, Tuesday -----
 
 # Session 2 — Tuesday
-mem2 = DeciGraphAutoGenMemory(client=client, project_id=PROJECT_ID, agent_name="architect", ...)
+mem2 = Hipp0AutoGenMemory(client=client, project_id=PROJECT_ID, agent_name="architect", ...)
 context2 = mem2.get_context()
 # context2 includes decisions from Monday's session AND all earlier sessions
 ```
@@ -750,10 +750,10 @@ This works because all decisions are stored in PostgreSQL with embeddings. The 5
 
 ## Configuration Reference
 
-### DeciGraphClient Options
+### Hipp0Client Options
 
 ```python
-DeciGraphClient(
+Hipp0Client(
     base_url="http://localhost:3100",
     api_key="nxk_...",  # optional
     timeout=30,
@@ -763,16 +763,16 @@ DeciGraphClient(
 ### Environment Variables
 
 ```bash
-DECIGRAPH_API_URL=http://localhost:3100
-DECIGRAPH_PROJECT_ID=proj_01hx...
-DECIGRAPH_API_KEY=nxk_...
+HIPP0_API_URL=http://localhost:3100
+HIPP0_PROJECT_ID=proj_01hx...
+HIPP0_API_KEY=nxk_...
 ```
 
 ---
 
 ## Best Practices
 
-**Create one `DeciGraphAutoGenMemory` per agent, not one per conversation.** Each memory instance has its own buffer and tracks decisions for a specific agent role. Sharing a single instance across multiple agents conflates their contributions.
+**Create one `Hipp0AutoGenMemory` per agent, not one per conversation.** Each memory instance has its own buffer and tracks decisions for a specific agent role. Sharing a single instance across multiple agents conflates their contributions.
 
 **Set `distill_every` based on message volume.** For long GroupChats (50+ messages), use a higher value (20–30) to batch API calls. For short conversations (< 10 messages), use 5 or lower so decisions are captured even if `on_session_end()` is not called.
 
@@ -780,9 +780,9 @@ DECIGRAPH_API_KEY=nxk_...
 
 **Use `get_relevant_decisions()` before starting.** This lets you warn the team if conflicting decisions already exist and surfaces relevant prior decisions in a structured format for conditional logic.
 
-**Name agents to match DeciGraph built-in roles.** Agent names like `"architect"`, `"security"`, `"devops"`, `"qa"` activate role-based weighting in DeciGraph's scoring algorithm, improving context relevance.
+**Name agents to match Hipp0 built-in roles.** Agent names like `"architect"`, `"security"`, `"devops"`, `"qa"` activate role-based weighting in Hipp0's scoring algorithm, improving context relevance.
 
-**Handle unreachable DeciGraph gracefully.** All `DeciGraphAutoGenMemory` methods catch `DeciGraphError` and log warnings rather than raising. Your AutoGen code will continue working even if DeciGraph is temporarily unavailable.
+**Handle unreachable Hipp0 gracefully.** All `Hipp0AutoGenMemory` methods catch `Hipp0Error` and log warnings rather than raising. Your AutoGen code will continue working even if Hipp0 is temporarily unavailable.
 
 ---
 
@@ -790,7 +790,7 @@ DECIGRAPH_API_KEY=nxk_...
 
 ### `get_context()` returns an empty string
 
-The DeciGraph server may be unreachable, or the project has no decisions yet. Verify:
+The Hipp0 server may be unreachable, or the project has no decisions yet. Verify:
 
 ```bash
 curl http://localhost:3100/health
@@ -820,7 +820,7 @@ If this returns an error, check server logs:
 ```bash
 docker compose logs server | tail -50
 # or
-journalctl -u decigraph-server -n 50
+journalctl -u hipp0-server -n 50
 ```
 
 ### `on_session_end()` returns `None`
@@ -832,7 +832,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-Then look for `DeciGraphAutoGenMemory.on_session_end: ...` in the output.
+Then look for `Hipp0AutoGenMemory.on_session_end: ...` in the output.
 
 ### Messages not accumulating (buffer stays at 0)
 
@@ -849,20 +849,20 @@ Verify messages are being stored:
 
 ```python
 # Inspect the buffer size
-print(f"Buffered messages: {len(decigraph_mem._messages)}")
+print(f"Buffered messages: {len(hipp0_mem._messages)}")
 ```
 
-### `ImportError: No module named 'decigraph_autogen'`
+### `ImportError: No module named 'hipp0_autogen'`
 
 Install from the repository:
 
 ```bash
-cd /path/to/decigraph/integrations/autogen
+cd /path/to/hipp0/integrations/autogen
 pip install -e .
 ```
 
 Verify the install:
 
 ```bash
-python -c "from decigraph_autogen import DeciGraphAutoGenMemory; print('OK')"
+python -c "from hipp0_autogen import Hipp0AutoGenMemory; print('OK')"
 ```

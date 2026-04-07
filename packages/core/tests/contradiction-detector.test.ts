@@ -490,8 +490,8 @@ describe('logContradictionConfig', () => {
       'OPENAI_API_KEY',
       'OPENROUTER_API_KEY',
       'ANTHROPIC_API_KEY',
-      'DECIGRAPH_LLM_URL',
-      'DECIGRAPH_LLM_KEY',
+      'HIPP0_LLM_URL',
+      'HIPP0_LLM_KEY',
     ];
     const saved: Record<string, string | undefined> = {};
     for (const k of llmEnvKeys) {

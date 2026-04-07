@@ -1,25 +1,25 @@
-# Getting Started with DeciGraph
+# Getting Started with Hipp0
 
-This guide walks you through deploying DeciGraph from zero to running.
+This guide walks you through deploying Hipp0 from zero to running.
 Every command is copy-paste ready. You'll need:
 
 - A Linux server (Ubuntu 22.04+ recommended) with Docker installed
-- An API key from one of: OpenRouter, OpenAI, or Anthropic (optional — DeciGraph works without one)
+- An API key from one of: OpenRouter, OpenAI, or Anthropic (optional — Hipp0 works without one)
 - 10 minutes
 
 ---
 
 ## Quick Start (No Docker)
 
-The fastest way to try DeciGraph — no Docker, no PostgreSQL, no .env file:
+The fastest way to try Hipp0 — no Docker, no PostgreSQL, no .env file:
 
 ```bash
-npx @decigraph/cli init my-project
+npx @hipp0/cli init my-project
 ```
 
 This creates a SQLite database, starts the server, and opens the dashboard. All features work immediately.
 
-To stop: `Ctrl+C`. To restart: `cd my-project && npx @decigraph/cli start`.
+To stop: `Ctrl+C`. To restart: `cd my-project && npx @hipp0/cli start`.
 
 For production deployment with Docker and PostgreSQL, continue to the steps below.
 
@@ -27,7 +27,7 @@ For production deployment with Docker and PostgreSQL, continue to the steps belo
 
 ## Step 1: Get an LLM API Key (Optional)
 
-DeciGraph works without any API key. But if you want semantic search
+Hipp0 works without any API key. But if you want semantic search
 (smarter context ranking) and auto-extraction (automatically pull
 decisions from conversation transcripts), you need one key.
 
@@ -49,11 +49,11 @@ SSH into your server and run:
 
 ```bash
 cd /opt
-git clone https://github.com/perlantir/decigraph.git
-cd decigraph
+git clone https://github.com/perlantir/hipp0.git
+cd hipp0
 ```
 
-You should now be in `/opt/decigraph`. All remaining commands assume
+You should now be in `/opt/hipp0`. All remaining commands assume
 you're in this directory.
 
 ---
@@ -65,7 +65,7 @@ own before hitting enter:
 
 ```bash
 cat > .env << 'EOF'
-DECIGRAPH_API_KEY=REPLACE_WITH_A_RANDOM_SECRET
+HIPP0_API_KEY=REPLACE_WITH_A_RANDOM_SECRET
 OPENROUTER_API_KEY=REPLACE_WITH_YOUR_OPENROUTER_KEY
 EOF
 ```
@@ -73,26 +73,26 @@ EOF
 **What to replace:**
 
 - `REPLACE_WITH_A_RANDOM_SECRET` — Make up a long random string.
-  This is the password your agents will use to talk to DeciGraph.
+  This is the password your agents will use to talk to Hipp0.
   Example: `nx_a8f3k2m9x7p4q1w6`
 - `REPLACE_WITH_YOUR_OPENROUTER_KEY` — Paste the OpenRouter API
   key from Step 1. It starts with `sk-or-`. If you don't have one,
-  delete that entire line — DeciGraph will still work without it.
+  delete that entire line — Hipp0 will still work without it.
 
 **Example with real-looking values:**
 
 ```bash
 cat > .env << 'EOF'
-DECIGRAPH_API_KEY=nx_a8f3k2m9x7p4q1w6r3t5
+HIPP0_API_KEY=nx_a8f3k2m9x7p4q1w6r3t5
 OPENROUTER_API_KEY=sk-or-v1-abc123def456ghi789
 EOF
 ```
 
-That's it. Two lines. DeciGraph handles everything else automatically.
+That's it. Two lines. Hipp0 handles everything else automatically.
 
 ---
 
-## Step 4: Start DeciGraph
+## Step 4: Start Hipp0
 
 ```bash
 docker compose up -d
@@ -106,9 +106,9 @@ You'll see progress bars for image downloads and build steps.
 Wait until you see a message like:
 
 ```
- ✔ Container decigraph-db        Healthy
- ✔ Container decigraph-server    Started
- ✔ Container decigraph-dashboard Started
+ ✔ Container hipp0-db        Healthy
+ ✔ Container hipp0-server    Started
+ ✔ Container hipp0-dashboard Started
 ```
 
 ---
@@ -137,17 +137,17 @@ If you see nothing or an error, wait 30 seconds and try again — the server mig
 **Check 2: Are the LLM providers connected?**
 
 ```bash
-docker compose logs server | grep "\[decigraph\]"
+docker compose logs server | grep "\[hipp0\]"
 ```
 
 You should see:
 
 ```
-[decigraph] Database connected
-[decigraph] Embeddings: openai/text-embedding-3-small via openrouter
-[decigraph] Distillery: anthropic/claude-haiku-4-5-20251001 via openrouter
-[decigraph] Server started
-[decigraph] Listening on http://0.0.0.0:3100
+[hipp0] Database connected
+[hipp0] Embeddings: openai/text-embedding-3-small via openrouter
+[hipp0] Distillery: anthropic/claude-haiku-4-5-20251001 via openrouter
+[hipp0] Server started
+[hipp0] Listening on http://0.0.0.0:3100
 ```
 
 If you see "Embeddings: disabled" or "Distillery: disabled", your OpenRouter key wasn't set correctly. Re-do Step 3 and then run:
@@ -164,7 +164,7 @@ Open your browser and go to:
 http://YOUR_SERVER_IP:3200
 ```
 
-Replace `YOUR_SERVER_IP` with your server's IP address. You should see the DeciGraph dashboard.
+Replace `YOUR_SERVER_IP` with your server's IP address. You should see the Hipp0 dashboard.
 
 ---
 
@@ -173,19 +173,19 @@ Replace `YOUR_SERVER_IP` with your server's IP address. You should see the DeciG
 Now set up a project and add some data. First, set two variables so you don't have to retype them:
 
 ```bash
-export DECIGRAPH="http://localhost:3100"
-export AUTH="Authorization: Bearer YOUR_DECIGRAPH_API_KEY"
+export HIPP0="http://localhost:3100"
+export AUTH="Authorization: Bearer YOUR_HIPP0_API_KEY"
 ```
 
-Replace `YOUR_DECIGRAPH_API_KEY` with the value you set in Step 3 (the `DECIGRAPH_API_KEY` value, not the OpenRouter key).
+Replace `YOUR_HIPP0_API_KEY` with the value you set in Step 3 (the `HIPP0_API_KEY` value, not the OpenRouter key).
 
 **Create a project:**
 
 ```bash
-curl -s -X POST $DECIGRAPH/api/projects \
+curl -s -X POST $HIPP0/api/projects \
   -H "Content-Type: application/json" \
   -H "$AUTH" \
-  -d '{"name": "my-project", "description": "My first DeciGraph project"}' | jq .
+  -d '{"name": "my-project", "description": "My first Hipp0 project"}' | jq .
 ```
 
 You'll get back a response with an `id` field. **Copy that ID** — you'll need it for the next commands. It looks like: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
@@ -200,18 +200,18 @@ export PID="PASTE_YOUR_PROJECT_ID_HERE"
 
 ## Step 7: Register Your Agents
 
-Register each agent that will use DeciGraph. Replace the names and roles with your actual agents:
+Register each agent that will use Hipp0. Replace the names and roles with your actual agents:
 
 ```bash
-curl -s -X POST $DECIGRAPH/api/projects/$PID/agents \
+curl -s -X POST $HIPP0/api/projects/$PID/agents \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d '{"name": "builder", "role": "builder"}'
 
-curl -s -X POST $DECIGRAPH/api/projects/$PID/agents \
+curl -s -X POST $HIPP0/api/projects/$PID/agents \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d '{"name": "reviewer", "role": "reviewer"}'
 
-curl -s -X POST $DECIGRAPH/api/projects/$PID/agents \
+curl -s -X POST $HIPP0/api/projects/$PID/agents \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d '{"name": "pm", "role": "governor"}'
 ```
@@ -223,7 +223,7 @@ Each role has different relevance weights — a builder sees architecture decisi
 Verify your agents were created:
 
 ```bash
-curl -s $DECIGRAPH/api/projects/$PID/agents -H "$AUTH" | jq '.[].name'
+curl -s $HIPP0/api/projects/$PID/agents -H "$AUTH" | jq '.[].name'
 ```
 
 ---
@@ -231,7 +231,7 @@ curl -s $DECIGRAPH/api/projects/$PID/agents -H "$AUTH" | jq '.[].name'
 ## Step 8: Record Your First Decision
 
 ```bash
-curl -s -X POST $DECIGRAPH/api/projects/$PID/decisions \
+curl -s -X POST $HIPP0/api/projects/$PID/decisions \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d '{
     "title": "Use PostgreSQL for data storage",
@@ -251,12 +251,12 @@ curl -s -X POST $DECIGRAPH/api/projects/$PID/decisions \
 
 ## Step 9: Test the Context Compiler
 
-This is the core of DeciGraph. Compile context for two different agents and see how they get different views:
+This is the core of Hipp0. Compile context for two different agents and see how they get different views:
 
 **What does the builder see?**
 
 ```bash
-curl -s -X POST $DECIGRAPH/api/compile \
+curl -s -X POST $HIPP0/api/compile \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d "{
     \"agent_name\": \"builder\",
@@ -268,7 +268,7 @@ curl -s -X POST $DECIGRAPH/api/compile \
 **What does the PM see for the same project?**
 
 ```bash
-curl -s -X POST $DECIGRAPH/api/compile \
+curl -s -X POST $HIPP0/api/compile \
   -H "Content-Type: application/json" -H "$AUTH" \
   -d "{
     \"agent_name\": \"pm\",
@@ -277,7 +277,7 @@ curl -s -X POST $DECIGRAPH/api/compile \
   }" | jq -r .formatted_markdown
 ```
 
-Compare the two outputs. The builder gets implementation-focused context. The PM gets project-planning context. Same decisions, different framing. That's DeciGraph working.
+Compare the two outputs. The builder gets implementation-focused context. The PM gets project-planning context. Same decisions, different framing. That's Hipp0 working.
 
 ---
 
@@ -296,7 +296,7 @@ Go to `http://YOUR_SERVER_IP:3200` in your browser. You should see:
 
 - **Add more decisions** as your team makes them
 - **Connect your agents** using the SDK, CLI, or MCP server (see [MCP Setup](mcp-setup.md))
-- **Test the distillery** — paste a conversation transcript and let DeciGraph extract decisions automatically
+- **Test the distillery** — paste a conversation transcript and let Hipp0 extract decisions automatically
 - **Set up change propagation** — when decisions change, affected agents get notified automatically
 
 ---
@@ -328,7 +328,7 @@ docker compose ps
 docker compose logs server --tail 20
 ```
 
-**Want to stop DeciGraph?**
+**Want to stop Hipp0?**
 
 ```bash
 docker compose down
@@ -337,7 +337,7 @@ docker compose down
 **Want to start it again?**
 
 ```bash
-cd /opt/decigraph && docker compose up -d
+cd /opt/hipp0 && docker compose up -d
 ```
 
 **Want to wipe everything and start fresh?**
@@ -351,12 +351,12 @@ This deletes all data. Use only if you want a clean slate.
 
 ---
 
-## Updating DeciGraph
+## Updating Hipp0
 
 When new versions are released:
 
 ```bash
-cd /opt/decigraph
+cd /opt/hipp0
 git pull
 docker compose up -d --build
 ```

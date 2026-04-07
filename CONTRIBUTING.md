@@ -1,6 +1,6 @@
-# Contributing to DeciGraph
+# Contributing to Hipp0
 
-Thank you for your interest in contributing to DeciGraph. This guide will help you get started.
+Thank you for your interest in contributing to Hipp0. This guide will help you get started.
 
 ## Development Setup
 
@@ -15,8 +15,8 @@ Thank you for your interest in contributing to DeciGraph. This guide will help y
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/DeciGraph.git
-cd decigraph
+git clone https://github.com/YOUR_USERNAME/Hipp0.git
+cd hipp0
 
 # Install dependencies
 pnpm install
@@ -31,7 +31,7 @@ pnpm build
 pnpm test
 
 # Start the development server
-pnpm --filter @decigraph/server dev
+pnpm --filter @hipp0/server dev
 ```
 
 ## Project Structure
@@ -97,7 +97,7 @@ chore: update dependencies
 - Test files go in `tests/` directories adjacent to source
 - Name test files `*.test.ts`
 - Run all tests: `pnpm test`
-- Run specific package tests: `pnpm --filter @decigraph/core test`
+- Run specific package tests: `pnpm --filter @hipp0/core test`
 
 ## Reporting Issues
 

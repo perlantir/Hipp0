@@ -8,9 +8,9 @@
  */
 
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { compileContext } from '@decigraph/core/context-compiler/index.js';
-import type { CompileRequest } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { compileContext } from '@hipp0/core/context-compiler/index.js';
+import type { CompileRequest } from '@hipp0/core/types.js';
 
 const DEMO_PROJECT_ID = 'de000000-0000-4000-8000-000000000001';
 
@@ -101,7 +101,7 @@ export function registerDemoRoutes(app: Hono): void {
         })),
       });
     } catch (err) {
-      console.error('[decigraph/demo] Compile error:', (err as Error).message);
+      console.error('[hipp0/demo] Compile error:', (err as Error).message);
       return c.json({ error: 'Demo compile failed. Please try again.' }, 500);
     }
   });

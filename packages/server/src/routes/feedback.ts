@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
-import { getDb } from '@decigraph/core/db/index.js';
-import { parseFeedback } from '@decigraph/core/db/parsers.js';
-import { ValidationError } from '@decigraph/core/types.js';
+import { getDb } from '@hipp0/core/db/index.js';
+import { parseFeedback } from '@hipp0/core/db/parsers.js';
+import { ValidationError } from '@hipp0/core/types.js';
 import {
   recordFeedback,
   recordBatchFeedback,
@@ -10,7 +10,7 @@ import {
   getWeightSuggestions,
   resetWeights,
   getWeightHistory,
-} from '@decigraph/core/relevance-learner/index.js';
+} from '@hipp0/core/relevance-learner/index.js';
 import { requireUUID, requireString, optionalString, mapDbError, logAudit } from './validation.js';
 import { randomUUID } from 'node:crypto';
 
@@ -186,7 +186,7 @@ async function checkAutoApply(agentId: string): Promise<void> {
         await computeAndApplyWeightUpdates(agentId);
       }
     } catch (err) {
-      console.warn('[decigraph:learner] Auto-apply failed:', (err as Error).message);
+      console.warn('[hipp0:learner] Auto-apply failed:', (err as Error).message);
     }
   }
 }
