@@ -45,6 +45,8 @@ import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/bill
 import { registerDemoRoutes } from './routes/demo.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerOutcomeRoutes } from './routes/outcomes.js';
+import { registerPolicyRoutes } from './routes/policies.js';
+
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
 
@@ -237,6 +239,9 @@ export function createApp() {
   registerSlackConnector(app);
   registerLinkRoutes(app);
   registerLinearConnector(app);
+
+  // ── Governance: policy & violation management ──────────────────────
+  registerPolicyRoutes(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);
