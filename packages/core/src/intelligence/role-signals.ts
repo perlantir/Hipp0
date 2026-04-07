@@ -165,7 +165,9 @@ export function computeRecommendedAction(signal: RoleSignal): ActionSignal {
   if (signal.abstain_probability < 0.30) {
     return {
       recommended_action: 'PROCEED',
-      action_reason: `You are a strong fit for this task (${Math.round(signal.relevance_score * 100)}% relevance). Start working.`,
+      action_reason: signal.reason.startsWith('Strong fit')
+        ? `${signal.reason}. Start working.`
+        : `You are a strong fit for this task (${Math.round(signal.relevance_score * 100)}% relevance). Start working.`,
     };
   }
 
@@ -173,7 +175,9 @@ export function computeRecommendedAction(signal: RoleSignal): ActionSignal {
   if (signal.abstain_probability < 0.70) {
     return {
       recommended_action: 'PROCEED_WITH_NOTE',
-      action_reason: `You can contribute (${Math.round(signal.relevance_score * 100)}% relevance), but consider deferring to a higher-ranked agent for deeper review.`,
+      action_reason: signal.reason.startsWith('Can contribute')
+        ? signal.reason
+        : `You can contribute (${Math.round(signal.relevance_score * 100)}% relevance), but consider deferring to a higher-ranked agent for deeper review.`,
     };
   }
 
@@ -181,13 +185,17 @@ export function computeRecommendedAction(signal: RoleSignal): ActionSignal {
   if (signal.rank_among_agents > 1) {
     return {
       recommended_action: 'SKIP',
-      action_reason: `This task is outside your core expertise (${Math.round(signal.relevance_score * 100)}% relevance). Other agents are better suited.`,
+      action_reason: signal.reason.includes('domain') || signal.reason.includes('expertise')
+        ? signal.reason
+        : `This task is outside your core expertise. Other agents are better suited.`,
     };
   }
 
   return {
     recommended_action: 'SKIP',
-    action_reason: `Low relevance to this task (${Math.round(signal.relevance_score * 100)}%). Do not participate.`,
+    action_reason: signal.reason.includes('domain')
+      ? signal.reason
+      : `Outside your domain — other agents are much better suited for this task.`,
   };
 }
 
@@ -307,7 +315,21 @@ export async function generateRoleSignal(
     }
   }
 
-  // 6. Apply thresholds
+  // 6. Collect matched tags for natural language reasons
+  const agentData = agents.find((a) => a.name === agentName);
+  const agentProfile = agentData
+    ? (typeof agentData.relevance_profile === 'string'
+      ? JSON.parse(agentData.relevance_profile || '{}')
+      : (agentData.relevance_profile ?? {})) as Record<string, unknown>
+    : {};
+  const agentWeights = (agentProfile.weights ?? {}) as Record<string, number>;
+  const matchedTagNames = Object.keys(agentWeights).filter((tag) =>
+    taskTokens.some((token) => tagMatches(tag.toLowerCase(), token)),
+  );
+  const earlyRoleSuggestion = generateRoleSuggestion(agentEntry.role, taskDescription, rank, scored.length);
+  const roleLabel = earlyRoleSuggestion.replace(/_/g, ' ');
+
+  // 7. Apply thresholds with natural language reasons
   let shouldParticipate: boolean;
   let abstainProbability: number;
   let reason: string;
@@ -315,19 +337,24 @@ export async function generateRoleSignal(
   if (relevanceScore >= 0.6) {
     shouldParticipate = true;
     abstainProbability = Math.min(0.05 + sessionBoost, 1);
-    reason = `High relevance (${(relevanceScore * 100).toFixed(0)}%) — strong tag match for this task`;
+    reason = matchedTagNames.length > 0
+      ? `Strong fit for ${roleLabel} — this task directly involves ${matchedTagNames.slice(0, 3).join(' and ')}`
+      : `Strong fit for this task (${Math.round(relevanceScore * 100)}% relevance)`;
   } else if (relevanceScore >= 0.3) {
     shouldParticipate = true;
     abstainProbability = Math.min(0.3 + sessionBoost, 1);
-    reason = `Moderate relevance (${(relevanceScore * 100).toFixed(0)}%) — partial tag overlap`;
+    const topAgent = scored[0]?.name;
+    reason = matchedTagNames.length > 0
+      ? `Can contribute on ${matchedTagNames.slice(0, 2).join(' and ')}, but ${topAgent ?? 'another agent'} may be a better lead`
+      : `Partial overlap with this task — consider deferring to a higher-ranked agent`;
   } else if (relevanceScore >= 0.15) {
     shouldParticipate = false;
     abstainProbability = Math.min(0.7 + sessionBoost, 1);
-    reason = `Low relevance (${(relevanceScore * 100).toFixed(0)}%) — limited tag match`;
+    reason = `This task doesn't align with ${agentName}'s core expertise — skip unless explicitly needed`;
   } else {
     shouldParticipate = false;
     abstainProbability = Math.min(0.95 + sessionBoost, 1);
-    reason = `Minimal relevance (${(relevanceScore * 100).toFixed(0)}%) — no significant tag match`;
+    reason = `Outside ${agentName}'s domain — other agents are much better suited for this task`;
   }
 
   // 7. Debug logging in development
