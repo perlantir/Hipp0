@@ -33,6 +33,10 @@ import {
   type AuditEntry,
   type OutcomeResult,
   type ReportOutcomeInput,
+  type TaskSession,
+  type StartSessionInput,
+  type RecordStepInput,
+  type SessionState,
 } from './types.js';
 
 export class DeciGraphClient {
@@ -385,5 +389,42 @@ export class DeciGraphClient {
       `/api/projects/${projectId}/violations`,
       qs as Record<string, string | number | boolean | undefined>,
     );
+  }
+
+  // ── Task Sessions (Super Brain Phase 1) ───────────────────────────
+
+  startSession(params: StartSessionInput): Promise<{ session_id: string; title: string }> {
+    return this.post('/api/tasks/session/start', params);
+  }
+
+  recordStep(
+    sessionId: string,
+    params: RecordStepInput,
+  ): Promise<{ step_id: string; step_number: number }> {
+    return this.post(`/api/tasks/session/${sessionId}/step`, params);
+  }
+
+  getSessionState(sessionId: string): Promise<SessionState> {
+    return this.get<SessionState>(`/api/tasks/session/${sessionId}/state`);
+  }
+
+  listTaskSessions(projectId: string, status?: string): Promise<TaskSession[]> {
+    const qs = status ? { status } : undefined;
+    return this.get<TaskSession[]>(
+      `/api/projects/${projectId}/sessions-live`,
+      qs as Record<string, string | number | boolean | undefined>,
+    );
+  }
+
+  pauseSession(sessionId: string): Promise<TaskSession> {
+    return this.post<TaskSession>(`/api/tasks/session/${sessionId}/pause`);
+  }
+
+  resumeSession(sessionId: string): Promise<TaskSession> {
+    return this.post<TaskSession>(`/api/tasks/session/${sessionId}/resume`);
+  }
+
+  completeSession(sessionId: string): Promise<TaskSession> {
+    return this.post<TaskSession>(`/api/tasks/session/${sessionId}/complete`);
   }
 }

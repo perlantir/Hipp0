@@ -13,6 +13,7 @@ import type { CompileRequest } from '@decigraph/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
+import { getSessionContext } from '@decigraph/core/memory/session-manager.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -24,6 +25,7 @@ export function registerCompileRoutes(app: Hono): void {
       max_tokens?: number;
       include_superseded?: boolean;
       session_lookback_days?: number;
+      task_session_id?: unknown;
       debug?: boolean;
     }>();
 
@@ -205,10 +207,30 @@ export function registerCompileRoutes(app: Hono): void {
       console.warn('[decigraph:compile] Policy overlay failed:', (err as Error).message);
     }
 
+    // ── Session Memory: prepend session context when task_session_id is provided ──
+    let sessionMarkdown = '';
+    let sessionMeta: Record<string, unknown> | undefined;
+    if (body.task_session_id) {
+      try {
+        const taskSessionId = requireUUID(body.task_session_id, 'task_session_id');
+        const sessionCtx = await getSessionContext(taskSessionId, agent_name, task_description, project_id);
+        sessionMarkdown = sessionCtx.formatted_session_context + '\n\n---\n\n';
+        sessionMeta = {
+          session_id: sessionCtx.session.id,
+          session_title: sessionCtx.session.title,
+          session_status: sessionCtx.session.status,
+          previous_steps: sessionCtx.previous_steps.length,
+          agents_involved: sessionCtx.session.agents_involved,
+        };
+      } catch (err) {
+        console.warn('[decigraph:compile] Session context failed:', (err as Error).message);
+      }
+    }
+
     // Prepend policy markdown to formatted output
-    const formattedMarkdown = policyMarkdown
-      ? policyMarkdown + (result.formatted_markdown ?? '')
-      : result.formatted_markdown;
+    const formattedMarkdown = sessionMarkdown
+      + (policyMarkdown ? policyMarkdown : '')
+      + (result.formatted_markdown ?? '');
 
     // ── Cache the result ──────────────────────────────────────────────
     const responsePayload = {
@@ -221,6 +243,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...(policyNotices.length > 0 ? { policy_notices: policyNotices } : {}),
       ...(policySummary ? { policy_summary: policySummary } : {}),
 
+      ...(sessionMeta ? { session: sessionMeta } : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
     };
 

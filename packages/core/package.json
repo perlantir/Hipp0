@@ -114,6 +114,10 @@
     "./intelligence/whatif-simulator.js": {
       "import": "./dist/intelligence/whatif-simulator.js",
       "types": "./dist/intelligence/whatif-simulator.d.ts"
+    },
+    "./memory/session-manager.js": {
+      "import": "./dist/memory/session-manager.js",
+      "types": "./dist/memory/session-manager.d.ts"
     }
   },
   "scripts": {

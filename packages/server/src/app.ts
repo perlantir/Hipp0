@@ -50,6 +50,7 @@ import { registerDigestRoutes } from './routes/digests.js';
 import { registerPatternRoutes } from './routes/patterns.js';
 import { registerEvolutionRoutes } from './routes/evolution.js';
 import { registerSimulationRoutes } from './routes/simulation.js';
+import { registerSessionRoutes } from './routes/sessions.js';
 
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
@@ -250,6 +251,7 @@ export function createApp() {
   registerPatternRoutes(app);
   registerEvolutionRoutes(app);
   registerSimulationRoutes(app);
+  registerSessionRoutes(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);

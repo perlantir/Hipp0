@@ -12,7 +12,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DeciGraphClient } from '../../sdk/src/index.js';
-import type { Decision, Contradiction } from '../../sdk/src/types.js';
+import type { Decision, Contradiction, CompileContextInput } from '../../sdk/src/types.js';
 
 export interface ToolConfig {
   projectId: string;
@@ -35,6 +35,7 @@ export function registerAllTools(
         agent_name: z.string().describe('Agent requesting context (e.g., maks, counsel, pixel)'),
         task_description: z.string().describe('What the agent is working on'),
         project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        task_session_id: z.string().optional().describe('Task session ID — includes session context from previous steps'),
       },
     },
     async (args) => {
@@ -42,7 +43,8 @@ export function registerAllTools(
         agent_name: args.agent_name,
         project_id: args.project_id ?? config.projectId,
         task_description: args.task_description,
-      });
+        task_session_id: args.task_session_id,
+      } as CompileContextInput & { task_session_id?: string });
 
       return {
         content: [{
@@ -255,6 +257,105 @@ export function registerAllTools(
             `  Decisions: ${result.decisions_referenced}/${result.decisions_compiled} referenced`,
           ].join('\n'),
         }],
+      };
+    },
+  );
+
+  // ── Tool 7: start_session ─────────────────────────────────────────
+
+  server.registerTool(
+    'start_session',
+    {
+      title: 'Start a task session',
+      description:
+        'Start a new multi-step task session. Returns a session_id to pass to compile_context and record_step.',
+      inputSchema: {
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        title: z.string().describe('Short title for the task session'),
+        description: z.string().optional().describe('Detailed description of the task'),
+      },
+    },
+    async (args) => {
+      const result = await client.startSession({
+        project_id: args.project_id ?? config.projectId,
+        title: args.title,
+        description: args.description,
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Session started: "${result.title}" (session_id: ${result.session_id})\n\nPass this session_id to compile_context as task_session_id to include session context.`,
+        }],
+      };
+    },
+  );
+
+  // ── Tool 8: record_step ──────────────────────────────────────────
+
+  server.registerTool(
+    'record_step',
+    {
+      title: 'Record a session step',
+      description:
+        'Record your work output as a step in a task session. The next agent will see your output summary.',
+      inputSchema: {
+        session_id: z.string().describe('Task session ID'),
+        agent_name: z.string().describe('Your agent name'),
+        agent_role: z.string().optional().describe('Your role in this task'),
+        task_description: z.string().describe('What you were asked to do'),
+        output: z.string().describe('Your work output'),
+        decisions_created: z.array(z.string()).optional().describe('IDs of decisions created during this step'),
+      },
+    },
+    async (args) => {
+      const result = await client.recordStep(args.session_id, {
+        agent_name: args.agent_name,
+        agent_role: args.agent_role,
+        task_description: args.task_description,
+        output: args.output,
+        decisions_created: args.decisions_created,
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Step ${result.step_number} recorded (id: ${result.step_id})`,
+        }],
+      };
+    },
+  );
+
+  // ── Tool 9: get_session ──────────────────────────────────────────
+
+  server.registerTool(
+    'get_session',
+    {
+      title: 'Get task session state',
+      description:
+        'Get the full state of a task session including all steps and their outputs.',
+      inputSchema: {
+        session_id: z.string().describe('Task session ID'),
+      },
+    },
+    async (args) => {
+      const state = await client.getSessionState(args.session_id);
+
+      const lines = [
+        `Session: ${state.session.title} [${state.session.status}]`,
+        `Steps: ${state.steps.length} | Agents: ${state.session.agents_involved.join(', ')}`,
+        '',
+      ];
+
+      for (const step of state.steps) {
+        lines.push(`Step ${step.step_number} — ${step.agent_name} [${step.status}]`);
+        lines.push(`  Task: ${step.task_description}`);
+        lines.push(`  Output: ${step.output_summary ?? step.output?.slice(0, 200) ?? '(none)'}`);
+        lines.push('');
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
       };
     },
   );

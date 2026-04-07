@@ -416,6 +416,63 @@ export interface ReportOutcomeInput {
   error_message?: string;
 }
 
+// ── Task Sessions (Super Brain Phase 1) ─────────────────────────────
+
+export interface TaskSession {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  agents_involved: string[];
+  current_step: number;
+  state_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface SessionStep {
+  id: string;
+  session_id: string;
+  project_id: string;
+  step_number: number;
+  agent_name: string;
+  agent_role: string | null;
+  task_description: string;
+  output: string | null;
+  output_summary: string | null;
+  artifacts: unknown[];
+  decisions_compiled: number;
+  decisions_created: string[];
+  duration_ms: number | null;
+  compile_time_ms: number | null;
+  status: string;
+  created_at: string;
+}
+
+export interface StartSessionInput {
+  project_id: string;
+  title: string;
+  description?: string;
+}
+
+export interface RecordStepInput {
+  agent_name: string;
+  agent_role?: string;
+  task_description: string;
+  output: string;
+  artifacts?: unknown[];
+  duration_ms?: number;
+  decisions_created?: string[];
+  project_id?: string;
+}
+
+export interface SessionState {
+  session: TaskSession;
+  steps: SessionStep[];
+}
+
 export interface DeciGraphClientOptions {
   baseUrl: string;
   apiKey?: string;
