@@ -12,6 +12,7 @@ import { startOpenClawWatcher, stopOpenClawWatcher } from './connectors/openclaw
 import { registerGitHubWebhook } from './connectors/github.js';
 import { startDiscordBot, stopDiscordBot } from './connectors/discord.js';
 import { initWebSocket } from './websocket.js';
+import { initCollabWebSocket } from './collab-ws.js';
 import type { NotificationJobData } from './queue/index.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -240,8 +241,9 @@ async function main() {
     },
   );
 
-  // Attach WebSocket server to the HTTP server
+  // Attach WebSocket servers to the HTTP server
   initWebSocket(server);
+  initCollabWebSocket(server);
 
   let shuttingDown = false;
 

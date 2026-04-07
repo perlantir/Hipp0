@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Users, Send, Check, X, Link, ChevronRight, MessageSquare, Clock } from 'lucide-react';
+import { Radio, Users, Send, Check, X, Link, ChevronRight, MessageSquare, Clock, Wifi, WifiOff } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
@@ -53,6 +53,12 @@ interface CreateRoomResult {
   status: string;
 }
 
+interface WsEvent {
+  event: string;
+  data: unknown;
+  timestamp: string;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function platformBadgeColor(platform: string): string {
@@ -63,11 +69,6 @@ function platformBadgeColor(platform: string): string {
     case 'api': return '#d97706';
     default: return '#4b5563';
   }
-}
-
-function parseMentions(val: string[] | string): string[] {
-  if (Array.isArray(val)) return val;
-  try { return JSON.parse(val); } catch { return []; }
 }
 
 function highlightMentions(text: string): React.ReactNode[] {
@@ -86,6 +87,116 @@ function timeAgo(ts: string): string {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return d.toLocaleDateString();
+}
+
+/** Build a ws:// or wss:// URL for the collab room WS endpoint. */
+function buildWsUrl(token: string): string {
+  const loc = window.location;
+  const proto = loc.protocol === 'https:' ? 'wss' : 'ws';
+  // Dashboard typically proxies to server on same host, or use VITE_API_URL
+  const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || loc.origin;
+  const base = apiBase.replace(/^http/, 'ws');
+  return `${base}/ws/room?token=${encodeURIComponent(token)}`;
+}
+
+// ── WebSocket hook ───────────────────────────────────────────────────────
+
+type ConnectionState = 'connecting' | 'connected' | 'disconnected';
+
+function useCollabSocket(
+  token: string | null,
+  displayName: string | null,
+  onEvent: (evt: WsEvent) => void,
+) {
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectAttempts = useRef(0);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [state, setState] = useState<ConnectionState>('disconnected');
+
+  const cleanup = useCallback(() => {
+    if (heartbeatTimer.current) { clearInterval(heartbeatTimer.current); heartbeatTimer.current = null; }
+    if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+    if (wsRef.current) {
+      wsRef.current.onopen = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      try { wsRef.current.close(); } catch { /* ignore */ }
+      wsRef.current = null;
+    }
+  }, []);
+
+  const connect = useCallback(() => {
+    if (!token) return;
+    cleanup();
+    setState('connecting');
+
+    const url = buildWsUrl(token);
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setState('connected');
+      reconnectAttempts.current = 0;
+
+      // Send join with display name
+      if (displayName) {
+        ws.send(JSON.stringify({ type: 'join_room', token, display_name: displayName }));
+      }
+
+      // Start heartbeat every 20s
+      heartbeatTimer.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'heartbeat' }));
+        }
+      }, 20_000);
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const evt = JSON.parse(String(e.data)) as WsEvent;
+        onEvent(evt);
+      } catch { /* ignore malformed */ }
+    };
+
+    ws.onclose = () => {
+      setState('disconnected');
+      scheduleReconnect();
+    };
+
+    ws.onerror = () => {
+      // onclose will fire after this
+    };
+  }, [token, displayName, onEvent, cleanup]);
+
+  const scheduleReconnect = useCallback(() => {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+    const attempt = reconnectAttempts.current;
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
+    reconnectAttempts.current = attempt + 1;
+
+    reconnectTimer.current = setTimeout(() => {
+      connect();
+    }, delay);
+  }, [connect]);
+
+  // Send a message through the WebSocket
+  const send = useCallback((msg: Record<string, unknown>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(msg));
+    }
+  }, []);
+
+  // Connect when token changes
+  useEffect(() => {
+    if (token && displayName) {
+      connect();
+    }
+    return cleanup;
+  }, [token, displayName, connect, cleanup]);
+
+  return { state, send };
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -112,11 +223,139 @@ export function CollabRoom() {
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [suggestion, setSuggestion] = useState<{ agent: string; reason: string } | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSent = useRef(0);
 
-  // ── Polling ──────────────────────────────────────────────────────────
+  // ── WebSocket event handler ───────────────────────────────────────────
+
+  const handleWsEvent = useCallback((evt: WsEvent) => {
+    switch (evt.event) {
+      case 'new_message': {
+        const msg = evt.data as Message;
+        setRoom(prev => {
+          if (!prev) return prev;
+          // Deduplicate by id
+          if (prev.recent_messages.some(m => m.id === msg.id)) return prev;
+          return { ...prev, recent_messages: [...prev.recent_messages, msg] };
+        });
+        break;
+      }
+
+      case 'new_step': {
+        const step = evt.data as Step;
+        setRoom(prev => {
+          if (!prev) return prev;
+          if (prev.steps.some(s => s.id === step.id)) return prev;
+          return { ...prev, steps: [...prev.steps, step] };
+        });
+        break;
+      }
+
+      case 'participant_joined': {
+        const data = evt.data as { participant?: Participant; display_name?: string };
+        if (data.participant) {
+          setRoom(prev => {
+            if (!prev) return prev;
+            if (prev.participants.some(p => p.id === data.participant!.id)) return prev;
+            return { ...prev, participants: [...prev.participants, data.participant!] };
+          });
+        }
+        break;
+      }
+
+      case 'participant_left':
+      case 'participant_offline': {
+        const data = evt.data as { display_name?: string; online?: string[] };
+        if (data.display_name) {
+          setRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              participants: prev.participants.map(p =>
+                p.display_name === data.display_name ? { ...p, is_online: false } : p
+              ),
+            };
+          });
+        }
+        break;
+      }
+
+      case 'typing': {
+        const data = evt.data as { sender_name?: string; is_typing?: boolean };
+        if (data.sender_name && data.sender_name !== myName) {
+          setTypingUsers(prev => {
+            const next = new Map(prev);
+            if (data.is_typing) {
+              next.set(data.sender_name!, Date.now());
+            } else {
+              next.delete(data.sender_name!);
+            }
+            return next;
+          });
+        }
+        break;
+      }
+
+      case 'suggestion': {
+        const data = evt.data as { sender_name?: string; message?: string };
+        if (data.message) {
+          // Parse agent name from suggestion message if possible
+          const match = data.message.match(/Suggesting (\w+) as next agent/);
+          const agent = match ? match[1] : 'next-agent';
+          setSuggestion({ agent, reason: data.message });
+        }
+        break;
+      }
+
+      case 'action': {
+        // Clear suggestion when an action is taken
+        setSuggestion(null);
+        break;
+      }
+
+      case 'room_closed': {
+        setRoom(prev => prev ? { ...prev, status: 'closed' } : prev);
+        break;
+      }
+
+      default:
+        break;
+    }
+  }, [myName]);
+
+  // ── WebSocket connection ──────────────────────────────────────────────
+
+  const { state: wsState, send: wsSend } = useCollabSocket(
+    phase === 'room' && joined ? token : null,
+    joined ? myName : null,
+    handleWsEvent,
+  );
+
+  // ── Clean up stale typing indicators every 3s ────────────────────────
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTypingUsers(prev => {
+        const now = Date.now();
+        const next = new Map(prev);
+        let changed = false;
+        for (const [name, ts] of next) {
+          if (now - ts > 4000) {
+            next.delete(name);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ── Polling fallback (only when WS is disconnected) ──────────────────
 
   const fetchRoom = useCallback(async (tok: string) => {
     try {
@@ -141,13 +380,27 @@ export function CollabRoom() {
 
   useEffect(() => {
     if (phase === 'room' && token) {
+      // Always do initial fetch
       fetchRoom(token);
-      pollRef.current = setInterval(() => fetchRoom(token), 3000);
+
+      // Only poll if WebSocket is disconnected
+      if (wsState === 'disconnected') {
+        pollRef.current = setInterval(() => fetchRoom(token), 3000);
+      }
+
       return () => {
-        if (pollRef.current) clearInterval(pollRef.current);
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       };
     }
-  }, [phase, token, fetchRoom]);
+  }, [phase, token, wsState, fetchRoom]);
+
+  // Stop polling when WS connects
+  useEffect(() => {
+    if (wsState === 'connected' && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, [wsState]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -200,6 +453,10 @@ export function CollabRoom() {
   async function sendMessage() {
     if (!chatMsg.trim() || !myName) return;
     setSending(true);
+
+    // Clear typing indicator
+    wsSend({ type: 'typing', is_typing: false });
+
     try {
       await post(`/api/collab/rooms/${token}/messages`, {
         sender_name: myName,
@@ -208,12 +465,30 @@ export function CollabRoom() {
         message_type: 'chat',
       });
       setChatMsg('');
-      fetchRoom(token);
+      // WS will deliver the new message; no need for fetchRoom
+      if (wsState !== 'connected') fetchRoom(token);
     } catch {
       // silent
     } finally {
       setSending(false);
     }
+  }
+
+  function handleChatInput(value: string) {
+    setChatMsg(value);
+
+    // Throttle typing events to 1 per second
+    const now = Date.now();
+    if (now - lastTypingSent.current > 1000) {
+      wsSend({ type: 'typing', is_typing: value.length > 0 });
+      lastTypingSent.current = now;
+    }
+
+    // Clear typing after 3s of no input
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      wsSend({ type: 'typing', is_typing: false });
+    }, 3000);
   }
 
   async function handleAction(action: 'accept' | 'override') {
@@ -225,7 +500,7 @@ export function CollabRoom() {
         reason: action === 'override' ? 'Manually overridden by operator' : undefined,
       });
       setSuggestion(null);
-      fetchRoom(token);
+      if (wsState !== 'connected') fetchRoom(token);
     } catch {
       // silent
     }
@@ -249,6 +524,17 @@ export function CollabRoom() {
       setTimeout(() => setCopySuccess(false), 2000);
     });
   }
+
+  // ── Typing indicator text ─────────────────────────────────────────────
+
+  const typingNames = [...typingUsers.keys()];
+  const typingText = typingNames.length === 0
+    ? null
+    : typingNames.length === 1
+      ? `${typingNames[0]} is typing...`
+      : typingNames.length === 2
+        ? `${typingNames[0]} and ${typingNames[1]} are typing...`
+        : `${typingNames[0]} and ${typingNames.length - 1} others are typing...`;
 
   // ── Styles ───────────────────────────────────────────────────────────
 
@@ -446,6 +732,16 @@ export function CollabRoom() {
           }}>
             {room.status === 'open' ? 'LIVE' : room.status.toUpperCase()}
           </span>
+          {/* Connection indicator */}
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+            background: wsState === 'connected' ? '#059669' + '18' : wsState === 'connecting' ? '#d97706' + '18' : '#ef4444' + '18',
+            color: wsState === 'connected' ? '#059669' : wsState === 'connecting' ? '#d97706' : '#ef4444',
+          }}>
+            {wsState === 'connected' ? <Wifi size={10} /> : <WifiOff size={10} />}
+            {wsState === 'connected' ? 'WS' : wsState === 'connecting' ? 'Connecting' : 'Polling'}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>
@@ -559,7 +855,7 @@ export function CollabRoom() {
                 marginTop: 8,
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, marginBottom: 8 }}>
-                  🧠 BRAIN SUGGESTION
+                  BRAIN SUGGESTION
                 </div>
                 <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
                   Next: {suggestion.agent}
@@ -615,7 +911,6 @@ export function CollabRoom() {
                       fontSize: 12,
                       border: isSuggestionMsg ? '1px solid var(--accent)' : 'none',
                     }}>
-                      {isSuggestionMsg && '🧠 '}
                       {msg.message}
                     </span>
                   </div>
@@ -666,6 +961,19 @@ export function CollabRoom() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Typing indicator */}
+          {typingText && (
+            <div style={{
+              padding: '4px 20px',
+              fontSize: 12,
+              color: 'var(--text-tertiary)',
+              fontStyle: 'italic',
+              flexShrink: 0,
+            }}>
+              {typingText}
+            </div>
+          )}
+
           {/* Input bar */}
           <div style={{
             padding: '12px 16px',
@@ -677,7 +985,7 @@ export function CollabRoom() {
               <input
                 style={{ ...inputStyle, flex: 1 }}
                 value={chatMsg}
-                onChange={e => setChatMsg(e.target.value)}
+                onChange={e => handleChatInput(e.target.value)}
                 placeholder={`Message as ${myName}... (use @name to mention)`}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 disabled={room.status !== 'open'}
@@ -747,7 +1055,7 @@ export function CollabRoom() {
             onClick={async () => {
               try {
                 await post(`/api/collab/rooms/${token}/close`, {});
-                fetchRoom(token);
+                if (wsState !== 'connected') fetchRoom(token);
               } catch { /* silent */ }
             }}
             style={{ ...ghostBtn, padding: '4px 10px', fontSize: 12, flexShrink: 0, color: '#fca5a5' }}

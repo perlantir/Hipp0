@@ -1,10 +1,14 @@
 /**
  * Collaboration Room API — real-time multi-agent session rooms.
+ *
+ * Every mutation (message, join, action, step, close) broadcasts
+ * the event to connected WebSocket clients via broadcastToRoom().
  */
 import type { Hono } from 'hono';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
 import { getDb } from '@decigraph/core/db/index.js';
 import { randomBytes } from 'crypto';
+import { broadcastToRoom } from '../collab-ws.js';
 
 function generateToken(): string {
   return randomBytes(6).toString('hex').slice(0, 9);
@@ -45,11 +49,14 @@ export function registerCollabRoomRoutes(app: Hono): void {
       );
 
       // System message
-      await db.query(
+      const sysMsg = `Room created. Session started: ${title}`;
+      const msgResult = await db.query(
         `INSERT INTO collab_messages (room_id, sender_name, sender_type, message, message_type)
-         VALUES ($1, 'System', 'system', $2, 'system')`,
-        [room.id, `Room created. Session started: ${title}`],
+         VALUES ($1, 'System', 'system', $2, 'system') RETURNING *`,
+        [room.id, sysMsg],
       );
+
+      broadcastToRoom(token, 'new_message', msgResult.rows[0]);
 
       logAudit('collab_room_created', projectId, { room_id: room.id, token });
 
@@ -115,17 +122,24 @@ export function registerCollabRoomRoutes(app: Hono): void {
       const room = roomResult.rows[0] as Record<string, unknown>;
 
       const participant = await db.query(
-        `INSERT INTO collab_participants (room_id, display_name, sender_type, platform, role)
-         VALUES ($1, $2, $3, $4, 'viewer') RETURNING *`,
+        `INSERT INTO collab_participants (room_id, display_name, sender_type, platform, role, is_online)
+         VALUES ($1, $2, $3, $4, 'viewer', true) RETURNING *`,
         [room.id, name, senderType, platform],
       );
 
       // System join message
-      await db.query(
+      const msgResult = await db.query(
         `INSERT INTO collab_messages (room_id, sender_name, sender_type, message, message_type)
-         VALUES ($1, 'System', 'system', $2, 'system')`,
+         VALUES ($1, 'System', 'system', $2, 'system') RETURNING *`,
         [room.id, `${name} joined the room`],
       );
+
+      // Broadcast both the join event and the system message
+      broadcastToRoom(token, 'participant_joined', {
+        participant: participant.rows[0],
+        display_name: name,
+      });
+      broadcastToRoom(token, 'new_message', msgResult.rows[0]);
 
       return c.json(participant.rows[0]);
     } catch (err) {
@@ -165,13 +179,26 @@ export function registerCollabRoomRoutes(app: Hono): void {
         [room.id, senderName, senderType, message, messageType, body.step_id || null, JSON.stringify(mentions)],
       );
 
-      return c.json(result.rows[0], 201);
+      const saved = result.rows[0] as Record<string, unknown>;
+
+      // Broadcast to WebSocket clients
+      broadcastToRoom(token, 'new_message', saved);
+
+      // If this is a suggestion message, also broadcast as a suggestion event
+      if (messageType === 'suggestion') {
+        broadcastToRoom(token, 'suggestion', {
+          sender_name: senderName,
+          message,
+        });
+      }
+
+      return c.json(saved, 201);
     } catch (err) {
       mapDbError(err);
     }
   });
 
-  // ── Get messages (polling) ────────────────────────────────────────────
+  // ── Get messages (polling fallback) ────────────────────────────────────
   app.get('/api/collab/rooms/:token/messages', async (c) => {
     const token = c.req.param('token');
     const db = getDb();
@@ -181,11 +208,21 @@ export function registerCollabRoomRoutes(app: Hono): void {
       if (roomResult.rows.length === 0) return c.json({ error: 'Room not found' }, 404);
       const roomId = (roomResult.rows[0] as Record<string, unknown>).id;
 
-      const result = await db.query(
-        'SELECT * FROM collab_messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 100',
-        [roomId],
-      );
-      return c.json((result.rows as Array<Record<string, unknown>>).reverse());
+      const after = c.req.query('after');  // Support ?after=<timestamp> for incremental polling
+      let result;
+      if (after) {
+        result = await db.query(
+          'SELECT * FROM collab_messages WHERE room_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 100',
+          [roomId, after],
+        );
+      } else {
+        result = await db.query(
+          'SELECT * FROM collab_messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 100',
+          [roomId],
+        );
+        result = { ...result, rows: (result.rows as Array<Record<string, unknown>>).reverse() };
+      }
+      return c.json(result.rows);
     } catch (err) {
       mapDbError(err);
     }
@@ -212,21 +249,32 @@ export function registerCollabRoomRoutes(app: Hono): void {
       const label = actionType === 'accept' ? 'Accepted' : 'Overridden';
       const reason = typeof body.reason === 'string' ? ` — ${body.reason}` : '';
 
-      await db.query(
+      const msgResult = await db.query(
         `INSERT INTO collab_messages (room_id, sender_name, sender_type, message, message_type)
-         VALUES ($1, 'System', 'system', $2, 'action')`,
+         VALUES ($1, 'System', 'system', $2, 'action') RETURNING *`,
         [room.id, `${label}: ${agent}${reason}`],
       );
+
+      // Broadcast the action message
+      broadcastToRoom(token, 'new_message', msgResult.rows[0]);
+      broadcastToRoom(token, 'action', {
+        action_type: actionType,
+        agent,
+        reason: body.reason ?? null,
+      });
 
       if (actionType === 'accept') {
         const stepCount = await db.query('SELECT COUNT(*) as c FROM collab_steps WHERE room_id = $1', [room.id]);
         const nextStep = parseInt((stepCount.rows[0] as Record<string, unknown>).c as string, 10) + 1;
 
-        await db.query(
+        const stepResult = await db.query(
           `INSERT INTO collab_steps (room_id, step_number, agent_name, agent_role, output_summary, status)
-           VALUES ($1, $2, $3, $3, $4, 'in_progress')`,
+           VALUES ($1, $2, $3, $3, $4, 'in_progress') RETURNING *`,
           [room.id, nextStep, agent, `${agent} is working on the task...`],
         );
+
+        // Broadcast the new step
+        broadcastToRoom(token, 'new_step', stepResult.rows[0]);
       }
 
       return c.json({ success: true });
@@ -247,11 +295,14 @@ export function registerCollabRoomRoutes(app: Hono): void {
 
       await db.query(`UPDATE collab_rooms SET status = 'closed', closed_at = now() WHERE id = $1`, [room.id]);
 
-      await db.query(
+      const msgResult = await db.query(
         `INSERT INTO collab_messages (room_id, sender_name, sender_type, message, message_type)
-         VALUES ($1, 'System', 'system', 'Room closed by owner', 'system')`,
+         VALUES ($1, 'System', 'system', 'Room closed by owner', 'system') RETURNING *`,
         [room.id],
       );
+
+      broadcastToRoom(token, 'new_message', msgResult.rows[0]);
+      broadcastToRoom(token, 'room_closed', { token });
 
       return c.json({ success: true });
     } catch (err) {
