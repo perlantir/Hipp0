@@ -94,6 +94,14 @@
     "./intelligence/impact-analyzer.js": {
       "import": "./dist/intelligence/impact-analyzer.js",
       "types": "./dist/intelligence/impact-analyzer.d.ts"
+    },
+    "./intelligence/weekly-digest.js": {
+      "import": "./dist/intelligence/weekly-digest.js",
+      "types": "./dist/intelligence/weekly-digest.d.ts"
+    },
+    "./intelligence/pattern-extractor.js": {
+      "import": "./dist/intelligence/pattern-extractor.js",
+      "types": "./dist/intelligence/pattern-extractor.d.ts"
     }
   },
   "scripts": {

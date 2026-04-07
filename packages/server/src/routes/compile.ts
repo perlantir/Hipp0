@@ -151,7 +151,7 @@ export function registerCompileRoutes(app: Hono): void {
         const blockPolicies: Array<{ title: string; approved_by: string }> = [];
         const warnPolicies: Array<{ title: string; approved_by: string }> = [];
         const advisoryPolicies: Array<{ title: string }> = [];
-        const compiledIds = (result.decisions ?? []).map((d: Record<string, unknown>) => d.id);
+        const compiledIds = (result.decisions ?? []).map((d: { id?: string }) => d.id);
 
         for (const row of activePolicies.rows) {
           const p = row as Record<string, unknown>;
