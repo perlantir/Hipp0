@@ -434,6 +434,27 @@ export interface ProjectStats {
   recent_activity: AuditEntry[];
 }
 
+// --- Condensed Compile Response (Hipp0Condensed) ---
+export interface CondensedCompileResponse {
+  condensed_context: string;
+  original_tokens: number;
+  compressed_tokens: number;
+  compression_ratio: number;
+  format_version: string; // "h0c-v1"
+  decisions_considered: number;
+  decisions_included: number;
+  compilation_time_ms: number;
+  feedback_hint: string;
+  outcome_hint: string;
+}
+
+export interface CompressionMetrics {
+  original_tokens: number;
+  compressed_tokens: number;
+  compression_ratio: number;
+  format_version: string;
+}
+
 // --- Error Types ---
 export class Hipp0Error extends Error {
   constructor(

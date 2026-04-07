@@ -9,12 +9,14 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
+import { condenseCompileResponse, computeCompressionMetrics } from '@hipp0/core/context-compiler/compression.js';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@hipp0/core/memory/session-manager.js';
 import { generateRoleSignal, computeRecommendedAction } from '@hipp0/core/intelligence/role-signals.js';
+import type { ActionSignal } from '@hipp0/core/intelligence/role-signals.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -34,6 +36,9 @@ export function registerCompileRoutes(app: Hono): void {
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
     const task_description = requireString(body.task_description, 'task_description', 100000);
+
+    // ── Format parameter: full (default) | condensed | both ─────────
+    const format = (c.req.query('format') ?? 'full') as 'full' | 'condensed' | 'both';
 
     // ── Check cache first ───────────────────────────────────────────
     const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
@@ -295,9 +300,58 @@ export function registerCompileRoutes(app: Hono): void {
       ).catch(() => {});
     }
 
-    // ── Response ─────────────────────────────────────────────────────
+    // ── Compression: build condensed output when requested ──────────
+    // Collect the action signal for condensing
+    let actionSignal: ActionSignal | undefined;
+    if (roleSignal) {
+      try {
+        const sig = { abstain_probability: roleSignal.abstain_probability as number, relevance_score: roleSignal.relevance_score as number, rank_among_agents: roleSignal.rank as number } as Parameters<typeof computeRecommendedAction>[0];
+        actionSignal = computeRecommendedAction(sig);
+      } catch { /* ignore */ }
+    }
+
+    // Collect role signals for team scores (from role_signal if present)
+    const teamScores = roleSignal
+      ? [{ agent_name, relevance_score: roleSignal.relevance_score as number }]
+      : undefined;
+
+    // Always compute compression metrics for metadata
+    const compressionMetrics = computeCompressionMetrics(result, {
+      contextPackage: result,
+      recommendedAction: actionSignal,
+      roleSignals: teamScores,
+    });
+
+    if (format === 'condensed') {
+      const condensed = condenseCompileResponse({
+        contextPackage: result,
+        recommendedAction: actionSignal,
+        roleSignals: teamScores,
+      });
+      console.log("[hipp0/compile-response]", { agent: agent_name, format: 'condensed', ratio: condensed.compression_ratio });
+      return c.json(condensed);
+    }
+
+    if (format === 'both') {
+      const condensed = condenseCompileResponse({
+        contextPackage: result,
+        recommendedAction: actionSignal,
+        roleSignals: teamScores,
+      });
+      console.log("[hipp0/compile-response]", { agent: agent_name, format: 'both', ratio: condensed.compression_ratio });
+      return c.json({
+        ...responsePayload,
+        condensed_context: condensed.condensed_context,
+        compression_metrics: compressionMetrics,
+      });
+    }
+
+    // ── Response (full, default) ─────────────────────────────────────
     console.log("[hipp0/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
-    return c.json(responsePayload);
+    return c.json({
+      ...responsePayload,
+      compression_metrics: compressionMetrics,
+    });
 
   });
 }

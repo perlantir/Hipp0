@@ -990,3 +990,16 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
 
 // Re-export scoreDecision and cosineSimilarity for external use
 export { Hipp0Error };
+
+// Re-export compression utilities
+export {
+  condenseDecisions,
+  condenseSessionHistory,
+  condenseContradictions,
+  condenseTeamScores,
+  condenseRecommendedAction,
+  condenseCompileResponse,
+  computeCompressionMetrics,
+  estimateTokens,
+} from './compression.js';
+export type { CondenseCompileInput } from './compression.js';

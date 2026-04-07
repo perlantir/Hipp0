@@ -46,6 +46,19 @@ export { generateEmbedding } from './decision-graph/embeddings.js';
 // --- Context Compiler ---
 export { compileContext, scoreDecision, cosineSimilarity } from './context-compiler/index.js';
 
+// --- Hipp0Condensed Compression ---
+export {
+  condenseDecisions,
+  condenseSessionHistory,
+  condenseContradictions,
+  condenseTeamScores,
+  condenseRecommendedAction,
+  condenseCompileResponse,
+  computeCompressionMetrics,
+  estimateTokens,
+} from './context-compiler/compression.js';
+export type { CondenseCompileInput } from './context-compiler/compression.js';
+
 // --- Change Propagator ---
 export {
   createSubscription,
