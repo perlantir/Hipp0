@@ -47,6 +47,7 @@ import { registerLinkRoutes } from './routes/links.js';
 import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { registerPolicyRoutes } from './routes/policies.js';
 import { registerDigestRoutes } from './routes/digests.js';
+import { registerPatternRoutes } from './routes/patterns.js';
 
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@decigraph/core/db/index.js';
@@ -244,6 +245,7 @@ export function createApp() {
   // ── Governance: policy & violation management ──────────────────────
   registerPolicyRoutes(app);
   registerDigestRoutes(app);
+  registerPatternRoutes(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);

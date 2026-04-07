@@ -196,6 +196,13 @@ async function main() {
     if (now.getUTCDay() === 1 && now.getUTCHours() === 8 && now.getUTCMinutes() < 5) {
       void runWeeklyDigests();
     }
+    // Pattern extraction at 10 AM UTC Monday (after digests)
+    if (now.getUTCDay() === 1 && now.getUTCHours() === 10 && now.getUTCMinutes() < 5) {
+      import('@decigraph/core/intelligence/pattern-extractor.js')
+        .then(({ extractPatterns }) => extractPatterns())
+        .then(() => console.log('[decigraph/patterns] Weekly extraction complete'))
+        .catch((err: Error) => console.warn('[decigraph/patterns] Extraction failed:', err.message));
+    }
   }, 5 * 60 * 1000); // check every 5 minutes
 
   const app = createApp();
