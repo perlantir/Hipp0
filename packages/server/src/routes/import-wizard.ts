@@ -375,7 +375,7 @@ export function registerImportWizardRoutes(app: Hono): void {
       // Import decisions from scan preview
       const decisions = (typeof scan.preview_decisions === 'string'
         ? JSON.parse(scan.preview_decisions as string)
-        : scan.preview_decisions) as Array<{ title: string; confidence: string; source: string; description?: string }>;
+        : scan.preview_decisions) as Array<{ title: string; confidence: string; source: string; description?: string; tags?: string[] }>;
 
       let importedCount = 0;
       for (const d of decisions) {
