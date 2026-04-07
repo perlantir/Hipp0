@@ -159,11 +159,18 @@ function handleClientMessage(client: ClientInfo, raw: unknown): void {
 
   switch (msg.type) {
     case 'join_room': {
-      const token = String(msg.token ?? '');
+      const token = String(msg.token ?? '') || client.token;
       const name = String(msg.display_name ?? msg.name ?? '');
-      if (!token) return;
-      addClientToRoom(client, token);
       if (name) client.displayName = name;
+      if (!token) return;
+      if (client.token !== token) addClientToRoom(client, token);
+      // Re-broadcast presence now that displayName may have been set
+      if (client.displayName && client.token) {
+        broadcastToRoom(client.token, 'participant_joined', {
+          display_name: client.displayName,
+          online: getRoomPresence(client.token),
+        });
+      }
       break;
     }
 
@@ -281,7 +288,8 @@ async function handleWsChat(
   client: ClientInfo,
   msg: Record<string, unknown>,
 ): Promise<void> {
-  if (!client.token || !client.displayName) return;
+  if (!client.token) return;
+  const senderName = client.displayName || 'Anonymous';
 
   const message = String(msg.message ?? '').trim();
   if (!message) return;
@@ -306,7 +314,7 @@ async function handleWsChat(
   const result = await db.query(
     `INSERT INTO collab_messages (room_id, sender_name, sender_type, message, message_type, mentions)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [roomId, client.displayName, senderType, message, messageType, JSON.stringify(mentions)],
+    [roomId, senderName, senderType, message, messageType, JSON.stringify(mentions)],
   );
 
   const saved = result.rows[0] as Record<string, unknown>;
