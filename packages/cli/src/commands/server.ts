@@ -43,7 +43,7 @@ function isRunning(pid: number): boolean {
 }
 
 /**
- * Generate a Hipp0-style API key: "nx_" + 16 random alphanumeric characters.
+ * Generate a Hipp0-style API key: "h0_local_" + 16 random characters.
  */
 function generateApiKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -53,7 +53,7 @@ function generateApiKey(): string {
     .split('')
     .map((ch) => chars[parseInt(ch, 16) % chars.length])
     .join('');
-  return `nx_${mapped}`;
+  return `h0_local_${mapped}`;
 }
 
 /**

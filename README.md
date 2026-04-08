@@ -272,6 +272,7 @@ The brain learns over time: wing affinity adapts from feedback, temporal intelli
 - Logo and launch video
 - Framework integration testing (LangChain / CrewAI / AutoGen / OpenAI Agents)
 - Latency benchmark suite
+- Background workers documentation (staleness cron, weekly digest, evolution worker, pattern extraction)
 
 ---
 
@@ -330,7 +331,7 @@ curl http://localhost:3100/api/compile \
 
 ## MCP Configuration
 
-> **Note:** `@hipp0/mcp` is not yet published to npm. Use the local path for now.
+> **Note:** `@hipp0/mcp`, `@hipp0/cli`, and `@hipp0/sdk` are not yet published to npm. Use local paths for now.
 
 ### Future (when published)
 
@@ -403,7 +404,7 @@ const context = await client.compile({
 
 ### Python
 
-> **Note:** `hipp0-sdk` is not yet published to PyPI. Install locally:
+> **Note:** `hipp0-sdk` is not yet published to PyPI. Install locally (see python-sdk/README.md):
 >
 > ```bash
 > cd python-sdk

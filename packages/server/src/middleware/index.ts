@@ -84,7 +84,7 @@ export const securityHeaders: MiddlewareHandler = createMiddleware(async (c, nex
   c.header('X-Frame-Options', 'DENY');
   c.header('X-XSS-Protection', '1; mode=block');
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  c.header('Content-Security-Policy', "default-src 'self'");
+  c.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'");
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 });
@@ -257,6 +257,10 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
 });
 
 // Rate Limiter
+// NOTE: Rate-limit counters are held in-process memory. When running multiple
+// server instances behind a load balancer each instance tracks limits
+// independently. For shared rate limiting across instances, use a Redis-backed
+// store (see CACHE_PROVIDER / REDIS_URL in the self-hosting docs).
 interface RateLimitEntry {
   count: number;
   resetAt: number;

@@ -8,11 +8,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}"
-echo "  _   _                      "
-echo " | \ | | _____  ___   _ ___  "
-echo " |  \| |/ _ \ \/ / | | / __| "
-echo " | |\  |  __/>  <| |_| \__ \ "
-echo " |_| \_|\___/_/\_\\__,_|___/ "
+echo "    __  __ _             ___  "
+echo "   / / / /(_)___  ____  / _ \ "
+echo "  / /_/ // // _ \/ __ \/ // / "
+echo " / __  // // ___/ /_/ /\__ \  "
+echo "/_/ /_//_// \___/ .___/____/  "
+echo "         |_/   /_/            "
 echo -e "${NC}"
 echo "Hipp0 Installer v1.0"
 echo "================================"
@@ -55,7 +56,7 @@ if [ -d "$INSTALL_DIR" ]; then
     git pull origin main
 else
     echo "Cloning Hipp0..."
-    git clone https://github.com/perlantir/hipp0.git "$INSTALL_DIR"
+    git clone https://github.com/perlantir/Hipp0.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
@@ -65,14 +66,11 @@ echo -e "${BLUE}Configuration${NC}"
 echo "============="
 echo ""
 
-if [ -f .env ] && grep -q "HIPP0_API_KEY" .env; then
+if [ -f .env ] && grep -q "POSTGRES_PASSWORD" .env; then
     echo -e "${GREEN}Existing .env found — keeping current config${NC}"
     source .env 2>/dev/null || true
 else
-    HIPP0_KEY="nx_$(openssl rand -hex 20)"
-    echo -e "Generated HIPP0_API_KEY: ${GREEN}${HIPP0_KEY}${NC}"
-    echo -e "${YELLOW}Save this key — your agents will use it to connect to Hipp0${NC}"
-    echo ""
+    PG_PASS="$(openssl rand -hex 16)"
 
     echo "Hipp0 can use an LLM for semantic search and auto-extraction."
     echo "This is optional — Hipp0 works without it."
@@ -81,7 +79,8 @@ else
     read -r OPENROUTER_KEY
 
     cat > .env << ENVEOF
-HIPP0_API_KEY=${HIPP0_KEY}
+POSTGRES_PASSWORD=${PG_PASS}
+HIPP0_AUTH_REQUIRED=true
 ENVEOF
 
     if [ -n "$OPENROUTER_KEY" ]; then
@@ -126,6 +125,13 @@ echo ""
 HEALTH=$(curl -s http://localhost:3100/api/health)
 VERSION=$(echo "$HEALTH" | jq -r .version 2>/dev/null || echo "unknown")
 
+# Retrieve auto-generated API key for the default project
+API_KEY=""
+PROJECT_ID=$(curl -s http://localhost:3100/api/projects | jq -r '.[0].id // empty' 2>/dev/null || true)
+if [ -n "$PROJECT_ID" ]; then
+    API_KEY=$(curl -s "http://localhost:3100/api/api-keys?project_id=${PROJECT_ID}" | jq -r '.[0].key // empty' 2>/dev/null || true)
+fi
+
 echo -e "  API:        ${GREEN}http://localhost:3100${NC}"
 echo -e "  Dashboard:  ${GREEN}http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):3200${NC}"
 echo -e "  Version:    ${VERSION}"
@@ -148,7 +154,11 @@ echo ""
 echo -e "  ${BLUE}Open the dashboard to set up your first project:${NC}"
 echo -e "  ${GREEN}http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):3200${NC}"
 echo ""
-echo -e "  Your API key: ${YELLOW}$(grep HIPP0_API_KEY .env | cut -d= -f2)${NC}"
+if [ -n "$API_KEY" ]; then
+    echo -e "  Your API key: ${YELLOW}${API_KEY}${NC}"
+else
+    echo -e "  ${YELLOW}Create your first project in the dashboard to get an API key${NC}"
+fi
 echo ""
-echo "  Docs:  https://github.com/perlantir/hipp0/blob/main/docs/getting-started.md"
+echo "  Docs:  https://github.com/perlantir/Hipp0/blob/main/docs/getting-started.md"
 echo ""

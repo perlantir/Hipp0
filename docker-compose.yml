@@ -74,6 +74,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  # CRITICAL: Do NOT rename this volume — it contains all production data.
   nexus_nexus_pgdata:
-    external: true
+    driver: local
