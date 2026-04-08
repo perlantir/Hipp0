@@ -193,6 +193,26 @@ function finalizeResults(
 
 // ── Conversational Explanation Generator ───────────────────────────────────
 
+function formatTemporalContext(decision: Decision): string | null {
+  const scope = (decision as Decision & { temporal_scope?: string }).temporal_scope ?? 'permanent';
+  const validFrom = (decision as Decision & { valid_from?: string }).valid_from;
+
+  if (scope === 'permanent' && validFrom) {
+    const date = new Date(validFrom);
+    const month = date.toLocaleString('en-US', { month: 'long' });
+    const year = date.getFullYear();
+    return `Active since ${month} ${year}`;
+  }
+
+  if ((scope === 'sprint' || scope === 'experiment') && validFrom) {
+    const ageMs = Date.now() - new Date(validFrom).getTime();
+    const ageDays = Math.floor(ageMs / 86400000);
+    return `Active for ${ageDays} day${ageDays !== 1 ? 's' : ''} (${scope}-scoped)`;
+  }
+
+  return null;
+}
+
 function generateExplanation(
   agentName: string,
   decision: { made_by?: string; confidence?: string },
@@ -776,19 +796,23 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   // L1: priority_level=1 or NULL, scored normally (default)
   // L2: priority_level=2, only loaded when depth=full
   const includeL2 = request.depth === 'full';
-  const statusFilter = (!agent.relevance_profile.include_superseded && !request.include_superseded)
-    ? ` AND status != 'superseded'` : '';
+  const includeSuperseded = agent.relevance_profile.include_superseded || request.include_superseded;
+  const statusFilter = !includeSuperseded ? ` AND status != 'superseded'` : '';
+  // Temporal filter: exclude expired/deprecated decisions unless include_superseded
+  const temporalFilter = !includeSuperseded
+    ? ` AND (valid_until IS NULL OR valid_until > NOW()) AND (temporal_scope IS NULL OR temporal_scope != 'deprecated')`
+    : '';
 
   // Fetch L0 (critical) decisions — always included
   const l0Result = await db.query<Record<string, unknown>>(
-    `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 0${statusFilter} ORDER BY created_at DESC LIMIT 5`,
+    `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 0${statusFilter}${temporalFilter} ORDER BY created_at DESC LIMIT 5`,
     [project_id],
   );
   const l0Decisions = l0Result.rows.map(parseDecision);
 
   // Fetch L1 (standard) decisions
   const l1Result = await db.query<Record<string, unknown>>(
-    `SELECT * FROM decisions WHERE project_id = ? AND (priority_level = 1 OR priority_level IS NULL)${statusFilter} ORDER BY created_at DESC`,
+    `SELECT * FROM decisions WHERE project_id = ? AND (priority_level = 1 OR priority_level IS NULL)${statusFilter}${temporalFilter} ORDER BY created_at DESC`,
     [project_id],
   );
   const l1Decisions = l1Result.rows.map(parseDecision);
@@ -798,14 +822,14 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   let l2Available = 0;
   if (includeL2) {
     const l2Result = await db.query<Record<string, unknown>>(
-      `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter} ORDER BY created_at DESC`,
+      `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter} ORDER BY created_at DESC`,
       [project_id],
     );
     l2Decisions = l2Result.rows.map(parseDecision);
     l2Available = l2Decisions.length;
   } else {
     const l2CountResult = await db.query<Record<string, unknown>>(
-      `SELECT COUNT(*) as count FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}`,
+      `SELECT COUNT(*) as count FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter}`,
       [project_id],
     );
     l2Available = parseInt(String((l2CountResult.rows[0] as Record<string, unknown>)?.count ?? '0'), 10);

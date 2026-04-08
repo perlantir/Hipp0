@@ -93,6 +93,16 @@ function buildHeader(): string {
 /*  Decisions                                                          */
 /* ------------------------------------------------------------------ */
 
+function compactTemporalAge(validFrom?: string): string {
+  if (!validFrom) return '';
+  const ageMs = Date.now() - new Date(validFrom).getTime();
+  const days = Math.floor(ageMs / 86400000);
+  if (days < 1) return '0d';
+  if (days < 30) return `${days}d`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${Math.floor(days / 365)}y`;
+}
+
 export function condenseDecisions(decisions: ScoredDecision[]): string {
   if (decisions.length === 0) return '';
   const items = decisions.map((d) => {
@@ -106,6 +116,14 @@ export function condenseDecisions(decisions: ScoredDecision[]): string {
     if (d.tags.length > 0) parts.push(`tg:${compactTags(d.tags)}`);
     parts.push(`s:${compactScore(d.combined_score)}`);
     if (d.affects.length > 0) parts.push(`af:${d.affects.join(',')}`);
+    // Temporal markers
+    const scope = (d as ScoredDecision & { temporal_scope?: string }).temporal_scope;
+    const validFrom = (d as ScoredDecision & { valid_from?: string }).valid_from;
+    if (scope && scope !== 'permanent') parts.push(`scope:${scope}`);
+    if (validFrom) {
+      const age = compactTemporalAge(validFrom);
+      if (age) parts.push(`age:${age}`);
+    }
     return `[${parts.join('|')}]`;
   });
   return `[D:${decisions.length}]${items.join(';')}`;

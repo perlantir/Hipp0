@@ -17,7 +17,7 @@ export interface Decision {
   assumptions?: string[];
   relationships?: Relationship[];
   supersedes?: string;
-  superseded_by?: string;
+  superseded_by?: string | null;
   project_id: string;
   validated_at?: string | null;
   validation_source?: string | null;
@@ -26,6 +26,9 @@ export interface Decision {
   domain?: string | null;
   category?: string | null;
   priority_level?: number;
+  valid_from?: string | null;
+  valid_until?: string | null;
+  temporal_scope?: 'permanent' | 'sprint' | 'experiment' | 'deprecated';
 }
 
 export interface Relationship {

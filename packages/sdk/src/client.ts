@@ -43,6 +43,7 @@ import {
   type SessionPlan,
   type AcceptSuggestionInput,
   type AcceptSuggestionResult,
+  type WhatChangedResponse,
 } from './types.js';
 
 export class Hipp0Client {
@@ -454,6 +455,15 @@ export class Hipp0Client {
     return this.post<TeamRelevance>(`/api/projects/${params.projectId}/team-score`, {
       task_description: params.taskDescription,
       session_id: params.sessionId,
+    });
+  }
+
+  // ── Temporal Intelligence ─────────────────────────────────────────
+
+  getChanges(projectId: string, since: string): Promise<WhatChangedResponse> {
+    return this.get<WhatChangedResponse>('/api/decisions/changes', {
+      project_id: projectId,
+      since,
     });
   }
 }

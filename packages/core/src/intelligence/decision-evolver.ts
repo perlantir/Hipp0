@@ -218,6 +218,88 @@ export async function findEvolutionCandidates(
     console.warn('[hipp0/evolution] Stale query failed:', (err as Error).message);
   }
 
+  // Trigger 5: Supersession candidates — newer decisions in same domain
+  try {
+    const supersessionCandidates = await db.query(
+      `SELECT d.id, d.title, d.description, d.reasoning, d.tags, d.affects, d.domain,
+              d.created_at, d.confidence,
+              newer.id as newer_id, newer.title as newer_title, newer.confidence as newer_confidence
+       FROM decisions d
+       JOIN decisions newer ON newer.project_id = d.project_id
+         AND newer.domain = d.domain
+         AND newer.domain IS NOT NULL
+         AND newer.created_at > d.created_at
+         AND newer.status = 'active'
+         AND newer.id != d.id
+       WHERE d.project_id = ? AND d.status = 'active'
+         AND (d.temporal_scope IS NULL OR d.temporal_scope NOT IN ('deprecated'))
+       ORDER BY d.created_at ASC
+       LIMIT 5`,
+      [projectId],
+    );
+    for (const row of supersessionCandidates.rows) {
+      const r = row as Record<string, unknown>;
+      const id = r.id as string;
+      if (pendingSet.has(id)) continue;
+      candidates.push({
+        decision_id: id,
+        project_id: projectId,
+        title: r.title as string,
+        description: r.description as string,
+        reasoning: r.reasoning as string,
+        tags: (r.tags as string[]) ?? [],
+        affects: (r.affects as string[]) ?? [],
+        trigger_reason: 'supersession_candidate',
+        trigger_data: {
+          newer_decision_id: r.newer_id as string,
+          newer_decision_title: r.newer_title as string,
+          newer_confidence: r.newer_confidence as string,
+          domain: r.domain ?? null,
+        },
+      });
+      pendingSet.add(id);
+    }
+  } catch (err) {
+    console.warn('[hipp0/evolution] Supersession candidate query failed:', (err as Error).message);
+  }
+
+  // Trigger 6: Sprint-scoped decisions expiring within 2 days
+  try {
+    const expiringSprint = await db.query(
+      `SELECT id, title, description, reasoning, tags, affects, domain,
+              created_at, valid_from, temporal_scope
+       FROM decisions
+       WHERE project_id = ? AND status = 'active' AND temporal_scope = 'sprint'
+         AND created_at < NOW() - INTERVAL '12 days'
+       ORDER BY created_at ASC
+       LIMIT 5`,
+      [projectId],
+    );
+    for (const row of expiringSprint.rows) {
+      const r = row as Record<string, unknown>;
+      const id = r.id as string;
+      if (pendingSet.has(id)) continue;
+      candidates.push({
+        decision_id: id,
+        project_id: projectId,
+        title: r.title as string,
+        description: r.description as string,
+        reasoning: r.reasoning as string,
+        tags: (r.tags as string[]) ?? [],
+        affects: (r.affects as string[]) ?? [],
+        trigger_reason: 'sprint_expiring',
+        trigger_data: {
+          created_at: r.created_at,
+          domain: r.domain ?? null,
+          days_until_stale: Math.max(0, 14 - Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86400000)),
+        },
+      });
+      pendingSet.add(id);
+    }
+  } catch (err) {
+    console.warn('[hipp0/evolution] Sprint expiring query failed:', (err as Error).message);
+  }
+
   // Max 5 candidates per run — prioritize candidates in recently active domains
   if (candidates.length > 5) {
     try {

@@ -1,21 +1,61 @@
 /**
  * Phase 2 Intelligence: Staleness Tracker
  *
- * Marks decisions as stale when unreferenced for 30+ days.
+ * Marks decisions as stale when unreferenced for configurable periods.
  * Applies confidence decay at 60 and 90 day thresholds.
+ * Temporal-scope-aware: sprint (14d), experiment (7d), permanent (30d), deprecated (skip).
  */
 import { getDb } from '../db/index.js';
 
 export async function markStaleDecisions(projectId: string): Promise<number> {
   const db = getDb();
+  let staleCount = 0;
 
-  // Mark stale: last_referenced_at < 30 days ago (or never referenced and created > 30 days ago)
-  const staleResult = await db.query(
+  // Skip deprecated decisions entirely
+  // Sprint-scoped: auto-flag stale after 14 days
+  const sprintResult = await db.query(
     `UPDATE decisions
      SET stale = true
      WHERE project_id = ?
        AND status = 'active'
        AND stale = false
+       AND temporal_scope = 'sprint'
+       AND (
+         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '14 days')
+         OR
+         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '14 days')
+       )
+     RETURNING id`,
+    [projectId],
+  );
+  staleCount += sprintResult.rows.length;
+
+  // Experiment-scoped: auto-flag stale after 7 days
+  const experimentResult = await db.query(
+    `UPDATE decisions
+     SET stale = true
+     WHERE project_id = ?
+       AND status = 'active'
+       AND stale = false
+       AND temporal_scope = 'experiment'
+       AND (
+         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '7 days')
+         OR
+         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '7 days')
+       )
+     RETURNING id`,
+    [projectId],
+  );
+  staleCount += experimentResult.rows.length;
+
+  // Permanent-scoped (or null): existing 30-day behavior
+  const permanentResult = await db.query(
+    `UPDATE decisions
+     SET stale = true
+     WHERE project_id = ?
+       AND status = 'active'
+       AND stale = false
+       AND (temporal_scope = 'permanent' OR temporal_scope IS NULL)
        AND (
          (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '30 days')
          OR
@@ -24,8 +64,17 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
      RETURNING id`,
     [projectId],
   );
+  staleCount += permanentResult.rows.length;
 
-  const staleCount = staleResult.rows.length;
+  // Auto-set valid_until for decisions with superseded_by but no valid_until
+  await db.query(
+    `UPDATE decisions
+     SET valid_until = updated_at
+     WHERE project_id = ?
+       AND superseded_by IS NOT NULL
+       AND valid_until IS NULL`,
+    [projectId],
+  );
 
   // Confidence decay: 60 days unreferenced -> medium
   await db.query(
@@ -34,6 +83,7 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
      WHERE project_id = ?
        AND status = 'active'
        AND confidence = 'high'
+       AND (temporal_scope IS NULL OR temporal_scope NOT IN ('deprecated'))
        AND (
          (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '60 days')
          OR
@@ -49,6 +99,7 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
      WHERE project_id = ?
        AND status = 'active'
        AND confidence IN ('high', 'medium')
+       AND (temporal_scope IS NULL OR temporal_scope NOT IN ('deprecated'))
        AND (
          (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '90 days')
          OR
@@ -56,6 +107,31 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        )`,
     [projectId],
   );
+
+  // Orphan detection: flag decisions whose ALL affected decisions have been superseded
+  try {
+    await db.query(
+      `UPDATE decisions d
+       SET stale = true
+       WHERE d.project_id = ?
+         AND d.status = 'active'
+         AND d.stale = false
+         AND EXISTS (
+           SELECT 1 FROM decision_edges e
+           WHERE e.source_id = d.id AND e.relationship = 'requires'
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM decision_edges e
+           JOIN decisions dep ON dep.id = e.target_id
+           WHERE e.source_id = d.id
+             AND e.relationship = 'requires'
+             AND dep.status = 'active'
+         )`,
+      [projectId],
+    );
+  } catch {
+    // Orphan detection is best-effort
+  }
 
   if (staleCount > 0) {
     console.log(`[hipp0/staleness] ${staleCount} decisions marked stale in project ${projectId.slice(0, 8)}..`);

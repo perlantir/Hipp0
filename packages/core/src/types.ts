@@ -82,6 +82,10 @@ export interface Decision {
   category?: DecisionCategory | null;
   priority_level: PriorityLevel;
   wing?: string | null;
+  valid_from?: string;
+  valid_until?: string | null;
+  superseded_by?: string | null;
+  temporal_scope: TemporalScope;
 }
 
 export interface CreateDecisionInput {
@@ -107,6 +111,9 @@ export interface CreateDecisionInput {
   category?: DecisionCategory | null;
   priority_level?: PriorityLevel;
   wing?: string | null;
+  temporal_scope?: TemporalScope;
+  valid_from?: string;
+  valid_until?: string | null;
 }
 
 export type DecisionSource = 'manual' | 'auto_distilled' | 'imported';
@@ -134,6 +141,8 @@ export type DecisionCategory =
   | 'decision';
 
 export type PriorityLevel = 0 | 1 | 2;
+
+export type TemporalScope = 'permanent' | 'sprint' | 'experiment' | 'deprecated';
 
 export interface Alternative {
   option: string;
@@ -372,6 +381,11 @@ export interface Contradiction {
   resolution?: string;
   detected_at: string;
   resolved_at?: string;
+  proposed_supersession?: {
+    newer_decision_id: string;
+    older_decision_id: string;
+    confidence_delta: number;
+  } | null;
 }
 
 export type ContradictionStatus = 'unresolved' | 'resolved' | 'dismissed';
@@ -515,6 +529,16 @@ export interface WingStats {
   top_domains: string[];
   cross_wing_connections: Array<{ wing: string; strength: number }>;
   wing_affinity: WingAffinity;
+}
+
+// --- What Changed Response ---
+export interface WhatChangedResponse {
+  period: { from: string; to: string };
+  created: Array<{ id: string; title: string; domain: string | null; made_by: string; created_at: string }>;
+  superseded: Array<{ id: string; title: string; superseded_by: string | null; superseded_at: string }>;
+  deprecated: Array<{ id: string; title: string; deprecated_at: string; reason: string }>;
+  updated: Array<{ id: string; title: string; fields_changed: string[]; updated_at: string }>;
+  summary: string;
 }
 
 // --- Error Types ---

@@ -160,6 +160,7 @@ export function Timeline() {
   // Filters
   const [filterAgent, setFilterAgent] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [filterScope, setFilterScope] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -215,6 +216,7 @@ export function Timeline() {
     .filter((d) => {
       if (filterAgent && d.made_by !== filterAgent) return false;
       if (filterTag && !d.tags.includes(filterTag)) return false;
+      if (filterScope && d.temporal_scope !== filterScope) return false;
       if (dateFrom && d.created_at < dateFrom) return false;
       if (dateTo && d.created_at > dateTo) return false;
       return true;
@@ -312,6 +314,18 @@ export function Timeline() {
             ))}
           </select>
 
+          <select
+            value={filterScope}
+            onChange={(e) => setFilterScope(e.target.value)}
+            className="input w-auto min-w-[140px] text-xs"
+          >
+            <option value="">All scopes</option>
+            <option value="permanent">Permanent</option>
+            <option value="sprint">Sprint</option>
+            <option value="experiment">Experiment</option>
+            <option value="deprecated">Deprecated</option>
+          </select>
+
           <div className="flex items-center gap-2 text-xs">
             <Calendar
               size={14}
@@ -387,6 +401,19 @@ export function Timeline() {
                         {decision.validated_at && (
                           <span className="text-green-400 text-xs" title={`Validated: ${decision.validation_source}`}>✅</span>
                         )}
+                        {decision.temporal_scope && decision.temporal_scope !== 'permanent' && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-2xs font-medium ${
+                              decision.temporal_scope === 'sprint'
+                                ? 'bg-blue-500/15 text-blue-400'
+                                : decision.temporal_scope === 'experiment'
+                                  ? 'bg-purple-500/15 text-purple-400'
+                                  : 'bg-gray-500/15 text-gray-400'
+                            }`}
+                          >
+                            {decision.temporal_scope}
+                          </span>
+                        )}
                         <span className={statusBadgeClass(decision.status)}>{decision.status}</span>
                       </div>
 
@@ -399,6 +426,16 @@ export function Timeline() {
                           <Clock size={12} />
                           {formatDate(decision.created_at)}
                         </span>
+                        {decision.valid_until && (
+                          <span className="text-status-reverted">
+                            Expired {formatDate(decision.valid_until)}
+                          </span>
+                        )}
+                        {decision.superseded_by && (
+                          <span className="text-yellow-400">
+                            Superseded
+                          </span>
+                        )}
                       </div>
 
                       {/* Tags */}

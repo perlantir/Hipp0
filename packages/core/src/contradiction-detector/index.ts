@@ -17,10 +17,44 @@ import { callLLM, scrubSecrets, INJECTION_GUARD, parseJsonSafe } from '../distil
 import { propagateChange } from '../change-propagator/index.js';
 import { dispatchWebhooks } from '../webhooks/index.js';
 import { resolveLLMConfig } from '../config/llm.js';
-import type { Decision, Contradiction } from '../types.js';
+import type { Decision, Contradiction, ConfidenceLevel } from '../types.js';
 import type { ContradictionAnalysis } from './types.js';
 
 export type { ContradictionAnalysis } from './types.js';
+
+// ---------------------------------------------------------------------------
+// Confidence comparison for supersession suggestions
+// ---------------------------------------------------------------------------
+
+const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = { high: 3, medium: 2, low: 1 };
+
+function suggestSupersession(
+  newDecision: Decision,
+  existingDecision: Decision,
+): Contradiction['proposed_supersession'] | null {
+  const newRank = CONFIDENCE_RANK[newDecision.confidence] ?? 0;
+  const existingRank = CONFIDENCE_RANK[existingDecision.confidence] ?? 0;
+  const newDate = new Date(newDecision.created_at).getTime();
+  const existingDate = new Date(existingDecision.created_at).getTime();
+
+  // Newer decision with higher confidence → suggest supersession
+  if (newDate > existingDate && newRank > existingRank) {
+    return {
+      newer_decision_id: newDecision.id,
+      older_decision_id: existingDecision.id,
+      confidence_delta: newRank - existingRank,
+    };
+  }
+  // Existing is newer with higher confidence → suggest reverse supersession
+  if (existingDate > newDate && existingRank > newRank) {
+    return {
+      newer_decision_id: existingDecision.id,
+      older_decision_id: newDecision.id,
+      confidence_delta: existingRank - newRank,
+    };
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Rate limiter — separate from distillery, max 5 contradiction checks per min
@@ -397,6 +431,16 @@ export async function checkForContradictions(decision: Decision): Promise<Contra
       );
 
       if (!contradiction) continue;
+
+      // Check if supersession should be suggested
+      const supersessionSuggestion = suggestSupersession(decision, existingDecision);
+      if (supersessionSuggestion) {
+        contradiction.proposed_supersession = supersessionSuggestion;
+        console.warn(
+          `[hipp0:contradiction] Suggesting supersession: "${decision.title}" (newer, higher confidence) ` +
+            `could supersede "${existingDecision.title}"`,
+        );
+      }
 
       found.push(contradiction);
 

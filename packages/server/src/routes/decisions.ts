@@ -83,6 +83,7 @@ export function registerDecisionRoutes(app: Hono): void {
       confidence_decay_rate?: number;
       metadata?: Record<string, unknown>;
       depends_on?: unknown[];
+      temporal_scope?: unknown;
     };
 
     const title = requireString(body.title, 'title', 500);
@@ -105,6 +106,14 @@ export function registerDecisionRoutes(app: Hono): void {
       confidence: (body.confidence as Decision['confidence']) ?? 'high',
     });
 
+    // Validate temporal_scope
+    const validScopes = ['permanent', 'sprint', 'experiment'] as const;
+    const temporal_scope = body.temporal_scope
+      ? (validScopes as readonly string[]).includes(String(body.temporal_scope))
+        ? String(body.temporal_scope)
+        : 'permanent'
+      : 'permanent';
+
     try {
       const result = await db.query(
         `INSERT INTO decisions (
@@ -112,13 +121,13 @@ export function registerDecisionRoutes(app: Hono): void {
            source, source_session_id, confidence, status, supersedes_id,
            alternatives_considered, affects, tags, assumptions,
            open_questions, dependencies, confidence_decay_rate, metadata, embedding,
-           domain, category, priority_level
+           domain, category, priority_level, temporal_scope, valid_from
          ) VALUES (
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
-           ?, ?, ?
+           ?, ?, ?, ?, NOW()
          ) RETURNING *`,
         [
           projectId,
@@ -143,6 +152,7 @@ export function registerDecisionRoutes(app: Hono): void {
           classification.domain,
           classification.category,
           1, // default priority_level
+          temporal_scope,
         ],
       );
 
@@ -408,16 +418,20 @@ export function registerDecisionRoutes(app: Hono): void {
         ],
       );
 
+      const newId = (newResult.rows[0] as Record<string, unknown>).id as string;
+
       await txQuery(
-        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ?",
-        [oldId],
+        `UPDATE decisions SET status = 'superseded', updated_at = NOW(),
+         valid_until = NOW(), superseded_by = ?, temporal_scope = 'deprecated'
+         WHERE id = ?`,
+        [newId, oldId],
       );
 
       await txQuery(
         `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
          VALUES (?, ?, 'supersedes', 1.0)
          ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
-        [newResult.rows[0].id, oldId],
+        [newId, oldId],
       );
 
       return {
@@ -522,6 +536,50 @@ export function registerDecisionRoutes(app: Hono): void {
         }).catch(() => {});
       }
     }).catch((err) => console.warn('[hipp0:cascade]', (err as Error).message));
+
+    return c.json(decision);
+  });
+
+  // Link-based supersession (link an old decision to a new one without creating)
+  app.post('/api/decisions/:id/supersede-link', async (c) => {
+    const db = getDb();
+    const oldId = requireUUID(c.req.param('id'), 'id');
+    const body = await c.req.json<{ superseded_by?: unknown }>();
+    const newId = requireUUID(body.superseded_by, 'superseded_by');
+
+    // Verify both decisions exist
+    const oldResult = await db.query('SELECT * FROM decisions WHERE id = ?', [oldId]);
+    if (oldResult.rows.length === 0) throw new NotFoundError('Decision', oldId);
+    const newResult = await db.query('SELECT id FROM decisions WHERE id = ?', [newId]);
+    if (newResult.rows.length === 0) throw new NotFoundError('Decision', newId);
+
+    await db.transaction(async (txQuery) => {
+      await txQuery(
+        `UPDATE decisions SET status = 'superseded', updated_at = NOW(),
+         valid_until = NOW(), superseded_by = ?, temporal_scope = 'deprecated'
+         WHERE id = ?`,
+        [newId, oldId],
+      );
+      await txQuery(
+        `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
+         VALUES (?, ?, 'supersedes', 1.0)
+         ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
+        [newId, oldId],
+      );
+    });
+
+    const updated = await db.query('SELECT * FROM decisions WHERE id = ?', [oldId]);
+    const decision = parseDecision(updated.rows[0] as Record<string, unknown>);
+
+    logAudit('decision_superseded', decision.project_id, {
+      old_decision_id: oldId,
+      new_decision_id: newId,
+    });
+
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
+    propagateChange(decision, 'decision_superseded').catch((err) =>
+      console.error('[hipp0] Change propagation failed:', (err as Error).message),
+    );
 
     return c.json(decision);
   });
@@ -1083,6 +1141,113 @@ export function registerDecisionRoutes(app: Hono): void {
       failed: 0,
       validation_source,
       decision_ids: ids,
+    });
+  });
+
+  // What Changed — temporal intelligence query
+  app.get('/api/decisions/changes', async (c) => {
+    const db = getDb();
+    const projectId = c.req.query('project_id');
+    const since = c.req.query('since');
+
+    if (!projectId || !since) {
+      throw new ValidationError('project_id and since query parameters are required');
+    }
+
+    const sinceDate = new Date(since);
+    if (isNaN(sinceDate.getTime())) {
+      throw new ValidationError('since must be a valid ISO date string');
+    }
+    const now = new Date();
+
+    // Created decisions
+    const createdResult = await db.query<Record<string, unknown>>(
+      `SELECT id, title, domain, made_by, created_at FROM decisions
+       WHERE project_id = ? AND created_at >= ? ORDER BY created_at DESC`,
+      [projectId, sinceDate.toISOString()],
+    );
+    const created = createdResult.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      domain: (r.domain as string) ?? null,
+      made_by: r.made_by as string,
+      created_at: r.created_at as string,
+    }));
+
+    // Superseded decisions
+    const supersededResult = await db.query<Record<string, unknown>>(
+      `SELECT id, title, superseded_by, valid_until FROM decisions
+       WHERE project_id = ? AND status = 'superseded' AND updated_at >= ?
+       ORDER BY updated_at DESC`,
+      [projectId, sinceDate.toISOString()],
+    );
+    const superseded = supersededResult.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      superseded_by: (r.superseded_by as string) ?? null,
+      superseded_at: (r.valid_until as string) ?? (r.updated_at as string) ?? '',
+    }));
+
+    // Deprecated decisions
+    const deprecatedResult = await db.query<Record<string, unknown>>(
+      `SELECT id, title, updated_at, reasoning FROM decisions
+       WHERE project_id = ? AND temporal_scope = 'deprecated' AND updated_at >= ?
+         AND status != 'superseded'
+       ORDER BY updated_at DESC`,
+      [projectId, sinceDate.toISOString()],
+    );
+    const deprecated = deprecatedResult.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      deprecated_at: r.updated_at as string,
+      reason: (r.reasoning as string) ?? '',
+    }));
+
+    // Updated decisions (updated but not newly created or superseded)
+    const updatedResult = await db.query<Record<string, unknown>>(
+      `SELECT id, title, updated_at FROM decisions
+       WHERE project_id = ? AND updated_at >= ? AND created_at < ?
+         AND status = 'active' AND (temporal_scope IS NULL OR temporal_scope != 'deprecated')
+       ORDER BY updated_at DESC`,
+      [projectId, sinceDate.toISOString(), sinceDate.toISOString()],
+    );
+    const updated = updatedResult.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      fields_changed: [] as string[],
+      updated_at: r.updated_at as string,
+    }));
+
+    // Try to enrich fields_changed from audit log
+    for (const u of updated) {
+      try {
+        const auditResult = await db.query<Record<string, unknown>>(
+          `SELECT details FROM audit_log
+           WHERE event_type = 'decision_updated' AND decision_id = ? AND created_at >= ?
+           ORDER BY created_at DESC LIMIT 1`,
+          [u.id, sinceDate.toISOString()],
+        );
+        if (auditResult.rows.length > 0) {
+          const details = auditResult.rows[0].details;
+          const parsed = typeof details === 'string' ? JSON.parse(details) : details;
+          if (parsed && Array.isArray((parsed as Record<string, unknown>).fields_updated)) {
+            u.fields_changed = (parsed as Record<string, unknown>).fields_updated as string[];
+          }
+        }
+      } catch {
+        // audit enrichment is best-effort
+      }
+    }
+
+    const summary = `${created.length} new decisions, ${superseded.length} superseded, ${deprecated.length} deprecated, ${updated.length} updated`;
+
+    return c.json({
+      period: { from: sinceDate.toISOString(), to: now.toISOString() },
+      created,
+      superseded,
+      deprecated,
+      updated,
+      summary,
     });
   });
 }

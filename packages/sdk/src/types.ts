@@ -96,6 +96,7 @@ export interface CreateDecisionInput {
   dependencies?: string[];
   confidence_decay_rate?: number;
   metadata?: Record<string, unknown>;
+  temporal_scope?: 'permanent' | 'sprint' | 'experiment';
 }
 
 export interface UpdateDecisionInput {
@@ -562,6 +563,16 @@ export interface Hipp0Error {
   code: string;
   message: string;
   details?: unknown;
+}
+
+// --- Temporal Intelligence ---
+export interface WhatChangedResponse {
+  period: { from: string; to: string };
+  created: Array<{ id: string; title: string; domain: string | null; made_by: string; created_at: string }>;
+  superseded: Array<{ id: string; title: string; superseded_by: string | null; superseded_at: string }>;
+  deprecated: Array<{ id: string; title: string; deprecated_at: string; reason: string }>;
+  updated: Array<{ id: string; title: string; fields_changed: string[]; updated_at: string }>;
+  summary: string;
 }
 
 export class Hipp0ApiError extends Error {

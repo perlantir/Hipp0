@@ -12,7 +12,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Hipp0Client } from '../../sdk/src/index.js';
-import type { Decision, Contradiction, CompileContextInput } from '../../sdk/src/types.js';
+import type { Decision, Contradiction, CompileContextInput, WhatChangedResponse } from '../../sdk/src/types.js';
 
 export interface ToolConfig {
   projectId: string;
@@ -72,6 +72,7 @@ export function registerAllTools(
         tags: z.array(z.string()).optional().describe('Topic tags'),
         affects: z.array(z.string()).optional().describe('Agent names affected'),
         confidence: z.enum(['high', 'medium', 'low']).optional().describe('Confidence level'),
+        temporal_scope: z.enum(['permanent', 'sprint', 'experiment']).optional().describe('Temporal scope: permanent (default), sprint (14-day), or experiment (7-day)'),
         project_id: z.string().optional().describe('Project ID'),
       },
     },
@@ -87,6 +88,7 @@ export function registerAllTools(
           tags: args.tags ?? [],
           affects: args.affects ?? [],
           confidence: args.confidence ?? 'high',
+          temporal_scope: args.temporal_scope ?? 'permanent',
         },
       );
 
@@ -626,6 +628,66 @@ export function registerAllTools(
           type: 'text' as const,
           text: compiled.formatted_markdown ?? JSON.stringify({ decisions_included: compiled.decisions_included }, null, 2),
         }],
+      };
+    },
+  );
+
+  // ── Tool: hipp0_what_changed ───────────────────────────────────────
+
+  server.registerTool(
+    'hipp0_what_changed',
+    {
+      title: 'What changed since a date',
+      description:
+        'Get a summary of all decision changes since a given date: new decisions, superseded, deprecated, and updated.',
+      inputSchema: {
+        since: z.string().describe('ISO date string (e.g., "2026-04-01")'),
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+      },
+    },
+    async (args) => {
+      const pid = args.project_id ?? config.projectId;
+      const changes = await client.getChanges(pid, args.since) as WhatChangedResponse;
+
+      const lines = [
+        `Changes since ${changes.period.from.slice(0, 10)}:`,
+        changes.summary,
+        '',
+      ];
+
+      if (changes.created.length > 0) {
+        lines.push(`New decisions (${changes.created.length}):`);
+        for (const d of changes.created.slice(0, 10)) {
+          lines.push(`  + ${d.title} (by ${d.made_by}${d.domain ? `, ${d.domain}` : ''})`);
+        }
+        lines.push('');
+      }
+
+      if (changes.superseded.length > 0) {
+        lines.push(`Superseded (${changes.superseded.length}):`);
+        for (const d of changes.superseded.slice(0, 10)) {
+          lines.push(`  ~ ${d.title} → ${d.superseded_by?.slice(0, 8) ?? 'unknown'}`);
+        }
+        lines.push('');
+      }
+
+      if (changes.deprecated.length > 0) {
+        lines.push(`Deprecated (${changes.deprecated.length}):`);
+        for (const d of changes.deprecated.slice(0, 10)) {
+          lines.push(`  - ${d.title}`);
+        }
+        lines.push('');
+      }
+
+      if (changes.updated.length > 0) {
+        lines.push(`Updated (${changes.updated.length}):`);
+        for (const d of changes.updated.slice(0, 10)) {
+          lines.push(`  * ${d.title}${d.fields_changed.length > 0 ? ` (${d.fields_changed.join(', ')})` : ''}`);
+        }
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
       };
     },
   );

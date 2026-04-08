@@ -123,6 +123,10 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     category: (row.category as DecisionCategory | null) ?? null,
     priority_level: ((row.priority_level as number) ?? 1) as PriorityLevel,
     wing: (row.wing as string | null) ?? null,
+    valid_from: row.valid_from ? (row.valid_from instanceof Date ? (row.valid_from as Date).toISOString() : String(row.valid_from)) : undefined,
+    valid_until: row.valid_until ? (row.valid_until instanceof Date ? (row.valid_until as Date).toISOString() : String(row.valid_until)) : null,
+    superseded_by: (row.superseded_by as string | null) ?? null,
+    temporal_scope: (row.temporal_scope as Decision['temporal_scope']) ?? 'permanent',
   };
 }
 
