@@ -18,11 +18,12 @@ export function registerProjectRoutes(app: Hono): void {
     const description = optionalString(body.description, 'description', 10000);
 
     try {
+      const tenantId = c.get?.('tenantId') ?? 'a0000000-0000-4000-8000-000000000001';
       const result = await db.query(
-        `INSERT INTO projects (name, description, metadata)
-         VALUES (?, ?, ?)
+        `INSERT INTO projects (name, description, metadata, tenant_id)
+         VALUES (?, ?, ?, ?)
          RETURNING *`,
-        [name, description ?? null, JSON.stringify(body.metadata ?? {})],
+        [name, description ?? null, JSON.stringify(body.metadata ?? {}), tenantId],
       );
       const project = parseProject(result.rows[0] as Record<string, unknown>);
 
@@ -39,13 +40,7 @@ export function registerProjectRoutes(app: Hono): void {
         );
         apiKey = key;
 
-        console.log('============================================================');
-        console.log(`\ud83d\udd11 API Key generated for project "${name}"`);
-        console.log(`   Key: ${key}`);
-        console.log('');
-        console.log('   Save this key now \u2014 it will NOT be shown again.');
-        console.log('   Use it in the dashboard login and API requests.');
-        console.log('============================================================');
+        console.warn(`[hipp0] API key generated for project "${name}": ${prefix}... (retrieve via GET /api/api-keys)`);
       } catch {
         // api_keys table may not exist yet — project still created successfully
       }
@@ -69,7 +64,13 @@ export function registerProjectRoutes(app: Hono): void {
   app.get('/api/projects/:id', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await db.query('SELECT * FROM projects WHERE id = ?', [id]);
+    const tenantId = c.get?.('tenantId');
+    let result;
+    if (tenantId) {
+      result = await db.query('SELECT * FROM projects WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+    } else {
+      result = await db.query('SELECT * FROM projects WHERE id = ?', [id]);
+    }
     if (result.rows.length === 0) throw new NotFoundError('Project', id);
     return c.json(parseProject(result.rows[0] as Record<string, unknown>));
   });

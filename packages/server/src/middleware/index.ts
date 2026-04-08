@@ -85,7 +85,7 @@ export const securityHeaders: MiddlewareHandler = createMiddleware(async (c, nex
   c.header('X-Frame-Options', 'DENY');
   c.header('X-XSS-Protection', '1; mode=block');
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  c.header('Content-Security-Policy', "default-src 'self'");
+  c.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'");
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 });
@@ -272,6 +272,9 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
 });
 
 // Rate Limiter
+// Uses in-memory stores. In multi-instance deployments (Kubernetes, ECS),
+// rate limits apply per-instance, not globally. For global rate limiting,
+// set HIPP0_REDIS_URL and use the Redis adapter (see docs/self-hosting.md).
 // In development, rate limiting is skipped unless RATE_LIMIT_ENABLED=true.
 interface RateLimitEntry {
   count: number;

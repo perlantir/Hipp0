@@ -8,7 +8,7 @@
  * Flow:
  * 1. GitHub sends pull_request webhook (opened, edited, closed)
  * 2. Verify webhook signature (HMAC SHA-256)
- * 3. On opened/edited: scan for DG-uuid / "Implements:" references, post relevant-decisions comment
+ * 3. On opened/edited: scan for H0-uuid / "Implements:" references, post relevant-decisions comment
  * 4. On closed+merged: update link statuses, run existing distillery extraction
  */
 import type { Hono } from 'hono';
@@ -41,8 +41,8 @@ const MAX_EXTRACTION_LENGTH = 2000;
 
 // ── Deep integration patterns ───────────────────────────────────────
 
-/** Matches DG-<uuid> or DG:<uuid> */
-const DG_REF_PATTERN = /\bDG[-:]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/gi;
+/** Matches H0-<uuid> or H0:<uuid> (also accepts legacy DG- prefix for backwards compat) */
+const REF_PATTERN = /\b(?:H0|DG)[-:]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/gi;
 
 /** Matches Implements: "title" or Refs: "title" */
 const TITLE_REF_PATTERN = /\b(?:Implements|Refs)\s*:\s*"([^"]+)"/gi;
@@ -140,8 +140,8 @@ async function scanForReferences(
   const externalId = `${repoFullName}#${prNumber}`;
   let linkCount = 0;
 
-  // Pattern 1: DG-<uuid> or DG:<uuid>
-  const uuidMatches = [...prBody.matchAll(DG_REF_PATTERN)];
+  // Pattern 1: H0-<uuid> or H0:<uuid> (also matches legacy DG- prefix)
+  const uuidMatches = [...prBody.matchAll(REF_PATTERN)];
   for (const match of uuidMatches) {
     const decisionId = match[1];
     const check = await db.query('SELECT id, project_id FROM decisions WHERE id = ?', [decisionId]);
