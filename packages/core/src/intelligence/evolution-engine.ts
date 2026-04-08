@@ -180,23 +180,71 @@ async function ruleUnresolvedContradiction(projectId: string): Promise<Evolution
 async function ruleOrphanedDecision(projectId: string): Promise<EvolutionProposal[]> {
   const db = getDb();
   const result = await db.query(
-    `SELECT d.id, d.title FROM decisions d
+    `SELECT d.id, d.title, d.tags, d.description FROM decisions d
      WHERE d.project_id = ? AND d.status = 'active'
        AND NOT EXISTS (SELECT 1 FROM decision_edges e WHERE e.source_id = d.id OR e.target_id = d.id)`,
     [projectId],
   );
-  return result.rows.map((row) => {
+
+  // Fetch all active decisions for tag-overlap checking
+  const allDecisions = await db.query(
+    `SELECT id, title, tags FROM decisions WHERE project_id = ? AND status = 'active'`,
+    [projectId],
+  );
+
+  const proposals: EvolutionProposal[] = [];
+  for (const row of result.rows) {
     const r = row as Record<string, unknown>;
-    return {
-      trigger_type: 'orphaned_decision' as TriggerType,
-      affected_decision_ids: [r.id as string],
-      reasoning: `Decision "${r.title}" has zero connections to any other decision. Recommend linking to related decisions or flagging for review.`,
+    const orphanId = r.id as string;
+    const orphanTitle = r.title as string;
+    const orphanTags = parseTags(r.tags);
+
+    // Find top 2 potential links based on tag overlap
+    const potentialLinks: Array<{ title: string; sharedTags: string[] }> = [];
+    if (orphanTags.length > 0) {
+      for (const other of allDecisions.rows) {
+        const o = other as Record<string, unknown>;
+        if (o.id === orphanId) continue;
+        const otherTags = parseTags(o.tags);
+        const shared = orphanTags.filter(t => otherTags.map(x => x.toLowerCase()).includes(t.toLowerCase()));
+        if (shared.length > 0) {
+          potentialLinks.push({ title: o.title as string, sharedTags: shared });
+        }
+      }
+      potentialLinks.sort((a, b) => b.sharedTags.length - a.sharedTags.length);
+    }
+
+    // Build smarter reasoning with potential links
+    let reasoning: string;
+    const top2 = potentialLinks.slice(0, 2);
+    if (top2.length >= 2) {
+      const sharedTagStr = [...new Set(top2.flatMap(l => l.sharedTags))].join(', ');
+      reasoning = `Decision "${orphanTitle}" has zero connections. It may relate to "${top2[0].title}" and "${top2[1].title}" based on shared tags [${sharedTagStr}]. Consider linking or archiving.`;
+    } else if (top2.length === 1) {
+      reasoning = `Decision "${orphanTitle}" has zero connections. It may relate to "${top2[0].title}" based on shared tags [${top2[0].sharedTags.join(', ')}]. Consider linking or archiving.`;
+    } else {
+      reasoning = `Decision "${orphanTitle}" has zero connections to any other decision. No tag overlap found with other decisions. Recommend archiving or manual review.`;
+    }
+
+    proposals.push({
+      trigger_type: 'orphaned_decision',
+      affected_decision_ids: [orphanId],
+      reasoning,
       confidence: 0.70,
       impact_score: 0.2,
       urgency: 'low' as ProposalUrgency,
       suggested_action: 'link_or_review',
-    };
-  });
+    });
+  }
+  return proposals;
+}
+
+function parseTags(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw as string[];
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+  return [];
 }
 
 async function ruleConcentrationRisk(projectId: string): Promise<EvolutionProposal[]> {

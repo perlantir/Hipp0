@@ -162,6 +162,21 @@ export type {
   EvolutionScanResult,
 } from './intelligence/evolution-engine.js';
 
+// --- Evolution Handlers (Phase 2) ---
+export {
+  executeProposalHandler,
+  handleOrphanedDecision,
+  handleStaleDecision,
+  handleContradiction,
+  handleConcentrationRisk,
+  handleHighImpactUnvalidated,
+  findRelatedDecisions,
+} from './intelligence/evolution-handlers.js';
+export type {
+  ExecutionResult,
+  ProposalRecord,
+} from './intelligence/evolution-handlers.js';
+
 // --- Pattern Recommendations ---
 export {
   getPatternRecommendations,

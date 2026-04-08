@@ -15,8 +15,9 @@ import { getDb } from '@hipp0/core';
 import { NotFoundError, ValidationError } from '@hipp0/core';
 import {
   runEvolutionScan,
+  executeProposalHandler,
 } from '@hipp0/core';
-import type { EvolutionMode, EvolutionProposal } from '@hipp0/core';
+import type { EvolutionMode, EvolutionProposal, ProposalRecord, TriggerType } from '@hipp0/core';
 
 export function registerEvolutionRoutes(app: Hono): void {
   // ── POST /api/evolution/scan ──────────────────────────────────────
@@ -127,19 +128,45 @@ export function registerEvolutionRoutes(app: Hono): void {
     const id = c.req.param('id');
     const body = await c.req.json<{ resolved_by?: string; notes?: string }>().catch(() => ({} as { resolved_by?: string; notes?: string }));
 
-    const result = await db.query(
+    // Fetch the proposal to get details for the handler
+    const proposalResult = await db.query(
+      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending'`,
+      [id],
+    );
+    if (proposalResult.rows.length === 0) {
+      throw new NotFoundError('EvolutionProposal', id);
+    }
+    const row = proposalResult.rows[0] as Record<string, unknown>;
+    const affectedIds = typeof row.affected_decision_ids === 'string'
+      ? JSON.parse(row.affected_decision_ids as string)
+      : row.affected_decision_ids ?? [];
+
+    // Update status to accepted
+    await db.query(
       `UPDATE evolution_proposals
        SET status = 'accepted', resolved_by = ?, resolved_at = ?, resolution_notes = ?
-       WHERE id = ? AND status = 'pending'
-       RETURNING id`,
+       WHERE id = ?`,
       [body.resolved_by ?? 'system', new Date().toISOString(), body.notes ?? '', id],
     );
 
-    if (result.rows.length === 0) {
-      throw new NotFoundError('EvolutionProposal', id);
-    }
+    // Execute the type-specific handler
+    const proposal: ProposalRecord = {
+      id,
+      project_id: row.project_id as string,
+      trigger_type: row.trigger_type as TriggerType,
+      affected_decision_ids: affectedIds,
+      reasoning: row.reasoning as string,
+      suggested_action: (row.suggested_action as string) ?? '',
+    };
 
-    return c.json({ status: 'accepted', id });
+    const executionResult = await executeProposalHandler(proposal, undefined, body.resolved_by);
+
+    return c.json({
+      status: 'accepted',
+      id,
+      executed_action: executionResult.executed_action,
+      decisions_modified: executionResult.decisions_modified,
+    });
   });
 
   // ── POST /api/evolution/proposals/:id/reject ──────────────────────
@@ -173,12 +200,25 @@ export function registerEvolutionRoutes(app: Hono): void {
       throw new ValidationError('override_action is required');
     }
 
-    const result = await db.query(
+    // Fetch the proposal to get details for the handler
+    const proposalResult = await db.query(
+      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending'`,
+      [id],
+    );
+    if (proposalResult.rows.length === 0) {
+      throw new NotFoundError('EvolutionProposal', id);
+    }
+    const row = proposalResult.rows[0] as Record<string, unknown>;
+    const affectedIds = typeof row.affected_decision_ids === 'string'
+      ? JSON.parse(row.affected_decision_ids as string)
+      : row.affected_decision_ids ?? [];
+
+    // Update status to overridden
+    await db.query(
       `UPDATE evolution_proposals
        SET status = 'overridden', resolved_by = ?, resolved_at = ?,
            resolution_notes = ?, suggested_action = ?
-       WHERE id = ? AND status = 'pending'
-       RETURNING id`,
+       WHERE id = ?`,
       [
         (body.resolved_by ?? 'system') as string,
         new Date().toISOString(),
@@ -188,11 +228,28 @@ export function registerEvolutionRoutes(app: Hono): void {
       ],
     );
 
-    if (result.rows.length === 0) {
-      throw new NotFoundError('EvolutionProposal', id);
-    }
+    // Execute the type-specific handler with override text
+    const proposal: ProposalRecord = {
+      id,
+      project_id: row.project_id as string,
+      trigger_type: row.trigger_type as TriggerType,
+      affected_decision_ids: affectedIds,
+      reasoning: row.reasoning as string,
+      suggested_action: body.override_action as string,
+    };
 
-    return c.json({ status: 'overridden', id });
+    const executionResult = await executeProposalHandler(
+      proposal,
+      body.override_action as string,
+      (body.resolved_by ?? 'system') as string,
+    );
+
+    return c.json({
+      status: 'overridden',
+      id,
+      executed_action: executionResult.executed_action,
+      decisions_modified: executionResult.decisions_modified,
+    });
   });
 
   // ── GET /api/evolution/history ────────────────────────────────────

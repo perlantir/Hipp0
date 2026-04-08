@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Edit3,
   History,
+  CheckCircle,
 } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -34,6 +35,10 @@ interface EvolutionProposal {
   resolved_by?: string;
   resolved_at?: string;
   resolution_notes?: string;
+  executed_action?: string;
+  decisions_modified?: string[];
+  executed_at?: string;
+  executed_by?: string;
   scan_id?: string;
   created_at: string;
 }
@@ -54,7 +59,35 @@ interface ScanHistory {
   created_at: string;
 }
 
+interface AcceptResponse {
+  status: string;
+  id: string;
+  executed_action?: string;
+  decisions_modified?: string[];
+}
+
 type EvolutionMode = 'rule' | 'llm' | 'hybrid';
+
+/* ------------------------------------------------------------------ */
+/*  Action label mapping                                               */
+/* ------------------------------------------------------------------ */
+
+const ACTION_LABELS: Record<string, string> = {
+  link_or_review: 'Link to related decisions',
+  review_or_supersede: 'Archive stale decision',
+  review_or_archive: 'Archive stale decision',
+  resolve_contradiction: 'Resolve contradiction',
+  cross_review: 'Flag for cross-review',
+  urgent_validation: 'Queue for urgent validation',
+  root_cause_consolidate: 'Consolidate supersession chain',
+  domain_expert_review: 'Request domain expert review',
+  renew_supersede_or_archive: 'Renew or archive expiring decision',
+  review_alignment: 'Review pattern alignment',
+};
+
+function getActionLabel(suggestedAction: string): string {
+  return ACTION_LABELS[suggestedAction] ?? suggestedAction.replace(/_/g, ' ');
+}
 
 /* ------------------------------------------------------------------ */
 /*  Urgency helpers                                                    */
@@ -104,6 +137,31 @@ function TriggerBadge({ trigger }: { trigger: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Toast notification                                                 */
+/* ------------------------------------------------------------------ */
+
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm z-50"
+      style={{
+        backgroundColor: '#065f46',
+        color: '#d1fae5',
+        border: '1px solid #059669',
+      }}
+    >
+      <CheckCircle size={16} />
+      {message}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Proposal Card                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -146,7 +204,7 @@ function ProposalCard({
           </p>
           {proposal.suggested_action && (
             <p className="text-xs" style={{ color: 'var(--text-secondary, #9ca3af)' }}>
-              Suggested: <span className="font-medium">{proposal.suggested_action.replace(/_/g, ' ')}</span>
+              Action: <span className="font-medium">{getActionLabel(proposal.suggested_action)}</span>
             </p>
           )}
         </div>
@@ -167,6 +225,16 @@ function ProposalCard({
           {proposal.llm_explanation && (
             <p className="text-xs mb-2" style={{ color: 'var(--text-secondary, #9ca3af)' }}>
               LLM: {proposal.llm_explanation}
+            </p>
+          )}
+          {proposal.executed_action && (
+            <p className="text-xs mb-2" style={{ color: '#34d399' }}>
+              Executed: {proposal.executed_action}
+            </p>
+          )}
+          {proposal.decisions_modified && proposal.decisions_modified.length > 0 && (
+            <p className="text-xs mb-2" style={{ color: 'var(--text-muted, #6b7280)' }}>
+              Modified: {proposal.decisions_modified.map((id) => id.slice(0, 8)).join(', ')}
             </p>
           )}
         </div>
@@ -212,11 +280,13 @@ export function EvolutionProposals() {
 
   const [tab, setTab] = useState<'proposals' | 'history'>('proposals');
   const [proposals, setProposals] = useState<EvolutionProposal[]>([]);
+  const [resolvedProposals, setResolvedProposals] = useState<EvolutionProposal[]>([]);
   const [history, setHistory] = useState<ScanHistory[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [mode, setMode] = useState<EvolutionMode>('rule');
   const [lastScan, setLastScan] = useState<ScanResult | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const fetchProposals = useCallback(async () => {
     if (!projectId) return;
@@ -228,6 +298,20 @@ export function EvolutionProposals() {
       // ignore
     } finally {
       setLoading(false);
+    }
+  }, [api, projectId]);
+
+  const fetchResolvedProposals = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const accepted = await api.get<EvolutionProposal[]>(`/api/evolution/proposals?status=accepted`);
+      const overridden = await api.get<EvolutionProposal[]>(`/api/evolution/proposals?status=overridden`);
+      const rejected = await api.get<EvolutionProposal[]>(`/api/evolution/proposals?status=rejected`);
+      setResolvedProposals([...accepted, ...overridden, ...rejected].sort(
+        (a, b) => new Date(b.resolved_at ?? b.created_at).getTime() - new Date(a.resolved_at ?? a.created_at).getTime()
+      ));
+    } catch {
+      // ignore
     }
   }, [api, projectId]);
 
@@ -244,7 +328,8 @@ export function EvolutionProposals() {
   useEffect(() => {
     fetchProposals();
     fetchHistory();
-  }, [fetchProposals, fetchHistory]);
+    fetchResolvedProposals();
+  }, [fetchProposals, fetchHistory, fetchResolvedProposals]);
 
   const handleScan = async () => {
     if (!projectId) return;
@@ -262,22 +347,40 @@ export function EvolutionProposals() {
   };
 
   const handleAccept = async (id: string) => {
-    await api.post(`/api/evolution/proposals/${id}/accept`, {});
-    setProposals((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const result = await api.post<AcceptResponse>(`/api/evolution/proposals/${id}/accept`, {});
+      setProposals((prev) => prev.filter((p) => p.id !== id));
+      setToast(result.executed_action ?? 'Proposal accepted');
+      await fetchResolvedProposals();
+    } catch {
+      // ignore
+    }
   };
 
   const handleReject = async (id: string) => {
     const reason = window.prompt('Rejection reason (optional):') ?? '';
-    await api.post(`/api/evolution/proposals/${id}/reject`, { reason });
-    setProposals((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await api.post(`/api/evolution/proposals/${id}/reject`, { reason });
+      setProposals((prev) => prev.filter((p) => p.id !== id));
+      setToast('Proposal rejected');
+      await fetchResolvedProposals();
+    } catch {
+      // ignore
+    }
   };
 
   const handleOverride = async (id: string) => {
     const overrideAction = window.prompt('Override action:');
     if (!overrideAction) return;
     const notes = window.prompt('Notes (optional):') ?? '';
-    await api.post(`/api/evolution/proposals/${id}/override`, { override_action: overrideAction, notes });
-    setProposals((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const result = await api.post<AcceptResponse>(`/api/evolution/proposals/${id}/override`, { override_action: overrideAction, notes });
+      setProposals((prev) => prev.filter((p) => p.id !== id));
+      setToast(result.executed_action ?? 'Proposal overridden');
+      await fetchResolvedProposals();
+    } catch {
+      // ignore
+    }
   };
 
   const criticalCount = proposals.filter((p) => p.urgency === 'critical').length;
@@ -285,6 +388,9 @@ export function EvolutionProposals() {
 
   return (
     <div className="space-y-4">
+      {/* Toast notification */}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -389,6 +495,59 @@ export function EvolutionProposals() {
 
       {tab === 'history' && (
         <div>
+          {/* Resolved proposals with executed actions */}
+          {resolvedProposals.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary, #f3f4f6)' }}>
+                Executed Actions
+              </h3>
+              <div className="space-y-2">
+                {resolvedProposals.slice(0, 20).map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-lg p-3 text-xs"
+                    style={{ backgroundColor: 'var(--bg-secondary, #1f2937)' }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <TriggerBadge trigger={p.trigger_type} />
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                        style={{
+                          backgroundColor: p.status === 'accepted' ? '#065f4620' : p.status === 'rejected' ? '#7f1d1d20' : '#78350f20',
+                          color: p.status === 'accepted' ? '#34d399' : p.status === 'rejected' ? '#f87171' : '#fbbf24',
+                        }}
+                      >
+                        {p.status}
+                      </span>
+                      <span style={{ color: 'var(--text-muted, #6b7280)' }}>
+                        {p.resolved_at ? new Date(p.resolved_at).toLocaleString() : ''}
+                      </span>
+                    </div>
+                    {p.executed_action && (
+                      <p style={{ color: '#34d399' }} className="mb-1">
+                        {p.executed_action}
+                      </p>
+                    )}
+                    {p.decisions_modified && p.decisions_modified.length > 0 && (
+                      <p style={{ color: 'var(--text-muted, #6b7280)' }}>
+                        Modified: {(typeof p.decisions_modified === 'string' ? JSON.parse(p.decisions_modified as unknown as string) : p.decisions_modified).map((id: string) => id.slice(0, 8)).join(', ')}
+                      </p>
+                    )}
+                    {p.resolution_notes && (
+                      <p style={{ color: 'var(--text-secondary, #9ca3af)' }}>
+                        Notes: {p.resolution_notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Scan history table */}
+          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary, #f3f4f6)' }}>
+            Scan History
+          </h3>
           {history.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted, #6b7280)' }}>
               No scan history yet.
