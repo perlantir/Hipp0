@@ -13,7 +13,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Hipp0Client } from '../../sdk/src/index.js';
 import type { Decision, Contradiction, CompileContextInput, WhatChangedResponse, CaptureResult } from '../../sdk/src/types.js';
-import { runEvolutionScan, getDb } from '@hipp0/core';
+import { runEvolutionScan, getDb, listPatterns } from '@hipp0/core';
 import type { EvolutionMode, EvolutionProposal as EvoProposal } from '@hipp0/core';
 
 export interface ToolConfig {
@@ -890,6 +890,57 @@ export function registerAllTools(
           content: [{
             type: 'text' as const,
             text: `Capture submitted (capture_id: ${result.capture_id}). Decisions will be extracted in the background and flagged for review. Check status with GET /api/capture/${result.capture_id}`,
+          }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }],
+        };
+      }
+    },
+  );
+
+  // ── Tool: hipp0_get_patterns ──────────────────────────────────────
+
+  server.registerTool(
+    'hipp0_get_patterns',
+    {
+      title: 'List cross-project patterns',
+      description:
+        'List anonymous patterns observed across projects. Patterns show common decision pairings, sequences, and gaps. Filter by tag, domain, or minimum confidence.',
+      inputSchema: {
+        tags: z.array(z.string()).optional().describe('Filter patterns by tags'),
+        domain: z.string().optional().describe('Filter by domain (e.g., authentication, security)'),
+        min_confidence: z.number().min(0).max(1).optional().describe('Minimum confidence threshold (default: 0.60)'),
+        limit: z.number().min(1).max(50).optional().describe('Maximum patterns to return (default: 20)'),
+      },
+    },
+    async (args) => {
+      try {
+        const patterns = await listPatterns({
+          tags: args.tags,
+          domain: args.domain,
+          minConfidence: args.min_confidence,
+          limit: args.limit,
+        });
+
+        if (patterns.length === 0) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: 'No patterns found matching the specified filters. Patterns are discovered as more projects share anonymous data.',
+            }],
+          };
+        }
+
+        const lines = patterns.map((p) =>
+          `- [${Math.round(p.confidence * 100)}% conf, ${p.source_count} projects] ${p.title}: ${p.description}`,
+        );
+
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Found ${patterns.length} pattern(s):\n\n${lines.join('\n')}`,
           }],
         };
       } catch (err) {

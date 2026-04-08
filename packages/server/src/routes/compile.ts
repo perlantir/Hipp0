@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
-import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, estimateTokens } from '@hipp0/core';
+import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, encodeH0CPatterns, estimateTokens } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
@@ -51,6 +51,10 @@ export function registerCompileRoutes(app: Hono): void {
     // ── Threshold parameter: override the default minimum relevance score (0.5) ──
     const thresholdParam = c.req.query('threshold');
     const minScore = thresholdParam ? Math.max(0, Math.min(1, parseFloat(thresholdParam))) : undefined;
+
+    // ── Pattern recommendations: can be suppressed per-request ──
+    const includePatternsParam = c.req.query('include_patterns');
+    const includePatterns = includePatternsParam !== 'false';
 
     // ── Check prefetch cache first (session-aware) ────────────────────
     if (body.task_session_id && body.debug !== true) {
@@ -98,6 +102,7 @@ export function registerCompileRoutes(app: Hono): void {
       depth: depthParam,
       namespace: namespaceParam,
       min_score: minScore,
+      include_patterns: includePatterns,
     };
 
     const result = await compileContext(request);
@@ -416,14 +421,23 @@ export function registerCompileRoutes(app: Hono): void {
     if (format === 'h0c') {
       c.header('X-Hipp0-Format', 'h0c');
       console.log('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio: compressionRatio });
-      return c.text(h0cForRatio);
+      const patternsH0C = encodeH0CPatterns(result.suggested_patterns ?? []);
+      const h0cOutput = patternsH0C ? `${h0cForRatio}\n${patternsH0C}` : h0cForRatio;
+      return c.text(h0cOutput);
     }
 
     // ── Markdown format ──
     if (format === 'markdown') {
       c.header('X-Hipp0-Format', 'markdown');
       console.log('[hipp0/compile-response]', { agent: agent_name, format: 'markdown' });
-      return c.text(formattedMarkdown);
+      let mdOutput = formattedMarkdown;
+      if ((result.suggested_patterns ?? []).length > 0) {
+        const patternLines = result.suggested_patterns.map(
+          (p) => `- **${p.title}** (${Math.round(p.confidence * 100)}% confidence, ${p.source_count} projects) — ${p.description}`,
+        );
+        mdOutput += `\n\n## Suggested Patterns\n${patternLines.join('\n')}`;
+      }
+      return c.text(mdOutput);
     }
 
     if (format === 'condensed') {

@@ -296,6 +296,15 @@ export interface CompileContextInput {
   namespace?: string;
 }
 
+export interface SuggestedPattern {
+  pattern_id: string;
+  title: string;
+  description: string;
+  confidence: number;
+  source_count: number;
+  relevance_score: number;
+}
+
 export interface DecodedDecision {
   title: string;
   score: number;
@@ -325,6 +334,7 @@ export interface ContextPackage {
   relevance_threshold_used: number;
   compilation_time_ms: number;
   wing_sources?: Record<string, number>;
+  suggested_patterns: SuggestedPattern[];
 }
 
 export interface DistillInput {

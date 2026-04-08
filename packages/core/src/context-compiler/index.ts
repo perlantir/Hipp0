@@ -24,7 +24,9 @@ import type {
   ScoringBreakdown,
   DecisionDomain,
   WingAffinity,
+  SuggestedPattern,
 } from '../types.js';
+import { getPatternRecommendations, DEFAULT_MIN_PATTERN_CONFIDENCE } from '../intelligence/pattern-extractor.js';
 import { inferDomainFromTask } from '../hierarchy/classifier.js';
 import { computeWingSources } from '../wings/affinity.js';
 
@@ -1098,6 +1100,44 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     2,
   );
 
+  // ── Pattern Recommendations ─────────────────────────────────────────
+  let suggestedPatterns: SuggestedPattern[] = [];
+  const includePatterns = request.include_patterns !== false;
+  if (includePatterns) {
+    try {
+      // Check project setting for pattern_recommendations
+      const projResult = await db.query<Record<string, unknown>>(
+        'SELECT metadata FROM projects WHERE id = ? LIMIT 1',
+        [project_id],
+      );
+      let patternRecsEnabled = true;
+      let minPatternConfidence = DEFAULT_MIN_PATTERN_CONFIDENCE;
+      if (projResult.rows.length > 0) {
+        const rawMeta = (projResult.rows[0] as Record<string, unknown>).metadata;
+        const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : (rawMeta ?? {});
+        if ((meta as Record<string, unknown>).pattern_recommendations === false) {
+          patternRecsEnabled = false;
+        }
+        if (typeof (meta as Record<string, unknown>).min_pattern_confidence === 'number') {
+          minPatternConfidence = (meta as Record<string, unknown>).min_pattern_confidence as number;
+        }
+      }
+
+      if (patternRecsEnabled) {
+        // Collect all tags from top decisions for matching
+        const taskTags = [...new Set(packedDecisions.flatMap((d) => d.tags))];
+        suggestedPatterns = await getPatternRecommendations(
+          project_id,
+          taskTags,
+          task_description,
+          minPatternConfidence,
+        );
+      }
+    } catch (err) {
+      console.warn('[hipp0/compile] Pattern recommendations failed:', (err as Error).message);
+    }
+  }
+
   const pkg: ContextPackage = {
     agent: { name: agent.name, role: agent.role },
     task: task_description,
@@ -1120,6 +1160,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
       l2_available: l2Available,
     },
     wing_sources: computeWingSources(packedDecisions, agent_name),
+    suggested_patterns: suggestedPatterns,
   };
 
   const includedDecisionIds = packedDecisions.map((d) => d.id);

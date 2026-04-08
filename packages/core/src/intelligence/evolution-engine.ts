@@ -25,7 +25,8 @@ export type TriggerType =
   | 'high_impact_unvalidated'
   | 'wing_drift'
   | 'temporal_expiry'
-  | 'feedback_negative';
+  | 'feedback_negative'
+  | 'pattern_divergence';
 
 export interface EvolutionProposal {
   trigger_type: TriggerType;
@@ -358,6 +359,59 @@ async function ruleFeedbackNegative(projectId: string): Promise<EvolutionProposa
   });
 }
 
+async function rulePatternDivergence(projectId: string): Promise<EvolutionProposal[]> {
+  const db = getDb();
+  // Find patterns with 3+ source projects and confidence > 0.70
+  const patternResult = await db.query(
+    `SELECT id, pattern_type, tag_a, tag_b, title_pattern_a, title_pattern_b, tenant_count, confidence
+     FROM anonymous_patterns
+     WHERE active = 1 AND tenant_count >= 3 AND confidence > 0.70`,
+    [],
+  );
+
+  const proposals: EvolutionProposal[] = [];
+  for (const row of patternResult.rows) {
+    const p = row as Record<string, unknown>;
+    const tagA = p.tag_a as string;
+    const tagB = p.tag_b as string | null;
+    const titleA = p.title_pattern_a as string | null;
+
+    // Look for project decisions that contradict this pattern
+    // A decision "contradicts" a pattern if it shares a tag but uses a different approach
+    const divergent = await db.query(
+      `SELECT d.id, d.title, d.tags FROM decisions d
+       WHERE d.project_id = ? AND d.status = 'active'
+         AND (d.tags LIKE ? ${tagB ? 'OR d.tags LIKE ?' : ''})`,
+      tagB
+        ? [projectId, `%${tagA}%`, `%${tagB}%`]
+        : [projectId, `%${tagA}%`],
+    );
+
+    if (divergent.rows.length === 0) continue;
+
+    // Check if any project decisions match the pattern (same tags but different title pattern)
+    for (const drow of divergent.rows) {
+      const d = drow as Record<string, unknown>;
+      const decisionTitle = (d.title as string).toLowerCase();
+      const patternTitle = (titleA ?? '').toLowerCase();
+
+      // If the pattern title is mentioned, decision aligns — no divergence
+      if (patternTitle && decisionTitle.includes(patternTitle.split(' ')[0] ?? '')) continue;
+
+      proposals.push({
+        trigger_type: 'pattern_divergence',
+        affected_decision_ids: [d.id as string],
+        reasoning: `${p.tenant_count} other projects use "${titleA ?? tagA}" for ${tagA}${tagB ? '/' + tagB : ''} decisions. This project's "${d.title}" may diverge from the common pattern. Consider aligning.`,
+        confidence: p.confidence as number,
+        impact_score: Math.min(1.0, 0.3 + (p.tenant_count as number) * 0.05),
+        urgency: 'medium',
+        suggested_action: 'review_alignment',
+      });
+    }
+  }
+  return proposals;
+}
+
 // ---------------------------------------------------------------------------
 // Sort proposals by urgency, then impact_score
 // ---------------------------------------------------------------------------
@@ -398,6 +452,7 @@ export async function runEvolutionScan(
     ruleWingDrift,
     ruleTemporalExpiry,
     ruleFeedbackNegative,
+    rulePatternDivergence,
   ];
 
   const results = await Promise.all(allRules.map((rule) => rule(projectId).catch(() => [] as EvolutionProposal[])));

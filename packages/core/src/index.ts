@@ -60,9 +60,9 @@ export {
 export type { CondenseCompileInput } from './context-compiler/compression.js';
 
 // --- H0C Encoder / Decoder ---
-export { encodeH0C } from './compression/h0c-encoder.js';
+export { encodeH0C, encodeH0CPatterns } from './compression/h0c-encoder.js';
 export type { H0CEncodeOptions, DecodedDecision } from './compression/h0c-encoder.js';
-export { decodeH0C } from './compression/h0c-decoder.js';
+export { decodeH0C, decodeH0CPatterns } from './compression/h0c-decoder.js';
 
 // --- Change Propagator ---
 export {
@@ -161,3 +161,11 @@ export type {
   EvolutionProposal,
   EvolutionScanResult,
 } from './intelligence/evolution-engine.js';
+
+// --- Pattern Recommendations ---
+export {
+  getPatternRecommendations,
+  listPatterns,
+  DEFAULT_MIN_PATTERN_CONFIDENCE,
+  MAX_SUGGESTED_PATTERNS,
+} from './intelligence/pattern-extractor.js';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, X, Plus } from 'lucide-react';
+import { Lightbulb, X, Star } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
@@ -9,6 +9,7 @@ interface Pattern {
   confidence: number;
   tenant_count: number;
   suggested_tag: string | null;
+  recommendation_count?: number;
 }
 
 export function CommunityInsights() {
@@ -48,6 +49,7 @@ export function CommunityInsights() {
       <div className="space-y-3">
         {patterns.map((p, i) => {
           if (dismissed.has(i)) return null;
+          const isRecommended = (p.recommendation_count ?? 0) > 0;
           return (
             <div
               key={i}
@@ -55,11 +57,23 @@ export function CommunityInsights() {
               style={{ background: 'var(--bg-secondary)' }}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                  {p.message}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                    {p.message}
+                  </p>
+                  {isRecommended && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
+                      style={{ background: '#FEF3C7', color: '#92400E' }}
+                    >
+                      <Star size={10} />
+                      Recommended
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                   Based on anonymous data from {p.tenant_count} teams
+                  {isRecommended && ` \u00B7 Surfaced in ${p.recommendation_count} compile${p.recommendation_count !== 1 ? 's' : ''}`}
                 </p>
               </div>
               <div className="flex gap-1 shrink-0">

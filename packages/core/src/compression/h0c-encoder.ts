@@ -11,7 +11,7 @@
  * Target: 12-18x token reduction vs full JSON.
  */
 
-import type { ScoredDecision, ConfidenceLevel } from '../types.js';
+import type { ScoredDecision, ConfidenceLevel, SuggestedPattern } from '../types.js';
 
 /* ------------------------------------------------------------------ */
 /*  Options                                                            */
@@ -145,5 +145,23 @@ export function encodeH0C(
     lines.push(line);
   }
 
+  return lines.join('\n');
+}
+
+/**
+ * Encode suggested patterns into H0C patterns section.
+ * Format: ---PATTERNS---
+ * [P|confidence|source_count] title | description
+ */
+export function encodeH0CPatterns(patterns: SuggestedPattern[]): string {
+  if (patterns.length === 0) return '';
+
+  const lines: string[] = ['---PATTERNS---'];
+  for (const p of patterns) {
+    const conf = Math.round(p.confidence * 100);
+    const title = safePipe(truncateWords(p.title, 8));
+    const desc = safePipe(truncateWords(p.description, 12));
+    lines.push(`[P|${conf}|${p.source_count}src] ${title} | ${desc}`);
+  }
   return lines.join('\n');
 }

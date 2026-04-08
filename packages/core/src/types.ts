@@ -339,6 +339,16 @@ export type NotificationType =
 
 export type Urgency = 'critical' | 'high' | 'medium' | 'low';
 
+// --- Suggested Patterns ---
+export interface SuggestedPattern {
+  pattern_id: string;
+  title: string;
+  description: string;
+  confidence: number;
+  source_count: number;
+  relevance_score: number;
+}
+
 // --- Context Compiler ---
 export interface CompileRequest {
   agent_name: string;
@@ -351,6 +361,8 @@ export interface CompileRequest {
   namespace?: string;
   /** Override the minimum relevance score threshold (default: 0.5) */
   min_score?: number;
+  /** Include pattern recommendations in response (default: true) */
+  include_patterns?: boolean;
 }
 
 export interface ContextPackage {
@@ -371,6 +383,7 @@ export interface ContextPackage {
   compilation_time_ms: number;
   loading_layers?: { l0_count: number; l1_count: number; l2_available: number };
   wing_sources?: Record<string, number>;
+  suggested_patterns: SuggestedPattern[];
 }
 
 // --- Contradictions ---

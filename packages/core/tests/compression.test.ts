@@ -124,6 +124,7 @@ function makeContextPackage(decisionCount: number): ContextPackage {
     decisions_included: decisionCount,
     relevance_threshold_used: 0.5,
     compilation_time_ms: 42,
+    suggested_patterns: [],
   };
 }
 

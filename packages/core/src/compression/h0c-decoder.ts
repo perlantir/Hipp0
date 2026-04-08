@@ -4,7 +4,7 @@
  * Handles tag index lookup, score/confidence/date expansion.
  */
 
-import type { ConfidenceLevel } from '../types.js';
+import type { ConfidenceLevel, SuggestedPattern } from '../types.js';
 import type { DecodedDecision } from './h0c-encoder.js';
 
 /* ------------------------------------------------------------------ */
@@ -119,4 +119,46 @@ export function decodeH0C(h0c: string): DecodedDecision[] {
   }
 
   return decisions;
+}
+
+/**
+ * Decode H0C patterns section back to SuggestedPattern objects.
+ * Handles format: [P|confidence|Nsrc] title | description
+ */
+export function decodeH0CPatterns(h0c: string): SuggestedPattern[] {
+  if (!h0c || !h0c.includes('---PATTERNS---')) return [];
+
+  const patternsSection = h0c.split('---PATTERNS---')[1];
+  if (!patternsSection) return [];
+
+  const lines = patternsSection.split('\n');
+  const patterns: SuggestedPattern[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Parse: [P|85|3src] title | description
+    const match = trimmed.match(/^\[P\|(\d+)\|(\d+)src\]\s*(.*)$/);
+    if (!match) continue;
+
+    const confidence = parseInt(match[1]!, 10) / 100;
+    const sourceCount = parseInt(match[2]!, 10);
+    const rest = match[3]!;
+
+    const segments = rest.split('|').map((s) => s.trim());
+    const title = segments[0] ?? '';
+    const description = segments[1] ?? '';
+
+    patterns.push({
+      pattern_id: '',
+      title,
+      description,
+      confidence,
+      source_count: sourceCount,
+      relevance_score: 0,
+    });
+  }
+
+  return patterns;
 }
