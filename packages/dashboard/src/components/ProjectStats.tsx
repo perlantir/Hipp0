@@ -122,21 +122,22 @@ function StatCard({
 }) {
   return (
     <div
-      className={`card p-4 flex items-start gap-3 ${warn ? 'ring-1 ring-status-reverted/40' : ''}`}
+      className={`p-4 flex items-start gap-3 ${warn ? 'ring-1 ring-status-reverted/40' : ''}`}
+      style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}
     >
       <div
         className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-          warn ? 'bg-status-reverted/10' : 'bg-primary/10'
+          warn ? 'bg-status-reverted/10' : 'bg-[#063ff9]/10'
         }`}
       >
-        <span className={warn ? 'text-status-reverted' : 'text-primary'}>{icon}</span>
+        <span className={warn ? 'text-status-reverted' : 'text-[#063ff9]'}>{icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-2xs text-[var(--text-secondary)] uppercase tracking-wide mb-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-0.5">
           {label}
         </p>
         <p
-          className={`text-xl font-semibold tabular-nums leading-tight ${
+          className={`text-3xl font-semibold tabular-nums leading-tight ${
             warn && typeof value === 'number' && value > 0 ? 'text-status-reverted' : ''
           }`}
         >
@@ -291,9 +292,9 @@ export function ProjectStats() {
         </div>
 
         {/* Decisions by status */}
-        <div className="card p-5">
+        <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
           <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 size={16} className="text-primary" />
+            <BarChart3 size={16} className="text-[#063ff9]" />
             Decisions by Status
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -316,9 +317,9 @@ export function ProjectStats() {
         {/* Two-column: Agent chart + Artifacts/Sessions */}
         <div className="grid md:grid-cols-2 gap-5">
           {/* Decisions per agent */}
-          <div className="card p-5">
+          <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Users size={16} className="text-primary" />
+              <Users size={16} className="text-[#063ff9]" />
               Decisions per Agent
             </h2>
             {agentData.length === 0 ? (
@@ -355,9 +356,9 @@ export function ProjectStats() {
 
           {/* Artifacts + extra metrics */}
           <div className="flex flex-col gap-3">
-            <div className="card p-4 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10">
-                <FileText size={18} className="text-primary" />
+            <div className="p-4 flex items-start gap-3" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#063ff9]/10">
+                <FileText size={18} className="text-[#063ff9]" />
               </div>
               <div>
                 <p className="text-2xs text-[var(--text-secondary)] uppercase tracking-wide mb-0.5">
@@ -369,7 +370,7 @@ export function ProjectStats() {
 
             {/* Unresolved contradictions callout */}
             {stats.unresolved_contradictions > 0 && (
-              <div className="card p-4 ring-1 ring-status-reverted/40 flex items-start gap-3">
+              <div className="p-4 ring-1 ring-status-reverted/40 flex items-start gap-3" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-status-reverted/10">
                   <AlertTriangle size={18} className="text-status-reverted" />
                 </div>
@@ -389,9 +390,9 @@ export function ProjectStats() {
 
         {/* Domain distribution */}
         {domainData.length > 0 && (
-          <div className="card p-5">
+          <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <BarChart3 size={16} className="text-primary" />
+              <BarChart3 size={16} className="text-[#063ff9]" />
               Decisions by Domain
             </h2>
             <div className="space-y-3">
