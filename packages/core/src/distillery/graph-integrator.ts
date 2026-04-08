@@ -3,6 +3,7 @@ import { getDb } from '../db/index.js';
 import { parseDecision } from '../db/parsers.js';
 import { generateEmbedding } from '../decision-graph/embeddings.js';
 import { propagateChange } from '../change-propagator/index.js';
+import { classifyDecision } from '../hierarchy/classifier.js';
 
 const SUPERSEDE_SIMILARITY_THRESHOLD = 0.92;
 
@@ -71,6 +72,12 @@ export async function integrateDecisions(
       const decisionStatus = autoApproved ? 'active' : 'pending';
       const reviewStatus = autoApproved ? 'approved' : 'pending_review';
 
+      // Auto-classify domain + category
+      const classification = classifyDecision(ext.title, ext.description, ext.tags, {
+        source: 'auto_distilled',
+        confidence: ext.confidence,
+      });
+
       const decision = await db.transaction(async (txQuery) => {
         const insertResult = await txQuery(
           `INSERT INTO decisions
@@ -78,13 +85,13 @@ export async function integrateDecisions(
               source_session_id, confidence, status, supersedes_id,
               alternatives_considered, affects, tags, assumptions,
               open_questions, dependencies, confidence_decay_rate, metadata,
-              embedding, review_status)
+              embedding, review_status, domain, category, priority_level)
            VALUES
              (?, ?, ?, ?, ?, 'auto_distilled',
               ?, ?, ?, ?,
               ?, ?, ?, ?,
               ?, ?, 0, '{}',
-              ?, ?)
+              ?, ?, ?, ?, ?)
            RETURNING *`,
           [
             projectId,
@@ -104,6 +111,9 @@ export async function integrateDecisions(
             JSON.stringify(ext.dependencies),
             vectorLiteral,
             reviewStatus,
+            classification.domain,
+            classification.category,
+            1, // default priority_level
           ],
         );
 

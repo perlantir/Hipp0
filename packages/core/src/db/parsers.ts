@@ -1,5 +1,8 @@
 import type {
   Decision,
+  DecisionDomain,
+  DecisionCategory,
+  PriorityLevel,
   Agent,
   Project,
   Artifact,
@@ -109,6 +112,9 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     updated_at: (row.updated_at as Date).toISOString(),
     metadata: parseJsonb(row.metadata, {}),
     embedding: parseEmbedding(row.embedding),
+    domain: (row.domain as DecisionDomain | null) ?? null,
+    category: (row.category as DecisionCategory | null) ?? null,
+    priority_level: ((row.priority_level as number) ?? 1) as PriorityLevel,
   };
 }
 

@@ -35,6 +35,12 @@ interface TrendPoint {
   count: number;
 }
 
+interface DomainCount {
+  name: string;
+  count: number;
+  agents: string[];
+}
+
 interface ProjectStatsData {
   total_decisions: number;
   by_status: {
@@ -163,14 +169,18 @@ export function ProjectStats() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [domainData, setDomainData] = useState<DomainCount[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    get<ProjectStatsData>(`/api/projects/${projectId}/stats`)
-      .then((data) => {
+    Promise.all([
+      get<ProjectStatsData>(`/api/projects/${projectId}/stats`),
+      get<{ domains: DomainCount[] }>(`/api/projects/${projectId}/domains`).catch(() => ({ domains: [] })),
+    ])
+      .then(([data, domainResp]) => {
         if (!cancelled) {
           setStats({
             ...data,
@@ -179,6 +189,7 @@ export function ProjectStats() {
             decision_trend: data.decision_trend ?? [],
             recent_activity: data.recent_activity ?? [],
           });
+          setDomainData(domainResp.domains ?? []);
           setLoading(false);
         }
       })
@@ -375,6 +386,47 @@ export function ProjectStats() {
             )}
           </div>
         </div>
+
+        {/* Domain distribution */}
+        {domainData.length > 0 && (
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 size={16} className="text-primary" />
+              Decisions by Domain
+            </h2>
+            <div className="space-y-3">
+              {domainData.map((row) => {
+                const maxDomainCount = Math.max(...domainData.map((d) => d.count), 1);
+                const pct = Math.round((row.count / maxDomainCount) * 100);
+                return (
+                  <div key={row.name}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium capitalize truncate max-w-[50%]">
+                        {row.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {row.agents.length > 0 && (
+                          <span className="text-2xs text-[var(--text-tertiary)]">
+                            {row.agents.slice(0, 3).join(', ')}{row.agents.length > 3 ? ` +${row.agents.length - 3}` : ''}
+                          </span>
+                        )}
+                        <span className="text-xs text-[var(--text-secondary)] tabular-nums">
+                          {row.count}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2 rounded-full bg-[var(--border-light)] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Decision trend */}
         {trendData.length > 0 && (

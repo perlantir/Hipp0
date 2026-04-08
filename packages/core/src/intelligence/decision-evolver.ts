@@ -76,14 +76,14 @@ export async function findEvolutionCandidates(
   // Trigger 1: Low alignment — decisions with low outcome alignment scores
   try {
     const lowAlignment = await db.query(
-      `SELECT d.id, d.title, d.description, d.reasoning, d.tags, d.affects,
+      `SELECT d.id, d.title, d.description, d.reasoning, d.tags, d.affects, d.domain,
               AVG(co.alignment_score) as avg_alignment
        FROM decisions d
        JOIN compile_history ch ON d.project_id = ch.project_id AND d.id = ANY(ch.decision_ids)
        JOIN compile_outcomes co ON co.compile_history_id = ch.id
        WHERE d.project_id = ? AND d.status = 'active'
          AND co.alignment_score IS NOT NULL
-       GROUP BY d.id, d.title, d.description, d.reasoning, d.tags, d.affects
+       GROUP BY d.id, d.title, d.description, d.reasoning, d.tags, d.affects, d.domain
        HAVING AVG(co.alignment_score) < 0.5
        ORDER BY AVG(co.alignment_score) ASC
        LIMIT 5`,
@@ -102,7 +102,7 @@ export async function findEvolutionCandidates(
         tags: (r.tags as string[]) ?? [],
         affects: (r.affects as string[]) ?? [],
         trigger_reason: 'low_alignment',
-        trigger_data: { avg_alignment: parseFloat(String(r.avg_alignment)) },
+        trigger_data: { avg_alignment: parseFloat(String(r.avg_alignment)), domain: r.domain ?? null },
       });
       pendingSet.add(id);
     }
@@ -183,7 +183,7 @@ export async function findEvolutionCandidates(
   // Trigger 4: Stale decisions (stale = true and no recent validation)
   try {
     const stale = await db.query(
-      `SELECT id, title, description, reasoning, tags, affects,
+      `SELECT id, title, description, reasoning, tags, affects, domain,
               created_at, last_referenced_at, validated_at
        FROM decisions
        WHERE project_id = ? AND status = 'active' AND stale = true
@@ -209,6 +209,7 @@ export async function findEvolutionCandidates(
           last_referenced_at: r.last_referenced_at ?? null,
           validated_at: r.validated_at ?? null,
           created_at: r.created_at,
+          domain: r.domain ?? null,
         },
       });
       pendingSet.add(id);
@@ -217,7 +218,33 @@ export async function findEvolutionCandidates(
     console.warn('[hipp0/evolution] Stale query failed:', (err as Error).message);
   }
 
-  // Max 5 candidates per run
+  // Max 5 candidates per run — prioritize candidates in recently active domains
+  if (candidates.length > 5) {
+    try {
+      const recentDomains = await db.query(
+        `SELECT domain, COUNT(*) as cnt FROM decisions
+         WHERE project_id = ? AND domain IS NOT NULL AND created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY domain ORDER BY cnt DESC LIMIT 3`,
+        [projectId],
+      );
+      const activeDomains = new Set(
+        recentDomains.rows.map((r) => (r as Record<string, unknown>).domain as string),
+      );
+      if (activeDomains.size > 0) {
+        // Sort: same-domain candidates first, then by trigger severity
+        candidates.sort((a, b) => {
+          const aDomain = (a.trigger_data as Record<string, unknown>).domain as string | undefined;
+          const bDomain = (b.trigger_data as Record<string, unknown>).domain as string | undefined;
+          const aMatch = aDomain && activeDomains.has(aDomain) ? 1 : 0;
+          const bMatch = bDomain && activeDomains.has(bDomain) ? 1 : 0;
+          return bMatch - aMatch;
+        });
+      }
+    } catch {
+      // Domain prioritization is best-effort
+    }
+  }
+
   return candidates.slice(0, 5);
 }
 

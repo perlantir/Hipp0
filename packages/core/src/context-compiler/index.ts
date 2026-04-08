@@ -22,7 +22,9 @@ import type {
   CompileRequest,
   ContextPackage,
   ScoringBreakdown,
+  DecisionDomain,
 } from '../types.js';
+import { inferDomainFromTask } from '../hierarchy/classifier.js';
 
 // Embedding helper — imported from decision-graph (generated at runtime).
 // We use a dynamic import shape so the module can be provided at runtime.
@@ -248,6 +250,7 @@ export function scoreDecision(
   decision: Decision,
   agent: Agent,
   taskEmbedding: number[],
+  domainContext?: { taskDomain?: DecisionDomain | null; agentDomain?: DecisionDomain | null },
 ): ScoredDecision {
   const profile = agent.relevance_profile;
   const agentNameLower = agent.name.toLowerCase();
@@ -368,6 +371,20 @@ export function scoreDecision(
   // ── Direct agent match bonus (flat add after multipliers) ─────────
   if (affects.some((a) => agentAliases.has(a))) finalScore += 0.25;
 
+  // ── Domain-aware scoring boost ────────────────────────────────────
+  let domainBoost = 0;
+  const decisionDomain = (decision as Decision & { domain?: string }).domain;
+  if (decisionDomain && domainContext) {
+    if (domainContext.taskDomain && decisionDomain === domainContext.taskDomain) {
+      domainBoost += 0.12;
+    }
+    if (domainContext.agentDomain && decisionDomain === domainContext.agentDomain) {
+      domainBoost += 0.08;
+    }
+    domainBoost = Math.min(domainBoost, 0.15); // cap total domain boost
+  }
+  finalScore += domainBoost;
+
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
 
@@ -406,6 +423,7 @@ export function scoreDecision(
     specificity_multiplier: specificityMultiplier,
     freshness_multiplier: freshnessMultiplier,
     exclude_penalty: excludePenalty,
+    domain_boost: domainBoost,
     explanation,
   } as ScoringBreakdown;
 
@@ -751,16 +769,49 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     return { ...cached, decisions: cachedDecisions, decisions_included: cachedDecisions.length };
   }
 
-  let decisionQuery = `SELECT * FROM decisions WHERE project_id = ?`;
-  const queryParams: unknown[] = [project_id];
+  // ── Layered context loading ────────────────────────────────────────
+  // L0: priority_level=0, always loaded (max 5)
+  // L1: priority_level=1 or NULL, scored normally (default)
+  // L2: priority_level=2, only loaded when depth=full
+  const includeL2 = request.depth === 'full';
+  const statusFilter = (!agent.relevance_profile.include_superseded && !request.include_superseded)
+    ? ` AND status != 'superseded'` : '';
 
-  if (!agent.relevance_profile.include_superseded && !request.include_superseded) {
-    decisionQuery += ` AND status != 'superseded'`;
+  // Fetch L0 (critical) decisions — always included
+  const l0Result = await db.query<Record<string, unknown>>(
+    `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 0${statusFilter} ORDER BY created_at DESC LIMIT 5`,
+    [project_id],
+  );
+  const l0Decisions = l0Result.rows.map(parseDecision);
+
+  // Fetch L1 (standard) decisions
+  const l1Result = await db.query<Record<string, unknown>>(
+    `SELECT * FROM decisions WHERE project_id = ? AND (priority_level = 1 OR priority_level IS NULL)${statusFilter} ORDER BY created_at DESC`,
+    [project_id],
+  );
+  const l1Decisions = l1Result.rows.map(parseDecision);
+
+  // Fetch L2 count (or full results if depth=full)
+  let l2Decisions: Decision[] = [];
+  let l2Available = 0;
+  if (includeL2) {
+    const l2Result = await db.query<Record<string, unknown>>(
+      `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter} ORDER BY created_at DESC`,
+      [project_id],
+    );
+    l2Decisions = l2Result.rows.map(parseDecision);
+    l2Available = l2Decisions.length;
+  } else {
+    const l2CountResult = await db.query<Record<string, unknown>>(
+      `SELECT COUNT(*) as count FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}`,
+      [project_id],
+    );
+    l2Available = parseInt(String((l2CountResult.rows[0] as Record<string, unknown>)?.count ?? '0'), 10);
   }
-  decisionQuery += ` ORDER BY created_at DESC`;
 
-  const decisionResult = await db.query<Record<string, unknown>>(decisionQuery, queryParams);
-  const allDecisions = decisionResult.rows.map(parseDecision);
+  // Combine all decisions for scoring
+  const l0Ids = new Set(l0Decisions.map((d) => d.id));
+  const allDecisions = [...l0Decisions, ...l1Decisions.filter((d) => !l0Ids.has(d.id)), ...l2Decisions.filter((d) => !l0Ids.has(d.id))];
 
   const allDecisionMap = new Map<string, Decision>(allDecisions.map((d) => [d.id, d]));
 
@@ -776,13 +827,37 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     taskEmbedding = [...ZERO_VECTOR];
   }
 
-  const scored = allDecisions.map((d) => scoreDecision(d, agent, taskEmbedding));
+  // Infer domain from task for domain-aware scoring boost
+  const taskDomain = inferDomainFromTask(task_description);
+  const persona = _getPersonaSafe(agent_name);
+  // Infer agent's primary domain from persona primaryTags
+  const agentDomain = persona ? inferDomainFromTask(persona.primaryTags.join(' ')) : null;
+  const domainContext = { taskDomain, agentDomain };
+
+  const scored = allDecisions.map((d) => {
+    const sd = scoreDecision(d, agent, taskEmbedding, domainContext);
+    // Tag loading layer
+    if (l0Ids.has(d.id)) {
+      sd.loading_layer = 'L0';
+    } else if (d.priority_level === 2) {
+      sd.loading_layer = 'L2';
+    } else {
+      sd.loading_layer = 'L1';
+    }
+    return sd;
+  });
 
   const depth = agent.relevance_profile.decision_depth;
 
-  // Apply minimum score threshold and max results cap
-  const qualifiedDecisions = scored
-    .filter((d) => d.combined_score >= MIN_SCORE)
+  // L0 decisions always pass regardless of score
+  const l0Scored = scored.filter((d) => d.loading_layer === 'L0');
+  const nonL0Scored = scored.filter((d) => d.loading_layer !== 'L0');
+
+  // Apply minimum score threshold and max results cap (L1/L2 only)
+  const qualifiedDecisions = [
+    ...l0Scored, // L0 always included
+    ...nonL0Scored.filter((d) => d.combined_score >= MIN_SCORE),
+  ]
     .sort((a, b) => b.combined_score - a.combined_score)
     .slice(0, MAX_RESULTS);
 
@@ -960,6 +1035,11 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     decisions_included: packedDecisions.length,
     relevance_threshold_used: MIN_SCORE,
     compilation_time_ms: Date.now() - startMs,
+    loading_layers: {
+      l0_count: packedDecisions.filter((d) => d.loading_layer === 'L0').length,
+      l1_count: packedDecisions.filter((d) => d.loading_layer === 'L1').length,
+      l2_available: l2Available,
+    },
   };
 
   const includedDecisionIds = packedDecisions.map((d) => d.id);

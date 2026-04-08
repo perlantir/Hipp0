@@ -23,6 +23,9 @@ export interface Decision {
   validation_source?: string | null;
   confidence?: string;
   metadata?: Record<string, unknown>;
+  domain?: string | null;
+  category?: string | null;
+  priority_level?: number;
 }
 
 export interface Relationship {

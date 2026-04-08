@@ -126,6 +126,14 @@
     "./intelligence/orchestrator.js": {
       "import": "./dist/intelligence/orchestrator.js",
       "types": "./dist/intelligence/orchestrator.d.ts"
+    },
+    "./context-compiler/compression.js": {
+      "import": "./dist/context-compiler/compression.js",
+      "types": "./dist/context-compiler/compression.d.ts"
+    },
+    "./hierarchy/classifier.js": {
+      "import": "./dist/hierarchy/classifier.js",
+      "types": "./dist/hierarchy/classifier.d.ts"
     }
   },
   "scripts": {

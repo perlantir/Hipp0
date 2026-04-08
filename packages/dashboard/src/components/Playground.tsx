@@ -27,6 +27,9 @@ interface CompileResultDecision {
   tags: string[];
   affects: string[];
   confidence: string;
+  loading_layer?: 'L0' | 'L1' | 'L2';
+  domain?: string;
+  category?: string;
 }
 
 interface CompileResult {
@@ -35,6 +38,7 @@ interface CompileResult {
   decisions_considered: number;
   compilation_time_ms: number;
   decisions: CompileResultDecision[];
+  loading_layers?: { l0_count: number; l1_count: number; l2_available: number };
 }
 
 interface DemoStats {
@@ -174,12 +178,25 @@ function DecisionCard({
           <span className="text-sm font-medium leading-snug" style={{ color: 'var(--text-primary)' }}>
             {decision.title}
           </span>
-          <span
-            className="shrink-0 text-xs font-mono tabular-nums px-1.5 py-0.5 rounded"
-            style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
-          >
-            {typeof decision.score === 'number' ? decision.score.toFixed(2) : '—'}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {decision.loading_layer && (
+              <span
+                className="text-2xs font-mono px-1 py-0.5 rounded"
+                style={{
+                  background: decision.loading_layer === 'L0' ? '#FEE2E2' : decision.loading_layer === 'L2' ? '#E0E7FF' : '#F3F4F6',
+                  color: decision.loading_layer === 'L0' ? '#991B1B' : decision.loading_layer === 'L2' ? '#3730A3' : '#6B7280',
+                }}
+              >
+                {decision.loading_layer}
+              </span>
+            )}
+            <span
+              className="text-xs font-mono tabular-nums px-1.5 py-0.5 rounded"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+            >
+              {typeof decision.score === 'number' ? decision.score.toFixed(2) : '—'}
+            </span>
+          </div>
         </div>
 
         {/* Tags */}
@@ -249,6 +266,11 @@ function ResultPanel({
           {uniqueCount} unique
         </span>
         <span>{sharedCount} shared</span>
+        {result.loading_layers && (
+          <span style={{ color: 'var(--text-tertiary)' }}>
+            L0:{result.loading_layers.l0_count} L1:{result.loading_layers.l1_count} L2:{result.loading_layers.l2_available}avail
+          </span>
+        )}
       </div>
 
       {/* Decision list */}

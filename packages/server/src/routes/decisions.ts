@@ -22,6 +22,7 @@ import {
 import { broadcast } from '../websocket.js';
 import { invalidateDecisionCaches } from '../cache/redis.js';
 import { notifySupersededDecision } from '../connectors/github.js';
+import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -98,18 +99,26 @@ export function registerDecisionRoutes(app: Hono): void {
     const embeddingText = `${title}\n${description}\n${reasoning}`;
     const embedding = await generateEmbedding(embeddingText);
 
+    // Auto-classify domain + category
+    const classification = autoClassify(title, description, tags, {
+      source: (body.source as Decision['source']) ?? 'manual',
+      confidence: (body.confidence as Decision['confidence']) ?? 'high',
+    });
+
     try {
       const result = await db.query(
         `INSERT INTO decisions (
            project_id, title, description, reasoning, made_by,
            source, source_session_id, confidence, status, supersedes_id,
            alternatives_considered, affects, tags, assumptions,
-           open_questions, dependencies, confidence_decay_rate, metadata, embedding
+           open_questions, dependencies, confidence_decay_rate, metadata, embedding,
+           domain, category, priority_level
          ) VALUES (
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?,
-           ?, ?, ?, ?, ?
+           ?, ?, ?, ?, ?,
+           ?, ?, ?
          ) RETURNING *`,
         [
           projectId,
@@ -131,6 +140,9 @@ export function registerDecisionRoutes(app: Hono): void {
           body.confidence_decay_rate ?? 0.0,
           JSON.stringify(body.metadata ?? {}),
           embedding ? `[${embedding.join(',')}]` : null,
+          classification.domain,
+          classification.category,
+          1, // default priority_level
         ],
       );
 
@@ -262,6 +274,9 @@ export function registerDecisionRoutes(app: Hono): void {
         metadata: Record<string, unknown>;
         validated_at: unknown;
         validation_source: unknown;
+        domain: unknown;
+        category: unknown;
+        priority_level: unknown;
       }>
     >();
 
@@ -301,6 +316,13 @@ export function registerDecisionRoutes(app: Hono): void {
         'validation_source',
         optionalString(body.validation_source, 'validation_source', 200),
       );
+    if (body.domain !== undefined) addField('domain', body.domain);
+    if (body.category !== undefined) addField('category', body.category);
+    if (body.priority_level !== undefined) {
+      const pl = Number(body.priority_level);
+      if (![0, 1, 2].includes(pl)) throw new ValidationError('priority_level must be 0, 1, or 2');
+      addField('priority_level', pl);
+    }
 
     params.push(id);
 

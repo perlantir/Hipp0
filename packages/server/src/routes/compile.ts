@@ -39,6 +39,8 @@ export function registerCompileRoutes(app: Hono): void {
 
     // ── Format parameter: full (default) | condensed | both ─────────
     const format = (c.req.query('format') ?? 'full') as 'full' | 'condensed' | 'both';
+    // ── Depth parameter: default | full (loads L2 background decisions) ──
+    const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
 
     // ── Check cache first ───────────────────────────────────────────
     const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
@@ -63,6 +65,7 @@ export function registerCompileRoutes(app: Hono): void {
       max_tokens: body.max_tokens,
       include_superseded: body.include_superseded,
       session_lookback_days: body.session_lookback_days,
+      depth: depthParam,
     };
 
     const result = await compileContext(request);

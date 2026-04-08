@@ -69,6 +69,9 @@ export interface Decision {
   updated_at: string;
   metadata: Record<string, unknown>;
   embedding?: number[];
+  domain?: DecisionDomain | null;
+  category?: DecisionCategory | null;
+  priority_level: PriorityLevel;
 }
 
 export interface CreateDecisionInput {
@@ -90,11 +93,36 @@ export interface CreateDecisionInput {
   dependencies?: string[];
   confidence_decay_rate?: number;
   metadata?: Record<string, unknown>;
+  domain?: DecisionDomain | null;
+  category?: DecisionCategory | null;
+  priority_level?: PriorityLevel;
 }
 
 export type DecisionSource = 'manual' | 'auto_distilled' | 'imported';
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type DecisionStatus = 'active' | 'superseded' | 'reverted' | 'pending';
+
+export type DecisionDomain =
+  | 'authentication'
+  | 'database'
+  | 'frontend'
+  | 'infrastructure'
+  | 'testing'
+  | 'security'
+  | 'api'
+  | 'collaboration'
+  | 'general';
+
+export type DecisionCategory =
+  | 'architecture'
+  | 'tool-choice'
+  | 'rejected-alternative'
+  | 'convention'
+  | 'security-policy'
+  | 'configuration'
+  | 'decision';
+
+export type PriorityLevel = 0 | 1 | 2;
 
 export interface Alternative {
   option: string;
@@ -106,6 +134,7 @@ export interface ScoredDecision extends Decision {
   freshness_score: number;
   combined_score: number;
   scoring_breakdown: ScoringBreakdown;
+  loading_layer?: 'L0' | 'L1' | 'L2';
 }
 
 export interface ScoringBreakdown {
@@ -116,6 +145,7 @@ export interface ScoringBreakdown {
   status_penalty: number;
   freshness: number;
   combined: number;
+  domain_boost?: number;
 }
 
 // --- Edges ---
@@ -295,6 +325,7 @@ export interface CompileRequest {
   max_tokens?: number;
   include_superseded?: boolean;
   session_lookback_days?: number;
+  depth?: 'default' | 'full';
 }
 
 export interface ContextPackage {
@@ -313,6 +344,7 @@ export interface ContextPackage {
   decisions_included: number;
   relevance_threshold_used: number;
   compilation_time_ms: number;
+  loading_layers?: { l0_count: number; l1_count: number; l2_available: number };
 }
 
 // --- Contradictions ---

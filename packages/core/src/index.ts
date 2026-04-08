@@ -115,3 +115,10 @@ export {
   evolveWeights,
   getEvolutionStats,
 } from './relevance-learner/index.js';
+
+// --- Hierarchy / Classification ---
+export {
+  classifyDecision,
+  inferDomainFromTask,
+} from './hierarchy/classifier.js';
+export type { ClassificationResult } from './hierarchy/classifier.js';

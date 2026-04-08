@@ -54,6 +54,8 @@ export function DecisionGraph() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [filterAgent, setFilterAgent] = useState<string>('');
+  const [filterDomain, setFilterDomain] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
 
   /* ---- Fetch data ------------------------------------------------ */
   useEffect(() => {
@@ -83,12 +85,16 @@ export function DecisionGraph() {
   /* ---- All tags & agents ------------------------------------------ */
   const allTags = Array.from(new Set(decisions.flatMap((d) => d.tags)));
   const allAgents = Array.from(new Set(decisions.map((d) => d.made_by).filter(Boolean)));
+  const allDomains = Array.from(new Set(decisions.map((d) => d.domain).filter(Boolean))) as string[];
+  const allCategories = Array.from(new Set(decisions.map((d) => d.category).filter(Boolean))) as string[];
 
   /* ---- Filter decisions ------------------------------------------ */
   const filtered = decisions.filter((d) => {
     if (!filterStatus.has(d.status)) return false;
     if (filterTag && !d.tags.includes(filterTag)) return false;
     if (filterAgent && d.made_by !== filterAgent) return false;
+    if (filterDomain && d.domain !== filterDomain) return false;
+    if (filterCategory && d.category !== filterCategory) return false;
     if (searchText) {
       const q = searchText.toLowerCase();
       const matchTitle = d.title.toLowerCase().includes(q);
@@ -421,6 +427,28 @@ export function DecisionGraph() {
             </select>
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
           </div>
+          <div className="relative">
+            <select
+              value={filterDomain}
+              onChange={(e) => setFilterDomain(e.target.value)}
+              className="input text-xs appearance-none pr-7 py-1.5"
+            >
+              <option value="">All domains</option>
+              {allDomains.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+          </div>
+          <div className="relative">
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="input text-xs appearance-none pr-7 py-1.5"
+            >
+              <option value="">All categories</option>
+              {allCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn-secondary text-xs gap-1.5"
@@ -560,6 +588,18 @@ export function DecisionGraph() {
                   <label className="text-xs text-[var(--text-secondary)] block mb-1">Validation</label>
                   <p>{(selectedNode as any).validated_at ? '✅ Validated' : '⏳ Unvalidated'}</p>
                 </div>
+                {selectedNode.domain && (
+                  <div>
+                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Domain</label>
+                    <p className="capitalize">{selectedNode.domain}</p>
+                  </div>
+                )}
+                {selectedNode.category && (
+                  <div>
+                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Category</label>
+                    <p className="capitalize">{selectedNode.category}</p>
+                  </div>
+                )}
               </div>
 
               {/* Affects */}
