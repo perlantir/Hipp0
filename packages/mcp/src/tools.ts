@@ -12,7 +12,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Hipp0Client } from '../../sdk/src/index.js';
-import type { Decision, Contradiction, CompileContextInput, WhatChangedResponse } from '../../sdk/src/types.js';
+import type { Decision, Contradiction, CompileContextInput, WhatChangedResponse, CaptureResult } from '../../sdk/src/types.js';
 import { runEvolutionScan, getDb } from '@hipp0/core';
 import type { EvolutionMode, EvolutionProposal as EvoProposal } from '@hipp0/core';
 
@@ -854,6 +854,46 @@ export function registerAllTools(
         return { content: [{ type: 'text' as const, text: 'Unknown action.' }] };
       } catch (err) {
         return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
+  // ── Tool: hipp0_auto_capture ──────────────────────────────────────
+
+  server.registerTool(
+    'hipp0_auto_capture',
+    {
+      title: 'Auto-capture decisions from conversation',
+      description:
+        'Submit a conversation for passive decision extraction. Call this after completing work to automatically capture any decisions made during the conversation. Returns a capture_id for tracking extraction progress.',
+      inputSchema: {
+        agent_name: z.string().describe('Your agent name'),
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        conversation: z.string().describe('Full conversation text to extract decisions from'),
+        session_id: z.string().optional().describe('Task session ID to link captured decisions to'),
+        source: z.enum(['openclaw', 'telegram', 'slack', 'api']).optional().describe('Source platform (default: api)'),
+      },
+    },
+    async (args) => {
+      try {
+        const result = await client.autoCapture({
+          agent_name: args.agent_name,
+          project_id: args.project_id ?? config.projectId,
+          conversation: args.conversation,
+          session_id: args.session_id,
+          source: args.source ?? 'api',
+        });
+
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Capture submitted (capture_id: ${result.capture_id}). Decisions will be extracted in the background and flagged for review. Check status with GET /api/capture/${result.capture_id}`,
+          }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }],
+        };
       }
     },
   );

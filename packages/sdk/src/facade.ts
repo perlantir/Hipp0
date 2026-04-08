@@ -15,6 +15,8 @@ import type {
   Contradiction,
   ContextPackage,
   OutcomeResult,
+  CaptureResult,
+  CaptureStatusResult,
 } from './types.js';
 
 export interface Hipp0Config {
@@ -140,6 +142,28 @@ export class Hipp0 {
   /** Get decisions that contradict each other */
   async getContradictions(projectId?: string): Promise<Contradiction[]> {
     return this.client.getContradictions(this.pid(projectId));
+  }
+
+  /** Submit a conversation for passive decision capture */
+  async autoCapture(params: {
+    agentName: string;
+    conversation: string;
+    projectId?: string;
+    sessionId?: string;
+    source?: string;
+  }): Promise<CaptureResult> {
+    return this.client.autoCapture({
+      agent_name: params.agentName,
+      project_id: this.pid(params.projectId),
+      conversation: params.conversation,
+      session_id: params.sessionId,
+      source: params.source,
+    });
+  }
+
+  /** Check capture status */
+  async getCaptureStatus(captureId: string): Promise<CaptureStatusResult> {
+    return this.client.getCaptureStatus(captureId);
   }
 
   /** Report task outcome for passive weight evolution */

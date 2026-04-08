@@ -48,6 +48,9 @@ import {
   type ConfidenceLevel,
   type SaveBeforeTrimInput,
   type SaveBeforeTrimResult,
+  type CaptureInput,
+  type CaptureResult,
+  type CaptureStatusResult,
 } from './types.js';
 
 export class Hipp0Client {
@@ -484,6 +487,22 @@ export class Hipp0Client {
       project_id: projectId,
       since,
     });
+  }
+
+  // ── Passive Decision Capture ──────────────────────────────────────
+
+  autoCapture(input: CaptureInput): Promise<CaptureResult> {
+    return this.post<CaptureResult>('/api/capture', {
+      agent_name: input.agent_name,
+      project_id: input.project_id,
+      conversation: input.conversation,
+      session_id: input.session_id,
+      source: input.source,
+    });
+  }
+
+  getCaptureStatus(captureId: string): Promise<CaptureStatusResult> {
+    return this.get<CaptureStatusResult>(`/api/capture/${captureId}`);
   }
 
   // ── H0C Decode Utility ──────────────────────────────────────────

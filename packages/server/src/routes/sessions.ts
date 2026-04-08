@@ -389,6 +389,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json({
       prefetch_enabled: metadata.prefetch_enabled ?? true,
       prefetch_agent_count: metadata.prefetch_agent_count ?? 3,
+      auto_capture: metadata.auto_capture ?? false,
       ...metadata,
     });
   });
@@ -422,6 +423,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json({
       prefetch_enabled: updated.prefetch_enabled ?? true,
       prefetch_agent_count: updated.prefetch_agent_count ?? 3,
+      auto_capture: updated.auto_capture ?? false,
       ...updated,
     });
   });

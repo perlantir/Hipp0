@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
+import { CaptureHistory } from './CaptureHistory';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -425,6 +426,9 @@ export function Import() {
             </div>
           </>
         )}
+
+        {/* Capture History section */}
+        <CaptureHistory />
       </div>
     </div>
   );

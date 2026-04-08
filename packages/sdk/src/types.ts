@@ -130,7 +130,7 @@ export interface SupersedeDecisionInput {
   affects?: string[];
 }
 
-export type DecisionSource = 'manual' | 'auto_distilled' | 'imported';
+export type DecisionSource = 'manual' | 'auto_distilled' | 'imported' | 'auto_capture';
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type DecisionStatus = 'active' | 'superseded' | 'reverted' | 'pending';
 
@@ -607,6 +607,47 @@ export interface SaveBeforeTrimResult {
   checkpoint_id: string;
   session_id: string;
   agent_name: string;
+}
+
+// ── Passive Decision Capture ──────────────────────────────────────
+
+export interface Capture {
+  id: string;
+  project_id: string;
+  agent_name: string;
+  session_id?: string | null;
+  source: string;
+  conversation_text: string;
+  status: CaptureStatus;
+  extracted_decision_ids: string[];
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export type CaptureStatus = 'processing' | 'completed' | 'failed';
+
+export interface CaptureInput {
+  agent_name: string;
+  project_id: string;
+  conversation: string;
+  session_id?: string;
+  source?: string;
+}
+
+export interface CaptureResult {
+  capture_id: string;
+  status: string;
+}
+
+export interface CaptureStatusResult {
+  id: string;
+  status: CaptureStatus;
+  extracted_decision_count: number;
+  extracted_decision_ids: string[];
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
 }
 
 export class Hipp0ApiError extends Error {
