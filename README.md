@@ -229,6 +229,37 @@ Full methodology and results: [benchmarks/README.md](benchmarks/README.md)
 
 ---
 
+## How Hipp0 Compares
+
+| Capability | Hipp0 | Mem0 | MemPalace | Zep | LangMem |
+|-----------|-------|------|-----------|-----|---------|
+| Multi-agent role differentiation | ✅ 100% (benchmark-proven) | ❌ Single-user | ❌ Single-user | ⚠️ Basic | ❌ No |
+| Decision memory (not just chat) | ✅ Structured decisions | ❌ Chat history | ❌ Chat history | ❌ Chat history | ❌ Chat history |
+| 5-signal scoring engine | ✅ 5 signals + learned affinity | ❌ Embedding only | ❌ Embedding only | ⚠️ 2 signals | ❌ Embedding only |
+| Contradiction detection | ✅ 0.92 F1 | ❌ No | ❌ No | ❌ No | ❌ No |
+| Session memory (Agent B sees Agent A) | ✅ Super Brain | ❌ No | ❌ No | ⚠️ Basic | ❌ No |
+| Token compression | ✅ 3.4x H0C format | ❌ No | ⚠️ AAAK format | ❌ No | ❌ No |
+| Real-time collaboration rooms | ✅ WebSocket | ❌ No | ❌ No | ❌ No | ❌ No |
+| Self-hosted free tier | ✅ Unlimited forever | ⚠️ Open-source available | ❌ Cloud only | ⚠️ CE deprecated | ✅ Yes |
+| Import from GitHub PRs | ✅ Full wizard | ❌ No | ❌ No | ❌ No | ❌ No |
+| Framework agnostic | ✅ Any via MCP | ⚠️ Python SDK | ⚠️ Python SDK | ⚠️ Python/TS/Go SDKs | ❌ LangChain only |
+| Governance / Policies | ✅ Built-in | ❌ No | ❌ No | ❌ No | ❌ No |
+| Open source | ✅ Apache 2.0 | ✅ Apache 2.0 | ❌ Proprietary | ✅ Apache 2.0 | ✅ MIT |
+
+> Comparison based on publicly available documentation as of April 2026. Features may have changed. We encourage you to verify against each project's latest docs: [Mem0](https://mem0.ai), [Zep](https://getzep.com), [LangMem](https://github.com/langchain-ai/langmem), MemPalace.
+
+---
+
+## Why Hipp0
+
+Most AI memory systems store chat history and retrieve it by embedding similarity. This works for single-agent chatbots — ask a question, get back the most semantically similar past messages. But it falls apart for multi-agent teams, where different agents need fundamentally different context for the same task. A security reviewer and a frontend developer looking at the same authentication code need completely different supporting information, and embedding similarity alone cannot provide that.
+
+Hipp0 stores structured decisions — not chat logs — and scores them with five signals (directAffect, tagMatch, personaMatch, semanticSimilarity, temporal) rather than relying on text similarity alone. It compiles role-specific context packages so each agent gets exactly the context it needs. A security agent reviewing auth code gets authentication and encryption decisions ranked high. A frontend agent reviewing the same code gets UI component and state management decisions instead. Same task, different context — automatically, with no manual curation.
+
+The system improves over time. Wing affinity learns from relevance feedback, boosting cross-domain context that agents actually use and demoting what they ignore. Temporal intelligence automatically expires stale decisions and freshens validated ones. Contradiction detection (0.92 F1) prevents conflicting guidance from reaching agents simultaneously. The result is an agent team that gets smarter the longer it works together — a self-improving decision memory, not a growing pile of chat transcripts.
+
+---
+
 ## Roadmap
 
 - Calibration sprint (precision tuning to 82% target)
@@ -460,6 +491,7 @@ See [`.env.example`](.env.example) for the full reference. Key variables:
 | [Time Travel](docs/time-travel.md) | Historical graph state and compile snapshot diffing |
 | [Review Queue](docs/review-queue.md) | What triggers review, approve/reject/edit flow |
 | [Cascade Alerts](docs/cascade-alerts.md) | Upstream change propagation and notification flow |
+| [How Hipp0 Compares](docs/comparison.md) | vs Mem0, MemPalace, Zep, LangMem |
 
 ---
 
