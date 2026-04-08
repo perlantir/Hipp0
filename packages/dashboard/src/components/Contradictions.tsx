@@ -353,12 +353,12 @@ export function Contradictions() {
 
         {/* List */}
         {filtered.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
             <AlertTriangle
-              size={28}
-              className="mx-auto mb-2 text-[var(--text-tertiary)]"
+              size={36}
+              className="mx-auto mb-3 text-[var(--text-tertiary)]"
             />
-            <p className="text-lg font-medium text-[var(--text-secondary)]">
+            <p className="text-xl font-bold text-[var(--text-secondary)]">
               {contradictions.length === 0 ? 'No contradictions detected' : `No ${tab} contradictions`}
             </p>
             {contradictions.length === 0 && (

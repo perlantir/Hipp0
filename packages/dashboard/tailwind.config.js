@@ -43,7 +43,7 @@ export default {
           active: '#16A34A',
           superseded: '#9B9B9B',
           reverted: '#DC2626',
-          pending: '#D97706',
+          pending: '#063ff9',
         },
         urgency: {
           critical: '#DC2626',

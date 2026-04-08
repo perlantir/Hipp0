@@ -246,7 +246,7 @@ export function ProjectStats() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-lg font-semibold mb-1">Project Stats</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-1">Project Stats</h1>
             <p className="text-sm text-[var(--text-secondary)]">
               Overview of decisions, agents, and activity
             </p>

@@ -270,7 +270,7 @@
   }
 
   .badge-pending {
-    background: rgba(217, 119, 6, 0.12);
+    background: rgba(6, 63, 249, 0.12);
     color: var(--accent-primary);
   }
 
