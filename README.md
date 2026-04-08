@@ -74,6 +74,7 @@ Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, cont
 | Contradiction F1 | 0.92 | N/A | — |
 | Differentiation | 100% | 0% | +100% |
 | Avg Compression | 4.1x | N/A | — |
+| Compile P95 (500 dec) | 13ms | N/A | — |
 
 Run benchmarks:
 

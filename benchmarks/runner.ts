@@ -5,7 +5,7 @@
  * Measures retrieval accuracy, contradiction detection, role differentiation,
  * and token efficiency against a naive RAG baseline.
  *
- * Usage: npx tsx benchmarks/runner.ts --suite all|retrieval|contradiction|differentiation|efficiency
+ * Usage: npx tsx benchmarks/runner.ts --suite all|retrieval|contradiction|differentiation|efficiency|latency
  */
 
 import * as fs from 'fs';
@@ -59,12 +59,49 @@ interface TokenEfficiencyTestCase {
   decisions: Decision[];
 }
 
+interface LatencyTestCase {
+  id: string;
+  decision_count: number;
+  tag_complexity: number;
+  description_length: string;
+  agent_complexity: string;
+  task: string;
+  agent: {
+    name: string;
+    role: string;
+    weighted_tags?: Array<{ tag: string; weight: number }> | null;
+  };
+  decisions: Decision[];
+}
+
+interface LatencyCaseResult {
+  id: string;
+  decision_count: number;
+  tag_complexity: number;
+  description_length: string;
+  agent_complexity: string;
+  min_ms: number;
+  max_ms: number;
+  p50_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+  per_decision_ms: number;
+}
+
+interface LatencyResults {
+  cases: LatencyCaseResult[];
+  overall_avg_ms: number;
+  overall_p95_ms: number;
+  per_decision_avg_ms: number;
+}
+
 interface BenchmarkResults {
   run_date: string;
   retrieval?: RetrievalResults;
   contradiction?: ContradictionResults;
   differentiation?: DifferentiationResults;
   efficiency?: EfficiencyResults;
+  latency?: LatencyResults;
 }
 
 interface RetrievalResults {
@@ -557,6 +594,98 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   };
 }
 
+// ─── Suite 5: Latency ──
+
+function percentile(sortedArr: number[], p: number): number {
+  const idx = Math.ceil((p / 100) * sortedArr.length) - 1;
+  return sortedArr[Math.max(0, idx)]!;
+}
+
+function runLatencySuite(testCases: LatencyTestCase[]): LatencyResults {
+  console.log('\n📊 Suite 5: Compile Latency');
+  console.log(`   Running ${testCases.length} scenarios (10 iterations each)...`);
+
+  const ITERATIONS = 10;
+  const cases: LatencyCaseResult[] = [];
+  const allP50s: number[] = [];
+
+  for (const tc of testCases) {
+    const timings: number[] = [];
+
+    for (let i = 0; i < ITERATIONS; i++) {
+      const start = performance.now();
+
+      // Run full 5-signal scoring on all decisions (same as retrieval suite)
+      const scored = tc.decisions.map(d => ({
+        id: d.id,
+        score: score5Signal(tc.task, tc.agent.name, tc.agent.role, d),
+      }));
+      scored.sort((a, b) => b.score - a.score);
+
+      // Simulate full compile: take top 15 and condense
+      const topDecisions = scored.slice(0, Math.min(15, scored.length));
+      const condensed = condenseResponse(
+        topDecisions.map(s => tc.decisions.find(d => d.id === s.id)!),
+      );
+      // Force the string to be materialized (prevent dead code elimination)
+      if (condensed.length < 0) console.log(condensed);
+
+      const elapsed = performance.now() - start;
+      timings.push(elapsed);
+    }
+
+    timings.sort((a, b) => a - b);
+
+    const result: LatencyCaseResult = {
+      id: tc.id,
+      decision_count: tc.decision_count,
+      tag_complexity: tc.tag_complexity,
+      description_length: tc.description_length,
+      agent_complexity: tc.agent_complexity,
+      min_ms: Math.round(timings[0]! * 100) / 100,
+      max_ms: Math.round(timings[timings.length - 1]! * 100) / 100,
+      p50_ms: Math.round(percentile(timings, 50) * 100) / 100,
+      p95_ms: Math.round(percentile(timings, 95) * 100) / 100,
+      p99_ms: Math.round(percentile(timings, 99) * 100) / 100,
+      per_decision_ms: Math.round((percentile(timings, 50) / tc.decision_count) * 1000) / 1000,
+    };
+
+    cases.push(result);
+    allP50s.push(result.p50_ms);
+  }
+
+  // Group by decision count for display
+  const grouped = new Map<number, LatencyCaseResult[]>();
+  for (const c of cases) {
+    if (!grouped.has(c.decision_count)) grouped.set(c.decision_count, []);
+    grouped.get(c.decision_count)!.push(c);
+  }
+
+  console.log(`\n   | Decisions | P50 (ms) | P95 (ms) | P99 (ms) | Per-Decision |`);
+  console.log(`   |-----------|----------|----------|----------|--------------|`);
+  for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
+    const avgP50 = (entries.reduce((a, e) => a + e.p50_ms, 0) / entries.length).toFixed(2);
+    const avgP95 = (entries.reduce((a, e) => a + e.p95_ms, 0) / entries.length).toFixed(2);
+    const avgP99 = (entries.reduce((a, e) => a + e.p99_ms, 0) / entries.length).toFixed(2);
+    const avgPer = (entries.reduce((a, e) => a + e.per_decision_ms, 0) / entries.length).toFixed(3);
+    console.log(`   | ${String(count).padEnd(9)} | ${avgP50.padEnd(8)} | ${avgP95.padEnd(8)} | ${avgP99.padEnd(8)} | ${avgPer.padEnd(12)} |`);
+  }
+
+  const overallAvg = allP50s.reduce((a, b) => a + b, 0) / allP50s.length;
+  const sortedP50s = [...allP50s].sort((a, b) => a - b);
+  const overallP95 = percentile(sortedP50s, 95);
+  const perDecAvg = cases.reduce((a, c) => a + c.per_decision_ms, 0) / cases.length;
+
+  console.log(`\n   Overall: Avg ${overallAvg.toFixed(2)}ms | P95 ${overallP95.toFixed(2)}ms | Per-decision avg ${perDecAvg.toFixed(3)}ms`);
+
+  return {
+    cases,
+    overall_avg_ms: Math.round(overallAvg * 100) / 100,
+    overall_p95_ms: Math.round(overallP95 * 100) / 100,
+    per_decision_avg_ms: Math.round(perDecAvg * 1000) / 1000,
+  };
+}
+
 // ─── Results Generation ──
 
 function generateMarkdown(results: BenchmarkResults): string {
@@ -638,6 +767,34 @@ function generateMarkdown(results: BenchmarkResults): string {
     );
   }
 
+  if (results.latency) {
+    const lat = results.latency;
+    const grouped = new Map<number, LatencyCaseResult[]>();
+    for (const c of lat.cases) {
+      if (!grouped.has(c.decision_count)) grouped.set(c.decision_count, []);
+      grouped.get(c.decision_count)!.push(c);
+    }
+
+    lines.push(
+      '## Compile Latency',
+      '',
+      '| Decisions | P50 (ms) | P95 (ms) | P99 (ms) | Per-Decision (ms) |',
+      '|-----------|----------|----------|----------|--------------------|',
+    );
+    for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
+      const avgP50 = (entries.reduce((a, e) => a + e.p50_ms, 0) / entries.length).toFixed(2);
+      const avgP95 = (entries.reduce((a, e) => a + e.p95_ms, 0) / entries.length).toFixed(2);
+      const avgP99 = (entries.reduce((a, e) => a + e.p99_ms, 0) / entries.length).toFixed(2);
+      const avgPer = (entries.reduce((a, e) => a + e.per_decision_ms, 0) / entries.length).toFixed(3);
+      lines.push(`| ${count} | ${avgP50} | ${avgP95} | ${avgP99} | ${avgPer} |`);
+    }
+    lines.push(
+      '',
+      `Overall: Avg ${lat.overall_avg_ms}ms | P95 ${lat.overall_p95_ms}ms | Per-decision ${lat.per_decision_avg_ms}ms`,
+      '',
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -683,6 +840,11 @@ async function main() {
   if (suite === 'all' || suite === 'efficiency') {
     const effData = JSON.parse(fs.readFileSync(path.join(datasetsDir, 'token-efficiency.json'), 'utf-8'));
     results.efficiency = runEfficiencySuite(effData.test_cases);
+  }
+
+  if (suite === 'all' || suite === 'latency') {
+    const latData = JSON.parse(fs.readFileSync(path.join(datasetsDir, 'latency-scenarios.json'), 'utf-8'));
+    results.latency = runLatencySuite(latData.test_cases);
   }
 
   // Write results
