@@ -140,7 +140,17 @@ function formatDate(iso: string) {
 }
 
 function statusBadgeClass(status: DecisionStatus) {
-  return `badge badge-${status}`;
+  const base = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase';
+  switch (status) {
+    case 'active':
+      return `${base} bg-emerald-500/10 text-emerald-600`;
+    case 'superseded':
+      return `${base} bg-slate-500/10 text-slate-500`;
+    case 'reverted':
+      return `${base} bg-red-500/10 text-red-600`;
+    default:
+      return `${base} bg-[#063ff9]/10 text-[#063ff9]`;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -256,7 +266,7 @@ export function Timeline() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin text-primary" />
+          <Loader2 size={24} className="animate-spin text-[#063ff9]" />
           <span className="text-sm text-[var(--text-secondary)]">Loading timeline…</span>
         </div>
       </div>
@@ -266,8 +276,8 @@ export function Timeline() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="card p-6 max-w-md text-center">
-          <p className="text-sm text-status-reverted">{error}</p>
+        <div className="p-6 max-w-md text-center rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
+          <p className="text-sm text-red-600 font-bold">{error}</p>
         </div>
       </div>
     );
@@ -278,17 +288,17 @@ export function Timeline() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-lg font-semibold mb-1">
-            Timeline
+          <h1 className="text-4xl font-bold tracking-tight mb-1">
+            Decision Timeline
             {totalCount > 0 && <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-tertiary)' }}>({totalCount} decisions)</span>}
           </h1>
           <p className="text-sm text-[var(--text-secondary)]">
-            Chronological view of all decisions
+            Audit the trail of autonomous reasoning across your multi-agent architecture.
           </p>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6 rounded-2xl p-6 shadow-sm" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <select
             value={filterAgent}
             onChange={(e) => setFilterAgent(e.target.value)}
@@ -364,7 +374,7 @@ export function Timeline() {
         ) : (
           <div className="relative">
             {/* Vertical line */}
-            <div className="absolute left-5 top-0 bottom-0 w-px bg-[var(--border-light)]" />
+            <div className="absolute left-5 top-0 bottom-0 w-px" style={{ background: 'linear-gradient(to bottom, transparent, #063ff933, transparent)' }} />
 
             <div className="space-y-4">
               {filtered.map((decision) => {
@@ -376,24 +386,25 @@ export function Timeline() {
                   <div key={decision.id} className="relative pl-12">
                     {/* Dot on timeline */}
                     <div
-                      className="absolute left-[14px] top-5 w-3 h-3 rounded-full border-2 border-[var(--border-light)]"
+                      className="absolute left-[14px] top-5 w-3 h-3 rounded-full border-2 border-white/40"
                       style={{
                         backgroundColor:
                           decision?.status === 'active'
-                            ? '#01696F'
+                            ? '#10b981'
                             : decision?.status === 'superseded'
-                              ? '#D19900'
+                              ? '#64748b'
                               : decision?.status === 'reverted'
-                                ? '#A13544'
-                                : '#FFC553',
+                                ? '#ef4444'
+                                : '#063ff9',
                       }}
                     />
 
                     {/* Card */}
                     <div
-                      className={`card p-4 transition-shadow hover:shadow-sm ${
-                        isContradiction ? 'ring-1 ring-status-reverted/40' : ''
+                      className={`p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 shadow-sm ${
+                        isContradiction ? 'ring-1 ring-red-500/40' : ''
                       }`}
+                      style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}
                     >
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <h3 className="text-sm font-semibold leading-snug flex-1">
@@ -404,9 +415,9 @@ export function Timeline() {
                         )}
                         {decision.temporal_scope && decision.temporal_scope !== 'permanent' && (
                           <span
-                            className={`px-1.5 py-0.5 rounded text-2xs font-medium ${
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               decision.temporal_scope === 'sprint'
-                                ? 'bg-blue-500/15 text-blue-400'
+                                ? 'bg-[#063ff9]/10 text-[#063ff9]'
                                 : decision.temporal_scope === 'experiment'
                                   ? 'bg-purple-500/15 text-purple-400'
                                   : 'bg-gray-500/15 text-gray-400'
@@ -421,8 +432,9 @@ export function Timeline() {
                         )}
                         {decision.namespace && (
                           <span style={{
-                            display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                            backgroundColor: '#6366f122', color: '#6366f1', border: '1px solid #6366f144',
+                            display: 'inline-block', padding: '1px 6px', borderRadius: 9999, fontSize: 10, fontWeight: 700,
+                            backgroundColor: '#063ff915', color: '#063ff9', border: '1px solid #063ff930',
+                            textTransform: 'uppercase',
                           }}>
                             ns:{decision.namespace}
                           </span>
@@ -444,7 +456,7 @@ export function Timeline() {
                           </span>
                         )}
                         {decision.superseded_by && (
-                          <span className="text-yellow-400">
+                          <span className="text-slate-500">
                             Superseded
                           </span>
                         )}
@@ -456,7 +468,7 @@ export function Timeline() {
                           {decision.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="flex items-center gap-1 px-2 py-0.5 text-2xs rounded-full bg-primary/10 text-primary"
+                              className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold uppercase rounded-full bg-[#063ff9]/10 text-[#063ff9]"
                             >
                               <Tag size={10} />
                               {tag}
@@ -467,14 +479,14 @@ export function Timeline() {
 
                       {/* Contradiction warning */}
                       {isContradiction && (
-                        <p className="text-xs text-status-reverted mt-1">
+                        <p className="text-xs text-red-600 font-bold mt-1">
                           ⚠ This decision has conflicts
                         </p>
                       )}
 
                       {/* Supersession chain */}
                       {chain.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-[var(--border-light)]">
+                        <div className="mt-3 pt-3 border-t border-white/20">
                           <button
                             onClick={() => toggleChain(decision.id)}
                             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary-hover transition-colors"
@@ -489,7 +501,8 @@ export function Timeline() {
                               {chain.map((prev) => (
                                 <div
                                   key={prev.id}
-                                  className="p-3 rounded-md bg-[var(--bg-secondary)] text-xs"
+                                  className="p-3 rounded-xl text-xs"
+                                  style={{ background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.3)' }}
                                 >
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="font-medium">{prev.title}</span>
@@ -519,23 +532,23 @@ export function Timeline() {
 
         {/* Pagination */}
         {totalCount > PAGE_SIZE && (
-          <div className="flex items-center justify-between mt-6 pt-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
+          <div className="flex items-center justify-between mt-6 pt-4 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
             <button
               onClick={() => { setPage((p) => Math.max(0, p - 1)); }}
               disabled={page === 0}
-              className="px-3 py-1.5 rounded text-sm disabled:opacity-30"
-              style={{ background: 'var(--bg-hover)' }}
+              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-30 hover:-translate-y-0.5 transition-all"
+              style={{ background: 'rgba(255,255,255,0.5)' }}
             >
               Previous
             </button>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
               Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE)}
             </span>
             <button
               onClick={() => { setPage((p) => p + 1); }}
               disabled={(page + 1) * PAGE_SIZE >= totalCount}
-              className="px-3 py-1.5 rounded text-sm disabled:opacity-30"
-              style={{ background: 'var(--bg-hover)' }}
+              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-30 hover:-translate-y-0.5 transition-all"
+              style={{ background: 'rgba(255,255,255,0.5)' }}
             >
               Next
             </button>

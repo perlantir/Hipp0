@@ -83,47 +83,47 @@ export function TokenUsage() {
   const maxCount = Math.max(...last30.map((d) => d.count), ...dailyCompiles.map((d) => d.count), 1);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <h1 className="text-xl font-semibold">Token Usage & Activity</h1>
+    <div className="p-12 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-4xl font-bold tracking-tight">Token Usage & Activity</h1>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard icon={<GitBranch size={18} />} label="Total Decisions" value={stats.total_decisions} />
         <SummaryCard icon={<Activity size={18} />} label="Active" value={stats.active_decisions} color="#01696F" />
-        <SummaryCard icon={<BarChart3 size={18} />} label="Total Compiles" value={totalCompiles} color="#B87333" />
-        <SummaryCard icon={<Activity size={18} />} label="Sessions" value={stats.total_sessions} color="#D19900" />
+        <SummaryCard icon={<BarChart3 size={18} />} label="Total Compiles" value={totalCompiles} color="var(--accent-primary)" />
+        <SummaryCard icon={<Activity size={18} />} label="Sessions" value={stats.total_sessions} color="var(--accent-secondary)" />
       </div>
 
       {/* Daily decisions chart */}
-      <div className="card p-5">
-        <h2 className="text-sm font-medium mb-4">Daily Decisions (Last 30 Days)</h2>
+      <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px' }}>
+        <h2 className="text-2xl font-bold tracking-tight mb-6">Daily Decisions (Last 30 Days)</h2>
         {last30.length === 0 ? (
           <p className="text-sm text-[var(--text-secondary)] py-8 text-center">No activity data yet</p>
         ) : (
-          <BarChart data={last30} maxValue={maxCount} color="#B87333" />
+          <BarChart data={last30} maxValue={maxCount} color="var(--accent-primary)" />
         )}
       </div>
 
       {/* Daily compiles chart */}
       {dailyCompiles.length > 0 && (
-        <div className="card p-5">
-          <h2 className="text-sm font-medium mb-4">Daily Compiles (Last 30 Days)</h2>
-          <BarChart data={dailyCompiles.slice(-30)} maxValue={maxCount} color="#01696F" />
+        <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px' }}>
+          <h2 className="text-2xl font-bold tracking-tight mb-6">Daily Compiles (Last 30 Days)</h2>
+          <BarChart data={dailyCompiles.slice(-30)} maxValue={maxCount} color="var(--accent-secondary)" />
         </div>
       )}
 
       {/* Feedback stats */}
       {stats.feedback && (
-        <div className="card p-5">
-          <h2 className="text-sm font-medium mb-3">Feedback</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px' }}>
+          <h2 className="text-2xl font-bold tracking-tight mb-4">Feedback</h2>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="text-[var(--text-secondary)]">Total Ratings</span>
-              <p className="text-lg font-semibold">{stats.feedback.total_ratings}</p>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Ratings</span>
+              <p className="text-3xl font-bold">{stats.feedback.total_ratings}</p>
             </div>
             <div>
-              <span className="text-[var(--text-secondary)]">Per Compilation</span>
-              <p className="text-lg font-semibold">{stats.feedback.per_compilation}</p>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Per Compilation</span>
+              <p className="text-3xl font-bold">{stats.feedback.per_compilation}</p>
             </div>
           </div>
         </div>
@@ -134,12 +134,12 @@ export function TokenUsage() {
 
 function SummaryCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color?: string }) {
   return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px' }}>
+      <div className="flex items-center gap-2 mb-3">
         <span style={{ color: color || 'var(--text-secondary)' }}>{icon}</span>
-        <span className="text-xs text-[var(--text-secondary)]">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
       </div>
-      <p className="text-2xl font-bold" style={{ color: color || 'var(--text-primary)' }}>{value}</p>
+      <p className="text-3xl font-bold" style={{ color: color || 'var(--text-primary)' }}>{value}</p>
     </div>
   );
 }

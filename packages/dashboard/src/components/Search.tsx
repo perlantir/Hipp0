@@ -72,7 +72,7 @@ export function Search() {
 
   function scoreColor(score: number): string {
     if (score >= 0.7) return 'text-status-active';
-    if (score >= 0.5) return 'text-status-superseded';
+    if (score >= 0.5) return 'text-primary';
     return 'text-[var(--text-secondary)]';
   }
 
@@ -81,7 +81,7 @@ export function Search() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-lg font-semibold mb-1">Search</h1>
+          <h1 className="text-4xl font-bold tracking-tight mb-1">Search</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Semantic search across all decisions
           </p>
@@ -89,10 +89,10 @@ export function Search() {
 
         {/* Search bar */}
         <form onSubmit={handleSearch} className="mb-6">
-          <div className="relative">
+          <div className="relative rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
             <SearchIcon
-              size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] pointer-events-none"
+              size={22}
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-primary pointer-events-none"
             />
             <input
               ref={inputRef}
@@ -100,12 +100,12 @@ export function Search() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search decisions by meaning…"
-              className="input pl-10 pr-4 py-3 text-sm"
+              className="input pl-14 pr-6 py-5 text-lg rounded-2xl bg-transparent border-none focus:ring-0"
             />
             {loading && (
               <Loader2
-                size={16}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-primary"
+                size={18}
+                className="absolute right-5 top-1/2 -translate-y-1/2 animate-spin text-primary"
               />
             )}
           </div>
@@ -113,14 +113,14 @@ export function Search() {
 
         {/* Error */}
         {error && (
-          <div className="card p-4 mb-4 border-status-reverted/40">
+          <div className="rounded-2xl p-4 mb-4 border-status-reverted/40" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
             <p className="text-sm text-status-reverted">{error}</p>
           </div>
         )}
 
         {/* Results */}
         {results.length > 0 && (
-          <div className="space-y-3 animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
             <p className="text-xs text-[var(--text-secondary)] mb-2">
               {results.length} result{results.length !== 1 ? 's' : ''} found
             </p>
@@ -130,11 +130,11 @@ export function Search() {
               const d = result.decision;
 
               return (
-                <div key={d.id} className="card overflow-hidden">
+                <div key={d.id} className="overflow-hidden rounded-2xl hover:-translate-y-1 transition-all duration-300" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
                   {/* Header row */}
                   <button
                     onClick={() => toggleExpand(d.id)}
-                    className="w-full text-left p-4 hover:bg-white/[0.02] transition-colors"
+                    className="w-full text-left p-6 hover:bg-white/10 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <h3 className="text-sm font-semibold leading-snug flex-1">{d.title}</h3>
@@ -161,22 +161,26 @@ export function Search() {
 
                     {/* Meta row */}
                     <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)]">
+                      <span className="text-2xl font-bold text-primary">
+                        {(result.score * 100).toFixed(0)}%
+                      </span>
                       <span className={`font-medium ${scoreColor(result.score)}`}>
-                        {scoreLabel(result.score)} · {(result.score * 100).toFixed(0)}%
+                        {scoreLabel(result.score)}
                       </span>
 
                       {d.tags.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Tag size={10} />
-                          {d.tags.slice(0, 3).join(', ')}
-                          {d.tags.length > 3 && ` +${d.tags.length - 3}`}
+                        <span className="flex items-center gap-1.5">
+                          {d.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="px-3 py-1 rounded-full text-xs border border-white/20 bg-white/40">{tag}</span>
+                          ))}
+                          {d.tags.length > 3 && <span className="text-xs">+{d.tags.length - 3}</span>}
                         </span>
                       )}
 
                       {d.namespace && (
-                        <span style={{
+                        <span className="text-primary" style={{
                           display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                          backgroundColor: '#6366f122', color: '#6366f1', border: '1px solid #6366f144',
+                          backgroundColor: 'rgba(59,130,246,0.13)', border: '1px solid rgba(59,130,246,0.27)',
                         }}>
                           ns:{d.namespace}
                         </span>
@@ -186,7 +190,7 @@ export function Search() {
 
                   {/* Expanded detail */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-2 border-t border-[var(--border-light)] animate-fade-in">
+                    <div className="px-6 pb-6 pt-3 border-t border-white/20 animate-fade-in">
                       <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                         <div>
                           <label className="text-xs text-[var(--text-secondary)] block mb-1">
@@ -229,7 +233,7 @@ export function Search() {
                           {d.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                              className="px-3 py-1 text-xs rounded-full border border-white/20 bg-white/40"
                             >
                               {tag}
                             </span>

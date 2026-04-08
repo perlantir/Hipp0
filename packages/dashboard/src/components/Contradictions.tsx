@@ -209,7 +209,7 @@ export function Contradictions() {
   }) {
     if (!decision) {
       return (
-        <div className="card p-4 flex-1">
+        <div className={`card rounded-2xl p-5 flex-1 ${label === 'Decision A' ? 'border-l-4 border-l-[var(--accent-primary)]' : 'border-l-4 border-l-pink-500'}`}>
           <p className="text-xs text-[var(--text-secondary)]">
             {label} — decision data unavailable
           </p>
@@ -219,8 +219,10 @@ export function Contradictions() {
     return (
       <div
         onClick={onSelect}
-        className={`card p-4 flex-1 transition-all ${
-          onSelect ? 'cursor-pointer hover:shadow-sm' : ''
+        className={`card rounded-2xl p-5 flex-1 transition-all duration-300 ${
+          label === 'Decision A' ? 'border-l-4 border-l-[var(--accent-primary)]' : 'border-l-4 border-l-pink-500'
+        } ${
+          onSelect ? 'cursor-pointer hover:scale-[1.01]' : ''
         } ${selected ? 'ring-2 ring-primary' : ''}`}
       >
         <div className="flex items-center justify-between mb-2">
@@ -277,14 +279,14 @@ export function Contradictions() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-lg font-semibold mb-1">Contradictions</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
+            <h1 className="text-4xl font-bold tracking-tight mb-1">Contradictions</h1>
+            <p className="text-base text-[var(--text-secondary)]">
               Conflicting decisions that need resolution
             </p>
           </div>
           <button
             onClick={() => setShowFlagModal(true)}
-            className="btn-primary text-xs flex items-center gap-1.5"
+            className="btn-primary text-sm rounded-xl px-5 py-2.5 flex items-center gap-2"
           >
             <AlertTriangle size={14} />
             Flag Contradiction
@@ -294,20 +296,20 @@ export function Contradictions() {
         {/* ---- Alert banner: unresolved contradictions exist ------- */}
         {counts.unresolved > 0 && (
           <div
-            className={`flex items-start gap-3 p-4 rounded-lg border mb-6 ${
+            className={`flex items-start gap-3 p-4 rounded-2xl border mb-6 ${
               unresolvedCritical > 0
                 ? 'bg-red-500/8 border-red-500/30'
-                : 'bg-yellow-500/8 border-yellow-500/30'
+                : 'bg-[var(--accent-primary)]/8 border-[var(--accent-primary)]/30'
             }`}
           >
             <ShieldAlert
               size={18}
-              className={`shrink-0 mt-0.5 ${unresolvedCritical > 0 ? 'text-red-400' : 'text-yellow-400'}`}
+              className={`shrink-0 mt-0.5 ${unresolvedCritical > 0 ? 'text-red-400' : 'text-[var(--accent-primary)]'}`}
             />
             <div>
               <p
                 className={`text-sm font-semibold mb-0.5 ${
-                  unresolvedCritical > 0 ? 'text-red-300' : 'text-yellow-300'
+                  unresolvedCritical > 0 ? 'text-red-300' : 'text-[var(--accent-primary)]'
                 }`}
               >
                 {counts.unresolved} unresolved contradiction
@@ -332,19 +334,19 @@ export function Contradictions() {
         )}
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-[var(--border-light)]">
+        <div className="flex items-center gap-2 mb-8">
           {(['unresolved', 'resolved', 'dismissed'] as TabFilter[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-all capitalize ${
                 tab === t
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--accent-primary)]/10 hover:text-[var(--accent-primary)]'
               }`}
             >
               {t}
-              <span className="ml-1.5 text-xs opacity-60">({counts[t]})</span>
+              <span className="ml-1.5 text-xs opacity-75">({counts[t]})</span>
             </button>
           ))}
         </div>
@@ -366,11 +368,11 @@ export function Contradictions() {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {filtered.map((contradiction) => {
               const severity = getSeverity(contradiction.similarity_score);
               return (
-                <div key={contradiction.id} className="card p-5 animate-slide-up">
+                <div key={contradiction.id} className="card rounded-2xl p-6 animate-slide-up hover:scale-[1.01] transition-all duration-300">
                   {/* Severity label */}
                   <div className="flex items-center gap-2 mb-3">
                     <SeverityIcon score={contradiction.similarity_score} />
@@ -474,17 +476,17 @@ export function Contradictions() {
 
                   {/* Actions (unresolved only) */}
                   {contradiction.status === 'unresolved' && (
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-light)]">
                       <button
                         onClick={() => openResolveModal(contradiction)}
-                        className="btn-primary text-xs"
+                        className="rounded-xl px-6 py-3 border-2 border-primary text-primary font-bold hover:bg-primary hover:text-white transition-all duration-300 text-sm inline-flex items-center gap-2"
                       >
                         <Check size={14} />
                         Resolve
                       </button>
                       <button
                         onClick={() => handleDismiss(contradiction.id)}
-                        className="btn-secondary text-xs"
+                        className="rounded-xl px-6 py-3 border-2 border-[var(--border-light)] text-[var(--text-secondary)] font-bold hover:border-red-400 hover:text-red-400 transition-all duration-300 text-sm inline-flex items-center gap-2"
                       >
                         <X size={14} />
                         Dismiss
