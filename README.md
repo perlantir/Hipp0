@@ -15,6 +15,17 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 
 ---
 
+## Key Differentiators
+
+- **Role-differentiated compilation** — different agents get different context for the same task, unlike naive RAG which returns identical results.
+- **5-signal scoring engine** — directAffect, tagMatch, personaMatch, semanticSimilarity, temporal — not just text similarity.
+- **100% agent differentiation** vs 0% for naive RAG (benchmark-proven).
+- **0.92 F1 contradiction detection** — automatically catches conflicting decisions.
+- **Session memory** — Agent B sees Agent A's actual output, not just historical decisions.
+- **Zero-config BYOK** — bring your own Anthropic/OpenAI keys, self-host for free forever.
+
+---
+
 ## Features
 
 ### Decision Graph Engine
@@ -23,11 +34,51 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 - **Tag matcher with stemming** — exact → substring → stemmed fallback for flexible matching
 - **PostgreSQL + pgvector** — embeddings via OpenAI `text-embedding-3-small` for semantic search
 - **Change Propagator + Dependency Cascade** — when a decision changes, affected decisions are flagged and downstream impacts traced
+- **Hierarchy Classifier** — automatic categorization of decisions into domain hierarchies
 
 ### Super Brain Orchestration
 - **Session management** with multi-step workflows and recommended actions
 - **Agent Decision Protocol** — `PROCEED` / `PROCEED_WITH_NOTE` / `SKIP` / `OVERRIDE_TO` / `ASK_FOR_CLARIFICATION` + `action_reason`
 - **2 MCP orchestrator tools** — `hipp0_follow_orchestrator` and `hipp0_override_orchestrator`
+
+### Webhooks
+- **Outbound webhook delivery** for decision lifecycle events (`decision_created`, `decision_superseded`, `decision_reverted`, `contradiction_detected`, `distillery_completed`, `scan_completed`)
+- **Multi-platform formatting** — generic JSON, Slack Block Kit, Discord embeds, Telegram Bot API
+- **HMAC-SHA256 signing** with configurable secrets per webhook
+- **Validation & test pings** — verify connectivity before going live
+
+### Agent Wings
+- **Domain-based agent groupings** with learned cross-wing affinity scores
+- **Affinity learning from feedback** — useful/critical ratings boost wing weights, irrelevant ratings reduce them
+- **Wing-aware context compilation** — own-wing decisions get a configurable boost
+- **Rebalance API** — full recomputation of affinity weights from historical feedback
+
+### Temporal Intelligence
+- **Temporal scopes** — `permanent`, `sprint`, `experiment`, `deprecated` with `valid_from`/`valid_until` bounds
+- **Freshness scoring** — exponential decay with configurable half-lives (30d validated, 7d unvalidated)
+- **Staleness detection** — automatic flags for unvalidated, stale, superseded, and low-confidence decisions
+- **Auto-supersede** — new decisions can automatically supersede old ones with full propagation
+
+### Benchmarks
+- **5 reproducible benchmark suites** — retrieval accuracy, contradiction detection, role differentiation, token efficiency, compile latency
+- **Naive RAG baseline comparison** — side-by-side scoring against a standard RAG approach
+- **Configurable scoring parameters** — tunable weights, synonym expansion, cross-reference boosts
+
+### Time Travel
+- **Historical context reconstruction** — view what any agent's compiled context looked like at any past date
+- **Compile snapshot diffing** — compare two compilations to see added, removed, and re-ranked decisions
+- **Weight snapshots** — reconstruct historical scoring weights alongside decisions
+
+### Review Queue
+- **Pending decision review** — decisions created with `pending` status enter a review queue
+- **Approve/reject workflow** — approval triggers all deferred side-effects (webhooks, contradiction checks, embeddings)
+- **Rejection with reason** — rejected decisions are reverted with an audit trail
+
+### Cascade Alerts
+- **Dependency graph traversal** — BFS through `requires` edges up to 5 levels deep
+- **Urgency-based notifications** — direct impacts are `high` urgency, transitive impacts are `medium`
+- **Governor alerts** — all governor-role agents receive critical-urgency summaries of full cascade chains
+- **Subscription-based propagation** — agents subscribe to tags or specific decisions for targeted notifications
 
 ### Import Wizard
 - **GitHub scanning via Octokit** — real PR extraction (titles, descriptions, labels, reviewers, file paths)
@@ -49,16 +100,102 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 - Deduplication, contradiction detection, and graph integration
 - Session summarization
 
+### Ask Anything
+- **Natural-language Q&A** over your entire decision graph
+- Freeform chat interface powered by the Distillery's `/api/distill/ask` endpoint
+
 ### Governance
 - Weekly digest generation
 - Outcomes tracking with impact analysis
 - Decision evolution proposals
+- **Policy enforcement** — block/warn rules with violation tracking
+
+### Weight Snapshots
+- **Point-in-time capture** of agent scoring weights for audit and time-travel reconstruction
+
+### Relevance Feedback
+- **Per-decision feedback loop** — rate compiled decisions as critical, useful, or irrelevant
+- Feedback drives wing affinity learning and weight tuning
+
+### Export/Import
+- **Bulk decision import** from JSON/CSV with preview and deduplication
+- **Data export** for offline analysis and backup
+
+### Token Usage & Monitoring
+- **Daily compile and decision activity charts** with trend visualization
+- **Monitoring dashboard** with health cards, project stats, and alert feeds
+- **Sentry integration** for error tracking and performance monitoring
+
+### Billing & Pricing
+- **Stripe integration** — checkout, customer portal, webhook-driven subscription management
+- **Three-tier pricing** — Free, Pro, Enterprise with monthly/annual billing
+- **Usage metering** — compiles, asks, and decisions tracked against plan limits
+
+### Keyboard Shortcuts & Command Palette
+- **`Ctrl+K` command palette** for keyboard-driven navigation to any view
+- **Full keyboard shortcut system** with `?` to view all bindings
+
+### Cross-Tenant Patterns
+- **Community Insights** — anonymized cross-tenant pattern suggestions and tag recommendations
 
 ### Integrations
 - **18+ MCP tools** for any MCP-compatible client
-- **Framework adapters** — LangChain, CrewAI, AutoGen, OpenAI Agents SDK
+- **Framework adapters** — LangChain, CrewAI, AutoGen, OpenAI Agents SDK *(Experimental)*
 - **TypeScript SDK** (`@hipp0/sdk`), **Python SDK** (`hipp0-sdk`), **CLI** (`@hipp0/cli`)
 - **BYOK model support** — bring your own API keys for OpenAI, Anthropic, or OpenRouter
+
+---
+
+## Dashboard
+
+Hipp0 ships with a full-featured React dashboard (port 3200) with 31 views:
+
+### Main Views
+| View | Route | Description |
+|------|-------|-------------|
+| Playground | `#playground` | Interactive multi-agent demo with Super Brain step-by-step simulation |
+| Decision Graph | `#graph` | D3 force-directed graph of all decisions, edges, and statuses |
+| Timeline | `#timeline` | Chronological decision list with validation sources and status badges |
+| Contradictions | `#contradictions` | Conflicting decisions with inline resolution actions |
+| Context Compare | `#context` | Side-by-side context package comparison across agents |
+| Search | `#search` | Full-text semantic search across all decisions |
+| Impact Analysis | `#impact` | Dependency chain visualization for change impact assessment |
+| Sessions | `#sessions` | Paginated history of agent sessions with collapsible detail panels |
+| Compile Tester | `#compile-tester` | On-demand compile with scored results, diffs, and time-travel mode |
+| Review Queue | `#review-queue` | Pending decisions inbox with approve/reject/edit actions |
+| Ask Anything | `#ask-anything` | Natural-language chat interface over the decision graph |
+| Evolution | `#evolution` | AI-generated improvement proposals for underperforming decisions |
+| What-If | `#whatif` | Hypothetical decision modification with live score preview |
+| Live Tasks | `#live-tasks` | Real-time active session dashboard with pause/resume controls |
+| Team Score | `#team-score` | Agent relevance leaderboard for a given task |
+| Collab Room | `#collab-room` | Real-time multi-agent collaboration with WebSocket messaging |
+| Wings | `#wings` | Agent wing visualization with cross-wing affinity graph |
+
+### Integration Views
+| View | Route | Description |
+|------|-------|-------------|
+| Import | `#import` | Drag-and-drop bulk import from JSON/CSV |
+| Import Wizard | `#import-wizard` | 5-phase guided import from GitHub or files |
+| Connectors | `#connectors` | External data source management (databases, folders, webhooks, Git) |
+| Webhooks | `#webhooks` | Outbound webhook CRUD with test-send and enable/disable toggles |
+| Time Travel | `#timetravel` | Historical compile browsing with snapshot diffing |
+
+### Monitoring Views
+| View | Route | Description |
+|------|-------|-------------|
+| Token Usage | `#token-usage` | Daily decision and compile activity charts |
+| Alerts | `#notifications` | System notification feed with mark-as-read |
+| Health | `#stats` | Project health overview with monitoring cards and trend charts |
+| Outcomes | `#outcomes` | Task outcome tracking linked to compiled decisions |
+| Weekly Digest | `#digest` | Aggregated weekly health report with severity-based insights |
+| Policies | `#policies` | Governance policy management with violation tracking |
+| Violations | `#violations` | Policy violation log with severity, evidence, and resolution |
+
+### Settings Views
+| View | Route | Description |
+|------|-------|-------------|
+| Pricing | `#pricing` | Subscription plan comparison (Free/Pro/Enterprise) |
+| Billing | `#billing` | Subscription status, usage counters, and invoice history |
 
 ---
 
@@ -84,6 +221,17 @@ npx tsx benchmarks/runner.ts --suite all
 ```
 
 Full methodology and results: [benchmarks/README.md](benchmarks/README.md)
+
+---
+
+## Roadmap
+
+- Calibration sprint (precision tuning to 82% target)
+- Publish `@hipp0/mcp` + `@hipp0/cli` + `@hipp0/sdk` to npm
+- Publish `hipp0-memory` to PyPI
+- Logo and launch video
+- Framework integration testing (LangChain / CrewAI / AutoGen / OpenAI Agents)
+- Latency benchmark suite
 
 ---
 
@@ -132,7 +280,9 @@ Authorization: Bearer <API_KEY>
 
 ## MCP Configuration
 
-Add to your MCP client config (Claude Desktop, Cursor, etc.):
+> **Note:** `@hipp0/mcp` is not yet published to npm. Use the local path for now.
+
+### Future (when published)
 
 ```json
 {
@@ -140,6 +290,24 @@ Add to your MCP client config (Claude Desktop, Cursor, etc.):
     "hipp0": {
       "command": "npx",
       "args": ["-y", "@hipp0/mcp"],
+      "env": {
+        "HIPP0_API_URL": "http://localhost:3100",
+        "HIPP0_API_KEY": "<YOUR_API_KEY>",
+        "HIPP0_PROJECT_ID": "<YOUR_PROJECT_ID>"
+      }
+    }
+  }
+}
+```
+
+### Current (local path)
+
+```json
+{
+  "mcpServers": {
+    "hipp0": {
+      "command": "node",
+      "args": ["./packages/mcp/dist/index.js"],
       "env": {
         "HIPP0_API_URL": "http://localhost:3100",
         "HIPP0_API_KEY": "<YOUR_API_KEY>",
@@ -184,6 +352,13 @@ const context = await client.compile({
 ```
 
 ### Python
+
+> **Note:** `hipp0-sdk` is not yet published to PyPI. Install locally:
+>
+> ```bash
+> cd python-sdk
+> pip install -e .
+> ```
 
 ```python
 from hipp0_sdk import Hipp0Client
@@ -260,16 +435,26 @@ See [`.env.example`](.env.example) for the full reference. Key variables:
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
-- [Quick Start](docs/quickstart.md)
-- [Architecture](docs/architecture.md)
-- [API Reference](docs/api-reference.md)
-- [MCP Setup](docs/mcp-setup.md)
-- [Agent Decision Protocol](docs/agent-protocol.md)
-- [GitHub Integration](docs/github-integration.md)
-- [Self-Hosting](docs/self-hosting.md)
-- [Storage & Database](docs/storage.md)
-- [Framework Guides](docs/framework-guides/) — LangChain, CrewAI, AutoGen, OpenAI Agents
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Initial setup and first steps |
+| [Quick Start](docs/quickstart.md) | Minimal setup to get running |
+| [Architecture](docs/architecture.md) | System design and component overview |
+| [API Reference](docs/api-reference.md) | Complete REST API documentation |
+| [MCP Setup](docs/mcp-setup.md) | MCP client configuration guide |
+| [Agent Decision Protocol](docs/agent-protocol.md) | How agents interpret and act on Brain signals |
+| [GitHub Integration](docs/github-integration.md) | PR scanning, sync, and webhook setup |
+| [Self-Hosting](docs/self-hosting.md) | Production deployment guide |
+| [Storage & Database](docs/storage.md) | PostgreSQL schema and migration info |
+| [Framework Guides](docs/framework-guides/) | LangChain, CrewAI, AutoGen, OpenAI Agents *(Experimental)* |
+| [Webhooks](docs/webhooks.md) | Webhook setup, event types, payload format, and retry behavior |
+| [Agent Wings](docs/agent-wings.md) | Wing groupings, affinity learning, and API endpoints |
+| [Temporal Intelligence](docs/temporal-intelligence.md) | Temporal scopes, staleness detection, and auto-supersede |
+| [Collaboration Rooms](docs/collab-rooms.md) | Room creation, WebSocket events, presence, and @mentions |
+| [Benchmarks](docs/benchmarks.md) | How to run, interpret results, and add custom suites |
+| [Time Travel](docs/time-travel.md) | Historical graph state and compile snapshot diffing |
+| [Review Queue](docs/review-queue.md) | What triggers review, approve/reject/edit flow |
+| [Cascade Alerts](docs/cascade-alerts.md) | Upstream change propagation and notification flow |
 
 ---
 
@@ -284,7 +469,7 @@ See [`.env.example`](.env.example) for the full reference. Key variables:
 
 ## License
 
-MIT
+Apache 2.0
 
 ---
 
