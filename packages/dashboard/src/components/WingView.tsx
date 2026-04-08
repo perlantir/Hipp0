@@ -24,11 +24,30 @@ interface ProjectWing {
   decision_count: number;
   top_domains: string[];
   cross_references: Array<{ agent: string; strength: number }>;
+  agent_affinities?: Array<{ agent: string; affinity: number }>;
 }
 
 interface ProjectWingsResponse {
   project_id: string;
   wings: ProjectWing[];
+}
+
+interface AgentAffinityResponse {
+  agent_id: string;
+  agent_name: string;
+  wing_affinity: {
+    cross_wing_weights: Record<string, number>;
+    last_recalculated: string;
+    feedback_count: number;
+  };
+  wings: Array<{
+    wing: string;
+    affinity_score: number;
+    trend: { positive: number; negative: number; total: number };
+  }>;
+  strongest_wing: string | null;
+  feedback_count: number;
+  last_recalculated: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -40,13 +59,13 @@ const WING_COLORS = [
   '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
 ];
 
-function wingColor(name: string): string {
+export function wingColor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
   return WING_COLORS[Math.abs(hash) % WING_COLORS.length];
 }
 
-function WingBadge({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
+export function WingBadge({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
   const color = wingColor(name);
   const px = size === 'md' ? '8px 14px' : '2px 8px';
   const fs = size === 'md' ? 13 : 11;
@@ -62,19 +81,28 @@ function WingBadge({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Affinity bar                                                        */
+/*  Animated affinity bar                                               */
 /* ------------------------------------------------------------------ */
 
-function AffinityBar({ value, label }: { value: number; label: string }) {
+function AffinityBar({ value, label, showTrend }: { value: number; label: string; showTrend?: { positive: number; negative: number; total: number } }) {
   const pct = Math.round(value * 100);
   const barColor = value >= 0.7 ? '#10b981' : value >= 0.4 ? '#f59e0b' : '#6b7280';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
       <WingBadge name={label} />
-      <div style={{ flex: 1, height: 8, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 4 }}>
-        <div style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor, borderRadius: 4, transition: 'width 0.3s ease' }} />
+      <div style={{ flex: 1, height: 8, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct}%`, height: '100%', backgroundColor: barColor, borderRadius: 4,
+          transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: 'affinityPulse 2s ease-in-out infinite',
+        }} />
       </div>
       <span style={{ fontSize: 12, color: 'var(--text-secondary, #9ca3af)', minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+      {showTrend && showTrend.total > 0 && (
+        <span style={{ fontSize: 10, color: showTrend.positive > showTrend.negative ? '#10b981' : '#ef4444', minWidth: 30 }}>
+          {showTrend.positive > showTrend.negative ? '↑' : '↓'}{showTrend.total}
+        </span>
+      )}
     </div>
   );
 }
@@ -144,6 +172,62 @@ function WingRelationshipGraph({ wings }: { wings: ProjectWing[] }) {
         );
       })}
     </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Agent Affinity Chart (bar chart)                                    */
+/* ------------------------------------------------------------------ */
+
+function AgentAffinityChart({ agentName }: { agentName: string }) {
+  const { get } = useApi();
+  const [data, setData] = useState<AgentAffinityResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    get<AgentAffinityResponse>(`/api/agents/${encodeURIComponent(agentName)}/affinity`)
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [agentName, get]);
+
+  if (loading) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Loading affinity data...</div>;
+  if (!data || data.wings.length === 0) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-tertiary)' }}>No affinity data yet</div>;
+
+  const maxScore = Math.max(...data.wings.map((w) => w.affinity_score), 0.01);
+
+  return (
+    <div style={{ padding: 12 }}>
+      <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 10 }}>WING AFFINITY SCORES</h4>
+      {data.wings.slice(0, 8).map((w) => (
+        <div key={w.wing} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: wingColor(w.wing), minWidth: 60, fontWeight: 600 }}>{w.wing}</span>
+          <div style={{ flex: 1, height: 16, backgroundColor: 'var(--bg-tertiary)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+            <div style={{
+              width: `${(w.affinity_score / maxScore) * 100}%`,
+              height: '100%',
+              backgroundColor: wingColor(w.wing) + '88',
+              borderRadius: 4,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 40, textAlign: 'right' }}>
+            {Math.round(w.affinity_score * 100)}%
+          </span>
+          {w.trend.total > 0 && (
+            <span style={{ fontSize: 10, color: w.trend.positive > w.trend.negative ? '#10b981' : '#ef4444' }}>
+              +{w.trend.positive}/-{w.trend.negative}
+            </span>
+          )}
+        </div>
+      ))}
+      {data.last_recalculated && (
+        <p style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 8 }}>
+          Last recalculated: {new Date(data.last_recalculated).toLocaleString()}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -219,6 +303,24 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
         </div>
       )}
 
+      {/* Cross-wing relationship display */}
+      {stats.cross_wing_connections.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>CROSS-WING RELATIONSHIPS</h4>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {stats.cross_wing_connections.map((conn) => (
+              <span key={conn.wing} style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11,
+                backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                border: `1px solid ${wingColor(conn.wing)}44`,
+              }}>
+                {stats.agent_name} ↔ {conn.wing}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, margin: 0 }}>CROSS-WING AFFINITY</h4>
@@ -244,6 +346,11 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
         )}
       </div>
 
+      {/* Agent Affinity Chart */}
+      <div style={{ marginTop: 16, backgroundColor: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-primary, #1f2937)' }}>
+        <AgentAffinityChart agentName={stats.agent_name} />
+      </div>
+
       {stats.wing_affinity.last_recalculated && (
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
           Last recalculated: {new Date(stats.wing_affinity.last_recalculated).toLocaleString()}
@@ -258,13 +365,14 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
 /* ------------------------------------------------------------------ */
 
 export function WingView() {
-  const { get } = useApi();
+  const { get, post } = useApi();
   const { projectId } = useProject();
   const [wings, setWings] = useState<ProjectWing[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
 
-  useEffect(() => {
+  const loadWings = useCallback(() => {
     setLoading(true);
     get<ProjectWingsResponse>(`/api/projects/${projectId}/wings`)
       .then((data) => setWings(data.wings ?? []))
@@ -272,13 +380,37 @@ export function WingView() {
       .finally(() => setLoading(false));
   }, [projectId, get]);
 
+  useEffect(() => { loadWings(); }, [loadWings]);
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      await post(`/api/projects/${projectId}/wings/recalculate`, {});
+      loadWings();
+    } catch { /* skip */ }
+    setRecalculating(false);
+  };
+
   if (loading) {
     return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Loading wing data...</div>;
   }
 
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
-      <h2 style={{ color: 'var(--text-primary, #e5e7eb)', marginBottom: 4, fontSize: 20 }}>Agent Wings</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <h2 style={{ color: 'var(--text-primary, #e5e7eb)', margin: 0, fontSize: 20 }}>Agent Wings</h2>
+        <button
+          onClick={handleRecalculate}
+          disabled={recalculating}
+          style={{
+            padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+            backgroundColor: '#3b82f6', color: '#fff', fontWeight: 600,
+            border: 'none', opacity: recalculating ? 0.6 : 1,
+          }}
+        >
+          {recalculating ? 'Recalculating...' : 'Recalculate Wings'}
+        </button>
+      </div>
       <p style={{ color: 'var(--text-secondary, #9ca3af)', fontSize: 13, marginBottom: 20 }}>
         Each agent operates in its own wing — a dedicated context space. Cross-wing affinity is learned from feedback.
       </p>
@@ -317,6 +449,12 @@ export function WingView() {
                     {w.top_domains.map((d) => (
                       <span key={d} style={{ padding: '1px 6px', borderRadius: 3, backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 10 }}>{d}</span>
                     ))}
+                  </div>
+                )}
+                {/* Agent affinities for this wing */}
+                {w.agent_affinities && w.agent_affinities.length > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+                    Top affinity: {w.agent_affinities.slice(0, 2).map((a) => `${a.agent} (${Math.round(a.affinity * 100)}%)`).join(', ')}
                   </div>
                 )}
                 {w.cross_references.length > 0 && (

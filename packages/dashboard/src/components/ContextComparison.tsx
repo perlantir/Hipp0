@@ -3,6 +3,7 @@ import { Columns2, Loader2, ArrowRight, Eye, EyeOff, Search } from 'lucide-react
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { ContextResult, Decision } from '../types';
+import { WingBadge, wingColor } from './WingView';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -26,6 +27,109 @@ function ScoreBar({ score }: { score: number }) {
       <span className={`text-xs font-medium tabular-nums ${scoreColor(score)}`}>
         {(score * 100).toFixed(0)}%
       </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/*  Wing Analysis after comparison                                     */
+/* ------------------------------------------------------------------ */
+
+function WingAnalysis({
+  agentA,
+  agentB,
+  decisionsA,
+  decisionsB,
+  wingSrcA,
+  wingSrcB,
+}: {
+  agentA: string;
+  agentB: string;
+  decisionsA: Array<{ wing?: string | null; [key: string]: unknown }>;
+  decisionsB: Array<{ wing?: string | null; [key: string]: unknown }>;
+  wingSrcA?: Record<string, number>;
+  wingSrcB?: Record<string, number>;
+}) {
+  // Compute wing distribution from decisions
+  function computeWingDist(decisions: Array<{ wing?: string | null; [key: string]: unknown }>): Record<string, number> {
+    const dist: Record<string, number> = {};
+    for (const d of decisions) {
+      const wing = (d.wing as string) ?? 'unknown';
+      dist[wing] = (dist[wing] ?? 0) + 1;
+    }
+    return dist;
+  }
+
+  const distA = wingSrcA ?? computeWingDist(decisionsA);
+  const distB = wingSrcB ?? computeWingDist(decisionsB);
+  const totalA = Object.values(distA).reduce((s, v) => s + v, 0) || 1;
+  const totalB = Object.values(distB).reduce((s, v) => s + v, 0) || 1;
+  const allWings = Array.from(new Set([...Object.keys(distA), ...Object.keys(distB)]));
+
+  if (allWings.length === 0) return null;
+
+  return (
+    <div className="card p-5 mt-6">
+      <h3 className="text-sm font-semibold mb-3">Wing Analysis</h3>
+      <p className="text-xs text-[var(--text-secondary)] mb-4">
+        Which wings each agent pulled decisions from
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Agent A */}
+        <div>
+          <h4 className="text-xs font-medium mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            {agentA}
+          </h4>
+          <div className="space-y-1">
+            {allWings.map((w) => {
+              const count = distA[w] ?? 0;
+              const pct = Math.round((count / totalA) * 100);
+              return (
+                <div key={w} className="flex items-center gap-2">
+                  <WingBadge name={w} />
+                  <div className="flex-1 h-4 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                    <div
+                      className="h-full rounded"
+                      style={{ width: `${pct}%`, backgroundColor: wingColor(w) + '88', transition: 'width 0.4s ease' }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] min-w-[36px] text-right">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Agent B */}
+        <div>
+          <h4 className="text-xs font-medium mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-status-superseded" />
+            {agentB}
+          </h4>
+          <div className="space-y-1">
+            {allWings.map((w) => {
+              const count = distB[w] ?? 0;
+              const pct = Math.round((count / totalB) * 100);
+              return (
+                <div key={w} className="flex items-center gap-2">
+                  <WingBadge name={w} />
+                  <div className="flex-1 h-4 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                    <div
+                      className="h-full rounded"
+                      style={{ width: `${pct}%`, backgroundColor: wingColor(w) + '88', transition: 'width 0.4s ease' }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] min-w-[36px] text-right">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -288,6 +392,16 @@ export function ContextComparison() {
                 </div>
               </div>
             </div>
+
+            {/* Wing Analysis */}
+            <WingAnalysis
+              agentA={agentA}
+              agentB={agentB}
+              decisionsA={resultA?.decisions ?? []}
+              decisionsB={resultB?.decisions ?? []}
+              wingSrcA={resultA?.wing_sources}
+              wingSrcB={resultB?.wing_sources}
+            />
           </div>
         )}
 

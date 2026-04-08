@@ -12,6 +12,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { Decision, DecisionStatus } from '../types';
+import { WingBadge } from './WingView';
 
 /* ------------------------------------------------------------------ */
 /*  Validation sub-component                                           */
@@ -415,6 +416,9 @@ export function Timeline() {
                           </span>
                         )}
                         <span className={statusBadgeClass(decision.status)}>{decision.status}</span>
+                        {(decision.wing ?? decision.made_by) && (
+                          <WingBadge name={decision.wing ?? decision.made_by} />
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] mb-2">

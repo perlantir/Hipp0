@@ -23,6 +23,7 @@ import { broadcast } from '../websocket.js';
 import { invalidateDecisionCaches } from '../cache/redis.js';
 import { notifySupersededDecision } from '../connectors/github.js';
 import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
+import { classifyDecisionWing, maybeRecalculateWings } from '@hipp0/core';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -158,6 +159,33 @@ export function registerDecisionRoutes(app: Hono): void {
 
       const decision = parseDecision(result.rows[0] as Record<string, unknown>);
 
+      // Auto-classify against wing profiles (5-signal scoring)
+      const wingClassification = classifyDecisionWing(
+        title, description, tags, made_by, classification.domain,
+      );
+
+      // Store classification metadata and assign wing
+      if (wingClassification.best_wing || wingClassification.classification_confidence > 0) {
+        const meta = {
+          ...(decision.metadata ?? {}),
+          auto_domain: wingClassification.auto_domain,
+          auto_category: wingClassification.auto_category,
+          classification_confidence: wingClassification.classification_confidence,
+          wing_scores: wingClassification.wing_scores,
+        };
+        const wingVal = wingClassification.best_wing ?? decision.made_by;
+        // Compute priority_level based on confidence + dependency count
+        const depCount = Array.isArray(body.depends_on) ? body.depends_on.length : 0;
+        const autoPriority = wingClassification.classification_confidence > 0.6 && depCount > 2 ? 2 : wingClassification.classification_confidence > 0.4 ? 1 : 0;
+        await db.query(
+          'UPDATE decisions SET metadata = ?, wing = ?, priority_level = ? WHERE id = ?',
+          [JSON.stringify(meta), wingVal, autoPriority, decision.id],
+        ).catch(() => {});
+        (decision as unknown as Record<string, unknown>).wing = wingVal;
+        (decision as unknown as Record<string, unknown>).metadata = meta;
+        (decision as unknown as Record<string, unknown>).priority_level = autoPriority;
+      }
+
       logAudit('decision_created', projectId, {
         decision_id: decision.id,
         title: decision.title,
@@ -182,6 +210,9 @@ export function registerDecisionRoutes(app: Hono): void {
       checkForContradictions(decision).catch((err) =>
         console.error('[hipp0] Contradiction check failed:', (err as Error).message),
       );
+
+      // Wing recalculation trigger: every 50 decisions
+      maybeRecalculateWings(projectId).catch(() => {});
 
       // Create "requires" edges from depends_on
       if (Array.isArray(body.depends_on)) {

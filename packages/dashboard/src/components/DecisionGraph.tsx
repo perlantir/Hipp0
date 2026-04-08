@@ -5,6 +5,7 @@ import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { Decision, DecisionStatus, GraphNode, GraphEdge } from '../types';
 import { LinkedPRs } from './LinkedPRs';
+import { wingColor } from './WingView';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -56,6 +57,8 @@ export function DecisionGraph() {
   const [filterAgent, setFilterAgent] = useState<string>('');
   const [filterDomain, setFilterDomain] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterWing, setFilterWing] = useState<string>('');
+  const [colorByWing, setColorByWing] = useState(false);
 
   /* ---- Fetch data ------------------------------------------------ */
   useEffect(() => {
@@ -87,6 +90,7 @@ export function DecisionGraph() {
   const allAgents = Array.from(new Set(decisions.map((d) => d.made_by).filter(Boolean)));
   const allDomains = Array.from(new Set(decisions.map((d) => d.domain).filter(Boolean))) as string[];
   const allCategories = Array.from(new Set(decisions.map((d) => d.category).filter(Boolean))) as string[];
+  const allWings = Array.from(new Set(decisions.map((d) => d.wing ?? d.made_by).filter(Boolean))) as string[];
 
   /* ---- Filter decisions ------------------------------------------ */
   const filtered = decisions.filter((d) => {
@@ -95,6 +99,7 @@ export function DecisionGraph() {
     if (filterAgent && d.made_by !== filterAgent) return false;
     if (filterDomain && d.domain !== filterDomain) return false;
     if (filterCategory && d.category !== filterCategory) return false;
+    if (filterWing && (d.wing ?? d.made_by) !== filterWing) return false;
     if (searchText) {
       const q = searchText.toLowerCase();
       const matchTitle = d.title.toLowerCase().includes(q);
@@ -116,6 +121,8 @@ export function DecisionGraph() {
         status: d.status,
         tags: d.tags,
         made_by: d.made_by,
+        wing: d.wing,
+        domain: d.domain,
       });
     });
 
@@ -263,20 +270,22 @@ export function DecisionGraph() {
           }),
       );
 
-    /* Node circles */
+    /* Node circles — color by wing or status */
+    const nodeColor = (d: GraphNode) => colorByWing ? wingColor(d.wing ?? d.made_by) : STATUS_COLORS[d.status];
+
     node
       .append('circle')
       .attr('r', NODE_RADIUS)
-      .attr('fill', (d) => STATUS_COLORS[d.status])
+      .attr('fill', (d) => nodeColor(d))
       .attr('fill-opacity', 0.15)
-      .attr('stroke', (d) => STATUS_COLORS[d.status])
+      .attr('stroke', (d) => nodeColor(d))
       .attr('stroke-width', 2);
 
     /* Inner dot */
     node
       .append('circle')
       .attr('r', 5)
-      .attr('fill', (d) => STATUS_COLORS[d.status]);
+      .attr('fill', (d) => nodeColor(d));
 
     /* Labels */
     node
@@ -449,6 +458,17 @@ export function DecisionGraph() {
             </select>
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
           </div>
+          <div className="relative">
+            <select
+              value={filterWing}
+              onChange={(e) => setFilterWing(e.target.value)}
+              className="input text-xs appearance-none pr-7 py-1.5"
+            >
+              <option value="">All wings</option>
+              {allWings.map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn-secondary text-xs gap-1.5"
@@ -504,7 +524,7 @@ export function DecisionGraph() {
             </div>
 
             {/* Tag filter */}
-            <div>
+            <div className="mb-3">
               <label className="text-xs text-[var(--text-secondary)] mb-1.5 block">
                 Tag
               </label>
@@ -521,17 +541,56 @@ export function DecisionGraph() {
                 ))}
               </select>
             </div>
+
+            {/* Wing filter */}
+            <div className="mb-3">
+              <label className="text-xs text-[var(--text-secondary)] mb-1.5 block">
+                Wing
+              </label>
+              <select
+                value={filterWing}
+                onChange={(e) => setFilterWing(e.target.value)}
+                className="input text-xs"
+              >
+                <option value="">All wings</option>
+                {allWings.map((w) => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Color by wing toggle */}
+            <div>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colorByWing}
+                  onChange={(e) => setColorByWing(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-[var(--text-secondary)]">Color by wing</span>
+              </label>
+            </div>
           </div>
         )}
 
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 z-10 flex items-center gap-4 text-xs text-[var(--text-secondary)]">
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <div key={status} className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="capitalize">{status}</span>
-            </div>
-          ))}
+        {/* Legend — dynamic based on color mode */}
+        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+          {colorByWing ? (
+            allWings.slice(0, 8).map((w) => (
+              <div key={w} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: wingColor(w) }} />
+                <span>{w}</span>
+              </div>
+            ))
+          ) : (
+            Object.entries(STATUS_COLORS).map(([status, color]) => (
+              <div key={status} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="capitalize">{status}</span>
+              </div>
+            ))
+          )}
         </div>
 
         {/* SVG */}

@@ -139,4 +139,11 @@ export {
   processWingOutcome,
   rebalanceWingAffinity,
   computeWingSources,
+  classifyDecisionWing,
+  maybeRecalculateWings,
+  recalculateProjectWings,
+  getAgentWingAffinityScore,
+  resetRecalcCounter,
+  getRecalcCounter,
 } from './wings/affinity.js';
+export type { WingClassification } from './wings/affinity.js';

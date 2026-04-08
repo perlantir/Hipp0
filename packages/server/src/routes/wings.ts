@@ -4,7 +4,12 @@
 
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
-import { rebalanceWingAffinity } from '@hipp0/core';
+import {
+  rebalanceWingAffinity,
+  recalculateProjectWings,
+  classifyDecisionWing,
+  getWingAffinity,
+} from '@hipp0/core';
 import { requireUUID, requireString, logAudit } from './validation.js';
 
 export function registerWingRoutes(app: Hono): void {
@@ -81,7 +86,7 @@ export function registerWingRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/projects/:id/wings — All wings in a project ────────────
+  // ── GET /api/projects/:id/wings — All wings in a project (enhanced with affinity per agent) ──
   app.get('/api/projects/:id/wings', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'project_id');
@@ -93,6 +98,26 @@ export function registerWingRoutes(app: Hono): void {
        GROUP BY COALESCE(wing, made_by) ORDER BY decision_count DESC`,
       [projectId],
     );
+
+    // Get all agents for affinity data
+    const agentResult = await db.query<Record<string, unknown>>(
+      `SELECT id, name, wing_affinity FROM agents WHERE project_id = ?`,
+      [projectId],
+    );
+    const agentAffinities: Record<string, { name: string; affinity: Record<string, number> }> = {};
+    for (const row of agentResult.rows) {
+      let parsed = { cross_wing_weights: {} as Record<string, number> };
+      const raw = row.wing_affinity;
+      if (typeof raw === 'string') {
+        try { parsed = JSON.parse(raw); } catch { /* skip */ }
+      } else if (raw && typeof raw === 'object') {
+        parsed = raw as typeof parsed;
+      }
+      agentAffinities[row.name as string] = {
+        name: row.name as string,
+        affinity: parsed.cross_wing_weights ?? {},
+      };
+    }
 
     const wings: Array<Record<string, unknown>> = [];
     for (const row of wingResult.rows) {
@@ -120,6 +145,12 @@ export function registerWingRoutes(app: Hono): void {
         [projectId, wingName],
       );
 
+      // Per-agent affinity for this wing
+      const agentAffinityList = Object.values(agentAffinities)
+        .filter((a) => (a.affinity[wingName] ?? 0) > 0)
+        .map((a) => ({ agent: a.name, affinity: a.affinity[wingName] }))
+        .sort((a, b) => b.affinity - a.affinity);
+
       wings.push({
         wing: wingName,
         decision_count: decisionCount,
@@ -128,10 +159,157 @@ export function registerWingRoutes(app: Hono): void {
           agent: r.agent_name as string,
           strength: Math.min(1.0, (parseInt(r.ref_count as string ?? '0', 10) * 0.1)),
         })),
+        agent_affinities: agentAffinityList,
       });
     }
 
     return c.json({ project_id: projectId, wings });
+  });
+
+  // ── GET /api/agents/:id/affinity — Agent's wing affinity scores and learning history ──
+  app.get('/api/agents/:id/affinity', async (c) => {
+    const db = getDb();
+    const agentId = c.req.param('id');
+
+    // Try UUID first, then name
+    let agentQuery: string;
+    let queryParam: string;
+    if (agentId.match(/^[0-9a-f]{8}-/i)) {
+      agentQuery = 'SELECT id, name, project_id, wing_affinity FROM agents WHERE id = ? LIMIT 1';
+      queryParam = agentId;
+    } else {
+      agentQuery = 'SELECT id, name, project_id, wing_affinity FROM agents WHERE name = ? LIMIT 1';
+      queryParam = agentId;
+    }
+
+    const agentResult = await db.query<Record<string, unknown>>(agentQuery, [queryParam]);
+    if (agentResult.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: `Agent "${agentId}" not found` } }, 404);
+    }
+
+    const agent = agentResult.rows[0];
+    let wingAffinity = { cross_wing_weights: {} as Record<string, number>, last_recalculated: '', feedback_count: 0 };
+    const raw = agent.wing_affinity;
+    if (typeof raw === 'string') {
+      try { wingAffinity = JSON.parse(raw); } catch { /* skip */ }
+    } else if (raw && typeof raw === 'object') {
+      wingAffinity = raw as typeof wingAffinity;
+    }
+
+    // Get recent feedback for learning history
+    const feedbackResult = await db.query<Record<string, unknown>>(
+      `SELECT rf.rating, rf.was_useful, rf.created_at, COALESCE(d.wing, d.made_by) as wing
+       FROM relevance_feedback rf
+       JOIN decisions d ON d.id = rf.decision_id
+       WHERE rf.agent_id = ?
+       ORDER BY rf.created_at DESC LIMIT 50`,
+      [agent.id as string],
+    );
+
+    // Compute learning trend: group by wing, compute net direction
+    const wingTrends: Record<string, { positive: number; negative: number; total: number }> = {};
+    for (const row of feedbackResult.rows) {
+      const wing = row.wing as string;
+      if (!wing) continue;
+      if (!wingTrends[wing]) wingTrends[wing] = { positive: 0, negative: 0, total: 0 };
+      wingTrends[wing].total++;
+      if (row.was_useful || row.rating === 'useful' || row.rating === 'critical') {
+        wingTrends[wing].positive++;
+      } else {
+        wingTrends[wing].negative++;
+      }
+    }
+
+    // Sort wings by affinity score descending
+    const sortedWings = Object.entries(wingAffinity.cross_wing_weights)
+      .sort(([, a], [, b]) => b - a)
+      .map(([wing, score]) => ({
+        wing,
+        affinity_score: score,
+        trend: wingTrends[wing] ?? { positive: 0, negative: 0, total: 0 },
+      }));
+
+    return c.json({
+      agent_id: agent.id,
+      agent_name: agent.name,
+      wing_affinity: wingAffinity,
+      wings: sortedWings,
+      strongest_wing: sortedWings.length > 0 ? sortedWings[0].wing : null,
+      feedback_count: wingAffinity.feedback_count,
+      last_recalculated: wingAffinity.last_recalculated,
+    });
+  });
+
+  // ── POST /api/projects/:id/wings/recalculate — Manual trigger ──────
+  app.post('/api/projects/:id/wings/recalculate', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'project_id');
+
+    const result = await recalculateProjectWings(projectId);
+
+    logAudit('wings_recalculated', projectId, {
+      agents_updated: result.agents_updated,
+      merge_suggestions: result.merge_suggestions.length,
+    });
+
+    return c.json({
+      project_id: projectId,
+      agents_updated: result.agents_updated,
+      merge_suggestions: result.merge_suggestions,
+      recalculated_at: new Date().toISOString(),
+    });
+  });
+
+  // ── GET /api/decisions/:id/classification — Auto-classification details ──
+  app.get('/api/decisions/:id/classification', async (c) => {
+    const db = getDb();
+    const decisionId = requireUUID(c.req.param('id'), 'decision_id');
+
+    const result = await db.query<Record<string, unknown>>(
+      'SELECT id, title, description, tags, domain, category, wing, made_by, priority_level, metadata FROM decisions WHERE id = ?',
+      [decisionId],
+    );
+    if (result.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: `Decision not found` } }, 404);
+    }
+
+    const row = result.rows[0];
+    let tags: string[] = [];
+    const rawTags = row.tags;
+    if (typeof rawTags === 'string') {
+      try { tags = JSON.parse(rawTags); } catch { /* skip */ }
+    } else if (Array.isArray(rawTags)) {
+      tags = rawTags as string[];
+    }
+
+    let metadata: Record<string, unknown> = {};
+    const rawMeta = row.metadata;
+    if (typeof rawMeta === 'string') {
+      try { metadata = JSON.parse(rawMeta); } catch { /* skip */ }
+    } else if (rawMeta && typeof rawMeta === 'object') {
+      metadata = rawMeta as Record<string, unknown>;
+    }
+
+    // Re-classify to get live scores
+    const classification = classifyDecisionWing(
+      row.title as string,
+      row.description as string,
+      tags,
+      row.made_by as string,
+      row.domain as string | null,
+    );
+
+    return c.json({
+      decision_id: decisionId,
+      domain: row.domain,
+      category: row.category,
+      wing: row.wing,
+      priority_level: row.priority_level,
+      auto_domain: metadata.auto_domain ?? classification.auto_domain,
+      auto_category: metadata.auto_category ?? classification.auto_category,
+      classification_confidence: metadata.classification_confidence ?? classification.classification_confidence,
+      best_wing: classification.best_wing,
+      wing_scores: classification.wing_scores,
+    });
   });
 
   // ── POST /api/agents/:name/wing/rebalance — Recalculate affinity ────
@@ -154,12 +332,12 @@ export function registerWingRoutes(app: Hono): void {
       return c.json({ error: { code: 'NOT_FOUND', message: `Agent "${agentName}" not found` } }, 404);
     }
 
-    const agentId = agentResult.rows[0].id as string;
-    const affinity = await rebalanceWingAffinity(agentId);
+    const agentIdVal = agentResult.rows[0].id as string;
+    const affinity = await rebalanceWingAffinity(agentIdVal);
 
     logAudit('wing_rebalanced', agentResult.rows[0].project_id as string, {
       agent_name: agentName,
-      agent_id: agentId,
+      agent_id: agentIdVal,
       wings_count: Object.keys(affinity.cross_wing_weights).length,
       feedback_count: affinity.feedback_count,
     });

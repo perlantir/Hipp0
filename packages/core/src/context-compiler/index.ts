@@ -300,13 +300,14 @@ export function scoreDecision(
     }
   }
 
-  // ── Signal C: Persona Match (primaryTags overlap - excludeTags penalty) ─
+  // ── Signal C: Persona Match (primaryTags overlap - excludeTags penalty + wing affinity) ─
   const persona = _getPersonaSafe(agent.name);
   if (!persona) {
     console.warn(`[hipp0/scoring] No persona found for agent: "${agent.name}" — persona match signal will be 0`);
   }
   let personaMatchScore = 0;
   let excludePenalty = 0;
+  let wingAffinityBoost = 0;
   if (persona && decisionTags.length > 0) {
     // Positive: overlap with primaryTags
     const primaryOverlap = persona.primaryTags.filter((t) => decisionTags.includes(t)).length;
@@ -316,6 +317,22 @@ export function scoreDecision(
     // Negative: excludeTags penalty (-0.10 per match, capped at -0.20)
     const excludeHits = persona.excludeTags.filter((t) => decisionTags.includes(t)).length;
     excludePenalty = Math.min(excludeHits * 0.10, 0.20);
+  }
+
+  // Wing affinity sub-signal within personaMatch
+  // If agent has learned affinity for the decision's wing, boost/penalize
+  const decisionWing = decision.wing ?? decision.made_by;
+  if (decisionWing && agent.wing_affinity) {
+    const affinityScore = agent.wing_affinity.cross_wing_weights[decisionWing] ?? 0.5;
+    if (affinityScore >= 0.3) {
+      // Boost: affinity * 0.125 (max +0.125 at affinity=1.0)
+      wingAffinityBoost = affinityScore * 0.125;
+    } else {
+      // Penalty: mild -0.05 when affinity is below 0.3
+      wingAffinityBoost = -0.05;
+    }
+    personaMatchScore += wingAffinityBoost;
+    personaMatchScore = Math.max(0, personaMatchScore);
   }
 
   // ── Signal D: Semantic Similarity ─────────────────────────────────
@@ -446,6 +463,7 @@ export function scoreDecision(
     freshness_multiplier: freshnessMultiplier,
     exclude_penalty: excludePenalty,
     domain_boost: domainBoost,
+    wing_affinity_boost: wingAffinityBoost,
     explanation,
   } as ScoringBreakdown;
 

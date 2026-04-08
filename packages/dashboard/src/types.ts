@@ -26,6 +26,7 @@ export interface Decision {
   domain?: string | null;
   category?: string | null;
   priority_level?: number;
+  wing?: string | null;
   valid_from?: string | null;
   valid_until?: string | null;
   temporal_scope?: 'permanent' | 'sprint' | 'experiment' | 'deprecated';
@@ -84,8 +85,10 @@ export interface ContextResult {
     id: string;
     title: string;
     combined_score: number;
+    wing?: string | null;
     [key: string]: unknown;
   }>;
+  wing_sources?: Record<string, number>;
 }
 
 export interface ImpactResult {
@@ -108,6 +111,8 @@ export interface GraphNode {
   status: DecisionStatus;
   tags: string[];
   made_by: string;
+  wing?: string | null;
+  domain?: string | null;
   x?: number;
   y?: number;
   fx?: number | null;
