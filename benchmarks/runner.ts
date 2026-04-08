@@ -35,6 +35,12 @@ interface ScoringParams {
     confidence: number;
     description_overlap: number;
   };
+  semantic_adaptive_threshold: number;
+  semantic_boosted_weight: number;
+  semantic_rescue_desc_threshold: number;
+  semantic_rescue_floor: number;
+  cross_decision_tag_threshold: number;
+  cross_decision_boost: number;
 }
 
 const SYNONYMS_PATH = path.join(__dirname, 'config', 'synonyms.json');
@@ -302,24 +308,35 @@ function score5Signal(
     decision.confidence === 'medium' ? 0.7 : 0.4;
 
   // Signal 5: Content keyword overlap with synonym expansion (0-1)
-  // Use original taskWords.size as denominator (not expanded) to avoid dilution
-  const contentWords = new Set(
+  // Apply synonym map to BOTH task and decision description words (Change 3)
+  const rawContentWords = new Set(
     `${decision.title} ${decision.description}`.toLowerCase()
       .replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 1)
   );
+  const expandedContentWords = expandWithSynonyms(rawContentWords);
   let contentHits = 0;
   for (const tw of expandedTaskWords) {
-    if (contentWords.has(tw)) contentHits++;
+    if (rawContentWords.has(tw)) contentHits++;
   }
   const descScore = Math.min(contentHits / Math.max(taskWords.size, 1), 1.0);
 
-  // Composite: weighted combination (weights from config)
+  // Adaptive semantic weight (Change 1): boost description_overlap weight when keyword signals are weak
+  const keywordSignal = tagScore * w.tag_overlap + descScore * w.description_overlap;
+  let effectiveTagWeight = w.tag_overlap;
+  let effectiveDescWeight = w.description_overlap;
+  if (keywordSignal < scoringParams.semantic_adaptive_threshold) {
+    const boost = scoringParams.semantic_boosted_weight - w.description_overlap;
+    effectiveDescWeight = scoringParams.semantic_boosted_weight;
+    effectiveTagWeight = Math.max(w.tag_overlap - boost, 0);
+  }
+
+  // Composite: weighted combination (weights from config, with adaptive adjustment)
   const composite = (
-    tagScore * w.tag_overlap +
+    tagScore * effectiveTagWeight +
     roleMatch * w.role_match +
     domainMatch * w.domain_relevance +
     confWeight * w.confidence +
-    descScore * w.description_overlap
+    descScore * effectiveDescWeight
   );
 
   // Direct domain name match: if the task literally mentions the decision's domain name
@@ -341,6 +358,10 @@ function score5Signal(
   let roleSemantic = 0;
   for (const tag of decision.tags) {
     if (expandedRoleWords.has(tag.toLowerCase())) roleSemantic += 0.02;
+  }
+  // Also match role description words against decision content (Change 3 enhancement)
+  for (const rw of expandedRoleWords) {
+    if (rawContentWords.has(rw)) roleSemantic += 0.01;
   }
   roleSemantic = Math.min(roleSemantic, scoringParams.role_semantic_cap);
 
@@ -380,13 +401,67 @@ function hipp0Retrieve(
   topK: number,
 ): Array<{ id: string; score: number }> {
   const candidateMap = new Map(candidates.map(c => [c.id, c]));
+
+  // Pre-compute expanded task words for description overlap check (used by rescue path)
+  const taskLower = task.toLowerCase();
+  const taskTokens = taskLower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 1);
+  const taskWords = new Set(taskTokens);
+  const expandedTaskWords = expandWithSynonyms(taskWords);
+
   const scored = candidates.map(d => ({
     id: d.id,
     score: score5Signal(task, agentName, agentRole, d, candidateMap),
   }));
-  // Apply minimum score threshold
+
+  // Semantic rescue path (Change 2): rescue low-score decisions with high description overlap
+  const rescuedIds = new Set<string>();
+  for (const s of scored) {
+    if (s.score < scoringParams.minimum_score_threshold) {
+      const decision = candidateMap.get(s.id)!;
+      const contentWords = new Set(
+        `${decision.title} ${decision.description}`.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 1)
+      );
+      const expandedContentWords = expandWithSynonyms(contentWords);
+      let hits = 0;
+      for (const tw of expandedTaskWords) {
+        if (expandedContentWords.has(tw)) hits++;
+      }
+      const descOverlap = taskWords.size > 0 ? hits / taskWords.size : 0;
+      if (descOverlap >= scoringParams.semantic_rescue_desc_threshold) {
+        s.score = Math.max(s.score, scoringParams.semantic_rescue_floor);
+        rescuedIds.add(s.id);
+      }
+    }
+  }
+
+  // Apply minimum score threshold (rescued decisions already have floor score)
   const filtered = scored.filter(s => s.score >= scoringParams.minimum_score_threshold);
   filtered.sort((a, b) => b.score - a.score);
+
+  // Cross-decision semantic boost (Change 4): boost rescued decisions connected to top results
+  if (rescuedIds.size > 0) {
+    const top10Ids = new Set(filtered.slice(0, 10).map(s => s.id));
+    for (const s of filtered) {
+      if (!rescuedIds.has(s.id)) continue;
+      const decisionA = candidateMap.get(s.id)!;
+      for (const topId of top10Ids) {
+        if (topId === s.id) continue;
+        const decisionB = candidateMap.get(topId)!;
+        let sharedTags = 0;
+        for (const tag of decisionA.tags) {
+          if (decisionB.tags.includes(tag)) sharedTags++;
+        }
+        if (sharedTags >= scoringParams.cross_decision_tag_threshold) {
+          s.score = Math.min(s.score + scoringParams.cross_decision_boost, 1.0);
+          break;
+        }
+      }
+    }
+    // Re-sort after boost
+    filtered.sort((a, b) => b.score - a.score);
+  }
+
   return filtered.slice(0, topK);
 }
 

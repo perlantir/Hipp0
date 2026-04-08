@@ -1051,8 +1051,7 @@
         "d-002",
         "d-003",
         "d-007",
-        "d-008",
-        "d-032"
+        "d-008"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1087,8 +1086,7 @@
         "d-009",
         "d-010",
         "d-012",
-        "d-014",
-        "d-015"
+        "d-014"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1106,7 +1104,7 @@
         "d-031",
         "d-032",
         "d-033",
-        "d-035"
+        "d-001"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1123,8 +1121,7 @@
         "d-034",
         "d-045",
         "d-030",
-        "d-031",
-        "d-007"
+        "d-031"
       ],
       "ground_truth_irrelevant": [
         "d-017",
@@ -1140,9 +1137,7 @@
       "ground_truth_relevant": [
         "d-011",
         "d-008",
-        "d-036",
-        "d-009",
-        "d-040"
+        "d-009"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1158,7 +1153,6 @@
       "ground_truth_relevant": [
         "d-030",
         "d-031",
-        "d-032",
         "d-033",
         "d-034"
       ],
@@ -1211,9 +1205,7 @@
       "task": "Implement the bulk decision import pipeline",
       "ground_truth_relevant": [
         "d-001",
-        "d-009",
         "d-031",
-        "d-032",
         "d-048"
       ],
       "ground_truth_irrelevant": [
@@ -1231,8 +1223,7 @@
         "d-031",
         "d-030",
         "d-033",
-        "d-032",
-        "d-044"
+        "d-032"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1249,8 +1240,7 @@
         "d-001",
         "d-002",
         "d-007",
-        "d-008",
-        "d-011"
+        "d-008"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1266,9 +1256,7 @@
       "ground_truth_relevant": [
         "d-030",
         "d-031",
-        "d-032",
-        "d-048",
-        "d-033"
+        "d-048"
       ],
       "ground_truth_irrelevant": [
         "d-017",
@@ -1285,8 +1273,7 @@
         "d-013",
         "d-009",
         "d-012",
-        "d-014",
-        "d-043"
+        "d-014"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1303,7 +1290,6 @@
         "d-009",
         "d-012",
         "d-030",
-        "d-032",
         "d-048"
       ],
       "ground_truth_irrelevant": [
@@ -1318,7 +1304,6 @@
       "agent_role": "Backend engineer responsible for API design, database architecture, and server-side logic",
       "task": "Add health check and readiness probe endpoints",
       "ground_truth_relevant": [
-        "d-012",
         "d-030",
         "d-031",
         "d-032",
@@ -1338,7 +1323,6 @@
       "ground_truth_relevant": [
         "d-030",
         "d-031",
-        "d-032",
         "d-009",
         "d-012"
       ],
@@ -1357,8 +1341,7 @@
         "d-032",
         "d-048",
         "d-030",
-        "d-031",
-        "d-044"
+        "d-031"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1375,8 +1358,7 @@
         "d-009",
         "d-011",
         "d-012",
-        "d-014",
-        "d-040"
+        "d-014"
       ],
       "ground_truth_irrelevant": [
         "d-017",
@@ -1391,7 +1373,6 @@
       "task": "Set up the Hono middleware chain",
       "ground_truth_relevant": [
         "d-001",
-        "d-007",
         "d-008",
         "d-014",
         "d-030"
@@ -1426,7 +1407,6 @@
       "agent_role": "Backend engineer responsible for API design, database architecture, and server-side logic",
       "task": "Implement the context compiler scoring pipeline",
       "ground_truth_relevant": [
-        "d-009",
         "d-012",
         "d-014",
         "d-030",
@@ -1447,8 +1427,7 @@
         "d-009",
         "d-012",
         "d-013",
-        "d-010",
-        "d-032"
+        "d-010"
       ],
       "ground_truth_irrelevant": [
         "d-017",
@@ -1465,7 +1444,6 @@
         "d-009",
         "d-011",
         "d-012",
-        "d-013",
         "d-031"
       ],
       "ground_truth_irrelevant": [
@@ -1483,8 +1461,7 @@
         "d-001",
         "d-002",
         "d-004",
-        "d-030",
-        "d-035"
+        "d-030"
       ],
       "ground_truth_irrelevant": [
         "d-017",
@@ -1732,7 +1709,6 @@
       "agent_role": "Frontend engineer building the React dashboard with data visualizations",
       "task": "Build the import wizard multi-step form",
       "ground_truth_relevant": [
-        "d-006",
         "d-016",
         "d-017",
         "d-018",
@@ -1786,7 +1762,6 @@
       "agent_role": "Frontend engineer building the React dashboard with data visualizations",
       "task": "Add error boundary and fallback components",
       "ground_truth_relevant": [
-        "d-006",
         "d-016",
         "d-018",
         "d-019",
@@ -1862,7 +1837,6 @@
         "d-003",
         "d-007",
         "d-005",
-        "d-040",
         "d-004"
       ],
       "ground_truth_irrelevant": [
@@ -1878,7 +1852,6 @@
       "task": "Review CORS configuration for overly permissive origins",
       "ground_truth_relevant": [
         "d-003",
-        "d-035",
         "d-036",
         "d-037",
         "d-039"
@@ -1897,9 +1870,7 @@
       "ground_truth_relevant": [
         "d-011",
         "d-008",
-        "d-036",
-        "d-040",
-        "d-038"
+        "d-036"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1952,8 +1923,7 @@
         "d-003",
         "d-028",
         "d-036",
-        "d-038",
-        "d-040"
+        "d-038"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -1967,7 +1937,6 @@
       "agent_role": "Security auditor reviewing authentication, access control, and data protection",
       "task": "Review CSP headers for XSS protection",
       "ground_truth_relevant": [
-        "d-035",
         "d-036",
         "d-037",
         "d-038",
@@ -1985,11 +1954,10 @@
       "agent_role": "Security auditor reviewing authentication, access control, and data protection",
       "task": "Audit API key storage and rotation policy",
       "ground_truth_relevant": [
-        "d-001",
         "d-003",
-        "d-005",
         "d-038",
-        "d-040"
+        "d-040",
+        "d-035"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -2024,7 +1992,6 @@
         "d-003",
         "d-004",
         "d-005",
-        "d-035",
         "d-039"
       ],
       "ground_truth_irrelevant": [
@@ -2042,7 +2009,6 @@
         "d-002",
         "d-003",
         "d-004",
-        "d-036",
         "d-037"
       ],
       "ground_truth_irrelevant": [
@@ -2076,7 +2042,6 @@
       "task": "Review RBAC permission boundaries",
       "ground_truth_relevant": [
         "d-003",
-        "d-008",
         "d-036",
         "d-038",
         "d-040"
@@ -2094,7 +2059,6 @@
       "task": "Assess encryption at rest and in transit",
       "ground_truth_relevant": [
         "d-003",
-        "d-004",
         "d-037",
         "d-039",
         "d-040"
@@ -2114,8 +2078,7 @@
         "d-003",
         "d-004",
         "d-026",
-        "d-038",
-        "d-040"
+        "d-038"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -2168,8 +2131,7 @@
         "d-009",
         "d-010",
         "d-013",
-        "d-015",
-        "d-024"
+        "d-015"
       ],
       "ground_truth_irrelevant": [
         "d-016",
@@ -2309,7 +2271,6 @@
       "agent_role": "DevOps engineer managing infrastructure, CI/CD, and deployment",
       "task": "Plan disaster recovery and backup strategy",
       "ground_truth_relevant": [
-        "d-010",
         "d-023",
         "d-024",
         "d-025",
@@ -2327,7 +2288,6 @@
       "agent_role": "DevOps engineer managing infrastructure, CI/CD, and deployment",
       "task": "Configure environment variable management",
       "ground_truth_relevant": [
-        "d-010",
         "d-023",
         "d-024",
         "d-025",
@@ -2365,7 +2325,6 @@
       "ground_truth_relevant": [
         "d-023",
         "d-024",
-        "d-049",
         "d-026",
         "d-025"
       ],
@@ -2382,7 +2341,6 @@
       "task": "Configure log rotation and retention policies",
       "ground_truth_relevant": [
         "d-028",
-        "d-024",
         "d-025",
         "d-023",
         "d-029"
@@ -2419,9 +2377,7 @@
       "ground_truth_relevant": [
         "d-001",
         "d-002",
-        "d-041",
-        "d-043",
-        "d-044"
+        "d-041"
       ],
       "ground_truth_irrelevant": [
         "d-024",
@@ -2510,7 +2466,6 @@
         "d-041",
         "d-043",
         "d-042",
-        "d-048",
         "d-044"
       ],
       "ground_truth_irrelevant": [
@@ -2579,12 +2534,10 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Review current sprint decisions across all agents",
       "ground_truth_relevant": [
-        "d-001",
-        "d-009",
-        "d-016",
-        "d-041",
         "d-048",
-        "d-049"
+        "d-049",
+        "d-038",
+        "d-050"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2621,7 +2574,6 @@
         "d-011",
         "d-012",
         "d-014",
-        "d-015",
         "d-030"
       ],
       "ground_truth_irrelevant": [
@@ -2655,7 +2607,6 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Identify conflicting decisions between frontend and backend",
       "ground_truth_relevant": [
-        "d-002",
         "d-016",
         "d-017",
         "d-018",
@@ -2678,8 +2629,7 @@
         "d-037",
         "d-038",
         "d-039",
-        "d-040",
-        "d-035"
+        "d-040"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2712,12 +2662,10 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Coordinate the multi-tenant implementation across teams",
       "ground_truth_relevant": [
-        "d-001",
         "d-008",
         "d-011",
-        "d-014",
         "d-025",
-        "d-037"
+        "d-036"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2731,12 +2679,11 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Review all architecture decisions for consistency",
       "ground_truth_relevant": [
-        "d-001",
-        "d-009",
-        "d-024",
         "d-038",
         "d-048",
-        "d-049"
+        "d-049",
+        "d-041",
+        "d-028"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2750,12 +2697,8 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Plan the next sprint based on current decision landscape",
       "ground_truth_relevant": [
-        "d-001",
-        "d-009",
-        "d-016",
-        "d-023",
-        "d-048",
-        "d-049"
+        "d-038",
+        "d-014"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2769,12 +2712,7 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Identify stale decisions that need updating",
       "ground_truth_relevant": [
-        "d-001",
-        "d-009",
-        "d-016",
-        "d-023",
-        "d-048",
-        "d-049"
+        "d-038"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2791,9 +2729,7 @@
         "d-034",
         "d-045",
         "d-046",
-        "d-047",
-        "d-016",
-        "d-030"
+        "d-047"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2811,8 +2747,7 @@
         "d-025",
         "d-026",
         "d-027",
-        "d-028",
-        "d-042"
+        "d-028"
       ],
       "ground_truth_irrelevant": [
         "d-050",
@@ -2826,12 +2761,8 @@
       "agent_role": "Orchestrator agent coordinating multi-agent task assignment and progress",
       "task": "Assess the impact of switching to new ORM",
       "ground_truth_relevant": [
-        "d-001",
         "d-012",
-        "d-013",
-        "d-014",
-        "d-024",
-        "d-043"
+        "d-010"
       ],
       "ground_truth_irrelevant": [
         "d-050",

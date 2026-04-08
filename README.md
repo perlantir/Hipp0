@@ -205,14 +205,14 @@ Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, cont
 
 | Metric | Hipp0 | Naive RAG | Delta |
 |--------|-------|-----------|-------|
-| Recall@5 | 69% | 34% | +35% |
-| Recall@10 | 93% | 46% | +47% |
-| Precision@5 | 71% | 35% | +36% |
-| MRR | 0.95 | 0.78 | +0.17 |
+| Recall@5 | 78% | 39% | +39% |
+| Recall@10 | 99% | 50% | +49% |
+| Precision@5 | 70% | 34% | +37% |
+| MRR | 0.94 | 0.79 | +0.16 |
 | Contradiction F1 | 0.92 | N/A | — |
-| Differentiation | 93% | 0% | +93% |
+| Differentiation | 100% | 0% | +100% |
 | Avg Compression | 13.3x | N/A | — |
-| Compile P95 (500 dec) | 34ms | N/A | — |
+| Compile P95 (500 dec) | 22ms | N/A | — |
 
 Run benchmarks:
 
