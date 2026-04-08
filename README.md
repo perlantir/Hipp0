@@ -215,6 +215,8 @@ Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, cont
 | H0C Compression (full) | 10-12x | N/A | — |
 | Compile P95 (500 dec) | 24ms | N/A | — |
 
+\* Token efficiency measured on simplified benchmark decisions. Production compile on full `ScoredDecision` objects achieves 10–12x compression.
+
 H0C compression achieves 10-12x on full `ScoredDecision[]` JSON and 3.4x on simplified benchmark decisions. See [docs/h0c-format.md](docs/h0c-format.md) for the format specification.
 
 Run benchmarks:
