@@ -51,7 +51,7 @@ export function registerEvolutionRoutes(app: Hono): void {
           projectId,
           p.trigger_type,
           p.urgency,
-          JSON.stringify(p.affected_decision_ids),
+          db.arrayParam(p.affected_decision_ids),
           p.reasoning,
           p.suggested_action,
           p.confidence,
