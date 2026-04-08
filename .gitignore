@@ -23,3 +23,6 @@ e2e-test.sh
 *.env
 .env.*
 !.env.example
+
+# Benchmark results (JSON only, keep latest.md)
+benchmarks/results/*.json

@@ -62,6 +62,29 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 
 ---
 
+## Benchmarks
+
+Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, contradiction detection, role differentiation, and token efficiency against a naive RAG baseline.
+
+| Metric | Hipp0 | Naive RAG | Delta |
+|--------|-------|-----------|-------|
+| Recall@5 | 52% | 32% | +20% |
+| Recall@10 | 71% | 42% | +29% |
+| Precision@5 | 54% | 32% | +21% |
+| Contradiction F1 | 0.92 | N/A | — |
+| Differentiation | 100% | 0% | +100% |
+| Avg Compression | 4.1x | N/A | — |
+
+Run benchmarks:
+
+```bash
+npx tsx benchmarks/runner.ts --suite all
+```
+
+Full methodology and results: [benchmarks/README.md](benchmarks/README.md)
+
+---
+
 ## Quick Start
 
 ### Docker Compose (recommended)
