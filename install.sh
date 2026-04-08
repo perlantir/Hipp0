@@ -8,13 +8,16 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}"
-echo "  _   _                      "
-echo " | \ | | _____  ___   _ ___  "
-echo " |  \| |/ _ \ \/ / | | / __| "
-echo " | |\  |  __/>  <| |_| \__ \ "
-echo " |_| \_|\___/_/\_\\__,_|___/ "
+echo "  _    _ _             ___  "
+echo " | |  | (_)           / _ \ "
+echo " | |__| |_ _ __  _ __| | | |"
+echo " |  __  | | '_ \| '_ \ | | |"
+echo " | |  | | | |_) | |_) | |_| |"
+echo " |_|  |_|_| .__/| .__/ \___/ "
+echo "           | |   | |          "
+echo "           |_|   |_|          "
 echo -e "${NC}"
-echo "DeciGraph Installer v1.0"
+echo "Hipp0 Installer v1.0"
 echo "================================"
 echo ""
 
@@ -46,7 +49,7 @@ fi
 echo -e "${GREEN}All prerequisites met${NC}"
 echo ""
 
-INSTALL_DIR="${DECIGRAPH_INSTALL_DIR:-/opt/decigraph}"
+INSTALL_DIR="${HIPP0_INSTALL_DIR:-/opt/hipp0}"
 echo -e "${BLUE}Install directory: ${INSTALL_DIR}${NC}"
 
 if [ -d "$INSTALL_DIR" ]; then
@@ -54,8 +57,8 @@ if [ -d "$INSTALL_DIR" ]; then
     cd "$INSTALL_DIR"
     git pull origin main
 else
-    echo "Cloning DeciGraph..."
-    git clone https://github.com/perlantir/decigraph.git "$INSTALL_DIR"
+    echo "Cloning Hipp0..."
+    git clone https://github.com/perlantir/Hipp0.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
@@ -65,24 +68,22 @@ echo -e "${BLUE}Configuration${NC}"
 echo "============="
 echo ""
 
-if [ -f .env ] && grep -q "DECIGRAPH_API_KEY" .env; then
+if [ -f .env ] && grep -q "HIPP0" .env; then
     echo -e "${GREEN}Existing .env found — keeping current config${NC}"
     source .env 2>/dev/null || true
 else
-    DECIGRAPH_KEY="nx_$(openssl rand -hex 20)"
-    echo -e "Generated DECIGRAPH_API_KEY: ${GREEN}${DECIGRAPH_KEY}${NC}"
-    echo -e "${YELLOW}Save this key — your agents will use it to connect to DeciGraph${NC}"
-    echo ""
+    cat > .env << ENVEOF
+# Hipp0 Configuration
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+NODE_ENV=production
+HIPP0_AUTH_REQUIRED=true
+ENVEOF
 
-    echo "DeciGraph can use an LLM for semantic search and auto-extraction."
-    echo "This is optional — DeciGraph works without it."
+    echo "Hipp0 can use an LLM for semantic search and auto-extraction."
+    echo "This is optional — Hipp0 works without it."
     echo ""
     echo "Enter your OpenRouter API key (or press Enter to skip):"
     read -r OPENROUTER_KEY
-
-    cat > .env << ENVEOF
-DECIGRAPH_API_KEY=${DECIGRAPH_KEY}
-ENVEOF
 
     if [ -n "$OPENROUTER_KEY" ]; then
         echo "OPENROUTER_API_KEY=${OPENROUTER_KEY}" >> .env
@@ -94,11 +95,11 @@ fi
 
 echo ""
 
-echo -e "${BLUE}Starting DeciGraph...${NC}"
+echo -e "${BLUE}Starting Hipp0...${NC}"
 docker compose up -d --build 2>&1 | tail -5
 
 echo ""
-echo "Waiting for DeciGraph to start..."
+echo "Waiting for Hipp0 to start..."
 MAX_WAIT=120
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
