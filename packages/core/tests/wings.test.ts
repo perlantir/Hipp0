@@ -34,7 +34,7 @@ import { scoreDecision } from '../src/context-compiler/index.js';
 import { computeWingSources } from '../src/wings/affinity.js';
 import type { Decision, Agent, RelevanceProfile, WingAffinity } from '../src/types.js';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+  // Helpers
 
 function makeDecision(overrides: Partial<Decision> = {}): Decision {
   return {
@@ -88,7 +88,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   } as Agent;
 }
 
-// ── Tests ───────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('wing — decision wing defaults to made_by', () => {
   it('decision without explicit wing falls back to made_by', () => {

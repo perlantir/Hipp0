@@ -40,12 +40,12 @@ export function registerProjectRoutes(app: Hono): void {
         apiKey = key;
 
         const masked = key.slice(0, 16) + '...';
-        console.log('============================================================');
-        console.log(`\ud83d\udd11 API Key generated for project "${name}"`);
-        console.log(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
-        console.log('');
-        console.log('   Full key is NOT logged for security.');
-        console.log('============================================================');
+        console.warn('============================================================');
+        console.warn(`\ud83d\udd11 API Key generated for project "${name}"`);
+        console.warn(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
+        console.warn('');
+        console.warn('   Full key is NOT logged for security.');
+        console.warn('============================================================');
       } catch {
         // api_keys table may not exist yet — project still created successfully
       }

@@ -11,7 +11,7 @@
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+  // Types
 
 export interface ExtractionJobData {
   raw_text: string;
@@ -43,7 +43,7 @@ export interface NotificationJobData {
   decision_id: string;
 }
 
-// ── Queue instances (null when Redis not configured) ───────────────────────
+  // Queue instances (null when Redis not configured)
 
 let extractionQueue: Queue<ExtractionJobData> | null = null;
 let ingestionQueue: Queue<IngestionJobData> | null = null;
@@ -55,7 +55,7 @@ let notificationWorker: Worker<NotificationJobData> | null = null;
 
 let redisConnection: Redis | null = null;
 
-// ── Inline processing fallback ─────────────────────────────────────────────
+  // Inline processing fallback
 
 type InlineExtractionHandler = (data: ExtractionJobData) => Promise<void>;
 type InlineIngestionHandler = (data: IngestionJobData) => Promise<void>;
@@ -65,11 +65,11 @@ let _inlineExtraction: InlineExtractionHandler | null = null;
 let _inlineIngestion: InlineIngestionHandler | null = null;
 let _inlineNotification: InlineNotificationHandler | null = null;
 
-// ── Inline stats (when no Redis) ──────────────────────────────────────────
+  // Inline stats (when no Redis)
 
 let _inlineStats = { pending: 0, completed: 0, failed: 0 };
 
-// ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 
 export function isQueueEnabled(): boolean {
   return _inlineExtraction !== null || extractionQueue !== null;
@@ -90,7 +90,7 @@ export async function addExtractionJob(data: ExtractionJobData): Promise<void> {
       removeOnComplete: 100,
       removeOnFail: 200,
     });
-    console.log(`[hipp0/queue] Extraction job added: source=${data.source} by=${data.made_by}`);
+    console.warn(`[hipp0/queue] Extraction job added: source=${data.source} by=${data.made_by}`);
   } else if (_inlineExtraction) {
     // Inline fallback — process synchronously
     _inlineStats.pending++;

@@ -13,7 +13,7 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null;
 async function runEvolutionScan(): Promise<void> {
   const db = getDb();
 
-  console.log('[hipp0/evolution] Starting daily evolution scan...');
+  console.warn('[hipp0/evolution] Starting daily evolution scan...');
 
   // Only projects with 30+ active decisions
   let projects: Array<Record<string, unknown>>;
@@ -32,7 +32,7 @@ async function runEvolutionScan(): Promise<void> {
   }
 
   if (projects.length === 0) {
-    console.log('[hipp0/evolution] No projects with 30+ active decisions. Skipping.');
+    console.warn('[hipp0/evolution] No projects with 30+ active decisions. Skipping.');
     return;
   }
 
@@ -49,7 +49,7 @@ async function runEvolutionScan(): Promise<void> {
       [],
     );
     if (expired.rows.length > 0) {
-      console.log(`[hipp0/evolution] Expired ${expired.rows.length} old proposals`);
+      console.warn(`[hipp0/evolution] Expired ${expired.rows.length} old proposals`);
     }
   } catch {
     // table may not exist yet
@@ -63,7 +63,7 @@ async function runEvolutionScan(): Promise<void> {
       const candidates = await findEvolutionCandidates(projectId);
       if (candidates.length === 0) continue;
 
-      console.log(`[hipp0/evolution] Found ${candidates.length} candidates in project ${projectId.slice(0, 8)}..`);
+      console.warn(`[hipp0/evolution] Found ${candidates.length} candidates in project ${projectId.slice(0, 8)}..`);
 
       for (const candidate of candidates) {
         try {
@@ -75,7 +75,7 @@ async function runEvolutionScan(): Promise<void> {
               `UPDATE decisions SET validated_at = NOW(), stale = false WHERE id = ?`,
               [candidate.decision_id],
             );
-            console.log(`[hipp0/evolution] Reaffirmed decision ${candidate.decision_id.slice(0, 8)}..`);
+            console.warn(`[hipp0/evolution] Reaffirmed decision ${candidate.decision_id.slice(0, 8)}..`);
             continue;
           }
 
@@ -118,7 +118,7 @@ async function runEvolutionScan(): Promise<void> {
               change_type: proposal.change_type,
             });
           } catch {
-            console.log(`[hipp0/evolution] Webhook: evolution_proposal_created for ${candidate.title}`);
+            console.warn(`[hipp0/evolution] Webhook: evolution_proposal_created for ${candidate.title}`);
           }
         } catch (err) {
           console.warn(
@@ -135,7 +135,7 @@ async function runEvolutionScan(): Promise<void> {
     }
   }
 
-  console.log(`[hipp0/evolution] Scan complete. Created ${totalCreated} proposals.`);
+  console.warn(`[hipp0/evolution] Scan complete. Created ${totalCreated} proposals.`);
 }
 
 /**

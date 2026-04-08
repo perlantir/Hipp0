@@ -136,7 +136,7 @@ export async function seedDemoProject(): Promise<void> {
   const db = getDb();
   const data = DEMO_DATA;
 
-  // ── Check if demo project already exists ────────────────────────
+    // Check if demo project already exists
   try {
     const existing = await db.query(
       'SELECT id FROM projects WHERE id = ?',
@@ -154,7 +154,7 @@ export async function seedDemoProject(): Promise<void> {
 
   console.warn('[hipp0/demo] Seeding demo project...');
 
-  // ── 1. Create demo project ────────────────────────────────────
+    // 1. Create demo project
   await db.query(
     `INSERT INTO projects (id, name, description, created_at)
      VALUES (?, ?, ?, ?)`,
@@ -166,7 +166,7 @@ export async function seedDemoProject(): Promise<void> {
     ],
   );
 
-  // ── 2. Create agents ──────────────────────────────────────────
+    // 2. Create agents
   const agentIds: Record<string, string> = {};
   for (const agent of data.agents) {
     const id = randomUUID();
@@ -183,7 +183,7 @@ export async function seedDemoProject(): Promise<void> {
     );
   }
 
-  // ── 3. Create decisions ───────────────────────────────────────
+    // 3. Create decisions
   const now = Date.now();
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
   const decisionIds: Record<string, string> = {};
@@ -208,7 +208,7 @@ export async function seedDemoProject(): Promise<void> {
     );
   }
 
-  // ── 4. Create decision edges ──────────────────────────────────
+    // 4. Create decision edges
   let edgesCreated = 0;
   for (const edge of DEMO_EDGES) {
     const sourceTitle = Object.keys(decisionIds).find((t) => t.startsWith(edge.from));
@@ -225,7 +225,7 @@ export async function seedDemoProject(): Promise<void> {
     }
   }
 
-  // ── 5. Create contradictions ──────────────────────────────────
+    // 5. Create contradictions
   let contradictionsCreated = 0;
   for (const c of DEMO_CONTRADICTIONS) {
     const aTitle = Object.keys(decisionIds).find((t) => t.startsWith(c.a));

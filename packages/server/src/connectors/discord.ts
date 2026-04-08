@@ -17,7 +17,7 @@ type Client = import('discord.js').Client;
 type Message = import('discord.js').Message;
 type Interaction = import('discord.js').ChatInputCommandInteraction;
 
-// ── Decision pattern matching ──────────────────────────────────────────────
+  // Decision pattern matching
 const DECISION_PATTERNS: RegExp[] = [
   /\bdecision\s*:/i,
   /\bwe decided\b/i,
@@ -36,13 +36,13 @@ function matchesDecisionPattern(text: string): boolean {
   return DECISION_PATTERNS.some((p) => p.test(text));
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+  // State
 let client: Client | null = null;
 let _projectId = '';
 let _allowedGuildIds: Set<string> = new Set();
 let _allowedChannelIds: Set<string> = new Set();
 
-// ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 export function isDiscordConnected(): boolean {
   return client !== null && client.isReady();
 }
@@ -128,7 +128,7 @@ export async function stopDiscordBot(): Promise<void> {
   }
 }
 
-// ── Internal handlers ──────────────────────────────────────────────────────
+  // Internal handlers
 
 function isAllowedChannel(message: Message): boolean {
   if (message.author.bot) return false;

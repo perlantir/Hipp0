@@ -157,7 +157,7 @@ export function registerLinearConnector(app: Hono): void {
   const config = getLinearConfig();
   const defaultProjectId = process.env.HIPP0_DEFAULT_PROJECT_ID ?? '';
 
-  // ── OAuth: Install (redirect to Linear) ─────────────────────────
+    // OAuth: Install (redirect to Linear)
   app.get('/api/linear/install', (c) => {
     if (!config.clientId) {
       return c.json({ error: 'LINEAR_CLIENT_ID not configured' }, 500);
@@ -175,7 +175,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.redirect(`${LINEAR_OAUTH_URL}?${params.toString()}`);
   });
 
-  // ── OAuth: Callback ─────────────────────────────────────────────
+    // OAuth: Callback
   app.get('/api/linear/callback', async (c) => {
     const code = c.req.query('code');
     if (!code) {
@@ -210,7 +210,7 @@ export function registerLinearConnector(app: Hono): void {
     }
   });
 
-  // ── List Teams ──────────────────────────────────────────────────
+    // List Teams
   app.get('/api/linear/teams', async (c) => {
     const token = c.req.header('Authorization') ?? c.req.query('token') ?? '';
     if (!token) return c.json({ error: 'Missing access token' }, 401);
@@ -223,7 +223,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json(teams?.nodes ?? []);
   });
 
-  // ── List Projects ───────────────────────────────────────────────
+    // List Projects
   app.get('/api/linear/projects', async (c) => {
     const token = c.req.header('Authorization') ?? c.req.query('token') ?? '';
     const teamId = c.req.query('teamId') ?? '';
@@ -238,7 +238,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json(projects?.nodes ?? []);
   });
 
-  // ── Connect (store settings) ────────────────────────────────────
+    // Connect (store settings)
   app.post('/api/linear/connect', async (c) => {
     const db = getDb();
     const body = await c.req.json() as {
@@ -293,7 +293,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json({ status: 'connected', team_id: body.team_id, team_name: body.team_name });
   });
 
-  // ── Disconnect ──────────────────────────────────────────────────
+    // Disconnect
   app.post('/api/linear/disconnect', async (c) => {
     const db = getDb();
     const body = await c.req.json() as { project_id: string };
@@ -328,7 +328,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json({ status: 'disconnected' });
   });
 
-  // ── Get Linear status for project ───────────────────────────────
+    // Get Linear status for project
   app.get('/api/linear/status/:projectId', async (c) => {
     const db = getDb();
     const projectId = c.req.param('projectId');
@@ -355,7 +355,7 @@ export function registerLinearConnector(app: Hono): void {
     });
   });
 
-  // ── Get linked issues for a decision ────────────────────────────
+    // Get linked issues for a decision
   app.get('/api/decisions/:id/links', async (c) => {
     const db = getDb();
     const decisionId = c.req.param('id');
@@ -368,7 +368,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json(result.rows);
   });
 
-  // ── Create manual link ──────────────────────────────────────────
+    // Create manual link
   app.post('/api/decisions/:id/links', async (c) => {
     const db = getDb();
     const decisionId = c.req.param('id');
@@ -400,7 +400,7 @@ export function registerLinearConnector(app: Hono): void {
     return c.json(result.rows[0], 201);
   });
 
-  // ── Webhook ─────────────────────────────────────────────────────
+    // Webhook
   app.post('/api/linear/webhook', async (c) => {
     const rawBody = await c.req.text();
     const signature = c.req.header('linear-signature') ?? c.req.header('Linear-Signature');

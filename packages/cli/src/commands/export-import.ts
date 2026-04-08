@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { getClient, getProjectId, handleError } from '../cli-helpers.js';
 
 export function registerExportImportCommands(program: Command): void {
-  // ── hipp0 export ──────────────────────────────────────────────────────
+    // hipp0 export
   program
     .command('export')
     .description('Export a project as JSON (writes to stdout)')
@@ -42,7 +42,7 @@ export function registerExportImportCommands(program: Command): void {
       }
     });
 
-  // ── hipp0 import ──────────────────────────────────────────────────────
+    // hipp0 import
   program
     .command('import [file]')
     .description('Import a project from a JSON export file (or stdin)')

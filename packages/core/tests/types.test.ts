@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { Hipp0Error, NotFoundError, ValidationError, ConflictError } from '../src/types.js';
 
-// ── Hipp0Error ────────────────────────────────────────────────────────────────
+  // Hipp0Error
 
 describe('Hipp0Error', () => {
   it('constructs with message, code, and default statusCode 500', () => {
@@ -46,7 +46,7 @@ describe('Hipp0Error', () => {
   });
 });
 
-// ── NotFoundError ─────────────────────────────────────────────────────────────
+  // NotFoundError
 
 describe('NotFoundError', () => {
   it('constructs with resource and id', () => {
@@ -95,7 +95,7 @@ describe('NotFoundError', () => {
   });
 });
 
-// ── ValidationError ───────────────────────────────────────────────────────────
+  // ValidationError
 
 describe('ValidationError', () => {
   it('constructs with message only', () => {
@@ -138,7 +138,7 @@ describe('ValidationError', () => {
   });
 });
 
-// ── ConflictError ─────────────────────────────────────────────────────────────
+  // ConflictError
 
 describe('ConflictError', () => {
   it('constructs with message', () => {
@@ -171,7 +171,7 @@ describe('ConflictError', () => {
   });
 });
 
-// ── Error hierarchy (instanceof discrimination) ───────────────────────────────
+  // Error hierarchy (instanceof discrimination)
 
 describe('Error hierarchy discrimination', () => {
   const errors = [

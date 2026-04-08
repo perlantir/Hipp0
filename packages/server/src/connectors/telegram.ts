@@ -10,7 +10,7 @@ import type { NotificationJobData } from '../queue/index.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { callLLM } from '@hipp0/core/distillery/index.js';
 
-// ── Decision pattern matching ──────────────────────────────────────────────
+  // Decision pattern matching
 
 const DECISION_PATTERNS: RegExp[] = [
   /\bdecision\s*:/i,
@@ -30,7 +30,7 @@ function matchesDecisionPattern(text: string): boolean {
   return DECISION_PATTERNS.some((p) => p.test(text));
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+  // State
 
 let bot: TelegramBot | null = null;
 let connectedChats = 0;
@@ -38,7 +38,7 @@ let _allowedChatIds: Set<string> = new Set();
 let _projectId = '';
 let _shouldReply = false;
 
-// ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 
 export function isTelegramConnected(): boolean {
   return bot !== null;
@@ -243,7 +243,7 @@ export function stopTelegramBot(): void {
   }
 }
 
-// ── Internal handlers ──────────────────────────────────────────────────────
+  // Internal handlers
 
 async function handleMessage(msg: TelegramBot.Message): Promise<void> {
   const text = msg.text;

@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-// ── DB Mock ─────────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('@hipp0/core/db/index.js', () => ({
@@ -87,7 +87,7 @@ vi.mock('@hipp0/core/dependency-cascade/index.js', () => ({
 
 vi.stubEnv('NODE_ENV', 'development');
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+  // Helpers
 
 async function request(
   app: ReturnType<typeof createApp>,
@@ -106,7 +106,7 @@ async function request(
 
 const PROJECT_ID = '44c6cebd-b6ff-47b7-ad93-52925bf26eb0';
 
-// ── Tests ───────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('API Integration Tests', () => {
   let app: ReturnType<typeof createApp>;
@@ -116,7 +116,7 @@ describe('API Integration Tests', () => {
     app = createApp();
   });
 
-  // ── Health ──────────────────────────────────────────────────────────
+    // Health
   describe('Health Endpoints', () => {
     it('GET /api/health returns ok with enhanced fields', async () => {
       mockQuery.mockResolvedValue({ rows: [{ '?column?': 1 }] });
@@ -146,7 +146,7 @@ describe('API Integration Tests', () => {
     });
   });
 
-  // ── Projects ────────────────────────────────────────────────────────
+    // Projects
   describe('Projects', () => {
     it('GET /api/projects returns list', async () => {
       mockQuery.mockResolvedValue({
@@ -168,7 +168,7 @@ describe('API Integration Tests', () => {
     });
   });
 
-  // ── Decisions CRUD ──────────────────────────────────────────────────
+    // Decisions CRUD
   describe('Decisions', () => {
     it('GET /api/projects/:id/decisions returns list', async () => {
       // First call = count, second call = list
@@ -205,7 +205,7 @@ describe('API Integration Tests', () => {
     });
   });
 
-  // ── Compile ─────────────────────────────────────────────────────────
+    // Compile
   describe('Compile', () => {
     it('POST /api/compile returns compiled context', async () => {
       mockQuery.mockResolvedValue({ rows: [{ id: 'agent1' }], rowCount: 0 });
@@ -220,7 +220,7 @@ describe('API Integration Tests', () => {
     });
   });
 
-  // ── Metrics ─────────────────────────────────────────────────────────
+    // Metrics
   describe('Metrics', () => {
     it('GET /api/metrics returns operational counters', async () => {
       mockQuery.mockResolvedValue({ rows: [{ c: '5', avg_ms: '42.5' }] });
@@ -233,7 +233,7 @@ describe('API Integration Tests', () => {
     });
   });
 
-  // ── Request ID ──────────────────────────────────────────────────────
+    // Request ID
   describe('Request ID', () => {
     it('adds X-Request-Id header to responses', async () => {
       mockQuery.mockResolvedValue({ rows: [{ '?column?': 1 }] });

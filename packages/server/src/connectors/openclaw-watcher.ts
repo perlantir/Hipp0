@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { submitForExtraction } from '../queue/index.js';
 
-// ── Config files to ALWAYS skip ────────────────────────────────────────────
+  // Config files to ALWAYS skip
 
 const SKIP_FILES = new Set([
   'SOUL.md', 'AGENTS.md', 'HEARTBEAT.md', 'IDENTITY.md',
@@ -30,7 +30,7 @@ const SKIP_FILES = new Set([
   'CEO-DIRECTIVE.md', 'RESTORE.md',
 ]);
 
-// ── Decision pattern matching ──────────────────────────────────────────────
+  // Decision pattern matching
 
 const DECISION_PATTERNS: RegExp[] = [
   /\bdecision\s*:/i,
@@ -50,12 +50,12 @@ function matchesDecisionPattern(text: string): boolean {
   return DECISION_PATTERNS.some((p) => p.test(text));
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
+  // Constants
 
 const POLL_INTERVAL = 10_000; // 10 seconds
 const MAX_EXTRACTION_LENGTH = 2000; // Max chars per Distillery call
 
-// ── Types ──────────────────────────────────────────────────────────────────
+  // Types
 
 interface CursorEntry {
   offset: number;
@@ -70,7 +70,7 @@ interface JsonlMessage {
   text?: string;
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+  // State
 
 let _pollTimer: ReturnType<typeof setInterval> | null = null;
 let _watchPath = '';
@@ -82,7 +82,7 @@ let _filesSkipped = 0;
 let _decisionsCaptured = 0;
 let _polling = false; // Guard against overlapping polls
 
-// ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 
 export function isOpenClawWatching(): boolean {
   return _pollTimer !== null;
@@ -151,7 +151,7 @@ export async function stopOpenClawWatcher(): Promise<void> {
   }
 }
 
-// ── File filtering ─────────────────────────────────────────────────────────
+  // File filtering
 
 /**
  * Determine if a file should be processed.
@@ -181,7 +181,7 @@ function shouldProcessFile(filePath: string): boolean {
   return false;
 }
 
-// ── Polling loop ───────────────────────────────────────────────────────────
+  // Polling loop
 
 /**
  * List all workspace-* directories under the watch path.
@@ -305,7 +305,7 @@ async function checkAndProcessFile(filePath: string): Promise<void> {
     return;
   }
 
-  console.log(`[hipp0/openclaw] New content in ${key} (${newBytes} bytes)`);
+  console.warn(`[hipp0/openclaw] New content in ${key} (${newBytes} bytes)`);
 
   const agentName = extractAgentName(filePath);
   const lines = newContent.split('\n').filter((l) => l.trim());
@@ -351,7 +351,7 @@ async function checkAndProcessFile(filePath: string): Promise<void> {
     decisionsFound++;
 
     const snippet = truncatedText.slice(0, 80).replace(/\n/g, ' ');
-    console.log(`[hipp0/openclaw] Decision captured from ${agentName}: "${snippet}"`);
+    console.warn(`[hipp0/openclaw] Decision captured from ${agentName}: "${snippet}"`);
   }
 
   if (decisionsFound > 0) {
@@ -369,7 +369,7 @@ async function checkAndProcessFile(filePath: string): Promise<void> {
   saveCursors();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+  // Helpers
 
 function extractAgentName(filePath: string): string {
   const parts = filePath.split(path.sep);
@@ -390,7 +390,7 @@ function loadCursors(): void {
         _cursors.set(key, entry);
       }
       _filesTracked = _cursors.size;
-      console.log(`[hipp0/openclaw] Loaded ${_cursors.size} cursors from ${_cursorPath}`);
+      console.warn(`[hipp0/openclaw] Loaded ${_cursors.size} cursors from ${_cursorPath}`);
     }
   } catch (err) {
     console.warn('[hipp0/openclaw] Failed to load cursors:', (err as Error).message);

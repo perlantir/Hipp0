@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-// ── DB Mock (same pattern as app.test.ts) ─────────────────────────────────
+  // DB Mock (same pattern as app.test.ts)
 
 const mockQuery = vi.fn();
 vi.mock('@hipp0/core/db/index.js', () => ({
@@ -43,7 +43,7 @@ vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseAuditEntry: vi.fn((row: Record<string, unknown>) => row),
 }));
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
 async function request(
   app: ReturnType<typeof createApp>,
@@ -54,7 +54,7 @@ async function request(
   return app.fetch(new Request(url, { method }));
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────
+  // Setup
 
 // Set a real API key so auth is enforced for protected routes
 vi.stubEnv('HIPP0_API_KEY', 'test-secret-key-12345');
@@ -67,7 +67,7 @@ beforeEach(() => {
   mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
 });
 
-// ── Tests ─────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('GET /api/openapi.json', () => {
   it('returns valid JSON with status 200', async () => {

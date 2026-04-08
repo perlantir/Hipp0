@@ -31,7 +31,7 @@ function isDemoRateLimited(ip: string): boolean {
 }
 
 export function registerDemoRoutes(app: Hono): void {
-  // ── GET /api/demo/agents ─────────────────────────────────────────
+    // GET /api/demo/agents
   app.get('/api/demo/agents', async (c) => {
     const db = getDb();
     try {
@@ -51,7 +51,7 @@ export function registerDemoRoutes(app: Hono): void {
     }
   });
 
-  // ── POST /api/demo/compile ───────────────────────────────────────
+    // POST /api/demo/compile
   app.post('/api/demo/compile', async (c) => {
     const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
     if (isDemoRateLimited(ip)) {
@@ -106,7 +106,7 @@ export function registerDemoRoutes(app: Hono): void {
     }
   });
 
-  // ── GET /api/demo/stats ──────────────────────────────────────────
+    // GET /api/demo/stats
   app.get('/api/demo/stats', async (c) => {
     const db = getDb();
     try {
@@ -135,7 +135,7 @@ export function registerDemoRoutes(app: Hono): void {
     }
   });
 
-  // ── GET /api/demo/decisions ──────────────────────────────────────
+    // GET /api/demo/decisions
   app.get('/api/demo/decisions', async (c) => {
     const db = getDb();
     try {

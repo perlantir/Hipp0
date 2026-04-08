@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DeciGraph Database Backup Script
+# Hipp0 Database Backup Script
 #
 # Usage:
 #   ./scripts/backup.sh [BACKUP_DIR]
@@ -11,7 +11,7 @@ set -euo pipefail
 
 BACKUP_DIR="${1:-./backups}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_FILE="${BACKUP_DIR}/decigraph_${TIMESTAMP}.sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/hipp0_${TIMESTAMP}.sql.gz"
 
 # Load .env if present
 if [ -f .env ]; then
@@ -30,7 +30,7 @@ fi
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
 
-echo "=== DeciGraph Database Backup ==="
+echo "=== Hipp0 Database Backup ==="
 echo "Time: $(date -Iseconds)"
 echo "Target: ${BACKUP_FILE}"
 
@@ -40,7 +40,7 @@ if command -v pg_dump &>/dev/null; then
 elif command -v docker &>/dev/null; then
   # If pg_dump not available locally, try via Docker
   docker exec -i "$(docker compose ps -q postgres 2>/dev/null || echo postgres)" \
-    pg_dump -U "${POSTGRES_USER:-nexus}" "${POSTGRES_DB:-nexus}" --no-owner --no-privileges \
+    pg_dump -U "${POSTGRES_USER:-hipp0}" "${POSTGRES_DB:-hipp0}" --no-owner --no-privileges \
     | gzip > "$BACKUP_FILE"
 else
   echo "ERROR: Neither pg_dump nor docker found."
@@ -51,9 +51,9 @@ FILESIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 echo "Backup complete: ${BACKUP_FILE} (${FILESIZE})"
 
 # Cleanup old backups (keep last 30)
-BACKUP_COUNT=$(find "$BACKUP_DIR" -name "decigraph_*.sql.gz" -type f | wc -l)
+BACKUP_COUNT=$(find "$BACKUP_DIR" -name "hipp0_*.sql.gz" -type f | wc -l)
 if [ "$BACKUP_COUNT" -gt 30 ]; then
-  find "$BACKUP_DIR" -name "decigraph_*.sql.gz" -type f | sort | head -n -30 | xargs rm -f
+  find "$BACKUP_DIR" -name "hipp0_*.sql.gz" -type f | sort | head -n -30 | xargs rm -f
   echo "Cleaned up old backups (kept last 30)"
 fi
 

@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createHmac } from 'node:crypto';
 
-// ── Mock getDb before importing the module under test ──────────────────────
+  // Mock getDb before importing the module under test
 const mockQuery = vi.fn();
 
 vi.mock('../src/db/index.js', () => ({
@@ -18,11 +18,11 @@ vi.mock('../src/db/index.js', () => ({
   }),
 }));
 
-// ── Mock fetch globally ────────────────────────────────────────────────────
+  // Mock fetch globally
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-// ── Import module under test ───────────────────────────────────────────────
+  // Import module under test
 import {
   dispatchWebhooks,
   formatSlack,
@@ -32,7 +32,7 @@ import {
 } from '../src/webhooks/index.js';
 import type { WebhookPayload } from '../src/webhooks/index.js';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+  // Helpers
 
 function makePayload(event = 'contradiction_detected'): WebhookPayload {
   return {
@@ -64,7 +64,7 @@ function makeWebhookRow(overrides: Record<string, unknown> = {}): Record<string,
   };
 }
 
-// ── Setup / Teardown ───────────────────────────────────────────────────────
+  // Setup / Teardown
 
 beforeEach(() => {
   mockQuery.mockReset();
@@ -76,7 +76,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Tests ──────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('Webhook Dispatcher', () => {
   describe('Platform Formatters', () => {

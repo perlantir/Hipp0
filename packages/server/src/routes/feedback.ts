@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 const VALID_RATINGS = ['useful', 'irrelevant', 'critical', 'missing'] as const;
 
 export function registerFeedbackRoutes(app: Hono): void {
-  // ── Single feedback ─────────────────────────────────────────────────────
+    // Single feedback
   app.post('/api/feedback', async (c) => {
     const body = await c.req.json<{
       agent_id?: unknown;
@@ -78,7 +78,7 @@ export function registerFeedbackRoutes(app: Hono): void {
     }
   });
 
-  // ── Batch feedback ──────────────────────────────────────────────────────
+    // Batch feedback
   app.post('/api/feedback/batch', async (c) => {
     const body = await c.req.json<{
       agent_id?: unknown;
@@ -118,7 +118,7 @@ export function registerFeedbackRoutes(app: Hono): void {
     return c.json(result, 201);
   });
 
-  // ── Feedback history ────────────────────────────────────────────────────
+    // Feedback history
   app.get('/api/agents/:id/feedback', async (c) => {
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 200);
@@ -126,14 +126,14 @@ export function registerFeedbackRoutes(app: Hono): void {
     return c.json(feedback);
   });
 
-  // ── Weight suggestions (manual mode) ────────────────────────────────────
+    // Weight suggestions (manual mode)
   app.get('/api/agents/:id/weight-suggestions', async (c) => {
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const suggestions = await getWeightSuggestions(agentId);
     return c.json({ agent_id: agentId, suggestions });
   });
 
-  // ── Apply weights ───────────────────────────────────────────────────────
+    // Apply weights
   app.post('/api/agents/:id/apply-weights', async (c) => {
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const updates = await computeAndApplyWeightUpdates(agentId);
@@ -141,7 +141,7 @@ export function registerFeedbackRoutes(app: Hono): void {
     return c.json({ agent_id: agentId, updates });
   });
 
-  // ── Reset weights ───────────────────────────────────────────────────────
+    // Reset weights
   app.post('/api/agents/:id/reset-weights', async (c) => {
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const profile = await resetWeights(agentId);
@@ -149,7 +149,7 @@ export function registerFeedbackRoutes(app: Hono): void {
     return c.json({ agent_id: agentId, weights: profile.weights });
   });
 
-  // ── Weight history ──────────────────────────────────────────────────────
+    // Weight history
   app.get('/api/agents/:id/weight-history', async (c) => {
     const agentId = requireUUID(c.req.param('id'), 'agentId');
     const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10), 100);

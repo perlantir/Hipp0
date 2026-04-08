@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── DB Mock ─────────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('@hipp0/core/db/index.js', () => ({
@@ -34,7 +34,7 @@ vi.mock('@hipp0/core/db/parsers.js', () => ({
 
 vi.stubEnv('NODE_ENV', 'development');
 
-// ── Golden Test Data ────────────────────────────────────────────────────────
+  // Golden Test Data
 
 const PROJECT_ID = '11111111-1111-1111-1111-111111111111';
 const AGENT_NAME = 'backend-engineer';
@@ -64,7 +64,7 @@ function makeDecision(overrides: Record<string, unknown>) {
   };
 }
 
-// ── Tests ───────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('Scoring Engine — Golden Snapshots', () => {
   beforeEach(() => {

@@ -16,7 +16,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import { getDb } from '@hipp0/core/db/index.js';
 
-// ── Types ────────────────────────────────────────────────────────────
+  // Types
 
 interface ClientInfo {
   ws: WebSocket;
@@ -32,7 +32,7 @@ export interface RoomEvent {
   timestamp: string;
 }
 
-// ── State ────────────────────────────────────────────────────────────
+  // State
 
 /** token → Set<ClientInfo> */
 const rooms = new Map<string, Set<ClientInfo>>();
@@ -52,7 +52,7 @@ export function getCollabWss(): WebSocketServer | null {
   return collabWss;
 }
 
-// ── Public API ───────────────────────────────────────────────────────
+  // Public API
 
 /** Broadcast a typed event to every client in a room. */
 export function broadcastToRoom(token: string, event: string, data: unknown): void {
@@ -85,7 +85,7 @@ export function getRoomPresence(token: string): string[] {
   return [...new Set(names)];
 }
 
-// ── Initialisation ───────────────────────────────────────────────────
+  // Initialisation
 
 export function initCollabWebSocket(): void {
   // noServer mode — the HTTP upgrade event is handled in index.ts
@@ -147,7 +147,7 @@ export function initCollabWebSocket(): void {
   console.warn('[hipp0] Collab Room WebSocket ready on /ws/room (noServer mode)');
 }
 
-// ── Client message handling ──────────────────────────────────────────
+  // Client message handling
 
 function handleClientMessage(client: ClientInfo, raw: unknown): void {
   let msg: { type: string; [key: string]: unknown };
@@ -218,7 +218,7 @@ function handleClientMessage(client: ClientInfo, raw: unknown): void {
   }
 }
 
-// ── Room membership ──────────────────────────────────────────────────
+  // Room membership
 
 function addClientToRoom(client: ClientInfo, token: string): void {
   // Remove from old room if switching
@@ -282,7 +282,7 @@ function handleDisconnect(client: ClientInfo): void {
   }
 }
 
-// ── WS chat shortcut ─────────────────────────────────────────────────
+  // WS chat shortcut
 
 async function handleWsChat(
   client: ClientInfo,
@@ -323,7 +323,7 @@ async function handleWsChat(
   broadcastToRoom(client.token, 'new_message', saved);
 }
 
-// ── Presence ─────────────────────────────────────────────────────────
+  // Presence
 
 async function updatePresenceInDb(client: ClientInfo): Promise<void> {
   if (!client.participantId) {
@@ -355,7 +355,7 @@ async function updatePresenceInDb(client: ClientInfo): Promise<void> {
   }
 }
 
-// ── Stale client sweep ───────────────────────────────────────────────
+  // Stale client sweep
 
 function sweepStaleClients(): void {
   const now = Date.now();

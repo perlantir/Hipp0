@@ -1,6 +1,6 @@
 /**
  * API Keys Routes — CRUD + rotate.
- * Key format: dg_live_* or dg_test_* + 32 random hex bytes.
+ * Key format: h0_live_* or h0_test_* + 32 random hex bytes.
  * Only the SHA-256 hash is stored. Full key returned once on creation.
  */
 import type { Hono } from 'hono';
@@ -10,7 +10,7 @@ import { phase3AuthMiddleware, requireRole, getUser } from '../auth/middleware.j
 import { requireUUID } from './validation.js';
 import crypto from 'node:crypto';
 
-// ── Zod Schemas ─────────────────────────────────────────────────────
+  // Zod Schemas
 const createKeySchema = z.object({
   name: z.string().min(1).max(200),
   project_id: z.string().uuid().optional(),
@@ -19,10 +19,10 @@ const createKeySchema = z.object({
   expires_in_days: z.number().int().min(1).max(365).optional(),
 });
 
-// ── Helpers ─────────────────────────────────────────────────────────
+  // Helpers
 function generateApiKey(environment: 'live' | 'test'): { key: string; prefix: string; hash: string } {
   const randomPart = crypto.randomBytes(32).toString('hex');
-  const prefix = `dg_${environment}_`;
+  const prefix = `h0_${environment}_`;
   const key = `${prefix}${randomPart}`;
   const hash = crypto.createHash('sha256').update(key).digest('hex');
   return { key, prefix, hash };
@@ -129,7 +129,7 @@ export function registerApiKeyRoutes(app: Hono): void {
     }
 
     const old = existing.rows[0] as Record<string, unknown>;
-    const env = (old.key_prefix as string).startsWith('dg_live_') ? 'live' as const : 'test' as const;
+    const env = (old.key_prefix as string).startsWith('h0_live_') ? 'live' as const : 'test' as const;
     const { key, prefix, hash } = generateApiKey(env);
 
     // Update the hash and prefix

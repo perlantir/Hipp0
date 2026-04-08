@@ -18,7 +18,7 @@ export function registerStatusRoutes(app: Hono): void {
       console.warn(`[hipp0] Cache cleared manually: ${deleted} entries removed`);
       return c.json({ cleared: deleted, timestamp: new Date().toISOString() });
     } catch (err) {
-      return c.json({ error: (err as Error).message }, 500);
+      return c.json({ error: 'Status check failed' }, 500);
     }
   });
 
@@ -63,7 +63,7 @@ export function registerStatusRoutes(app: Hono): void {
       queueStats = await getQueueStats();
     } catch { /* ignore */ }
 
-    // Phase 2 Intelligence stats
+    // Intelligence stats
     let contradictionsOpen = 0;
     let contradictionsResolved = 0;
     let staleCount = 0;

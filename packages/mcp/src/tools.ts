@@ -25,7 +25,7 @@ export function registerAllTools(
   client: Hipp0Client,
   config: ToolConfig,
 ): void {
-  // ── Tool 1: compile_context ────────────────────────────────────────────
+    // Tool 1: compile_context
 
   server.registerTool(
     'compile_context',
@@ -65,7 +65,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 2: add_decision ───────────────────────────────────────────────
+    // Tool 2: add_decision
 
   server.registerTool(
     'add_decision',
@@ -107,7 +107,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 3: ask_decisions ──────────────────────────────────────────────
+    // Tool 3: ask_decisions
 
   server.registerTool(
     'ask_decisions',
@@ -139,7 +139,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 4: search_decisions ───────────────────────────────────────────
+    // Tool 4: search_decisions
 
   server.registerTool(
     'search_decisions',
@@ -195,7 +195,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 5: get_contradictions ─────────────────────────────────────────
+    // Tool 5: get_contradictions
 
   server.registerTool(
     'get_contradictions',
@@ -229,7 +229,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 6: report_outcome ────────────────────────────────────────────
+    // Tool 6: report_outcome
 
   server.registerTool(
     'report_outcome',
@@ -269,7 +269,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 7: start_session ─────────────────────────────────────────
+    // Tool 7: start_session
 
   server.registerTool(
     'start_session',
@@ -299,7 +299,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 8: record_step ──────────────────────────────────────────
+    // Tool 8: record_step
 
   server.registerTool(
     'record_step',
@@ -334,7 +334,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 9: get_session ──────────────────────────────────────────
+    // Tool 9: get_session
 
   server.registerTool(
     'get_session',
@@ -370,7 +370,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 10: score_team ────────────────────────────────────────────
+    // Tool 10: score_team
 
   server.registerTool(
     'score_team',
@@ -416,7 +416,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 12: suggest_next (Super Brain Phase 3) ─────────────────────
+    // Tool 12: suggest_next (Super Brain Phase 3)
 
   server.registerTool(
     'suggest_next',
@@ -467,7 +467,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 13: session_plan (Super Brain Phase 3) ─────────────────────
+    // Tool 13: session_plan (Super Brain Phase 3)
 
   server.registerTool(
     'session_plan',
@@ -507,7 +507,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool 6: check_policy ───────────────────────────────────────────
+    // Tool 6: check_policy
 
   server.registerTool(
     'check_policy',
@@ -547,7 +547,7 @@ export function registerAllTools(
       };
     },
   );
-  // ── Tool: follow_orchestrator ──────────────────────────────────────
+    // Tool: follow_orchestrator
 
   server.registerTool(
     'follow_orchestrator',
@@ -597,7 +597,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: override_orchestrator ────────────────────────────────────
+    // Tool: override_orchestrator
 
   server.registerTool(
     'override_orchestrator',
@@ -638,7 +638,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_save_before_trim ───────────────────────────────────
+    // Tool: hipp0_save_before_trim
 
   server.registerTool(
     'hipp0_save_before_trim',
@@ -676,7 +676,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_what_changed ───────────────────────────────────────
+    // Tool: hipp0_what_changed
 
   server.registerTool(
     'hipp0_what_changed',
@@ -736,7 +736,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_evolve_decision ───────────────────────────────────
+    // Tool: hipp0_evolve_decision
   server.registerTool(
     'hipp0_evolve_decision',
     {
@@ -781,7 +781,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_review_evolutions ─────────────────────────────────
+    // Tool: hipp0_review_evolutions
   server.registerTool(
     'hipp0_review_evolutions',
     {
@@ -860,7 +860,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_auto_capture ──────────────────────────────────────
+    // Tool: hipp0_auto_capture
 
   server.registerTool(
     'hipp0_auto_capture',
@@ -900,7 +900,7 @@ export function registerAllTools(
     },
   );
 
-  // ── Tool: hipp0_get_patterns ──────────────────────────────────────
+    // Tool: hipp0_get_patterns
 
   server.registerTool(
     'hipp0_get_patterns',

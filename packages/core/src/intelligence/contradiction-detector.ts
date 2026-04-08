@@ -37,7 +37,7 @@ async function callSonnet(systemPrompt: string, userMessage: string): Promise<st
         messages: [{ role: 'user', content: userMessage }],
       });
 
-      console.log(`[hipp0/contradictions] LLM call: model=${SONNET_MODEL}`);
+      console.warn(`[hipp0/contradictions] LLM call: model=${SONNET_MODEL}`);
       const block = response.content[0];
       return block?.type === 'text' ? block.text : '{}';
     }
@@ -79,13 +79,13 @@ export async function detectContradictions(newDecisionId: string, projectId: str
 
   // Skip low confidence decisions
   if (newDec.confidence === 'low') {
-    console.log(`[hipp0/contradictions] Skipping low-confidence decision: "${newDec.title}"`);
+    console.warn(`[hipp0/contradictions] Skipping low-confidence decision: "${newDec.title}"`);
     return;
   }
 
   // Skip if no embedding
   if (!newDec.embedding) {
-    console.log(`[hipp0/contradictions] No embedding for decision "${newDec.title}" — skipping`);
+    console.warn(`[hipp0/contradictions] No embedding for decision "${newDec.title}" — skipping`);
     return;
   }
 
@@ -117,11 +117,11 @@ export async function detectContradictions(newDecisionId: string, projectId: str
   const newDesc = String(newDec.description ?? '').slice(0, MAX_DESC_LENGTH);
 
   if (candidates.length === 0) {
-    console.log(`[hipp0/contradictions] Scanning decision "${newTitle}" — 0 candidates above threshold (${SIMILARITY_THRESHOLD})`);
+    console.warn(`[hipp0/contradictions] Scanning decision "${newTitle}" — 0 candidates above threshold (${SIMILARITY_THRESHOLD})`);
     return;
   }
 
-  console.log(`[hipp0/contradictions] Scanning decision "${newTitle}" against ${candidates.length} candidates (threshold: ${SIMILARITY_THRESHOLD})`);
+  console.warn(`[hipp0/contradictions] Scanning decision "${newTitle}" against ${candidates.length} candidates (threshold: ${SIMILARITY_THRESHOLD})`);
 
   let sonnetCalls = 0;
   for (const candidate of candidates) {
@@ -131,7 +131,7 @@ export async function detectContradictions(newDecisionId: string, projectId: str
     const candDesc = String(candidate.description ?? '').slice(0, MAX_DESC_LENGTH);
     const similarity = (candidate.similarity as number).toFixed(2);
 
-    console.log(`[hipp0/contradictions] Candidate: "${candTitle}" (similarity: ${similarity}) → sending to Sonnet`);
+    console.warn(`[hipp0/contradictions] Candidate: "${candTitle}" (similarity: ${similarity}) → sending to Sonnet`);
 
     const userMessage = `Decision A: "${newTitle}" — ${newDesc}\n\nDecision B: "${candTitle}" — ${candDesc}`;
 
@@ -145,7 +145,7 @@ export async function detectContradictions(newDecisionId: string, projectId: str
 
       const result = JSON.parse(cleaned) as ContradictionResult;
 
-      console.log(`[hipp0/contradictions] Sonnet verdict: contradicts=${result.contradicts}, confidence=${result.confidence}`);
+      console.warn(`[hipp0/contradictions] Sonnet verdict: contradicts=${result.contradicts}, confidence=${result.confidence}`);
 
       if (result.contradicts && (result.confidence === 'high' || result.confidence === 'medium')) {
         // Insert into phase2_contradictions
@@ -156,7 +156,7 @@ export async function detectContradictions(newDecisionId: string, projectId: str
           [newDecisionId, candidate.id, result.confidence, result.explanation ?? ''],
         );
 
-        console.log(`[hipp0/contradictions] Contradiction created: "${newTitle}" ↔ "${candTitle}"`);
+        console.warn(`[hipp0/contradictions] Contradiction created: "${newTitle}" ↔ "${candTitle}"`);
       }
     } catch (err) {
       console.warn(`[hipp0/contradictions] Check failed for "${candTitle}":`, (err as Error).message);

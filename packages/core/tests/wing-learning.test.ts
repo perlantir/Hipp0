@@ -36,7 +36,7 @@ import {
 import { scoreDecision } from '../src/context-compiler/index.js';
 import type { Decision, Agent, RelevanceProfile, WingAffinity } from '../src/types.js';
 
-// ── Helpers ─────────────────────────────────────────────────────────────
+  // Helpers
 
 function makeDecision(overrides: Partial<Decision> = {}): Decision {
   return {
@@ -91,7 +91,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   } as Agent;
 }
 
-// ── Test: Auto-classification ──────────────────────────────────────────
+  // Test: Auto-classification
 
 describe('wing — auto-classification on decision ingestion', () => {
   it('classifies an API decision to the maks (builder) wing', () => {
@@ -186,7 +186,7 @@ describe('wing — auto-classification on decision ingestion', () => {
   });
 });
 
-// ── Test: Feedback loop (asymmetric learning) ──────────────────────────
+  // Test: Feedback loop (asymmetric learning)
 
 describe('wing — feedback learning rates are asymmetric', () => {
   it('positive learning rate (+0.02) is faster than negative (-0.01)', () => {
@@ -230,7 +230,7 @@ describe('wing — feedback learning rates are asymmetric', () => {
   });
 });
 
-// ── Test: Affinity score influences compile results ────────────────────
+  // Test: Affinity score influences compile results
 
 describe('wing — affinity score influences scoring', () => {
   it('high-affinity agent gets boost for wing-matched decisions', () => {
@@ -289,7 +289,7 @@ describe('wing — affinity score influences scoring', () => {
   });
 });
 
-// ── Test: Recalculation trigger ────────────────────────────────────────
+  // Test: Recalculation trigger
 
 describe('wing — recalculation trigger', () => {
   beforeEach(() => {
@@ -307,7 +307,7 @@ describe('wing — recalculation trigger', () => {
   });
 });
 
-// ── Test: Round-trip classification + scoring ──────────────────────────
+  // Test: Round-trip classification + scoring
 
 describe('wing — round-trip: classify → score → verify boost', () => {
   it('auto-classified decision gets scoring boost from matched wing', () => {

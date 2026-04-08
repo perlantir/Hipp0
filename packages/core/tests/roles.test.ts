@@ -30,7 +30,7 @@ const EXPECTED_ROLES = [
   'security',
 ] as const;
 
-// ── Existence ────────────────────────────────────────────────────────────────
+  // Existence
 
 describe('ROLE_TEMPLATES', () => {
   it('contains all 17 role templates', () => {
@@ -79,7 +79,7 @@ describe('ROLE_TEMPLATES', () => {
   });
 });
 
-// ── ROLE_NAMES ───────────────────────────────────────────────────────────────
+  // ROLE_NAMES
 
 describe('ROLE_NAMES', () => {
   it('contains exactly 17 entries', () => {
@@ -93,7 +93,7 @@ describe('ROLE_NAMES', () => {
   });
 });
 
-// ── Spot-check individual role profiles ──────────────────────────────────────
+  // Spot-check individual role profiles
 
 describe('individual role profiles', () => {
   it('builder has high implementation weight and recent_first preference', () => {
@@ -123,7 +123,7 @@ describe('individual role profiles', () => {
   });
 });
 
-// ── getRoleProfile ───────────────────────────────────────────────────────────
+  // getRoleProfile
 
 describe('getRoleProfile', () => {
   it('returns the correct profile for a known role', () => {
@@ -174,7 +174,7 @@ describe('getRoleProfile', () => {
   });
 });
 
-// ── getRoleNotificationContext ────────────────────────────────────────────────
+  // getRoleNotificationContext
 
 describe('getRoleNotificationContext', () => {
   it.each(EXPECTED_ROLES)('returns a non-empty string for role "%s"', (role) => {
@@ -199,7 +199,7 @@ describe('getRoleNotificationContext', () => {
   });
 });
 
-// ── listRoles ────────────────────────────────────────────────────────────────
+  // listRoles
 
 describe('listRoles', () => {
   it('returns exactly 17 roles', () => {

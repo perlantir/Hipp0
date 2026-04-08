@@ -21,7 +21,7 @@ import { classifyDecision, inferDomainFromTask } from '../src/hierarchy/classifi
 import { scoreDecision } from '../src/context-compiler/index.js';
 import type { Decision, Agent, RelevanceProfile } from '../src/types.js';
 
-/* ── Test helpers ────────────────────────────────────────────────────── */
+/*  Test helpers  */
 
 function makeDecision(overrides: Partial<Decision> = {}): Decision {
   return {
@@ -73,7 +73,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
 
 const ZERO_VECTOR: number[] = new Array(1536).fill(0);
 
-/* ── classifyDecision tests ──────────────────────────────────────────── */
+/*  classifyDecision tests  */
 
 describe('classifyDecision', () => {
   it('assigns "authentication" domain for tags ["jwt", "auth"]', () => {
@@ -161,7 +161,7 @@ describe('classifyDecision', () => {
   });
 });
 
-/* ── inferDomainFromTask tests ───────────────────────────────────────── */
+/*  inferDomainFromTask tests  */
 
 describe('inferDomainFromTask', () => {
   it('returns "authentication" for auth-related task', () => {
@@ -177,7 +177,7 @@ describe('inferDomainFromTask', () => {
   });
 });
 
-/* ── Domain-aware scoring boost tests ────────────────────────────────── */
+/*  Domain-aware scoring boost tests  */
 
 describe('Domain-aware scoring boost', () => {
   it('applies domain boost to scoring breakdown', () => {
@@ -237,7 +237,7 @@ describe('Domain-aware scoring boost', () => {
   });
 });
 
-/* ── Backward compatibility tests ────────────────────────────────────── */
+/*  Backward compatibility tests  */
 
 describe('Backward compatibility', () => {
   it('treats NULL domain/category as general with priority_level=1', () => {

@@ -286,7 +286,7 @@ export async function recordStep(input: {
   // Invalidate cache so next compile gets fresh data
   invalidateSession(input.session_id);
 
-  // Phase 3: Suggest next agent (non-fatal — never breaks step recording)
+  // Suggest next agent (non-fatal — never breaks step recording)
   let nextSuggestion: Record<string, unknown> | null = null;
   try {
     const { suggestNextAgent } = await import('../intelligence/orchestrator.js');

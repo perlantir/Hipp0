@@ -12,7 +12,7 @@ import { requireUUID, requireString, optionalString, logAudit, mapDbError } from
 import { getDb } from '@hipp0/core/db/index.js';
 import { extractDecisions } from '@hipp0/core/distillery/extractor.js';
 
-// ── Types ────────────────────────────────────────────────────────────
+  // Types
 
 interface ScanDecision {
   title: string;
@@ -28,7 +28,7 @@ interface TeamMember {
   suggested_role: string;
 }
 
-// ── Mock scan data (fallback when no token provided) ─────────────────
+  // Mock scan data (fallback when no token provided)
 
 const MOCK_DECISIONS: Record<string, ScanDecision[]> = {
   github: [
@@ -94,7 +94,7 @@ const MOCK_STATS: Record<string, Record<string, number>> = {
   files: { files_processed: 5, estimated_decisions: 20 },
 };
 
-// ── GitHub helpers ───────────────────────────────────────────────────
+  // GitHub helpers
 
 /** Parse "owner/repo" from a GitHub URL or "owner/repo" string. */
 function parseOwnerRepo(input: string): { owner: string; repo: string } | null {
@@ -134,7 +134,7 @@ async function scanGitHubLive(
   const { owner, repo } = parsed;
   const octokit = new Octokit({ auth: token });
 
-  // ── 1. Fetch last 50 merged PRs ────────────────────────────────────
+    // 1. Fetch last 50 merged PRs
   const prsResp = await octokit.pulls.list({
     owner,
     repo,
@@ -146,7 +146,7 @@ async function scanGitHubLive(
 
   const mergedPRs = prsResp.data.filter((pr) => pr.merged_at !== null);
 
-  // ── 2. Fetch open + recently closed issues ─────────────────────────
+    // 2. Fetch open + recently closed issues
   const [openIssues, closedIssues] = await Promise.all([
     octokit.issues.listForRepo({
       owner,
@@ -171,7 +171,7 @@ async function scanGitHubLive(
   const realClosedIssues = closedIssues.data.filter((i) => !i.pull_request);
   const allIssues = [...realOpenIssues, ...realClosedIssues];
 
-  // ── 3. Detect team members from PR authors ─────────────────────────
+    // 3. Detect team members from PR authors
   const authorCounts = new Map<string, number>();
   for (const pr of mergedPRs) {
     const login = pr.user?.login ?? 'unknown';
@@ -186,7 +186,7 @@ async function scanGitHubLive(
     suggested_role: suggestRole(idx, sortedAuthors.length),
   }));
 
-  // ── 4. Extract decisions from PR descriptions via distillery ───────
+    // 4. Extract decisions from PR descriptions via distillery
   //    Batch PR titles + bodies into chunks to stay within rate limits.
   const decisions: ScanDecision[] = [];
 
@@ -252,7 +252,7 @@ async function scanGitHubLive(
     }
   }
 
-  // ── 5. Build stats ─────────────────────────────────────────────────
+    // 5. Build stats
   const stats: Record<string, number> = {
     prs_found: prsResp.data.length,
     prs_merged: mergedPRs.length,
@@ -265,11 +265,11 @@ async function scanGitHubLive(
   return { stats, decisions, team };
 }
 
-// ── Route registration ──────────────────────────────────────────────
+  // Route registration
 
 export function registerImportWizardRoutes(app: Hono): void {
 
-  // ── Scan a source ──────────────────────────────────────────────────
+    // Scan a source
   app.post('/api/import-wizard/scan/:source', async (c) => {
     const source = c.req.param('source');
     if (!['github', 'slack', 'linear', 'files'].includes(source)) {
@@ -286,7 +286,7 @@ export function registerImportWizardRoutes(app: Hono): void {
       let team: TeamMember[];
       let stats: Record<string, number>;
 
-      // ── Live GitHub scan when token + repo provided ────────────────
+        // Live GitHub scan when token + repo provided
       if (
         source === 'github' &&
         typeof body.github_token === 'string' &&
@@ -309,7 +309,7 @@ export function registerImportWizardRoutes(app: Hono): void {
           stats = { ...MOCK_STATS[source] ?? {}, fallback: 1 };
         }
       } else {
-        // ── Mock fallback ────────────────────────────────────────────
+          // Mock fallback
         decisions = MOCK_DECISIONS[source] ?? [];
         team = MOCK_TEAMS[source] ?? [];
         stats = MOCK_STATS[source] ?? {};
@@ -335,7 +335,7 @@ export function registerImportWizardRoutes(app: Hono): void {
     }
   });
 
-  // ── Execute import (creates project, agents, decisions) ───────────
+    // Execute import (creates project, agents, decisions)
   app.post('/api/import-wizard/execute', async (c) => {
     const body = await c.req.json<{
       scan_id?: unknown;
@@ -410,7 +410,7 @@ export function registerImportWizardRoutes(app: Hono): void {
     }
   });
 
-  // ── Get scan result ───────────────────────────────────────────────
+    // Get scan result
   app.get('/api/import-wizard/scan/:id', async (c) => {
     const scanId = requireUUID(c.req.param('id'), 'scan_id');
     const db = getDb();

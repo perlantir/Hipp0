@@ -9,7 +9,7 @@ import { phase3AuthMiddleware, requireRole, getUser } from '../auth/middleware.j
 import { requireUUID } from './validation.js';
 import crypto from 'node:crypto';
 
-// ── Zod Schemas ─────────────────────────────────────────────────────
+  // Zod Schemas
 const inviteSchema = z.object({
   email: z.string().email().max(320),
   role: z.enum(['admin', 'member', 'viewer']).default('member'),
@@ -19,7 +19,7 @@ const updateRoleSchema = z.object({
   role: z.enum(['admin', 'member', 'viewer']),
 });
 
-// ── Helpers ─────────────────────────────────────────────────────────
+  // Helpers
 function logAudit(tenantId: string, userId: string, action: string, resourceType: string, resourceId: string | null, details: Record<string, unknown>, ip: string): void {
   getDb().query(
     `INSERT INTO audit_log_v2 (tenant_id, user_id, action, resource_type, resource_id, details, ip_address)

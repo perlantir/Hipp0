@@ -14,7 +14,7 @@ import {
   logAudit,
 } from './validation.js';
 
-// ── Ask Anything system prompt ─────────────────────────────────────────────
+  // Ask Anything system prompt
 
 const ASK_ANYTHING_SYSTEM_PROMPT = `You are a decision memory assistant for a software development team. Given a set of relevant decisions and a question, provide a clear, helpful answer.
 

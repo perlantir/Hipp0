@@ -122,7 +122,7 @@ function spawnServer(
 // ---------------------------------------------------------------------------
 
 export function registerServerCommands(program: Command): void {
-  // ── hipp0 start ──────────────────────────────────────────────────────────
+    // hipp0 start
   program
     .command('start')
     .description('Start the Hipp0 server (uses hipp0.db in the current directory)')
@@ -192,7 +192,7 @@ export function registerServerCommands(program: Command): void {
       }
     });
 
-  // ── hipp0 stop ───────────────────────────────────────────────────────────
+    // hipp0 stop
   program
     .command('stop')
     .description('Stop the running Hipp0 server')

@@ -62,9 +62,9 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     ? deterministicUUID(data.source_session_id)
     : null;
 
-  console.log(`[hipp0/ingestion] Processing: "${data.title}" source=${data.source}→${dbSource} by=${data.made_by} project=${data.project_id.slice(0, 8)}..`);
+  console.warn(`[hipp0/ingestion] Processing: "${data.title}" source=${data.source}→${dbSource} by=${data.made_by} project=${data.project_id.slice(0, 8)}..`);
 
-  // ── Dedupe check by deterministic UUID ───────────────────────────────────
+    // Dedupe check by deterministic UUID
   if (dbSessionId) {
     try {
       const existing = await db.query(
@@ -72,7 +72,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
         [dbSessionId],
       );
       if (existing.rows.length > 0) {
-        console.log(`[hipp0/ingestion] Duplicate skipped: "${data.title}" (session_id=${dbSessionId.slice(0, 8)}..)`);
+        console.warn(`[hipp0/ingestion] Duplicate skipped: "${data.title}" (session_id=${dbSessionId.slice(0, 8)}..)`);
         return;
       }
     } catch (err) {
@@ -81,7 +81,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     }
   }
 
-  // ── Generate embedding ───────────────────────────────────────────────────
+    // Generate embedding
   let vectorLiteral: string | null = null;
   try {
     const embedding = await generateEmbedding(`${data.title}\n${data.description}`);
@@ -93,7 +93,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     // Continue without embedding — decision still gets inserted
   }
 
-  // ── Validate project exists ──────────────────────────────────────────────
+    // Validate project exists
   try {
     const proj = await db.query('SELECT id FROM projects WHERE id = ?', [data.project_id]);
     if (proj.rows.length === 0) {
@@ -105,7 +105,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     return;
   }
 
-  // ── Insert decision ──────────────────────────────────────────────────────
+    // Insert decision
   // Enrich description with original source info for traceability
   const enrichedDescription = data.source !== 'api'
     ? `${data.description}\n\n[Auto-ingested from ${data.source}${data.source_session_id ? ` — ref: ${data.source_session_id}` : ''}]`
@@ -117,7 +117,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
   const decisionStatus = autoApproved ? 'active' : 'pending';
   const reviewStatus = autoApproved ? 'approved' : 'pending_review';
 
-  console.log(`[hipp0/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus}`);
+  console.warn(`[hipp0/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus}`);
 
   try {
     const result = await db.query(
@@ -149,9 +149,9 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
     const inserted = result.rows[0] as Record<string, unknown> | undefined;
     const decisionId = (inserted?.id as string) ?? 'unknown';
 
-    console.log(`[hipp0/ingestion] ✓ Inserted decision ${decisionId} into DB: "${data.title}" (source=${data.source}, db_source=${dbSource})`);
+    console.warn(`[hipp0/ingestion] ✓ Inserted decision ${decisionId} into DB: "${data.title}" (source=${data.source}, db_source=${dbSource})`);
 
-    // ── Phase 2 Intelligence hooks (fire-and-forget, never block ingestion) ──
+      // Intelligence hooks (fire-and-forget, never block ingestion)
     try {
       const { detectContradictions } = await import('@hipp0/core/intelligence/contradiction-detector.js');
       detectContradictions(decisionId, data.project_id).catch((err: Error) =>
@@ -170,7 +170,7 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
       console.warn('[hipp0/ingestion] Could not load dedup detector:', (err as Error).message);
     }
 
-    // ── Forward to notification queue ────────────────────────────────────
+      // Forward to notification queue
     const notificationData: NotificationJobData = {
       title: data.title,
       source: data.source,

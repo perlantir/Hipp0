@@ -121,7 +121,7 @@ const SCORING_WEIGHTS = {
 export const MIN_SCORE = 0.50;  // Raise to 0.72 once embeddings are live
 export const MAX_RESULTS = 15;
 
-// ── Deduplication ─────────────────────────────────────────────────────────
+  // Deduplication
 
 function deduplicateDecisions(decisions: ScoredDecision[]): ScoredDecision[] {
   const seen = new Set<string>();
@@ -136,7 +136,7 @@ function deduplicateDecisions(decisions: ScoredDecision[]): ScoredDecision[] {
   });
 }
 
-// ── Single Output Funnel ──────────────────────────────────────────────────
+  // Single Output Funnel
 // EVERY code path must go through this before returning decisions.
 
 function finalizeResults(
@@ -186,14 +186,14 @@ function finalizeResults(
 
   // One-line compile trace (always-on, permanent)
   const ms = Date.now() - startMs;
-  console.log(
+  console.warn(
     `[hipp0/compile] agent=${agentName} project=${(projectId ?? '').slice(0, 8)}.. scored=${scored.length} passed=${capped.length} top=${(capped[0]?.combined_score ?? 0).toFixed(3)} semantic=${scored.filter((d) => ((d.scoring_breakdown as unknown) as Record<string, unknown>)?.semantic_similarity as number > 0).length} ms=${ms}`,
   );
 
   return capped;
 }
 
-// ── Conversational Explanation Generator ───────────────────────────────────
+  // Conversational Explanation Generator
 
 function formatTemporalContext(decision: Decision): string | null {
   const scope = (decision as Decision & { temporal_scope?: string }).temporal_scope ?? 'permanent';
@@ -281,7 +281,7 @@ export function scoreDecision(
   const decisionTags = (decision.tags ?? []).map((t) => t.toLowerCase());
   const affects = (decision.affects ?? []).map((a) => a.toLowerCase());
 
-  // ── Signal A: Direct Affect (0 or 1) ──────────────────────────────
+    // Signal A: Direct Affect (0 or 1)
   // Check agent name, role, AND known aliases (e.g. 'pm' for 'makspm')
   const agentAliases = new Set([agentNameLower, agentRoleLower]);
   // Add common aliases
@@ -290,7 +290,7 @@ export function scoreDecision(
   const directAffectScore =
     affects.some((a) => agentAliases.has(a)) ? 1.0 : 0.0;
 
-  // ── Signal B: Tag Matching (overlap with profile weights) ─────────
+    // Signal B: Tag Matching (overlap with profile weights)
   const profileWeights = profile.weights;
   let tagMatchScore = 0;
   if (decisionTags.length > 0 && Object.keys(profileWeights).length > 0) {
@@ -301,7 +301,7 @@ export function scoreDecision(
     }
   }
 
-  // ── Signal C: Persona Match (primaryTags overlap - excludeTags penalty + wing affinity) ─
+    // Signal C: Persona Match (primaryTags overlap - excludeTags penalty + wing affinity)
   const persona = _getPersonaSafe(agent.name);
   if (!persona) {
     console.warn(`[hipp0/scoring] No persona found for agent: "${agent.name}" — persona match signal will be 0`);
@@ -336,7 +336,7 @@ export function scoreDecision(
     personaMatchScore = Math.max(0, personaMatchScore);
   }
 
-  // ── Signal D: Semantic Similarity ─────────────────────────────────
+    // Signal D: Semantic Similarity
   // Ensure embedding is number[] (pgvector may return string from DB)
   let decisionEmbedding: number[] = [];
   const rawEmb = decision.embedding as unknown;
@@ -351,7 +351,7 @@ export function scoreDecision(
       ? Math.max(0, cosineSimilarity(taskEmbedding, decisionEmbedding))
       : 0;
 
-  // ── Signal E: Keyword Matching (title + description substring match) ──
+    // Signal E: Keyword Matching (title + description substring match)
   // Critical for agents like makspm and counsel where tag overlap is weak
   // but decision titles contain PM/legal language.
   let keywordScore = 0;
@@ -365,10 +365,10 @@ export function scoreDecision(
     keywordScore = Math.min(keywordHits * 0.08, 0.20); // cap at 0.20
   }
 
-  // ── Made-by bonus ─────────────────────────────────────────────────
+    // Made-by bonus
   const madeByBonus = (decision.made_by ?? '').toLowerCase() === agentNameLower ? 0.15 : 0;
 
-  // ── Weighted sum ──────────────────────────────────────────────────
+    // Weighted sum
   let finalScore =
     SCORING_WEIGHTS.directAffect * directAffectScore +
     SCORING_WEIGHTS.tagMatch * tagMatchScore +
@@ -378,7 +378,7 @@ export function scoreDecision(
     madeByBonus -
     excludePenalty;
 
-  // ── Specificity Multiplier ────────────────────────────────────────
+    // Specificity Multiplier
   // Penalize generic decisions that affect everyone
   const affectsLen = (decision.affects ?? []).length;
   const specificityMultiplier =
@@ -388,7 +388,7 @@ export function scoreDecision(
     0.70;                     // Generic — affects everyone
   finalScore *= specificityMultiplier;
 
-  // ── Freshness Multiplier ──────────────────────────────────────────
+    // Freshness Multiplier
   const ageInDays = (Date.now() - new Date(decision.created_at).getTime()) / 86400000;
   const freshnessMultiplier =
     ageInDays <= 7 ? 1.12 :   // Last week: strong boost
@@ -397,21 +397,21 @@ export function scoreDecision(
     0.88;                     // Older: gentle penalty
   finalScore *= freshnessMultiplier;
 
-  // ── Status Multiplier ─────────────────────────────────────────────
+    // Status Multiplier
   if (decision.status === 'superseded') finalScore *= 0.4;
   if (decision.status === 'pending') finalScore *= 0.6;
 
-  // ── Confidence Multiplier ─────────────────────────────────────────
+    // Confidence Multiplier
   const confidenceMultiplier =
     decision.confidence === 'high' ? 1.15 :
     decision.confidence === 'medium' ? 1.00 :
     0.88;
   finalScore *= confidenceMultiplier;
 
-  // ── Direct agent match bonus (flat add after multipliers) ─────────
+    // Direct agent match bonus (flat add after multipliers)
   if (affects.some((a) => agentAliases.has(a))) finalScore += 0.25;
 
-  // ── Domain-aware scoring boost ────────────────────────────────────
+    // Domain-aware scoring boost
   let domainBoost = 0;
   const decisionDomain = (decision as Decision & { domain?: string }).domain;
   if (decisionDomain && domainContext) {
@@ -428,7 +428,7 @@ export function scoreDecision(
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
 
-  // ── Build human-readable explanation ────────────────────────────────
+    // Build human-readable explanation
   // Collect matched tags (union of profile weight matches + persona primaryTag matches)
   const profileMatchedTags = decisionTags.filter((t) => profileWeights[t] !== undefined);
   const personaMatchedTags = persona ? persona.primaryTags.filter((t) => decisionTags.includes(t)) : [];
@@ -807,11 +807,11 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     // Do NOT re-run finalizeResults, which would double-normalize scores
     // and potentially filter out decisions that originally passed MIN_SCORE.
     const cachedDecisions = (cached.decisions ?? []) as ScoredDecision[];
-    console.log(`[hipp0/compile] agent=${agent_name} CACHE HIT decisions=${cachedDecisions.length} ms=${Date.now() - startMs}`);
+    console.warn(`[hipp0/compile] agent=${agent_name} CACHE HIT decisions=${cachedDecisions.length} ms=${Date.now() - startMs}`);
     return { ...cached, decisions: cachedDecisions, decisions_included: cachedDecisions.length };
   }
 
-  // ── Layered context loading ────────────────────────────────────────
+    // Layered context loading
   // L0: priority_level=0, always loaded (max 5)
   // L1: priority_level=1 or NULL, scored normally (default)
   // L2: priority_level=2, only loaded when depth=full
@@ -905,7 +905,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     return sd;
   });
 
-  // ── Wing-aware affinity boost ──────────────────────────────────────
+    // Wing-aware affinity boost
   // Orchestrator agents (role "orchestrator") see all wings equally — no bias.
   const isOrchestrator = agent.role.toLowerCase() === 'orchestrator';
   if (!isOrchestrator) {
@@ -1023,11 +1023,11 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     const rawType = typeof first.embedding;
     const isArr = Array.isArray(first.embedding);
     const embLen = isArr ? (first.embedding as number[]).length : (typeof first.embedding === 'string' ? (first.embedding as string).length : 0);
-    console.log(`[hipp0/embeddings] first_decision_embedding: type=${rawType} isArray=${isArr} len=${embLen} semanticHits=${semanticHits}/${allScored.length}`);
+    console.warn(`[hipp0/embeddings] first_decision_embedding: type=${rawType} isArray=${isArr} len=${embLen} semanticHits=${semanticHits}/${allScored.length}`);
   }
   const packedDecisions = finalizeResults(allScored, agent_name, project_id, startMs);
 
-  // Phase 2: Update last_referenced_at + reference_count for included decisions
+  // Update last_referenced_at + reference_count for included decisions
   if (packedDecisions.length > 0) {
     const includedIds = packedDecisions.map((d) => d.id);
     try {
@@ -1100,7 +1100,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     2,
   );
 
-  // ── Pattern Recommendations ─────────────────────────────────────────
+    // Pattern Recommendations
   let suggestedPatterns: SuggestedPattern[] = [];
   const includePatterns = request.include_patterns !== false;
   if (includePatterns) {

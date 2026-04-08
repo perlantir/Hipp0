@@ -79,8 +79,8 @@ decisions = [
 ]
 
 # Write out the decisions as a JSON file for the seed script to import
-os.makedirs('/home/user/workspace/DeciGraph/packages/server/src', exist_ok=True)
-with open('/home/user/workspace/DeciGraph/packages/server/src/demo-decisions.json', 'w') as f:
+os.makedirs('/home/user/workspace/Hipp0/packages/server/src', exist_ok=True)
+with open('/home/user/workspace/Hipp0/packages/server/src/demo-decisions.json', 'w') as f:
     json.dump({"agents": agents, "decisions": decisions}, f, indent=2)
 
 print(f"Generated {len(decisions)} decisions and {len(agents)} agents")

@@ -2,12 +2,12 @@
 set -e
 
 # ============================================================
-# DeciGraph Smoke Test
+# Hipp0 Smoke Test
 # Run after setup to verify everything works
 # Usage: bash scripts/smoke-test.sh
 # ============================================================
 
-API_URL="${DECIGRAPH_API_URL:-http://localhost:3100}"
+API_URL="${HIPP0_API_URL:-http://localhost:3100}"
 PASS=0
 FAIL=0
 WARN=0
@@ -18,7 +18,7 @@ warn() { echo "   ⚠️  $1"; WARN=$((WARN + 1)); }
 
 echo ""
 echo "  ╔══════════════════════════════════╗"
-echo "  ║     DECIGRAPH SMOKE TEST             ║"
+echo "  ║     HIPP0 SMOKE TEST             ║"
 echo "  ╚══════════════════════════════════╝"
 echo ""
 echo "  API: $API_URL"
@@ -32,7 +32,7 @@ if echo "$HEALTH" | grep -q '"ok"'; then
 else
   fail "API health check failed. Is the server running on $API_URL?"
   echo ""
-  echo "  Start the server with: pnpm --filter @decigraph/server dev"
+  echo "  Start the server with: pnpm --filter @hipp0/server dev"
   exit 1
 fi
 
@@ -141,7 +141,7 @@ if [ $FAIL -gt 0 ]; then
   echo "  Some tests failed. Check the output above for details."
   exit 1
 else
-  echo "  DeciGraph is ready. Next steps:"
+  echo "  Hipp0 is ready. Next steps:"
   echo ""
   echo "    Set OPENAI_API_KEY in .env      → enables semantic search + embeddings"
   echo "    Set ANTHROPIC_API_KEY in .env    → enables auto-extraction from conversations"

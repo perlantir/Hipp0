@@ -12,7 +12,7 @@ import ora from 'ora';
 import { getClient, getProjectId, handleError } from '../cli-helpers.js';
 
 export function registerShortcutCommands(program: Command): void {
-  // ── add ─────────────────────────────────────────────────────────────────
+    // add
 
   program
     .command('add <title>')
@@ -61,7 +61,7 @@ export function registerShortcutCommands(program: Command): void {
       },
     );
 
-  // ── ask ─────────────────────────────────────────────────────────────────
+    // ask
 
   program
     .command('ask <question>')
@@ -92,7 +92,7 @@ export function registerShortcutCommands(program: Command): void {
       }
     });
 
-  // ── search ──────────────────────────────────────────────────────────────
+    // search
 
   program
     .command('search [query]')
@@ -157,7 +157,7 @@ export function registerShortcutCommands(program: Command): void {
       },
     );
 
-  // ── list ────────────────────────────────────────────────────────────────
+    // list
 
   program
     .command('list')

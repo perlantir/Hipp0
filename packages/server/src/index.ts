@@ -107,10 +107,10 @@ async function main() {
     }
   } catch { /* table may not exist yet */ }
 
-  // ── Bootstrap API keys for keyless projects ────────────────────────
+    // Bootstrap API keys for keyless projects
   await bootstrapApiKeys();
 
-  // ── Seed demo project for public playground ────────────────────────
+    // Seed demo project for public playground
   try {
     await seedDemoProject();
   } catch (err) {
@@ -119,10 +119,10 @@ async function main() {
 
   logLLMConfig(resolveLLMConfig());
 
-  // ── Initialize cache ────────────────────────────────────────────────
+    // Initialize cache
   await initCache();
 
-  // ── Initialize job queues ──────────────────────────────────────────────
+    // Initialize job queues
   const notificationHandler = async (data: NotificationJobData): Promise<void> => {
     // Route notifications to the appropriate connector
     if (data.source === 'telegram') {
@@ -138,7 +138,7 @@ async function main() {
   );
   console.warn(`[hipp0] Queue: ${queueEnabled ? 'BullMQ (Redis connected)' : 'inline mode (Redis not configured)'}`);
 
-  // ── Start connectors ──────────────────────────────────────────────────
+    // Start connectors
   const telegramStarted = startTelegramBot();
 
   const openclawStarted = startOpenClawWatcher();
@@ -160,7 +160,7 @@ async function main() {
         const projectId = (row as Record<string, unknown>).id as string;
         await markStaleDecisions(projectId);
       }
-      console.log('[hipp0/staleness] Staleness check completed');
+      console.warn('[hipp0/staleness] Staleness check completed');
     } catch (err) {
       console.warn('[hipp0/staleness] Check failed:', (err as Error).message);
     }
@@ -183,7 +183,7 @@ async function main() {
         const pid = (row as Record<string, unknown>).id as string;
         try {
           await generateDigest(pid);
-          console.log(`[hipp0/digest] Generated for project ${pid}`);
+          console.warn(`[hipp0/digest] Generated for project ${pid}`);
         } catch (err) {
           console.warn(`[hipp0/digest] Failed for project ${pid}:`, (err as Error).message);
         }
@@ -202,7 +202,7 @@ async function main() {
     if (now.getUTCDay() === 1 && now.getUTCHours() === 10 && now.getUTCMinutes() < 5) {
       import('@hipp0/core/intelligence/pattern-extractor.js')
         .then(({ extractPatterns }) => extractPatterns())
-        .then(() => console.log('[hipp0/patterns] Weekly extraction complete'))
+        .then(() => console.warn('[hipp0/patterns] Weekly extraction complete'))
         .catch((err: Error) => console.warn('[hipp0/patterns] Extraction failed:', err.message));
     }
   }, 5 * 60 * 1000); // check every 5 minutes
@@ -212,7 +212,7 @@ async function main() {
 
   const app = createApp();
 
-  // ── Register GitHub PR webhook ──────────────────────────────────────────
+    // Register GitHub PR webhook
   registerGitHubWebhook(app);
   if (process.env.HIPP0_GITHUB_WEBHOOK_SECRET) {
     console.warn('[hipp0] GitHub PR webhook: active');

@@ -15,7 +15,7 @@ import { createMiddleware } from 'hono/factory';
 import { getDb } from '@hipp0/core/db/index.js';
 import type { AuthUser } from '../auth/middleware.js';
 
-// ── Tier limits ────────────────────────────────────────────────────────
+  // Tier limits
 
 interface TierLimits {
   max_projects: number;
@@ -57,7 +57,7 @@ function getLimits(plan: string): TierLimits {
   return TIER_LIMITS[plan] ?? TIER_LIMITS.free;
 }
 
-// ── Upsert daily usage row ─────────────────────────────────────────────
+  // Upsert daily usage row
 
 async function getOrCreateDailyUsage(tenantId: string): Promise<{ compiles_count: number; ask_count: number; decisions_count: number }> {
   const db = getDb();
@@ -99,7 +99,7 @@ async function incrementUsage(tenantId: string, field: 'compiles_count' | 'ask_c
   );
 }
 
-// ── Detect resource type from route ────────────────────────────────────
+  // Detect resource type from route
 
 type ResourceAction = 'compile' | 'ask' | 'create_decision' | 'create_project' | 'create_agent' | 'integration' | 'none';
 
@@ -118,7 +118,7 @@ function detectAction(method: string, path: string): ResourceAction {
   return 'none';
 }
 
-// ── Middleware factory ──────────────────────────────────────────────────
+  // Middleware factory
 
 export function tierEnforcement(): MiddlewareHandler {
   return createMiddleware(async (c, next) => {

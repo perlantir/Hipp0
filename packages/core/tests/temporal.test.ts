@@ -12,7 +12,7 @@ import {
 } from '../src/temporal/index.js';
 import type { Decision } from '../src/types.js';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+  // Helpers
 
 function makeDecision(overrides: Partial<Decision> = {}): Decision {
   const now = new Date().toISOString();
@@ -45,7 +45,7 @@ function daysAgo(days: number, from: Date = new Date()): string {
   return new Date(from.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-// ── computeFreshness ─────────────────────────────────────────────────────────
+  // computeFreshness
 
 describe('computeFreshness', () => {
   it('returns ~1.0 for a decision created right now (unvalidated)', () => {
@@ -116,7 +116,7 @@ describe('computeFreshness', () => {
   });
 });
 
-// ── computeEffectiveConfidence ───────────────────────────────────────────────
+  // computeEffectiveConfidence
 
 describe('computeEffectiveConfidence', () => {
   it('returns nominal score when decay_rate is 0 (no decay)', () => {
@@ -170,7 +170,7 @@ describe('computeEffectiveConfidence', () => {
   });
 });
 
-// ── confidenceToScore ────────────────────────────────────────────────────────
+  // confidenceToScore
 
 describe('confidenceToScore', () => {
   it('maps high → 1.0', () => {
@@ -186,7 +186,7 @@ describe('confidenceToScore', () => {
   });
 });
 
-// ── getTemporalFlags ─────────────────────────────────────────────────────────
+  // getTemporalFlags
 
 describe('getTemporalFlags', () => {
   it('returns no flags for a fresh, active, validated decision', () => {
@@ -300,7 +300,7 @@ describe('getTemporalFlags', () => {
   });
 });
 
-// ── blendScores ──────────────────────────────────────────────────────────────
+  // blendScores
 
 describe('blendScores', () => {
   it('recent_first: 55% relevance + 45% freshness', () => {

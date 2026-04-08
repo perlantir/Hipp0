@@ -134,7 +134,7 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
   }
 
   if (staleCount > 0) {
-    console.log(`[hipp0/staleness] ${staleCount} decisions marked stale in project ${projectId.slice(0, 8)}..`);
+    console.warn(`[hipp0/staleness] ${staleCount} decisions marked stale in project ${projectId.slice(0, 8)}..`);
   }
 
   return staleCount;
@@ -150,5 +150,5 @@ export async function reaffirmDecision(decisionId: string): Promise<void> {
     [decisionId],
   );
 
-  console.log(`[hipp0/staleness] Decision ${decisionId.slice(0, 8)}.. reaffirmed`);
+  console.warn(`[hipp0/staleness] Decision ${decisionId.slice(0, 8)}.. reaffirmed`);
 }

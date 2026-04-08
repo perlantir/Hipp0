@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-// ── DB Mock ───────────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('@hipp0/core/db/index.js', () => ({
@@ -41,7 +41,7 @@ vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseAuditEntry: vi.fn((row: Record<string, unknown>) => row),
 }));
 
-// ── Discovery-specific mocks ──────────────────────────────────────────────────
+  // Discovery-specific mocks
 
 vi.mock('@hipp0/core/distillery/index.js', () => ({
   distill: vi.fn(),
@@ -60,7 +60,7 @@ const mockDistill = vi.mocked(distill);
 const { scanProjectContradictions } = await import('@hipp0/core/contradiction-detector/index.js');
 const mockScan = vi.mocked(scanProjectContradictions);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  // Helpers
 
 /** Run a Hono app request and return the Response. */
 async function request(
@@ -92,7 +92,7 @@ async function request(
   return app.fetch(req);
 }
 
-// ── Test Setup ────────────────────────────────────────────────────────────────
+  // Test Setup
 
 // Set development mode so authMiddleware skips API key validation
 vi.stubEnv('NODE_ENV', 'development');
@@ -116,7 +116,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── POST /api/projects/:id/import ─────────────────────────────────────────────
+  // POST /api/projects/:id/import
 
 describe('POST /api/projects/:id/import', () => {
   it('validates conversations array — returns 400 if not array', async () => {
@@ -182,7 +182,7 @@ describe('POST /api/projects/:id/import', () => {
   });
 });
 
-// ── POST /api/ingest/webhook ──────────────────────────────────────────────────
+  // POST /api/ingest/webhook
 
 describe('POST /api/ingest/webhook', () => {
   const VALID_BODY = {
@@ -258,7 +258,7 @@ describe('POST /api/ingest/webhook', () => {
   });
 });
 
-// ── GET /api/projects/:id/connectors ─────────────────────────────────────────
+  // GET /api/projects/:id/connectors
 
 describe('GET /api/projects/:id/connectors', () => {
   it('returns connector list from DB', async () => {
@@ -301,7 +301,7 @@ describe('GET /api/projects/:id/connectors', () => {
   });
 });
 
-// ── POST /api/projects/:id/connectors ────────────────────────────────────────
+  // POST /api/projects/:id/connectors
 
 describe('POST /api/projects/:id/connectors', () => {
   it('creates a new connector config — returns 201 with connector row', async () => {
@@ -371,7 +371,7 @@ describe('POST /api/projects/:id/connectors', () => {
   });
 });
 
-// ── DELETE /api/projects/:id/connectors/:name ─────────────────────────────────
+  // DELETE /api/projects/:id/connectors/:name
 
 describe('DELETE /api/projects/:id/connectors/:name', () => {
   it('removes connector — returns deleted: true', async () => {
@@ -420,7 +420,7 @@ describe('DELETE /api/projects/:id/connectors/:name', () => {
   });
 });
 
-// ── GET /api/projects/:id/discovery/status ───────────────────────────────────
+  // GET /api/projects/:id/discovery/status
 
 describe('GET /api/projects/:id/discovery/status', () => {
   it('returns stats structure with connectors, processed_count, and recent_sources', async () => {
@@ -462,7 +462,7 @@ describe('GET /api/projects/:id/discovery/status', () => {
   });
 });
 
-// ── POST /api/projects/:id/scan-contradictions ───────────────────────────────
+  // POST /api/projects/:id/scan-contradictions
 
 describe('POST /api/projects/:id/scan-contradictions', () => {
   it('returns scan summary with pairs_checked and contradictions_found', async () => {

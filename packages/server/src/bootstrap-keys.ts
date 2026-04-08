@@ -10,7 +10,7 @@ import { DEFAULT_TENANT_ID, DEFAULT_USER_ID } from './constants.js';
 
 export function generateApiKey(): { key: string; prefix: string; hash: string } {
   const randomPart = crypto.randomBytes(32).toString('hex');
-  const prefix = 'dg_live_';
+  const prefix = 'h0_live_';
   const key = `${prefix}${randomPart}`;
   const hash = crypto.createHash('sha256').update(key).digest('hex');
   return { key, prefix, hash };
@@ -67,11 +67,11 @@ export async function bootstrapApiKeys(): Promise<void> {
     );
 
     const masked = key.slice(0, 16) + '...';
-    console.log('============================================================');
-    console.log(`\ud83d\udd11 API Key generated for project "${projectName}"`);
-    console.log(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
-    console.log('');
-    console.log('   Full key is NOT logged for security.');
-    console.log('============================================================');
+    console.warn('============================================================');
+    console.warn(`\ud83d\udd11 API Key generated for project "${projectName}"`);
+    console.warn(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
+    console.warn('');
+    console.warn('   Full key is NOT logged for security.');
+    console.warn('============================================================');
   }
 }

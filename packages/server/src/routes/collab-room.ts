@@ -16,7 +16,7 @@ function generateToken(): string {
 
 export function registerCollabRoomRoutes(app: Hono): void {
 
-  // ── Create a room ─────────────────────────────────────────────────────
+    // Create a room
   app.post('/api/collab/rooms', async (c) => {
     const body = await c.req.json<{
       project_id?: unknown;
@@ -71,7 +71,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Get room by token ─────────────────────────────────────────────────
+    // Get room by token
   app.get('/api/collab/rooms/:token', async (c) => {
     const token = c.req.param('token');
     const db = getDb();
@@ -102,7 +102,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Join room ─────────────────────────────────────────────────────────
+    // Join room
   app.post('/api/collab/rooms/:token/join', async (c) => {
     const token = c.req.param('token');
     const body = await c.req.json<{
@@ -147,7 +147,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Send message ──────────────────────────────────────────────────────
+    // Send message
   app.post('/api/collab/rooms/:token/messages', async (c) => {
     const token = c.req.param('token');
     const body = await c.req.json<{
@@ -198,7 +198,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Get messages (polling fallback) ────────────────────────────────────
+    // Get messages (polling fallback)
   app.get('/api/collab/rooms/:token/messages', async (c) => {
     const token = c.req.param('token');
     const db = getDb();
@@ -228,7 +228,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Accept/Override suggestion ────────────────────────────────────────
+    // Accept/Override suggestion
   app.post('/api/collab/rooms/:token/action', async (c) => {
     const token = c.req.param('token');
     const body = await c.req.json<{
@@ -283,7 +283,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Close room ────────────────────────────────────────────────────────
+    // Close room
   app.post('/api/collab/rooms/:token/close', async (c) => {
     const token = c.req.param('token');
     const db = getDb();
@@ -310,7 +310,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     }
   });
 
-  // ── Seed demo room ────────────────────────────────────────────────────
+    // Seed demo room
   app.post('/api/collab/rooms/seed-demo', async (c) => {
     const db = getDb();
 
@@ -325,7 +325,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
 
       // Seed participants
       const participants = [
-        ['Nick', 'human', 'browser', 'owner'],
+        ['Owner', 'human', 'browser', 'owner'],
         ['maks', 'agent', 'openclaw', 'operator'],
         ['security', 'agent', 'mcp', 'operator'],
         ['forge', 'agent', 'sdk', 'operator'],
@@ -355,10 +355,10 @@ export function registerCollabRoomRoutes(app: Hono): void {
       // Seed messages
       const msgs = [
         ['System', 'system', 'Room created. Session started: Build JWT Auth System', 'system'],
-        ['Nick', 'human', "Let's make sure we handle token refresh edge cases properly", 'chat'],
+        ['Owner', 'human', "Let's make sure we handle token refresh edge cases properly", 'chat'],
         ['Brain', 'system', 'Suggesting security as next agent (62% relevance) — auth implementation needs security review before proceeding to frontend', 'suggestion'],
         ['security', 'agent', 'Starting review of auth implementation. Checking for token leakage vectors, CSRF protection, and secure cookie configuration.', 'chat'],
-        ['Nick', 'human', '@security also check PCI compliance requirements', 'chat'],
+        ['Owner', 'human', '@security also check PCI compliance requirements', 'chat'],
         ['maks', 'agent', 'I can handle the frontend auth context and protected route wrappers once security review is complete.', 'chat'],
       ];
       for (const [name, type, msg, msgType] of msgs) {

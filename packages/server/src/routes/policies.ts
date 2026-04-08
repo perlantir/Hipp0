@@ -15,7 +15,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { randomUUID } from 'node:crypto';
 
-/* ── Helpers ─────────────────────────────────────────────────────── */
+/*  Helpers  */
 
 function requireString(val: unknown, name: string): string {
   if (typeof val !== 'string' || val.trim().length === 0) {
@@ -24,10 +24,10 @@ function requireString(val: unknown, name: string): string {
   return val.trim();
 }
 
-/* ── Register ────────────────────────────────────────────────────── */
+/*  Register  */
 
 export function registerPolicyRoutes(app: Hono): void {
-  /* ──────────────────── POLICY CRUD ──────────────────── */
+  /*  POLICY CRUD  */
 
   // Create / update policy for a decision
   app.post('/api/decisions/:id/policy', async (c) => {
@@ -160,7 +160,7 @@ export function registerPolicyRoutes(app: Hono): void {
     return c.json({ ok: true });
   });
 
-  /* ──────────────────── VIOLATIONS ──────────────────── */
+  /*  VIOLATIONS  */
 
   // List violations
   app.get('/api/projects/:id/violations', async (c) => {
@@ -250,7 +250,7 @@ export function registerPolicyRoutes(app: Hono): void {
     });
   });
 
-  /* ──────────────────── PRE-COMPILE POLICY CHECK ──────────────────── */
+  /*  PRE-COMPILE POLICY CHECK  */
 
   app.post('/api/policies/check', async (c) => {
     const db = getDb();

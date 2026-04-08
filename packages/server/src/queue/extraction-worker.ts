@@ -93,13 +93,13 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
   const scrubbed = scrubSecrets(data.raw_text);
   const userMessage = INJECTION_GUARD + scrubbed;
 
-  console.log(`[hipp0/extraction] Processing: source=${data.source} by=${data.made_by} len=${data.raw_text.length} model=${EXTRACTION_MODEL}`);
+  console.warn(`[hipp0/extraction] Processing: source=${data.source} by=${data.made_by} len=${data.raw_text.length} model=${EXTRACTION_MODEL}`);
 
   const llmResponse = await callExtractionLLM(EXTRACTION_SYSTEM_PROMPT, userMessage);
 
   // Check if Distillery thinks this is not a decision
   if (!llmResponse || llmResponse.trim() === 'null' || llmResponse.trim() === 'NO_DECISION' || llmResponse.trim() === '[]') {
-    console.log(`[hipp0/extraction] No decision found in message from ${data.made_by}`);
+    console.warn(`[hipp0/extraction] No decision found in message from ${data.made_by}`);
     return;
   }
 
@@ -139,5 +139,5 @@ export async function handleExtractionJob(data: ExtractionJobData): Promise<void
   };
 
   await addIngestionJob(ingestionData);
-  console.log(`[hipp0/extraction] Decision extracted: "${ingestionData.title}" → ingestion queue`);
+  console.warn(`[hipp0/extraction] Decision extracted: "${ingestionData.title}" → ingestion queue`);
 }

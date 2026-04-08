@@ -39,7 +39,7 @@ function matchesDecisionPattern(text: string): boolean {
 
 const MAX_EXTRACTION_LENGTH = 2000;
 
-// ── Deep integration patterns ───────────────────────────────────────
+  // Deep integration patterns
 
 /** Matches DG-<uuid> or DG:<uuid> */
 const DG_REF_PATTERN = /\bDG[-:]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/gi;
@@ -47,7 +47,7 @@ const DG_REF_PATTERN = /\bDG[-:]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 /** Matches Implements: "title" or Refs: "title" */
 const TITLE_REF_PATTERN = /\b(?:Implements|Refs)\s*:\s*"([^"]+)"/gi;
 
-// ── Signature verification ──────────────────────────────────────────
+  // Signature verification
 
 function verifySignature(payload: string, signature: string | undefined, secret: string): boolean {
   if (!signature) return false;
@@ -59,7 +59,7 @@ function verifySignature(payload: string, signature: string | undefined, secret:
   }
 }
 
-// ── Types ───────────────────────────────────────────────────────────
+  // Types
 
 interface PRPayload {
   action: string;
@@ -76,7 +76,7 @@ interface PRPayload {
   };
 }
 
-// ── Link upsert helper ─────────────────────────────────────────────
+  // Link upsert helper
 
 export async function upsertLink(params: {
   decisionId: string;
@@ -125,7 +125,7 @@ export async function upsertLink(params: {
   }
 }
 
-// ── A: Scan PR body for decision references ─────────────────────────
+  // A: Scan PR body for decision references
 
 async function scanForReferences(
   prBody: string,
@@ -193,7 +193,7 @@ async function scanForReferences(
   return linkCount;
 }
 
-// ── B: Post comment with relevant decisions ─────────────────────────
+  // B: Post comment with relevant decisions
 
 async function postRelevantDecisionsComment(
   repoFullName: string,
@@ -314,7 +314,7 @@ async function postRelevantDecisionsComment(
   }
 }
 
-// ── C: On PR merged — update link status ────────────────────────────
+  // C: On PR merged — update link status
 
 async function updateLinksOnMerge(repoFullName: string, prNumber: number): Promise<void> {
   const db = getDb();
@@ -326,7 +326,7 @@ async function updateLinksOnMerge(repoFullName: string, prNumber: number): Promi
   );
 }
 
-// ── D: Notify linked open PRs when decision superseded ──────────────
+  // D: Notify linked open PRs when decision superseded
 
 export async function notifySupersededDecision(
   oldDecisionId: string,
@@ -372,7 +372,7 @@ export async function notifySupersededDecision(
   }
 }
 
-// ── Register webhook ────────────────────────────────────────────────
+  // Register webhook
 
 export function registerGitHubWebhook(app: Hono): void {
   const webhookSecret = process.env.HIPP0_GITHUB_WEBHOOK_SECRET ?? '';
@@ -412,7 +412,7 @@ export function registerGitHubWebhook(app: Hono): void {
     const prAuthor = pr.user?.login ?? 'github';
     const repoFullName = pr.base?.repo?.full_name ?? '';
 
-    // ── A+B: On PR opened or edited — scan references + post comment ──
+      // A+B: On PR opened or edited — scan references + post comment
 
     if (payload.action === 'opened' || payload.action === 'edited') {
       if (!projectId) {
@@ -429,11 +429,11 @@ export function registerGitHubWebhook(app: Hono): void {
         (err) => console.warn('[hipp0/github] Comment posting failed:', (err as Error).message),
       );
 
-      console.log(`[hipp0/github] PR #${prNumber} ${payload.action} — ${linkCount} reference(s) linked`);
+      console.warn(`[hipp0/github] PR #${prNumber} ${payload.action} — ${linkCount} reference(s) linked`);
       return c.json({ status: 'processed', action: payload.action, links_created: linkCount });
     }
 
-    // ── C: On PR closed+merged — update links + existing extraction ──
+      // C: On PR closed+merged — update links + existing extraction
 
     if (payload.action === 'closed' && pr.merged) {
       // Update link statuses to 'merged'
@@ -472,7 +472,7 @@ export function registerGitHubWebhook(app: Hono): void {
         project_id: projectId,
       });
 
-      console.log(`[hipp0/github] PR #${prNumber} merged — decision extraction queued (by ${madeBy})`);
+      console.warn(`[hipp0/github] PR #${prNumber} merged — decision extraction queued (by ${madeBy})`);
 
       return c.json({
         status: 'processing',
@@ -484,7 +484,7 @@ export function registerGitHubWebhook(app: Hono): void {
       });
     }
 
-    // ── On PR closed without merge — update links to 'closed' ──
+      // On PR closed without merge — update links to 'closed'
 
     if (payload.action === 'closed' && !pr.merged) {
       if (repoFullName && prNumber) {

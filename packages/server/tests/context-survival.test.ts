@@ -139,7 +139,7 @@ beforeEach(() => {
   mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
 });
 
-// ── Context Compression Survival ─────────────────────────────────────
+  // Context Compression Survival
 
 describe('POST /api/tasks/session/:id/checkpoint (save_before_trim)', () => {
   const SESSION_ID = 'a0000000-0000-4000-8000-000000000001';
@@ -254,7 +254,7 @@ describe('Compile with checkpoint restoration', () => {
   });
 });
 
-// ── Session Prefetch ──────────────────────────────────────────────────
+  // Session Prefetch
 
 describe('Session Prefetch', () => {
   const SESSION_ID = 'a0000000-0000-4000-8000-000000000001';
@@ -330,7 +330,7 @@ describe('Session Prefetch', () => {
   });
 });
 
-// ── Compile with no session (graceful) ──────────────────────────────
+  // Compile with no session (graceful)
 
 describe('Features disabled gracefully', () => {
   const PROJECT_ID = 'b0000000-0000-4000-8000-000000000001';

@@ -121,7 +121,7 @@ async function processOutcomeSignals(agentId: string): Promise<void> {
       syntheticRatings,
     );
     await computeAndApplyWeightUpdates(agentId);
-    console.log(`[hipp0:outcomes] Processed ${syntheticRatings.length} synthetic signals for agent ${agentId}`);
+    console.warn(`[hipp0:outcomes] Processed ${syntheticRatings.length} synthetic signals for agent ${agentId}`);
   } catch (err) {
     console.warn('[hipp0:outcomes] Auto-learning failed:', (err as Error).message);
   }
@@ -132,7 +132,7 @@ async function processOutcomeSignals(agentId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export function registerOutcomeRoutes(app: Hono): void {
-  // ── POST /api/outcomes — Report an outcome ─────────────────────────────
+    // POST /api/outcomes — Report an outcome
   app.post('/api/outcomes', async (c) => {
     const db = getDb();
     const body = await c.req.json<{
@@ -259,7 +259,7 @@ export function registerOutcomeRoutes(app: Hono): void {
     }, 201);
   });
 
-  // ── GET /api/agents/:id/outcomes — Outcome history ─────────────────────
+    // GET /api/agents/:id/outcomes — Outcome history
   app.get('/api/agents/:id/outcomes', async (c) => {
     const db = getDb();
     const agentId = requireUUID(c.req.param('id'), 'agentId');
@@ -276,7 +276,7 @@ export function registerOutcomeRoutes(app: Hono): void {
     return c.json(result.rows);
   });
 
-  // ── GET /api/projects/:id/outcome-summary — Aggregated stats ───────────
+    // GET /api/projects/:id/outcome-summary — Aggregated stats
   app.get('/api/projects/:id/outcome-summary', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');

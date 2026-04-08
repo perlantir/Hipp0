@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-// ── DB Mock ───────────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('@hipp0/core/db/index.js', () => ({
@@ -46,7 +46,7 @@ vi.mock('@hipp0/core/db/parsers.js', () => ({
   parseAuditEntry: vi.fn((row: Record<string, unknown>) => row),
 }));
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  // Helpers
 
 async function request(
   app: ReturnType<typeof createApp>,
@@ -94,7 +94,7 @@ function makeDecisionRow(overrides: Record<string, unknown> = {}): Record<string
   };
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
+  // Setup
 
 vi.stubEnv('NODE_ENV', 'development');
 
@@ -110,7 +110,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Validate ──────────────────────────────────────────────────────────────────
+  // Validate
 
 describe('POST /api/decisions/:id/validate', () => {
   it('sets validated_at and validation_source', async () => {
@@ -162,7 +162,7 @@ describe('POST /api/decisions/:id/validate', () => {
   });
 });
 
-// ── Invalidate ────────────────────────────────────────────────────────────────
+  // Invalidate
 
 describe('POST /api/decisions/:id/invalidate', () => {
   it('clears validated_at and validation_source', async () => {
@@ -214,7 +214,7 @@ describe('POST /api/decisions/:id/invalidate', () => {
   });
 });
 
-// ── Bulk Validation ───────────────────────────────────────────────────────────
+  // Bulk Validation
 
 describe('POST /api/projects/:id/decisions/validate-bulk', () => {
   const ID_A = '33333333-3333-3333-3333-333333333333';

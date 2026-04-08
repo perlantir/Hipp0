@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DeciGraph Calibration Seed Script
+Hipp0 Calibration Seed Script
 Reads conversations.json and feeds them to the import API for distillery extraction.
 
 Usage:
@@ -14,7 +14,7 @@ import time
 import requests
 
 API_BASE = "http://localhost:3100"
-CONVERSATIONS_FILE = "/opt/nexus/data/conversations.json"
+CONVERSATIONS_FILE = "/opt/hipp0/data/conversations.json"
 BATCH_SIZE = 3
 BATCH_SLEEP = 2
 REQUEST_TIMEOUT = 120
@@ -110,7 +110,7 @@ def load_conversations(filepath):
 
 def main():
     print("=" * 60)
-    print("DeciGraph Calibration Seed Script")
+    print("Hipp0 Calibration Seed Script")
     print("=" * 60)
     print()
 

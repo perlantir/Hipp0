@@ -218,7 +218,7 @@ export function renderAsciiGraph(graph: GraphResult): void {
       const child = children[i];
       if (!child) continue;
       const isLast = i === children.length - 1;
-      const connector = isLast ? '└── ' : '├── ';
+      const connector = isLast ? '\\-- ' : '|-- ';
       const relLabel = chalk.cyan(`[${child.rel}]`);
       console.warn(`${'  '.repeat(indent + 1)}${connector}${relLabel}`);
       renderNode(child.targetId, indent + 2, '');

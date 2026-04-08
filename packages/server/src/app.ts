@@ -72,10 +72,10 @@ export function createApp() {
   app.use('*', corsMiddleware);
   app.use('*', bodyLimit({ maxBytes: 2 * 1024 * 1024 }));
 
-  // ── Demo routes: registered BEFORE auth/rate-limiting so they are fully public ──
+    // Demo routes: registered BEFORE auth/rate-limiting so they are fully public
   registerDemoRoutes(app);
 
-  // ── Phase 3: Global rate limiting ─────────────────────────────────
+    // Global rate limiting
   // Unauthenticated: 60/min, Authenticated: 300/min (enforced in middleware)
   app.use('/api/*', rateLimiter({ maxRequests: 100 }));
   app.use('/api/compile', rateLimiter({ maxRequests: 30, windowMs: 60000, namespace: 'compile' }));
@@ -91,7 +91,7 @@ export function createApp() {
   app.use('/api/auth/*', rateLimiter({ maxRequests: 10, windowMs: 60000, namespace: 'auth' }));
   app.onError(errorHandler);
 
-  // ── Phase 3: Auth middleware ───────────────────────────────────────
+    // Auth middleware
   // When HIPP0_AUTH_REQUIRED=false (default), optionalAuth is used.
   // When true, phase3AuthMiddleware enforces JWT or API key.
   // Public routes are always exempt.
@@ -147,7 +147,7 @@ export function createApp() {
     }
   });
 
-  // ── Phase 6: Tier enforcement (after auth, before routes) ──────────
+    // Tier enforcement (after auth, before routes)
   app.use('/api/*', tierEnforcement());
 
   // Health — enhanced with db latency, uptime, version, decision_count
@@ -226,7 +226,7 @@ export function createApp() {
     }
   });
 
-  // ── Phase 3: Auth, Team, API Key, Audit Log routes ────────────────
+    // Auth, Team, API Key, Audit Log routes
   registerAuthRoutes(app);
   registerApiKeyRoutes(app);
   registerTeamRoutes(app);
@@ -259,7 +259,7 @@ export function createApp() {
   registerLinkRoutes(app);
   registerLinearConnector(app);
 
-  // ── Governance: policy & violation management ──────────────────────
+    // Governance: policy & violation management
   registerPolicyRoutes(app);
   registerDigestRoutes(app);
   registerPatternRoutes(app);
@@ -272,11 +272,11 @@ export function createApp() {
   registerWingRoutes(app);
   registerCaptureRoutes(app);
 
-  // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
+    // Billing + Stripe webhook
   registerBillingRoutes(app);
   registerStripeWebhookRoute(app);
 
-  // ── Flat route aliases for /api/decisions ─────────────────────────
+    // Flat route aliases for /api/decisions
   // Docs imply /api/decisions but the real route is /api/projects/:id/decisions.
   // These aliases read project_id from body/query and proxy to the scoped route.
   app.post('/api/decisions', async (c) => {

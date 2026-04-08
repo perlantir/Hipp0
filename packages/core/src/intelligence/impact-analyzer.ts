@@ -51,7 +51,7 @@ async function callSonnet(systemPrompt: string, userMessage: string): Promise<st
         messages: [{ role: 'user', content: userMessage }],
       });
 
-      console.log(`[hipp0/impact] LLM call: model=${SONNET_MODEL}`);
+      console.warn(`[hipp0/impact] LLM call: model=${SONNET_MODEL}`);
       const block = response.content[0];
       return block?.type === 'text' ? block.text : '{}';
     }

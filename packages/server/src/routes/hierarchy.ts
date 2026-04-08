@@ -9,7 +9,7 @@ import { classifyDecision } from '@hipp0/core/hierarchy/classifier.js';
 import { requireUUID, logAudit } from './validation.js';
 
 export function registerHierarchyRoutes(app: Hono): void {
-  // ── Bulk classify all decisions in a project ──────────────────────
+    // Bulk classify all decisions in a project
   // Idempotent: re-classifies all decisions using current rules.
   app.post('/api/projects/:id/decisions/bulk-classify', async (c) => {
     const db = getDb();
@@ -60,7 +60,7 @@ export function registerHierarchyRoutes(app: Hono): void {
     });
   });
 
-  // ── Domain distribution for a project ─────────────────────────────
+    // Domain distribution for a project
   app.get('/api/projects/:id/domains', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');

@@ -84,7 +84,7 @@ function validateEvents(val: unknown): string[] {
 }
 
 export function registerWebhookRoutes(app: Hono): void {
-  // ── LIST ──────────────────────────────────────────────────────────────────
+    // LIST
   app.get('/api/projects/:id/webhooks', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -97,7 +97,7 @@ export function registerWebhookRoutes(app: Hono): void {
     return c.json(result.rows);
   });
 
-  // ── CREATE ────────────────────────────────────────────────────────────────
+    // CREATE
   app.post('/api/projects/:id/webhooks', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -147,7 +147,7 @@ export function registerWebhookRoutes(app: Hono): void {
     }
   });
 
-  // ── UPDATE ────────────────────────────────────────────────────────────────
+    // UPDATE
   app.patch('/api/projects/:id/webhooks/:whId', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -215,7 +215,7 @@ export function registerWebhookRoutes(app: Hono): void {
     return c.json(result.rows[0]);
   });
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
+    // DELETE
   app.delete('/api/projects/:id/webhooks/:whId', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -233,7 +233,7 @@ export function registerWebhookRoutes(app: Hono): void {
     return c.json({ deleted: true });
   });
 
-  // ── TEST ──────────────────────────────────────────────────────────────────
+    // TEST
   app.post('/api/projects/:id/webhooks/:whId/test', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'projectId');
     const whId = requireUUID(c.req.param('whId'), 'webhookId');

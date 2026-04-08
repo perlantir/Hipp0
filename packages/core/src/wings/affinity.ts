@@ -250,7 +250,7 @@ export function computeWingSources(
   return sources;
 }
 
-/* ── Auto-classification: score decision against wing profiles ──── */
+/*  Auto-classification: score decision against wing profiles  */
 
 export interface WingClassification {
   auto_domain: string;
@@ -339,7 +339,7 @@ export function classifyDecisionWing(
   };
 }
 
-/* ── Wing recalculation trigger ─────────────────────────────────── */
+/*  Wing recalculation trigger  */
 
 // In-memory counter for tracking decisions since last wing recalculation
 let _decisionsSinceLastCalc = 0;

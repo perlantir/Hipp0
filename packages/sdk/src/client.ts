@@ -412,7 +412,7 @@ export class Hipp0Client {
     );
   }
 
-  // ── Task Sessions (Super Brain Phase 1) ───────────────────────────
+    // Task Sessions (Super Brain Phase 1)
 
   startSession(params: StartSessionInput): Promise<{ session_id: string; title: string }> {
     return this.post('/api/tasks/session/start', params);
@@ -449,7 +449,7 @@ export class Hipp0Client {
     return this.post<TaskSession>(`/api/tasks/session/${sessionId}/complete`);
   }
 
-  // ── Smart Orchestrator (Super Brain Phase 3) ──────────────────────
+    // Smart Orchestrator (Super Brain Phase 3)
 
   suggestNextAgent(sessionId: string): Promise<NextAgentSuggestion> {
     return this.post<NextAgentSuggestion>(`/api/tasks/session/${sessionId}/suggest-next`);
@@ -463,7 +463,7 @@ export class Hipp0Client {
     return this.post<AcceptSuggestionResult>(`/api/tasks/session/${sessionId}/accept-suggestion`, params);
   }
 
-  // ── Team Scoring (Super Brain Phase 2) ────────────────────────────
+    // Team Scoring (Super Brain Phase 2)
 
   scoreTeam(params: ScoreTeamInput): Promise<TeamRelevance> {
     return this.post<TeamRelevance>(`/api/projects/${params.projectId}/team-score`, {
@@ -472,7 +472,7 @@ export class Hipp0Client {
     });
   }
 
-  // ── Context Compression Survival ──────────────────────────────────
+    // Context Compression Survival
 
   saveBeforeTrim(params: SaveBeforeTrimInput): Promise<SaveBeforeTrimResult> {
     return this.post<SaveBeforeTrimResult>(
@@ -485,7 +485,7 @@ export class Hipp0Client {
     );
   }
 
-  // ── Temporal Intelligence ─────────────────────────────────────────
+    // Temporal Intelligence
 
   getChanges(projectId: string, since: string): Promise<WhatChangedResponse> {
     return this.get<WhatChangedResponse>('/api/decisions/changes', {
@@ -494,7 +494,7 @@ export class Hipp0Client {
     });
   }
 
-  // ── Passive Decision Capture ──────────────────────────────────────
+    // Passive Decision Capture
 
   autoCapture(input: CaptureInput): Promise<CaptureResult> {
     return this.post<CaptureResult>('/api/capture', {
@@ -510,7 +510,7 @@ export class Hipp0Client {
     return this.get<CaptureStatusResult>(`/api/capture/${captureId}`);
   }
 
-  // ── H0C Decode Utility ──────────────────────────────────────────
+    // H0C Decode Utility
 
   /**
    * Parse an H0C-encoded string back to decision objects.

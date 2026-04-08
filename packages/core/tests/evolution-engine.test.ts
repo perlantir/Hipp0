@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { computeUrgency } from '../src/intelligence/evolution-engine.js';
 import type { TriggerType, ProposalUrgency } from '../src/intelligence/evolution-engine.js';
 
-// ── computeUrgency ──────────────────────────────────────────────────
+  // computeUrgency
 
 describe('computeUrgency', () => {
   // Critical tier
@@ -70,7 +70,7 @@ describe('computeUrgency', () => {
   });
 });
 
-// ── Trigger types exhaustive ────────────────────────────────────────
+  // Trigger types exhaustive
 
 describe('trigger types', () => {
   const ALL_TRIGGERS: TriggerType[] = [
@@ -99,7 +99,7 @@ describe('trigger types', () => {
   });
 });
 
-// ── Mode validation ─────────────────────────────────────────────────
+  // Mode validation
 
 describe('evolution modes', () => {
   it('rule mode returns valid mode strings', () => {
@@ -110,7 +110,7 @@ describe('evolution modes', () => {
   });
 });
 
-// ── Urgency sort order ──────────────────────────────────────────────
+  // Urgency sort order
 
 describe('urgency sort order', () => {
   const URGENCY_ORDER: Record<ProposalUrgency, number> = {

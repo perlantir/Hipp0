@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DeciGraph Zero-Downtime Deploy Script
+# Hipp0 Zero-Downtime Deploy Script
 #
 # Usage:
 #   ./scripts/deploy.sh [IMAGE_TAG]
@@ -14,21 +14,21 @@
 set -euo pipefail
 
 IMAGE_TAG="${1:-latest}"
-SERVICE_NAME="decigraph-server"
+SERVICE_NAME="hipp0-server"
 NEW_CONTAINER="${SERVICE_NAME}-new"
 OLD_CONTAINER="${SERVICE_NAME}"
 PORT=3100
 HEALTH_TIMEOUT=30
 HEALTH_INTERVAL=2
 
-echo "=== DeciGraph Zero-Downtime Deploy ==="
+echo "=== Hipp0 Zero-Downtime Deploy ==="
 echo "Image tag: ${IMAGE_TAG}"
 echo "Time: $(date -Iseconds)"
 echo ""
 
 # Step 1: Build new image
 echo "--- Step 1: Build ---"
-docker build -t "decigraph-server:${IMAGE_TAG}" .
+docker build -t "hipp0-server:${IMAGE_TAG}" .
 echo "Build complete"
 echo ""
 
@@ -42,7 +42,7 @@ docker run -d \
   --env-file .env \
   -e PORT=${TEMP_PORT} \
   --network host \
-  "decigraph-server:${IMAGE_TAG}"
+  "hipp0-server:${IMAGE_TAG}"
 
 echo "New container started"
 echo ""
@@ -86,7 +86,7 @@ docker run -d \
   -e PORT=${PORT} \
   --network host \
   --restart unless-stopped \
-  "decigraph-server:${IMAGE_TAG}"
+  "hipp0-server:${IMAGE_TAG}"
 
 echo "Swap complete — now serving on port ${PORT}"
 echo ""
@@ -104,5 +104,5 @@ fi
 
 echo ""
 echo "=== Deploy complete ==="
-echo "Image: decigraph-server:${IMAGE_TAG}"
+echo "Image: hipp0-server:${IMAGE_TAG}"
 echo "Time: $(date -Iseconds)"

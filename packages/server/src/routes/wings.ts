@@ -13,7 +13,7 @@ import {
 import { requireUUID, requireString, logAudit } from './validation.js';
 
 export function registerWingRoutes(app: Hono): void {
-  // ── GET /api/agents/:name/wing — Wing stats for an agent ────────────
+    // GET /api/agents/:name/wing — Wing stats for an agent
   app.get('/api/agents/:name/wing', async (c) => {
     const db = getDb();
     const agentName = c.req.param('name');
@@ -86,7 +86,7 @@ export function registerWingRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/projects/:id/wings — All wings in a project (enhanced with affinity per agent) ──
+    // GET /api/projects/:id/wings — All wings in a project (enhanced with affinity per agent)
   app.get('/api/projects/:id/wings', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'project_id');
@@ -166,7 +166,7 @@ export function registerWingRoutes(app: Hono): void {
     return c.json({ project_id: projectId, wings });
   });
 
-  // ── GET /api/agents/:id/affinity — Agent's wing affinity scores and learning history ──
+    // GET /api/agents/:id/affinity — Agent's wing affinity scores and learning history
   app.get('/api/agents/:id/affinity', async (c) => {
     const db = getDb();
     const agentId = c.req.param('id');
@@ -240,7 +240,7 @@ export function registerWingRoutes(app: Hono): void {
     });
   });
 
-  // ── POST /api/projects/:id/wings/recalculate — Manual trigger ──────
+    // POST /api/projects/:id/wings/recalculate — Manual trigger
   app.post('/api/projects/:id/wings/recalculate', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
 
@@ -259,7 +259,7 @@ export function registerWingRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/decisions/:id/classification — Auto-classification details ──
+    // GET /api/decisions/:id/classification — Auto-classification details
   app.get('/api/decisions/:id/classification', async (c) => {
     const db = getDb();
     const decisionId = requireUUID(c.req.param('id'), 'decision_id');
@@ -312,7 +312,7 @@ export function registerWingRoutes(app: Hono): void {
     });
   });
 
-  // ── POST /api/agents/:name/wing/rebalance — Recalculate affinity ────
+    // POST /api/agents/:name/wing/rebalance — Recalculate affinity
   app.post('/api/agents/:name/wing/rebalance', async (c) => {
     const db = getDb();
     const agentName = c.req.param('name');

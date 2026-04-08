@@ -57,7 +57,7 @@ function parseArraySafe(val: unknown): unknown[] {
 // ---------------------------------------------------------------------------
 
 export function registerExportImportRoutes(app: Hono): void {
-  // ── EXPORT ──────────────────────────────────────────────────────────────
+    // EXPORT
   app.get('/api/projects/:id/export', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -213,7 +213,7 @@ export function registerExportImportRoutes(app: Hono): void {
     return c.json(exportData);
   });
 
-  // ── IMPORT ──────────────────────────────────────────────────────────────
+    // IMPORT
   app.post('/api/projects/import', async (c) => {
     const db = getDb();
     const body = await c.req.json<ExportPayload>();
@@ -253,7 +253,7 @@ export function registerExportImportRoutes(app: Hono): void {
         );
         agentsImported++;
       } catch (err) {
-        warnings.push(`Agent "${agent.name}" skipped: ${(err as Error).message}`);
+        warnings.push(`Agent "${agent.name}" skipped: ${'import error'}`);
       }
     }
 
@@ -297,7 +297,7 @@ export function registerExportImportRoutes(app: Hono): void {
         );
         decisionsImported++;
       } catch (err) {
-        warnings.push(`Decision "${dec.title}" skipped: ${(err as Error).message}`);
+        warnings.push(`Decision "${dec.title}" skipped: ${'import error'}`);
       }
     }
 
@@ -319,7 +319,7 @@ export function registerExportImportRoutes(app: Hono): void {
         );
         edgesImported++;
       } catch (err) {
-        warnings.push(`Edge "${edge.source_title}" → "${edge.target_title}" skipped: ${(err as Error).message}`);
+        warnings.push(`Edge "${edge.source_title}" → "${edge.target_title}" skipped: ${'import error'}`);
       }
     }
 
@@ -340,7 +340,7 @@ export function registerExportImportRoutes(app: Hono): void {
         );
         contradictionsImported++;
       } catch (err) {
-        warnings.push(`Contradiction skipped: ${(err as Error).message}`);
+        warnings.push(`Contradiction skipped: ${'import error'}`);
       }
     }
 

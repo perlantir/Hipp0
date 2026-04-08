@@ -126,9 +126,9 @@ vi.mock('../src/cache/redis.js', () => ({
   CACHE_TTL: { COMPILE: 300 },
 }));
 
-// ────────────────────────────────────────────────────────────────────
+//
 // Helpers
-// ────────────────────────────────────────────────────────────────────
+//
 
 const PROJECT_ID = '550e8400-e29b-41d4-a716-446655440000';
 const CAPTURE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -145,9 +145,9 @@ function getReq(path: string) {
   return new Request(`http://localhost${path}`, { method: 'GET' });
 }
 
-// ────────────────────────────────────────────────────────────────────
+//
 // Tests
-// ────────────────────────────────────────────────────────────────────
+//
 
 describe('Passive Decision Capture', () => {
   let app: ReturnType<typeof createApp>;

@@ -9,7 +9,7 @@ import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, logAudit, generateEmbedding } from './validation.js';
 
 export function registerReviewRoutes(app: Hono): void {
-  // ── Review Queue ──────────────────────────────────────────────────────
+    // Review Queue
   app.get('/api/projects/:id/review-queue', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
@@ -24,7 +24,7 @@ export function registerReviewRoutes(app: Hono): void {
     return c.json(result.rows.map((r) => parseDecision(r as Record<string, unknown>)));
   });
 
-  // ── Approve ───────────────────────────────────────────────────────────
+    // Approve
   app.post('/api/decisions/:id/approve', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
@@ -76,7 +76,7 @@ export function registerReviewRoutes(app: Hono): void {
     return c.json(decision);
   });
 
-  // ── Reject ────────────────────────────────────────────────────────────
+    // Reject
   app.post('/api/decisions/:id/reject', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');

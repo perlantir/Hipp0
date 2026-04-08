@@ -24,7 +24,7 @@ export function getMainWss(): WebSocketServer | null {
 async function authenticateWsToken(token: string): Promise<string | null> {
   if (!token) return null;
   try {
-    if (token.startsWith('dg_live_') || token.startsWith('dg_test_')) {
+    if (token.startsWith('h0_live_') || token.startsWith('h0_test_')) {
       const hash = createHash('sha256').update(token).digest('hex');
       const db = getDb();
       const result = await db.query(

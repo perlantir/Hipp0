@@ -918,7 +918,7 @@ export function registerDecisionRoutes(app: Hono): void {
     }
   });
 
-  // ── Phase 2: Stale, Duplicate, Reaffirm, Merge, Keep ────────────────────
+    // Stale, Duplicate, Reaffirm, Merge, Keep
 
   // GET /api/projects/:id/decisions/stale — list stale decisions
   app.get('/api/projects/:id/decisions/stale', async (c) => {
@@ -1024,7 +1024,7 @@ export function registerDecisionRoutes(app: Hono): void {
     return c.json(parseDecision(result.rows[0] as Record<string, unknown>));
   });
 
-  // ── Decision Validation ─────────────────────────────────────────────────
+    // Decision Validation
 
   const VALID_SOURCES = ['manual_review', 'test_passed', 'production_verified', 'peer_reviewed', 'external'] as const;
 
@@ -1084,7 +1084,7 @@ export function registerDecisionRoutes(app: Hono): void {
     return c.json(decision);
   });
 
-  // ── Decision Invalidation ───────────────────────────────────────────────
+    // Decision Invalidation
 
   app.post('/api/decisions/:id/invalidate', async (c) => {
     const db = getDb();
@@ -1130,7 +1130,7 @@ export function registerDecisionRoutes(app: Hono): void {
     return c.json(decision);
   });
 
-  // ── Bulk Validation ─────────────────────────────────────────────────────
+    // Bulk Validation
 
   app.post('/api/projects/:id/decisions/validate-bulk', async (c) => {
     const db = getDb();
@@ -1309,7 +1309,7 @@ export function registerDecisionRoutes(app: Hono): void {
     });
   });
 
-  // ── Namespace endpoints ──────────────────────────────────────────────
+    // Namespace endpoints
 
   // List all namespaces with decision counts for a project
   app.get('/api/projects/:id/namespaces', async (c) => {

@@ -156,7 +156,7 @@ const PUBLIC_ROUTES = new Set([
 export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   const path = new URL(c.req.url).pathname;
 
-  // Step 1: Public routes pass through
+  // Public routes pass through
   if (PUBLIC_ROUTES.has(path)) {
     await next();
     return;
@@ -177,14 +177,14 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     return c.json({ error: { code: 'UNAUTHORIZED', message } }, 401);
   };
 
-  // Step 3: Extract Bearer token
+  // Extract Bearer token
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return fail('Missing API key');
   }
 
   const token = authHeader.slice(7);
 
-  // Step 4: Hash token, look up in api_keys table
+  // Hash token, look up in api_keys table
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   try {
     const db = getDb();
@@ -197,7 +197,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
 
     if (result.rows.length > 0) {
       const row = result.rows[0] as Record<string, unknown>;
-      // Step 7: Update last_used_at, attach project_id
+      // Update last_used_at, attach project_id
       db.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = ?', [row.id]).catch(() => {});
       if (row.project_id) {
         c.set('projectId', row.project_id as string);
@@ -209,7 +209,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     // api_keys table may not exist yet — fall through to legacy check
   }
 
-  // Step 5: Check legacy HIPP0_API_KEY env var
+  // Check legacy HIPP0_API_KEY env var
   if (LEGACY_API_KEY) {
     const tokenBuf = Buffer.from(token, 'utf8');
     const keyBuf = Buffer.from(LEGACY_API_KEY, 'utf8');
@@ -219,7 +219,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     }
   }
 
-  // Step 6: Nothing matches
+  // No valid credentials found
   return fail('Invalid API key');
 });
 
@@ -257,7 +257,6 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
 });
 
 // Rate Limiter
-// In development, rate limiting is skipped unless RATE_LIMIT_ENABLED=true.
 interface RateLimitEntry {
   count: number;
   resetAt: number;

@@ -240,7 +240,7 @@ export class PostgresAdapter implements DatabaseAdapter {
           await txQuery(sql);
           await txQuery('INSERT INTO _hipp0_migrations (name) VALUES (?)', [file]);
         });
-        console.log(`[hipp0/migrations] ✅ Applied ${file}`);
+        console.warn(`[hipp0/migrations] ✅ Applied ${file}`);
       } catch (err) {
         console.warn(`[hipp0/migrations] ⚠️ ${file} failed: ${(err as Error).message}`);
         // Mark as applied anyway so it doesn't block other migrations

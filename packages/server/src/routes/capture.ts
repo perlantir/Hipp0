@@ -13,7 +13,7 @@ import { distill } from '@hipp0/core/distillery/index.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 
 export function registerCaptureRoutes(app: Hono): void {
-  // ── POST /api/capture — Submit conversation for background extraction ──
+    // POST /api/capture — Submit conversation for background extraction
   app.post('/api/capture', async (c) => {
     const body = await c.req.json<{
       agent_name?: unknown;
@@ -88,7 +88,7 @@ export function registerCaptureRoutes(app: Hono): void {
     return response;
   });
 
-  // ── GET /api/capture/:id — Check capture status ────────────────────────
+    // GET /api/capture/:id — Check capture status
   app.get('/api/capture/:id', async (c) => {
     const captureId = requireUUID(c.req.param('id'), 'capture_id');
     const db = getDb();
@@ -122,7 +122,7 @@ export function registerCaptureRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/projects/:id/captures — List captures for a project ───────
+    // GET /api/projects/:id/captures — List captures for a project
   app.get('/api/projects/:id/captures', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
     const db = getDb();

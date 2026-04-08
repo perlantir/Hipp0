@@ -72,10 +72,19 @@ class InMemoryCache {
 /*  Redis-backed cache                                                 */
 /* ------------------------------------------------------------------ */
 
-class RedisCache {
-  private client: any; // ioredis instance (dynamically imported)
+interface RedisLike {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ex: string, ttl: number): Promise<unknown>;
+  del(...keys: string[]): Promise<number>;
+  scan(cursor: string | number, ...args: (string | number)[]): Promise<[string, string[]]>;
+  disconnect(): void;
+  connect(): Promise<void>;
+}
 
-  constructor(client: any) {
+class RedisCache {
+  private client: RedisLike;
+
+  constructor(client: RedisLike) {
     this.client = client;
   }
 
@@ -189,9 +198,8 @@ async function createCache(): Promise<CacheClient> {
 
   if (redisUrl) {
     try {
-      const ioredis = await import('ioredis');
-      const IORedis = (ioredis as any).default ?? ioredis;
-      const client = new IORedis(redisUrl, {
+      const { Redis } = await import('ioredis');
+      const client = new Redis(redisUrl, {
         maxRetriesPerRequest: 3,
         retryStrategy(times: number) {
           if (times > 5) return null;
@@ -201,7 +209,7 @@ async function createCache(): Promise<CacheClient> {
       });
       await client.connect();
       console.warn('[hipp0/cache] Redis connected:', redisUrl.replace(/\/\/.*@/, '//<credentials>@'));
-      return new RedisCache(client);
+      return new RedisCache(client as unknown as RedisLike);
     } catch (err) {
       console.warn('[hipp0/cache] Redis unavailable, falling back to in-memory:', (err as Error).message);
     }

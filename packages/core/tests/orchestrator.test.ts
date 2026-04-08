@@ -40,7 +40,7 @@ import {
   buildReasoningExplanation,
 } from '../src/intelligence/orchestrator.js';
 
-// ── generateTaskSuggestion (pure function) ────────────────────────────
+  // generateTaskSuggestion (pure function)
 
 describe('generateTaskSuggestion', () => {
   it('returns security review template for security_reviewer role', () => {
@@ -97,7 +97,7 @@ describe('generateTaskSuggestion', () => {
   });
 });
 
-// ── buildReasoningExplanation (pure function) ─────────────────────────
+  // buildReasoningExplanation (pure function)
 
 describe('buildReasoningExplanation', () => {
   it('describes high relevance score correctly', () => {
@@ -152,7 +152,7 @@ describe('buildReasoningExplanation', () => {
   });
 });
 
-// ── suggestNextAgent (requires mocked DB) ─────────────────────────────
+  // suggestNextAgent (requires mocked DB)
 
 describe('suggestNextAgent', () => {
   beforeEach(() => {
@@ -180,7 +180,7 @@ describe('suggestNextAgent', () => {
   });
 });
 
-// ── generateSessionPlan (requires mocked DB) ─────────────────────────
+  // generateSessionPlan (requires mocked DB)
 
 describe('generateSessionPlan', () => {
   beforeEach(() => {

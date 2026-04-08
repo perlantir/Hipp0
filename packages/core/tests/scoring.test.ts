@@ -23,7 +23,7 @@ vi.mock('../src/config/agentPersonas.js', () => ({
 import { scoreDecision, MIN_SCORE, MAX_RESULTS } from '../src/context-compiler/index.js';
 import type { Decision, Agent, RelevanceProfile } from '../src/types.js';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+  // Helpers
 
 function makeDecision(overrides: Partial<Decision> = {}): Decision {
   return {
@@ -68,7 +68,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   } as Agent;
 }
 
-// ── Tests ───────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('scoreDecision — Signal A: direct affect', () => {
   it('scores 1.0 when agent name is in affects', () => {

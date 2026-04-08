@@ -15,7 +15,7 @@ import { submitForExtraction } from '../queue/index.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { callLLM } from '@hipp0/core/distillery/index.js';
 
-// ── Decision pattern matching ──────────────────────────────────────────────
+  // Decision pattern matching
 const DECISION_PATTERNS: RegExp[] = [
   /\bdecision\s*:/i,
   /\bwe decided\b/i,
@@ -34,7 +34,7 @@ function matchesDecisionPattern(text: string): boolean {
   return DECISION_PATTERNS.some((p) => p.test(text));
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+  // State
 let _connected = false;
 const _processedEvents = new Set<string>();
 
@@ -43,7 +43,7 @@ setInterval(() => {
   if (_processedEvents.size > 10000) _processedEvents.clear();
 }, 5 * 60_000).unref();
 
-// ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 export function isSlackConnected(): boolean {
   return _connected;
 }
@@ -55,7 +55,7 @@ export function getSlackStatus(): Record<string, unknown> {
   };
 }
 
-// ── Signing secret verification ────────────────────────────────────────────
+  // Signing secret verification
 function verifySlackSignature(
   signingSecret: string,
   signature: string | undefined,
@@ -78,7 +78,7 @@ function verifySlackSignature(
   }
 }
 
-// ── Slack event types ──────────────────────────────────────────────────────
+  // Slack event types
 interface SlackEvent {
   type: string;
   challenge?: string;
@@ -199,13 +199,13 @@ export function registerSlackConnector(app: Hono): void {
         project_id: projectId,
       });
 
-      console.log(`[hipp0/slack] Decision detected in channel ${channel} — queued for extraction`);
+      console.warn(`[hipp0/slack] Decision detected in channel ${channel} — queued for extraction`);
       return c.json({ status: 'processing' });
     }
 
     // Handle lock reaction (decision capture)
     if (event.type === 'reaction_added' && event.reaction === 'lock') {
-      console.log(`[hipp0/slack] Lock reaction in channel ${event.item?.channel} — could fetch message for extraction`);
+      console.warn(`[hipp0/slack] Lock reaction in channel ${event.item?.channel} — could fetch message for extraction`);
       return c.json({ status: 'reaction_noted' });
     }
 

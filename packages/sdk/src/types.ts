@@ -458,7 +458,7 @@ export interface ReportOutcomeInput {
   error_message?: string;
 }
 
-// ── Task Sessions (Super Brain Phase 1) ─────────────────────────────
+  // Task Sessions (Super Brain Phase 1)
 
 export interface TaskSession {
   id: string;
@@ -515,7 +515,7 @@ export interface SessionState {
   steps: SessionStep[];
 }
 
-// ── Role Signals (Super Brain Phase 2) ──────────────────────────────
+  // Role Signals (Super Brain Phase 2)
 
 export interface RoleSignal {
   agent_name: string;
@@ -541,7 +541,7 @@ export interface ScoreTeamInput {
   sessionId?: string;
 }
 
-// ── Smart Orchestrator (Super Brain Phase 3) ──────────────────────
+  // Smart Orchestrator (Super Brain Phase 3)
 
 export interface NextAgentSuggestion {
   recommended_agent: string;
@@ -606,7 +606,7 @@ export interface WhatChangedResponse {
   summary: string;
 }
 
-// ── Context Compression Survival ───────────────────────────────────
+  // Context Compression Survival
 
 export interface SaveBeforeTrimInput {
   session_id: string;
@@ -621,7 +621,7 @@ export interface SaveBeforeTrimResult {
   agent_name: string;
 }
 
-// ── Passive Decision Capture ──────────────────────────────────────
+  // Passive Decision Capture
 
 export interface Capture {
   id: string;

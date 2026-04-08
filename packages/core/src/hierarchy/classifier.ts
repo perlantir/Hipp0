@@ -4,7 +4,7 @@
  */
 import type { DecisionDomain, DecisionCategory, DecisionSource, ConfidenceLevel } from '../types.js';
 
-// ── Domain keyword map ─────────────────────────────────────────────────
+  // Domain keyword map
 
 const DOMAIN_KEYWORDS: Record<DecisionDomain, string[]> = {
   authentication: ['auth', 'jwt', 'oauth', 'session', 'login', 'password', 'token'],
@@ -18,14 +18,14 @@ const DOMAIN_KEYWORDS: Record<DecisionDomain, string[]> = {
   general: [],
 };
 
-// ── Category patterns ──────────────────────────────────────────────────
+  // Category patterns
 
 const REJECTED_PATTERNS = ['rejected', 'considered', 'alternative', 'instead of'];
 const TOOL_CHOICE_PATTERNS = ['use', 'switch to', 'adopt', 'migrate to'];
 const CONVENTION_PATTERNS = ['convention', 'standard', 'rule', 'policy', 'guideline'];
 const ARCHITECTURE_PATTERNS = ['architecture', 'chose', 'decided', 'approach', 'design pattern'];
 
-// ── Public API ─────────────────────────────────────────────────────────
+  // Public API
 
 export interface ClassificationResult {
   domain: DecisionDomain;
@@ -72,7 +72,7 @@ export function inferDomainFromTask(taskDescription: string): DecisionDomain | n
   return bestCount > 0 ? bestDomain : null;
 }
 
-// ── Internal helpers ───────────────────────────────────────────────────
+  // Internal helpers
 
 function classifyDomain(title: string, description: string, tags: string[]): DecisionDomain {
   const tagsLower = tags.map((t) => t.toLowerCase());

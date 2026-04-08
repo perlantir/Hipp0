@@ -41,22 +41,22 @@ export function registerCompileRoutes(app: Hono): void {
     const rawTaskDescription = body.task_description ?? body.task;
     const task_description = requireString(rawTaskDescription, 'task_description', 100000);
 
-    // ── Format parameter: h0c (default) | json/full | condensed | both | markdown ─────────
+      // Format parameter: h0c (default) | json/full | condensed | both | markdown
     // ?expanded=true is an alias for ?format=json
     const expandedParam = c.req.query('expanded');
     const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? 'h0c');
     const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
-    // ── Depth parameter: default | full (loads L2 background decisions) ──
+      // Depth parameter: default | full (loads L2 background decisions)
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
-    // ── Threshold parameter: override the default minimum relevance score (0.5) ──
+      // Threshold parameter: override the default minimum relevance score (0.5)
     const thresholdParam = c.req.query('threshold');
     const minScore = thresholdParam ? Math.max(0, Math.min(1, parseFloat(thresholdParam))) : undefined;
 
-    // ── Pattern recommendations: can be suppressed per-request ──
+      // Pattern recommendations: can be suppressed per-request
     const includePatternsParam = c.req.query('include_patterns');
     const includePatterns = includePatternsParam !== 'false';
 
-    // ── Check prefetch cache first (session-aware) ────────────────────
+      // Check prefetch cache first (session-aware)
     if (body.task_session_id && body.debug !== true) {
       try {
         const sessionId = requireUUID(body.task_session_id, 'task_session_id');
@@ -73,7 +73,7 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
-    // ── Check cache first ───────────────────────────────────────────
+      // Check cache first
     const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
     const cacheHit = await cache.get(compileKey(project_id, agent_name, taskHash));
     if (cacheHit && body.debug !== true) {
@@ -85,7 +85,7 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
-    // ── Delegate to core compileContext() ────────────────────────────
+      // Delegate to core compileContext()
     // This uses the full 5-signal scoring pipeline: freshness weighting,
     // confidence decay, graph expansion, score blending, context caching,
     // and markdown + JSON formatting.
@@ -107,7 +107,7 @@ export function registerCompileRoutes(app: Hono): void {
 
     const result = await compileContext(request);
 
-    // ── Server-only concerns: audit + history ────────────────────────
+      // Server-only concerns: audit + history
     const compileRequestId = crypto.randomUUID();
     const contextHash = crypto.createHash('sha256')
       .update(result.formatted_markdown)
@@ -165,7 +165,7 @@ export function registerCompileRoutes(app: Hono): void {
       console.warn('[hipp0:compile] History recording failed:', (err as Error).message);
     }
 
-    // ── Debug info (optional) ────────────────────────────────────────
+      // Debug info (optional)
     const debugInfo = body.debug === true ? {
       scoring_pipeline: 'core/context-compiler compileContext()',
       signals: ['direct_affect', 'tag_matching', 'role_relevance', 'semantic_similarity', 'status_penalty'],
@@ -173,7 +173,7 @@ export function registerCompileRoutes(app: Hono): void {
       raw_tasks_stored: storeRawTasks,
     } : undefined;
 
-    // ── Broadcast compile completion ──────────────────────────────────
+      // Broadcast compile completion
     broadcast('compile_completed', {
       compile_request_id: compileRequestId,
       project_id,
@@ -181,7 +181,7 @@ export function registerCompileRoutes(app: Hono): void {
       decisions_included: result.decisions_included,
     });
 
-    // ── Governance: policy overlay ──────────────────────────────────
+      // Governance: policy overlay
     let policyNotices: Array<Record<string, unknown>> = [];
     let policySummary: Record<string, unknown> | undefined;
     let policyMarkdown = '';
@@ -254,7 +254,7 @@ export function registerCompileRoutes(app: Hono): void {
       console.warn('[hipp0:compile] Policy overlay failed:', (err as Error).message);
     }
 
-    // ── Session Memory: prepend session context when task_session_id is provided ──
+      // Session Memory: prepend session context when task_session_id is provided
     let sessionMarkdown = '';
     let sessionMeta: Record<string, unknown> | undefined;
     if (body.task_session_id) {
@@ -274,7 +274,7 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
-    // ── Checkpoint Restoration: include saved checkpoints in session context ──
+      // Checkpoint Restoration: include saved checkpoints in session context
     let checkpointMarkdown = '';
     if (body.task_session_id) {
       try {
@@ -298,7 +298,7 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
-    // ── Role Signal: generate when session or explicitly requested ──
+      // Role Signal: generate when session or explicitly requested
     let roleSignal: Record<string, unknown> | undefined;
     let abstentionMarkdown = '';
     if (body.task_session_id || body.include_role_signal) {
@@ -329,7 +329,7 @@ export function registerCompileRoutes(app: Hono): void {
       + (policyMarkdown ? policyMarkdown : '')
       + (result.formatted_markdown ?? '');
 
-    // ── Hint for 0 results ─────────────────────────────────────────────
+      // Hint for 0 results
     let hint: string | undefined;
     if (result.decisions_included === 0) {
       // Check if project has any decisions at all
@@ -349,7 +349,7 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
-    // ── Cache the result ──────────────────────────────────────────────
+      // Cache the result
     const responsePayload = {
       compile_request_id: compileRequestId,
       ...result,
@@ -385,7 +385,7 @@ export function registerCompileRoutes(app: Hono): void {
       ).catch(() => {});
     }
 
-    // ── Compression: build condensed output when requested ──────────
+      // Compression: build condensed output when requested
     // Collect the action signal for condensing
     let actionSignal: ActionSignal | undefined;
     if (roleSignal) {
@@ -407,7 +407,7 @@ export function registerCompileRoutes(app: Hono): void {
       roleSignals: teamScores,
     });
 
-    // ── Always compute compression ratio for the header ──────────────
+      // Always compute compression ratio for the header
     const h0cForRatio = encodeH0C(result.decisions);
     const originalJson = result.formatted_json || JSON.stringify(result);
     const originalTokens = estimateTokens(originalJson);
@@ -417,19 +417,19 @@ export function registerCompileRoutes(app: Hono): void {
       : 0;
     c.header('X-Hipp0-Compression-Ratio', `${compressionRatio}x`);
 
-    // ── H0C format: ultra-compact one-line-per-decision with tag dedup ──
+      // H0C format: ultra-compact one-line-per-decision with tag dedup
     if (format === 'h0c') {
       c.header('X-Hipp0-Format', 'h0c');
-      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio: compressionRatio });
+      console.warn('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio: compressionRatio });
       const patternsH0C = encodeH0CPatterns(result.suggested_patterns ?? []);
       const h0cOutput = patternsH0C ? `${h0cForRatio}\n${patternsH0C}` : h0cForRatio;
       return c.text(h0cOutput);
     }
 
-    // ── Markdown format ──
+      // Markdown format
     if (format === 'markdown') {
       c.header('X-Hipp0-Format', 'markdown');
-      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'markdown' });
+      console.warn('[hipp0/compile-response]', { agent: agent_name, format: 'markdown' });
       let mdOutput = formattedMarkdown;
       if ((result.suggested_patterns ?? []).length > 0) {
         const patternLines = result.suggested_patterns.map(
@@ -446,7 +446,7 @@ export function registerCompileRoutes(app: Hono): void {
         recommendedAction: actionSignal,
         roleSignals: teamScores,
       });
-      console.log("[hipp0/compile-response]", { agent: agent_name, format: 'condensed', ratio: condensed.compression_ratio });
+      console.warn("[hipp0/compile-response]", { agent: agent_name, format: 'condensed', ratio: condensed.compression_ratio });
       return c.json(condensed);
     }
 
@@ -456,7 +456,7 @@ export function registerCompileRoutes(app: Hono): void {
         recommendedAction: actionSignal,
         roleSignals: teamScores,
       });
-      console.log("[hipp0/compile-response]", { agent: agent_name, format: 'both', ratio: condensed.compression_ratio });
+      console.warn("[hipp0/compile-response]", { agent: agent_name, format: 'both', ratio: condensed.compression_ratio });
       return c.json({
         ...responsePayload,
         condensed_context: condensed.condensed_context,
@@ -464,9 +464,9 @@ export function registerCompileRoutes(app: Hono): void {
       });
     }
 
-    // ── Response (full/json, default) ──────────────────────────────────
+      // Response (full/json, default)
     c.header('X-Hipp0-Format', 'json');
-    console.log("[hipp0/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
+    console.warn("[hipp0/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
     return c.json({
       ...responsePayload,
       compression_metrics: compressionMetrics,

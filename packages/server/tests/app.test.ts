@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-// ── DB Mock ───────────────────────────────────────────────────────────────────
+  // DB Mock
 // We mock @hipp0/core/db/index.js before importing the app so that all
 // database calls in app.ts resolve to controlled values.
 
@@ -48,7 +48,7 @@ vi.mock('@hipp0/core/db/parsers.js', () => ({
 
 // mockQuery is defined on line 11 and shared with the vi.mock factories above.
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  // Helpers
 
 /** Run a Hono app request and return the Response. */
 async function request(
@@ -73,7 +73,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-// ── Test Setup ────────────────────────────────────────────────────────────────
+  // Test Setup
 
 // Set development mode so authMiddleware skips API key validation
 vi.stubEnv('NODE_ENV', 'development');
@@ -91,7 +91,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Health ─────────────────────────────────────────────────────────────────────
+  // Health
 
 describe('GET /api/health', () => {
   it('returns 200 with status ok', async () => {
@@ -117,7 +117,7 @@ describe('GET /api/health', () => {
   });
 });
 
-// ── Projects ──────────────────────────────────────────────────────────────────
+  // Projects
 
 describe('POST /api/projects', () => {
   it('returns 201 with created project', async () => {
@@ -209,7 +209,7 @@ describe('GET /api/projects/:id', () => {
   });
 });
 
-// ── Error Handler ─────────────────────────────────────────────────────────────
+  // Error Handler
 
 describe('error handler', () => {
   it('returns 404 with error envelope for NOT_FOUND errors', async () => {
@@ -255,7 +255,7 @@ describe('error handler', () => {
   });
 });
 
-// ── Agents ────────────────────────────────────────────────────────────────────
+  // Agents
 
 describe('POST /api/projects/:id/agents', () => {
   it('returns 201 with created agent', async () => {
@@ -391,7 +391,7 @@ describe('GET /api/projects/:id/agents', () => {
   });
 });
 
-// ── CORS / OPTIONS ────────────────────────────────────────────────────────────
+  // CORS / OPTIONS
 
 describe('CORS middleware', () => {
   it('responds 204 to OPTIONS preflight requests', async () => {
@@ -406,7 +406,7 @@ describe('CORS middleware', () => {
   });
 });
 
-// ── Response Timing ───────────────────────────────────────────────────────────
+  // Response Timing
 
 describe('request timing middleware', () => {
   it('includes X-Response-Time header', async () => {

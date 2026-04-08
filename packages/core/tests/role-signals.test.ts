@@ -15,7 +15,7 @@ vi.mock('../src/db/index.js', () => ({
 
 import { generateRoleSuggestion } from '../src/intelligence/role-signals.js';
 
-// ── generateRoleSuggestion (pure function) ─────────────────────────────
+  // generateRoleSuggestion (pure function)
 
 describe('generateRoleSuggestion', () => {
   it('returns design_lead for architect + design keyword at rank 1', () => {
@@ -67,7 +67,7 @@ describe('generateRoleSuggestion', () => {
   });
 });
 
-// ── Scoring thresholds ─────────────────────────────────────────────────
+  // Scoring thresholds
 
 describe('role signal scoring thresholds', () => {
   // These test the threshold logic from the spec by importing and testing the
@@ -114,7 +114,7 @@ describe('role signal scoring thresholds', () => {
   });
 });
 
-// ── scoreTeamForTask ───────────────────────────────────────────────────
+  // scoreTeamForTask
 
 describe('scoreTeamForTask', () => {
   beforeEach(() => {
@@ -131,7 +131,7 @@ describe('scoreTeamForTask', () => {
   });
 });
 
-// ── Edge cases ─────────────────────────────────────────────────────────
+  // Edge cases
 
 describe('edge cases', () => {
   it('handles empty relevance_profile gracefully', async () => {

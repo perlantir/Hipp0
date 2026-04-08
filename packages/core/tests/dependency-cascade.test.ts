@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ── DB Mock ───────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('../src/db/index.js', () => ({
@@ -22,7 +22,7 @@ vi.mock('../src/db/index.js', () => ({
 import { findCascadeImpact, notifyCascade } from '../src/dependency-cascade/index.js';
 import type { CascadeResult } from '../src/dependency-cascade/index.js';
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
 const DEC_A = 'aaaa-aaaa-aaaa-aaaa'; // root (changed)
 const DEC_B = 'bbbb-bbbb-bbbb-bbbb'; // direct dependent
@@ -38,7 +38,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Tests ─────────────────────────────────────────────────────────────────
+  // Tests
 
 describe('findCascadeImpact', () => {
   it('finds direct dependents (depth 1)', async () => {

@@ -9,7 +9,7 @@ import { getSupabase, getSupabaseAdmin, isSupabaseConfigured } from '../auth/sup
 import { phase3AuthMiddleware, getUser, isAuthRequired } from '../auth/middleware.js';
 import crypto from 'node:crypto';
 
-// ── Zod Schemas ─────────────────────────────────────────────────────
+  // Zod Schemas
 const signupSchema = z.object({
   email: z.string().email().max(320),
   password: z.string().min(8).max(128).optional(),

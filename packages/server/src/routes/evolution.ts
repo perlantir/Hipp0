@@ -20,7 +20,7 @@ import {
 import type { EvolutionMode, EvolutionProposal, ProposalRecord, TriggerType } from '@hipp0/core';
 
 export function registerEvolutionRoutes(app: Hono): void {
-  // ── POST /api/evolution/scan ──────────────────────────────────────
+    // POST /api/evolution/scan
   app.post('/api/evolution/scan', async (c) => {
     const body = await c.req.json<{ project_id?: string; mode?: string }>().catch(() => ({} as Record<string, unknown>));
     const projectId = (body.project_id ?? c.req.query('project_id') ?? '') as string;
@@ -70,7 +70,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/evolution/proposals ──────────────────────────────────
+    // GET /api/evolution/proposals
   app.get('/api/evolution/proposals', async (c) => {
     const db = getDb();
     const urgencyFilter = c.req.query('urgency');
@@ -105,7 +105,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     return c.json(proposals);
   });
 
-  // ── GET /api/evolution/proposals/:id ──────────────────────────────
+    // GET /api/evolution/proposals/:id
   app.get('/api/evolution/proposals/:id', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
@@ -122,7 +122,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     });
   });
 
-  // ── POST /api/evolution/proposals/:id/accept ──────────────────────
+    // POST /api/evolution/proposals/:id/accept
   app.post('/api/evolution/proposals/:id/accept', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
@@ -169,7 +169,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     });
   });
 
-  // ── POST /api/evolution/proposals/:id/reject ──────────────────────
+    // POST /api/evolution/proposals/:id/reject
   app.post('/api/evolution/proposals/:id/reject', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
@@ -190,7 +190,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     return c.json({ status: 'rejected', id });
   });
 
-  // ── POST /api/evolution/proposals/:id/override ────────────────────
+    // POST /api/evolution/proposals/:id/override
   app.post('/api/evolution/proposals/:id/override', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
@@ -252,7 +252,7 @@ export function registerEvolutionRoutes(app: Hono): void {
     });
   });
 
-  // ── GET /api/evolution/history ────────────────────────────────────
+    // GET /api/evolution/history
   app.get('/api/evolution/history', async (c) => {
     const db = getDb();
     const projectId = c.req.query('project_id');

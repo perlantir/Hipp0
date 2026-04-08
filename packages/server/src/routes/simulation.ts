@@ -11,7 +11,7 @@ import {
 } from '@hipp0/core/intelligence/whatif-simulator.js';
 
 export function registerSimulationRoutes(app: Hono): void {
-  // ── POST /api/simulation/preview ──────────────────────────────────
+    // POST /api/simulation/preview
   app.post('/api/simulation/preview', async (c) => {
     const body = await c.req.json();
 
@@ -40,7 +40,7 @@ export function registerSimulationRoutes(app: Hono): void {
     return c.json(result);
   });
 
-  // ── POST /api/simulation/historical ───────────────────────────────
+    // POST /api/simulation/historical
   app.post('/api/simulation/historical', async (c) => {
     const body = await c.req.json();
 
@@ -78,7 +78,7 @@ export function registerSimulationRoutes(app: Hono): void {
     });
   });
 
-  // ── POST /api/simulation/apply ────────────────────────────────────
+    // POST /api/simulation/apply
   app.post('/api/simulation/apply', async (c) => {
     const db = getDb();
     const body = await c.req.json();

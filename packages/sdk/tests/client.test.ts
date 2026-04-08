@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hipp0Client } from '../src/client.js';
 import { Hipp0ApiError } from '../src/types.js';
 
-// ── Fetch mock helpers ────────────────────────────────────────────────────────
+  // Fetch mock helpers
 
 type MockResponseInit = {
   status?: number;
@@ -31,7 +31,7 @@ function mockFetch(opts: MockResponseInit) {
   );
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
+  // Setup
 
 let client: Hipp0Client;
 
@@ -43,7 +43,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Constructor ───────────────────────────────────────────────────────────────
+  // Constructor
 
 describe('Hipp0Client constructor', () => {
   it('strips trailing slash from baseUrl', async () => {
@@ -67,7 +67,7 @@ describe('Hipp0Client constructor', () => {
   });
 });
 
-// ── Auth header ───────────────────────────────────────────────────────────────
+  // Auth header
 
 describe('Authorization header', () => {
   it('does NOT include Authorization when no apiKey provided', async () => {
@@ -112,7 +112,7 @@ describe('Authorization header', () => {
   });
 });
 
-// ── Health ─────────────────────────────────────────────────────────────────────
+  // Health
 
 describe('health()', () => {
   it('calls GET /api/health', async () => {
@@ -125,7 +125,7 @@ describe('health()', () => {
   });
 });
 
-// ── Projects ──────────────────────────────────────────────────────────────────
+  // Projects
 
 describe('createProject()', () => {
   it('sends POST /api/projects with the input body', async () => {
@@ -177,7 +177,7 @@ describe('getProject()', () => {
   });
 });
 
-// ── Decisions ─────────────────────────────────────────────────────────────────
+  // Decisions
 
 describe('createDecision()', () => {
   it('sends POST /api/projects/:projectId/decisions with body', async () => {
@@ -287,7 +287,7 @@ describe('updateDecision()', () => {
   });
 });
 
-// ── Error Handling ────────────────────────────────────────────────────────────
+  // Error Handling
 
 describe('error handling', () => {
   it('throws Hipp0ApiError with statusCode 404 for not-found responses', async () => {
@@ -386,7 +386,7 @@ describe('error handling', () => {
   });
 });
 
-// ── POST methods send correct method ─────────────────────────────────────────
+  // POST methods send correct method
 
 describe('HTTP method correctness', () => {
   it('compileContext sends POST /api/compile', async () => {
@@ -502,7 +502,7 @@ describe('HTTP method correctness', () => {
   });
 });
 
-// ── Query parameter serialisation ─────────────────────────────────────────────
+  // Query parameter serialisation
 
 describe('query parameter serialisation', () => {
   it('getGraph appends depth param when provided', async () => {

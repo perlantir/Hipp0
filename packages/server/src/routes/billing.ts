@@ -4,14 +4,14 @@ import { ValidationError } from '@hipp0/core/types.js';
 import { getUser, getTenantId } from '../auth/middleware.js';
 import Stripe from 'stripe';
 
-// ── Stripe client ──────────────────────────────────────────────────────
+  // Stripe client
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not configured');
   return new Stripe(key, { apiVersion: '2025-02-24.acacia' });
 }
 
-// ── Price ID lookup ────────────────────────────────────────────────────
+  // Price ID lookup
 interface PriceConfig {
   pro_monthly: string;
   pro_annual: string;
@@ -36,7 +36,7 @@ function resolvePriceId(plan: string, interval: string): string {
   return priceId;
 }
 
-// ── Ensure Stripe customer exists for tenant ───────────────────────────
+  // Ensure Stripe customer exists for tenant
 async function ensureStripeCustomer(tenantId: string): Promise<string> {
   const db = getDb();
   const result = await db.query(
@@ -63,7 +63,7 @@ async function ensureStripeCustomer(tenantId: string): Promise<string> {
   return customer.id;
 }
 
-// ── Register billing routes ────────────────────────────────────────────
+  // Register billing routes
 export function registerBillingRoutes(app: Hono): void {
   /**
    * POST /api/billing/checkout — Create Stripe Checkout session for plan subscription.
@@ -293,7 +293,7 @@ export function registerBillingRoutes(app: Hono): void {
   });
 }
 
-// ── Stripe Webhook Handler (separate registration — needs raw body) ────
+  // Stripe Webhook Handler (separate registration — needs raw body)
 export function registerStripeWebhookRoute(app: Hono): void {
   app.post('/api/webhooks/stripe', async (c) => {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -335,7 +335,7 @@ export function registerStripeWebhookRoute(app: Hono): void {
              WHERE id = ?`,
             [plan, subscriptionId, tenantId],
           );
-          console.log(`[billing] Tenant ${tenantId} upgraded to ${plan}`);
+          console.warn(`[billing] Tenant ${tenantId} upgraded to ${plan}`);
         }
         break;
       }
@@ -358,7 +358,7 @@ export function registerStripeWebhookRoute(app: Hono): void {
              WHERE id = ?`,
             [plan, subscription.id, tenantId],
           );
-          console.log(`[billing] Tenant ${tenantId} subscription updated to ${plan}`);
+          console.warn(`[billing] Tenant ${tenantId} subscription updated to ${plan}`);
         }
         break;
       }
@@ -374,7 +374,7 @@ export function registerStripeWebhookRoute(app: Hono): void {
              WHERE id = ?`,
             [tenantId],
           );
-          console.log(`[billing] Tenant ${tenantId} subscription cancelled — reverted to free`);
+          console.warn(`[billing] Tenant ${tenantId} subscription cancelled — reverted to free`);
         }
         break;
       }

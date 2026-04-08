@@ -141,7 +141,7 @@ function scoreAgentForTask(
 /* ------------------------------------------------------------------ */
 
 
-// ── Machine-Readable Action Signals ──────────────────────────────────────
+  // Machine-Readable Action Signals
 
 export type RecommendedAction =
   | 'PROCEED'
@@ -371,11 +371,11 @@ export async function generateRoleSignal(
       const tagLower = tag.toLowerCase();
       return taskTokens.some((token) => tagMatches(tagLower, token));
     });
-    console.log(`[role-signals] Agent: ${agentName}`);
-    console.log(`[role-signals]   Tags matched: ${matchedTags.join(', ')}`);
-    console.log(`[role-signals]   Raw score: ${relevanceScore}`);
-    console.log(`[role-signals]   Normalized: ${Math.round(relevanceScore * 1000) / 1000}`);
-    console.log(`[role-signals]   Abstain: ${abstainProbability}`);
+    console.warn(`[role-signals] Agent: ${agentName}`);
+    console.warn(`[role-signals]   Tags matched: ${matchedTags.join(', ')}`);
+    console.warn(`[role-signals]   Raw score: ${relevanceScore}`);
+    console.warn(`[role-signals]   Normalized: ${Math.round(relevanceScore * 1000) / 1000}`);
+    console.warn(`[role-signals]   Abstain: ${abstainProbability}`);
   }
 
   // 8. Generate role suggestion

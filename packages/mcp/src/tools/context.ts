@@ -127,7 +127,7 @@ export function registerContextTools(
     },
   );
 
-  // ── hipp0_my_wing_summary — agent's own wing stats ──────────────────
+    // hipp0_my_wing_summary — agent's own wing stats
   server.registerTool(
     'hipp0_my_wing_summary',
     {

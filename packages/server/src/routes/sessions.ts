@@ -20,7 +20,7 @@ import type { CompileRequest } from '@hipp0/core/types.js';
 import { cache, CACHE_TTL } from '../cache/redis.js';
 
 export function registerSessionRoutes(app: Hono): void {
-  // ── Start a new task session ────────────────────────────────────────
+    // Start a new task session
   app.post('/api/tasks/session/start', async (c) => {
     const body = await c.req.json<{
       project_id?: unknown;
@@ -46,7 +46,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Record a step in a session ──────────────────────────────────────
+    // Record a step in a session
   app.post('/api/tasks/session/:id/step', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const body = await c.req.json<{
@@ -93,7 +93,7 @@ export function registerSessionRoutes(app: Hono): void {
         agent_name,
       });
 
-      // ── Session Prefetch: fire-and-forget compile for likely next agents ──
+        // Session Prefetch: fire-and-forget compile for likely next agents
       void (async () => {
         try {
           // Check project settings for prefetch config
@@ -153,7 +153,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Get full session state ──────────────────────────────────────────
+    // Get full session state
   app.get('/api/tasks/session/:id/state', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     try {
@@ -167,7 +167,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Get session context for an agent ────────────────────────────────
+    // Get session context for an agent
   app.get('/api/tasks/session/:id/context/:agentName', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const agentName = c.req.param('agentName');
@@ -179,7 +179,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json(ctx);
   });
 
-  // ── Pause session ───────────────────────────────────────────────────
+    // Pause session
   app.post('/api/tasks/session/:id/pause', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const session = await updateSessionStatus(sessionId, 'paused');
@@ -187,7 +187,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json(session);
   });
 
-  // ── Resume session ──────────────────────────────────────────────────
+    // Resume session
   app.post('/api/tasks/session/:id/resume', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const session = await updateSessionStatus(sessionId, 'active');
@@ -195,7 +195,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json(session);
   });
 
-  // ── Complete session ────────────────────────────────────────────────
+    // Complete session
   app.post('/api/tasks/session/:id/complete', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const session = await updateSessionStatus(sessionId, 'completed');
@@ -203,7 +203,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json(session);
   });
 
-  // ── List sessions for a project ─────────────────────────────────────
+    // List sessions for a project
   app.get('/api/projects/:id/sessions-live', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
     const status = c.req.query('status') ?? undefined;
@@ -211,7 +211,7 @@ export function registerSessionRoutes(app: Hono): void {
     return c.json(sessions);
   });
 
-  // ── Suggest next agent (Super Brain Phase 3) ───────────────────────
+    // Suggest next agent (Super Brain Phase 3)
   app.post('/api/tasks/session/:id/suggest-next', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
 
@@ -238,7 +238,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Generate session plan (Super Brain Phase 3) ────────────────────
+    // Generate session plan (Super Brain Phase 3)
   app.post('/api/tasks/session/:id/plan', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
 
@@ -262,7 +262,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Accept/override suggestion (Super Brain Phase 3) ───────────────
+    // Accept/override suggestion (Super Brain Phase 3)
   app.post('/api/tasks/session/:id/accept-suggestion', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const body = await c.req.json<{
@@ -324,7 +324,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Save checkpoint (Context Compression Survival) ──────────────────
+    // Save checkpoint (Context Compression Survival)
   app.post('/api/tasks/session/:id/checkpoint', async (c) => {
     const sessionId = requireUUID(c.req.param('id'), 'session_id');
     const body = await c.req.json<{
@@ -367,7 +367,7 @@ export function registerSessionRoutes(app: Hono): void {
     }
   });
 
-  // ── Project settings (prefetch config) ─────────────────────────────
+    // Project settings (prefetch config)
   app.get('/api/projects/:id/settings', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
     const db = getDb();
@@ -428,7 +428,7 @@ export function registerSessionRoutes(app: Hono): void {
     });
   });
 
-  // ── Score team for a task (Super Brain Phase 2) ─────────────────────
+    // Score team for a task (Super Brain Phase 2)
   app.post('/api/projects/:id/team-score', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
     const body = await c.req.json<{

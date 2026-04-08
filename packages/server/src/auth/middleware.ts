@@ -4,7 +4,7 @@
  * Three middleware variants:
  * - authMiddleware: Requires auth (401 if missing)
  * - optionalAuth: Attaches user if present, passes through if not
- * - apiKeyOrAuth: Accepts either Bearer JWT or dg_* API key
+ * - apiKeyOrAuth: Accepts either Bearer JWT or h0_* API key
  *
  * Feature flag: HIPP0_AUTH_REQUIRED (default: true)
  * When false (dev only), optionalAuth is used everywhere and defaults to the default tenant.
@@ -45,7 +45,7 @@ function getClientIp(c: Context): string {
   return c.req.header('x-real-ip') ?? 'unknown';
 }
 
-// ── Free-tier IP tracking (50 requests without signup) ──────────────
+  // Free-tier IP tracking (50 requests without signup)
 const freeTierUsage = new Map<string, number>();
 
 // Prune every 24 hours
@@ -63,7 +63,7 @@ export function incrementFreeTier(ip: string): number {
   return count;
 }
 
-// ── API Key Rate Limiting (sliding window) ──────────────────────────
+  // API Key Rate Limiting (sliding window)
 interface SlidingWindowEntry {
   timestamps: number[];
 }
@@ -100,7 +100,7 @@ function checkApiKeyRateLimit(keyHash: string, maxPerMinute: number): { allowed:
   return { allowed: true, remaining: remaining - 1, resetMs: 60_000 };
 }
 
-// ── Resolve rate limit from plan ────────────────────────────────────
+  // Resolve rate limit from plan
 function planRateLimit(plan: string): number {
   switch (plan) {
     case 'enterprise': return 10_000;
@@ -109,9 +109,9 @@ function planRateLimit(plan: string): number {
   }
 }
 
-// ── Authenticate via API key (dg_live_* or dg_test_*) ───────────────
+  // Authenticate via API key (h0_live_* or h0_test_*)
 async function authenticateApiKey(token: string, c: Context): Promise<AuthUser | null> {
-  if (!token.startsWith('dg_live_') && !token.startsWith('dg_test_')) return null;
+  if (!token.startsWith('h0_live_') && !token.startsWith('h0_test_')) return null;
 
   const hash = crypto.createHash('sha256').update(token).digest('hex');
   const db = getDb();
@@ -152,7 +152,7 @@ async function authenticateApiKey(token: string, c: Context): Promise<AuthUser |
   };
 }
 
-// ── Authenticate via Supabase JWT ───────────────────────────────────
+  // Authenticate via Supabase JWT
 async function authenticateJwt(token: string): Promise<AuthUser | null> {
   try {
     const supabase = getSupabase();
@@ -186,7 +186,7 @@ async function authenticateJwt(token: string): Promise<AuthUser | null> {
   }
 }
 
-// ── Extract token from request ──────────────────────────────────────
+  // Extract token from request
 function extractToken(c: Context): string | null {
   // Check Authorization header
   const authHeader = c.req.header('Authorization');
@@ -200,10 +200,10 @@ function extractToken(c: Context): string | null {
   return null;
 }
 
-// ── Authenticate from token (API key or JWT) ────────────────────────
+  // Authenticate from token (API key or JWT)
 async function authenticateToken(token: string, c: Context): Promise<AuthUser | null> {
   // Try API key first
-  if (token.startsWith('dg_')) {
+  if (token.startsWith('h0_')) {
     return authenticateApiKey(token, c);
   }
   // Try JWT

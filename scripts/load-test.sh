@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DeciGraph Load Test — 100 concurrent compile requests
+# Hipp0 Load Test — 100 concurrent compile requests
 #
 # Usage:
 #   ./scripts/load-test.sh [BASE_URL] [PROJECT_ID]
@@ -22,7 +22,7 @@ COMPILE_PAYLOAD=$(cat <<EOF
 EOF
 )
 
-echo "=== DeciGraph Load Test ==="
+echo "=== Hipp0 Load Test ==="
 echo "Target: ${BASE_URL}/api/compile"
 echo "Concurrency: ${CONCURRENCY}"
 echo "Total requests: ${TOTAL_REQUESTS}"

@@ -75,6 +75,5 @@ services:
 
 volumes:
   # CRITICAL: Do NOT rename this volume — it contains all production data.
-  # The volume was created under the old 'nexus' stack name.
   nexus_nexus_pgdata:
     external: true

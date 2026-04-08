@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ── DB Mock ───────────────────────────────────────────────────────────────────
+  // DB Mock
 
 const mockQuery = vi.fn();
 vi.mock('../src/db/index.js', () => ({
@@ -21,7 +21,7 @@ vi.mock('../src/db/index.js', () => ({
   closeDb: vi.fn().mockResolvedValue(undefined),
 }));
 
-// ── Helpers — build mock rows ─────────────────────────────────────────────
+  // Helpers — build mock rows
 
 function makeProjectRow() {
   return {
@@ -116,7 +116,7 @@ function makeWebhookRow() {
   };
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────
+  // Setup
 
 beforeEach(() => {
   mockQuery.mockReset();
@@ -126,7 +126,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Export Tests ───────────────────────────────────────────────────────────
+  // Export Tests
 
 describe('Export', () => {
   /** Helper: set up standard mock responses for an export flow */
@@ -212,7 +212,7 @@ describe('Export', () => {
   });
 });
 
-// ── Import Tests ──────────────────────────────────────────────────────────
+  // Import Tests
 
 describe('Import', () => {
   const VALID_EXPORT = {

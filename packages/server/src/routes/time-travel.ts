@@ -18,7 +18,7 @@ function parseJsonSafe(val: unknown): unknown {
 // ---------------------------------------------------------------------------
 
 export function registerTimeTravelRoutes(app: Hono): void {
-  // ── Replay a specific compilation ─────────────────────────────────────
+    // Replay a specific compilation
   app.get('/api/compile-history/:compileId', async (c) => {
     const db = getDb();
     const compileId = requireUUID(c.req.param('compileId'), 'compileId');
@@ -47,7 +47,7 @@ export function registerTimeTravelRoutes(app: Hono): void {
     });
   });
 
-  // ── List compilation history for an agent ──────────────────────────────
+    // List compilation history for an agent
   app.get('/api/agents/:id/compile-history', async (c) => {
     const db = getDb();
     const agentId = requireUUID(c.req.param('id'), 'agentId');
@@ -71,7 +71,7 @@ export function registerTimeTravelRoutes(app: Hono): void {
     }));
   });
 
-  // ── Diff two compilations ─────────────────────────────────────────────
+    // Diff two compilations
   app.post('/api/compile/diff', async (c) => {
     const db = getDb();
     const body = await c.req.json<{
@@ -143,7 +143,7 @@ export function registerTimeTravelRoutes(app: Hono): void {
     });
   });
 
-  // ── Reconstruct context at a point in time ────────────────────────────
+    // Reconstruct context at a point in time
   app.post('/api/compile/at', async (c) => {
     const db = getDb();
     const body = await c.req.json<{
