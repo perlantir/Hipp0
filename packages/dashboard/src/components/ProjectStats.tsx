@@ -267,7 +267,7 @@ export function ProjectStats() {
                 alert('Export failed');
               }
             }}
-            className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#063ff9] text-white text-sm font-medium hover:bg-[#063ff9]/90 shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-colors"
           >
             <Download size={14} /> Export Project
           </button>
@@ -431,9 +431,9 @@ export function ProjectStats() {
 
         {/* Decision trend */}
         {trendData.length > 0 && (
-          <div className="card p-5">
+          <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp size={16} className="text-primary" />
+              <TrendingUp size={16} className="text-[#063ff9]" />
               Decision Trend
             </h2>
             <div className="flex items-end gap-1.5 h-24">
@@ -474,9 +474,9 @@ export function ProjectStats() {
 
         {/* Recent activity */}
         {stats.recent_activity && stats.recent_activity.length > 0 && (
-          <div className="card p-5">
+          <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Activity size={16} className="text-primary" />
+              <Activity size={16} className="text-[#063ff9]" />
               Recent Activity
             </h2>
             <div className="space-y-2">
