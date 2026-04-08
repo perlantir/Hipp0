@@ -147,3 +147,17 @@ export {
   getRecalcCounter,
 } from './wings/affinity.js';
 export type { WingClassification } from './wings/affinity.js';
+
+// --- Evolution Engine ---
+export {
+  runEvolutionScan,
+  computeUrgency,
+} from './intelligence/evolution-engine.js';
+export type {
+  EvolutionMode,
+  ProposalUrgency,
+  ProposalStatus,
+  TriggerType,
+  EvolutionProposal,
+  EvolutionScanResult,
+} from './intelligence/evolution-engine.js';

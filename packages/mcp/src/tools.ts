@@ -13,6 +13,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Hipp0Client } from '../../sdk/src/index.js';
 import type { Decision, Contradiction, CompileContextInput, WhatChangedResponse } from '../../sdk/src/types.js';
+import { runEvolutionScan, getDb } from '@hipp0/core';
+import type { EvolutionMode, EvolutionProposal as EvoProposal } from '@hipp0/core';
 
 export interface ToolConfig {
   projectId: string;
@@ -691,6 +693,130 @@ export function registerAllTools(
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
       };
+    },
+  );
+
+  // ── Tool: hipp0_evolve_decision ───────────────────────────────────
+  server.registerTool(
+    'hipp0_evolve_decision',
+    {
+      title: 'Trigger evolution scan',
+      description:
+        'Run a rule-based evolution scan on the project and return proposals. Respects the project evolution_mode. Agent can filter results by urgency.',
+      inputSchema: {
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        mode: z.enum(['rule', 'llm', 'hybrid']).optional().describe('Override mode: rule (zero LLM), llm, or hybrid'),
+        urgency_filter: z.string().optional().describe('Comma-separated urgency filter: critical,high,medium,low'),
+      },
+    },
+    async (args) => {
+      const pid = args.project_id ?? config.projectId;
+      const mode = (args.mode ?? 'rule') as EvolutionMode;
+      try {
+        const scanResult = await runEvolutionScan(pid, mode);
+
+        let proposals: EvoProposal[] = scanResult.proposals;
+        if (args.urgency_filter) {
+          const allowed = new Set(args.urgency_filter.split(',').map(((u: string) => u.trim())));
+          proposals = proposals.filter((p: EvoProposal) => allowed.has(p.urgency));
+        }
+
+        const lines = [
+          `Evolution Scan Complete (${mode} mode)`,
+          `Proposals: ${scanResult.proposals.length} | Duration: ${scanResult.scan_duration_ms}ms`,
+          '',
+        ];
+
+        for (const p of proposals.slice(0, 15)) {
+          lines.push(`[${p.urgency.toUpperCase()}] ${p.trigger_type} — confidence: ${(p.confidence * 100).toFixed(0)}%, impact: ${(p.impact_score * 100).toFixed(0)}%`);
+          lines.push(`  ${p.reasoning.slice(0, 200)}`);
+          lines.push(`  Action: ${p.suggested_action}`);
+          lines.push('');
+        }
+
+        return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+      } catch (err) {
+        return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
+  // ── Tool: hipp0_review_evolutions ─────────────────────────────────
+  server.registerTool(
+    'hipp0_review_evolutions',
+    {
+      title: 'Review pending evolution proposals',
+      description:
+        'List pending evolution proposals with reasoning and suggested actions. Agent can accept or reject proposals directly.',
+      inputSchema: {
+        action: z.enum(['list', 'accept', 'reject']).describe('Action: list proposals, accept, or reject'),
+        proposal_id: z.string().optional().describe('Proposal ID (required for accept/reject)'),
+        reason: z.string().optional().describe('Reason for rejection (optional)'),
+        project_id: z.string().optional().describe('Project ID (optional, uses default)'),
+        urgency_filter: z.string().optional().describe('Comma-separated urgency filter'),
+      },
+    },
+    async (args) => {
+      try {
+        const db = getDb();
+
+        if (args.action === 'list') {
+          let sql = `SELECT * FROM evolution_proposals WHERE status = 'pending'`;
+          const params: unknown[] = [];
+          if (args.urgency_filter) {
+            const urgencies = args.urgency_filter.split(',').map(((u: string) => u.trim()));
+            const placeholders = urgencies.map(() => '?').join(',');
+            sql += ` AND urgency IN (${placeholders})`;
+            params.push(...urgencies);
+          }
+          sql += ` ORDER BY CASE urgency WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, impact_score DESC`;
+          const result = await db.query(sql, params);
+          const proposals = result.rows as Array<Record<string, unknown>>;
+
+          if (proposals.length === 0) {
+            return { content: [{ type: 'text' as const, text: 'No pending evolution proposals.' }] };
+          }
+
+          const lines = [`Pending Proposals (${proposals.length}):`, ''];
+          for (const p of proposals) {
+            lines.push(`[${(p.urgency as string).toUpperCase()}] ${p.trigger_type}`);
+            lines.push(`  ${(p.reasoning as string).slice(0, 200)}`);
+            lines.push(`  Suggested: ${p.suggested_action} | Confidence: ${((p.confidence as number) * 100).toFixed(0)}% | ID: ${p.id}`);
+            lines.push('');
+          }
+          return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+        }
+
+        if (!args.proposal_id) {
+          return { content: [{ type: 'text' as const, text: 'Error: proposal_id is required for accept/reject' }] };
+        }
+
+        if (args.action === 'accept') {
+          const result = await db.query(
+            `UPDATE evolution_proposals SET status = 'accepted', resolved_at = datetime('now'), resolved_by = 'mcp-agent' WHERE id = ? AND status = 'pending' RETURNING id`,
+            [args.proposal_id],
+          );
+          if (result.rows.length === 0) {
+            return { content: [{ type: 'text' as const, text: 'Proposal not found or already resolved.' }] };
+          }
+          return { content: [{ type: 'text' as const, text: `Proposal ${args.proposal_id} accepted.` }] };
+        }
+
+        if (args.action === 'reject') {
+          const result = await db.query(
+            `UPDATE evolution_proposals SET status = 'rejected', resolved_at = datetime('now'), resolved_by = 'mcp-agent', resolution_notes = ? WHERE id = ? AND status = 'pending' RETURNING id`,
+            [args.reason ?? '', args.proposal_id],
+          );
+          if (result.rows.length === 0) {
+            return { content: [{ type: 'text' as const, text: 'Proposal not found or already resolved.' }] };
+          }
+          return { content: [{ type: 'text' as const, text: `Proposal ${args.proposal_id} rejected.` }] };
+        }
+
+        return { content: [{ type: 'text' as const, text: 'Unknown action.' }] };
+      } catch (err) {
+        return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }] };
+      }
     },
   );
 
