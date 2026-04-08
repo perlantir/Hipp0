@@ -932,9 +932,10 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const nonL0Scored = scored.filter((d) => d.loading_layer !== 'L0');
 
   // Apply minimum score threshold and max results cap (L1/L2 only)
+  const effectiveMinScore = request.min_score ?? MIN_SCORE;
   const qualifiedDecisions = [
     ...l0Scored, // L0 always included
-    ...nonL0Scored.filter((d) => d.combined_score >= MIN_SCORE),
+    ...nonL0Scored.filter((d) => d.combined_score >= effectiveMinScore),
   ]
     .sort((a, b) => b.combined_score - a.combined_score)
     .slice(0, MAX_RESULTS);
@@ -1111,7 +1112,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     formatted_json,
     decisions_considered: allScored.length,
     decisions_included: packedDecisions.length,
-    relevance_threshold_used: MIN_SCORE,
+    relevance_threshold_used: request.min_score ?? MIN_SCORE,
     compilation_time_ms: Date.now() - startMs,
     loading_layers: {
       l0_count: packedDecisions.filter((d) => d.loading_layer === 'L0').length,

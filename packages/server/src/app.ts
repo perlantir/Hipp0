@@ -151,14 +151,17 @@ export function createApp() {
   // ── Phase 6: Tier enforcement (after auth, before routes) ──────────
   app.use('/api/*', tierEnforcement());
 
-  // Health — enhanced with db latency, uptime, version
+  // Health — enhanced with db latency, uptime, version, decision_count
   app.get('/api/health', async (c) => {
     let dbLatencyMs = -1;
+    let decisionCount = 0;
     try {
       const db = getDb();
       const start = Date.now();
       await db.query('SELECT 1', []);
       dbLatencyMs = Date.now() - start;
+      const countResult = await db.query('SELECT COUNT(*) as c FROM decisions', []);
+      decisionCount = parseInt((countResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     } catch { /* db unavailable */ }
 
     return c.json({
@@ -168,6 +171,7 @@ export function createApp() {
       db_latency_ms: dbLatencyMs,
       uptime_seconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000),
       node_env: process.env.NODE_ENV ?? 'production',
+      decision_count: decisionCount,
     });
   });
 
@@ -266,6 +270,42 @@ export function createApp() {
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);
   registerStripeWebhookRoute(app);
+
+  // ── Flat route aliases for /api/decisions ─────────────────────────
+  // Docs imply /api/decisions but the real route is /api/projects/:id/decisions.
+  // These aliases read project_id from body/query and proxy to the scoped route.
+  app.post('/api/decisions', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+    const projectId = body.project_id as string | undefined;
+    if (!projectId) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'project_id is required in the request body' } }, 400);
+    }
+    // Re-dispatch to the project-scoped route
+    const url = new URL(c.req.url);
+    url.pathname = `/api/projects/${projectId}/decisions`;
+    const newReq = new Request(url.toString(), {
+      method: 'POST',
+      headers: c.req.raw.headers,
+      body: JSON.stringify(body),
+    });
+    return app.fetch(newReq, c.env);
+  });
+
+  app.get('/api/decisions', async (c) => {
+    const projectId = c.req.query('project_id');
+    if (!projectId) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'project_id query parameter is required' } }, 400);
+    }
+    // Re-dispatch to the project-scoped route
+    const url = new URL(c.req.url);
+    url.pathname = `/api/projects/${projectId}/decisions`;
+    url.searchParams.delete('project_id');
+    const newReq = new Request(url.toString(), {
+      method: 'GET',
+      headers: c.req.raw.headers,
+    });
+    return app.fetch(newReq, c.env);
+  });
 
   return app;
 }

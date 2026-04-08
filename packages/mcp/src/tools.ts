@@ -35,17 +35,19 @@ export function registerAllTools(
         'Get persona-specific, scored decisions relevant to a task. Returns ranked results with explanations.',
       inputSchema: {
         agent_name: z.string().describe('Agent requesting context (e.g., maks, counsel, pixel)'),
-        task_description: z.string().describe('What the agent is working on'),
+        task_description: z.string().optional().describe('What the agent is working on'),
+        task: z.string().optional().describe('Alias for task_description — what the agent is working on'),
         project_id: z.string().optional().describe('Project ID (optional, uses default)'),
         task_session_id: z.string().optional().describe('Task session ID — includes session context from previous steps'),
         format: z.enum(['json', 'h0c', 'markdown']).default('h0c').describe('Response format: h0c (default, compact), json (verbose with scoring_breakdown), or markdown'),
       },
     },
     async (args) => {
+      const taskDesc = args.task_description ?? args.task ?? '';
       const pkg = await client.compileContext({
         agent_name: args.agent_name,
         project_id: args.project_id ?? config.projectId,
-        task_description: args.task_description,
+        task_description: taskDesc,
         task_session_id: args.task_session_id,
         format: args.format,
       } as CompileContextInput & { task_session_id?: string; format?: string });
@@ -831,8 +833,8 @@ export function registerAllTools(
 
         if (args.action === 'accept') {
           const result = await db.query(
-            `UPDATE evolution_proposals SET status = 'accepted', resolved_at = datetime('now'), resolved_by = 'mcp-agent' WHERE id = ? AND status = 'pending' RETURNING id`,
-            [args.proposal_id],
+            `UPDATE evolution_proposals SET status = 'accepted', resolved_at = ?, resolved_by = 'mcp-agent' WHERE id = ? AND status = 'pending' RETURNING id`,
+            [new Date().toISOString(), args.proposal_id],
           );
           if (result.rows.length === 0) {
             return { content: [{ type: 'text' as const, text: 'Proposal not found or already resolved.' }] };
@@ -842,8 +844,8 @@ export function registerAllTools(
 
         if (args.action === 'reject') {
           const result = await db.query(
-            `UPDATE evolution_proposals SET status = 'rejected', resolved_at = datetime('now'), resolved_by = 'mcp-agent', resolution_notes = ? WHERE id = ? AND status = 'pending' RETURNING id`,
-            [args.reason ?? '', args.proposal_id],
+            `UPDATE evolution_proposals SET status = 'rejected', resolved_at = ?, resolved_by = 'mcp-agent', resolution_notes = ? WHERE id = ? AND status = 'pending' RETURNING id`,
+            [new Date().toISOString(), args.reason ?? '', args.proposal_id],
           );
           if (result.rows.length === 0) {
             return { content: [{ type: 'text' as const, text: 'Proposal not found or already resolved.' }] };

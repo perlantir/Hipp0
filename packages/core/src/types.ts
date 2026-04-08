@@ -349,6 +349,8 @@ export interface CompileRequest {
   session_lookback_days?: number;
   depth?: 'default' | 'full';
   namespace?: string;
+  /** Override the minimum relevance score threshold (default: 0.5) */
+  min_score?: number;
 }
 
 export interface ContextPackage {

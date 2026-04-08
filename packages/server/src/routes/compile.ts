@@ -25,6 +25,7 @@ export function registerCompileRoutes(app: Hono): void {
       agent_name?: unknown;
       project_id?: unknown;
       task_description?: unknown;
+      task?: unknown;
       max_tokens?: number;
       include_superseded?: boolean;
       session_lookback_days?: number;
@@ -36,7 +37,9 @@ export function registerCompileRoutes(app: Hono): void {
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
-    const task_description = requireString(body.task_description, 'task_description', 100000);
+    // Accept both `task` and `task_description` — prefer task_description when both provided
+    const rawTaskDescription = body.task_description ?? body.task;
+    const task_description = requireString(rawTaskDescription, 'task_description', 100000);
 
     // ── Format parameter: h0c (default) | json/full | condensed | both | markdown ─────────
     // ?expanded=true is an alias for ?format=json
@@ -45,6 +48,9 @@ export function registerCompileRoutes(app: Hono): void {
     const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
     // ── Depth parameter: default | full (loads L2 background decisions) ──
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
+    // ── Threshold parameter: override the default minimum relevance score (0.5) ──
+    const thresholdParam = c.req.query('threshold');
+    const minScore = thresholdParam ? Math.max(0, Math.min(1, parseFloat(thresholdParam))) : undefined;
 
     // ── Check prefetch cache first (session-aware) ────────────────────
     if (body.task_session_id && body.debug !== true) {
@@ -91,6 +97,7 @@ export function registerCompileRoutes(app: Hono): void {
       session_lookback_days: body.session_lookback_days,
       depth: depthParam,
       namespace: namespaceParam,
+      min_score: minScore,
     };
 
     const result = await compileContext(request);
@@ -317,6 +324,26 @@ export function registerCompileRoutes(app: Hono): void {
       + (policyMarkdown ? policyMarkdown : '')
       + (result.formatted_markdown ?? '');
 
+    // ── Hint for 0 results ─────────────────────────────────────────────
+    let hint: string | undefined;
+    if (result.decisions_included === 0) {
+      // Check if project has any decisions at all
+      let totalProjectDecisions = 0;
+      try {
+        const countResult = await db.query(
+          'SELECT COUNT(*) as c FROM decisions WHERE project_id = ?',
+          [project_id],
+        );
+        totalProjectDecisions = parseInt((countResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
+      } catch { /* ignore */ }
+
+      if (totalProjectDecisions === 0) {
+        hint = 'This project has no decisions yet. Record your first decision with POST /api/projects/:id/decisions or import from GitHub with the Import Wizard.';
+      } else {
+        hint = "No decisions matched the relevance threshold (0.5). Try a domain-specific agent name like 'architect', 'backend', or 'security', or lower the threshold with ?threshold=0.3";
+      }
+    }
+
     // ── Cache the result ──────────────────────────────────────────────
     const responsePayload = {
       compile_request_id: compileRequestId,
@@ -328,6 +355,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...(policyNotices.length > 0 ? { policy_notices: policyNotices } : {}),
       ...(policySummary ? { policy_summary: policySummary } : {}),
 
+      ...(hint ? { hint } : {}),
       ...(sessionMeta ? { session: sessionMeta } : {}),
       ...(roleSignal ? { role_signal: roleSignal } : {}),
       ...(roleSignal ? (() => {

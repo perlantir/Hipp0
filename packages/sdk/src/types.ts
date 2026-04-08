@@ -284,7 +284,9 @@ export type Urgency = 'critical' | 'high' | 'medium' | 'low';
 export interface CompileContextInput {
   agent_name: string;
   project_id: string;
-  task_description: string;
+  task_description?: string;
+  /** Alias for task_description — if both provided, task_description takes precedence */
+  task?: string;
   max_tokens?: number;
   include_superseded?: boolean;
   session_lookback_days?: number;

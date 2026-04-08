@@ -129,10 +129,10 @@ export function registerEvolutionRoutes(app: Hono): void {
 
     const result = await db.query(
       `UPDATE evolution_proposals
-       SET status = 'accepted', resolved_by = ?, resolved_at = datetime('now'), resolution_notes = ?
+       SET status = 'accepted', resolved_by = ?, resolved_at = ?, resolution_notes = ?
        WHERE id = ? AND status = 'pending'
        RETURNING id`,
-      [body.resolved_by ?? 'system', body.notes ?? '', id],
+      [body.resolved_by ?? 'system', new Date().toISOString(), body.notes ?? '', id],
     );
 
     if (result.rows.length === 0) {
@@ -150,10 +150,10 @@ export function registerEvolutionRoutes(app: Hono): void {
 
     const result = await db.query(
       `UPDATE evolution_proposals
-       SET status = 'rejected', resolved_by = ?, resolved_at = datetime('now'), resolution_notes = ?
+       SET status = 'rejected', resolved_by = ?, resolved_at = ?, resolution_notes = ?
        WHERE id = ? AND status = 'pending'
        RETURNING id`,
-      [body.resolved_by ?? 'system', body.reason ?? '', id],
+      [body.resolved_by ?? 'system', new Date().toISOString(), body.reason ?? '', id],
     );
 
     if (result.rows.length === 0) {
@@ -175,12 +175,13 @@ export function registerEvolutionRoutes(app: Hono): void {
 
     const result = await db.query(
       `UPDATE evolution_proposals
-       SET status = 'overridden', resolved_by = ?, resolved_at = datetime('now'),
+       SET status = 'overridden', resolved_by = ?, resolved_at = ?,
            resolution_notes = ?, suggested_action = ?
        WHERE id = ? AND status = 'pending'
        RETURNING id`,
       [
         (body.resolved_by ?? 'system') as string,
+        new Date().toISOString(),
         (body.notes ?? '') as string,
         body.override_action as string,
         id,

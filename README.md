@@ -312,6 +312,16 @@ Include it in all requests:
 Authorization: Bearer <API_KEY>
 ```
 
+### Compile Context (your first API call)
+
+```bash
+# Compile context for an agent
+curl http://localhost:3100/api/compile \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <API_KEY>' \
+  -d '{"agent_name": "architect", "task_description": "design the auth system", "project_id": "<PROJECT_ID>"}'
+```
+
 ---
 
 ## MCP Configuration

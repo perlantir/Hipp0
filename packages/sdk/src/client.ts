@@ -251,7 +251,12 @@ export class Hipp0Client {
   // Context Compiler
 
   compileContext(input: CompileContextInput): Promise<ContextPackage> {
-    const { format = 'h0c', namespace, ...body } = input;
+    const { format = 'h0c', namespace, task, ...rest } = input;
+    // Map `task` → `task_description` for server compatibility
+    const body = {
+      ...rest,
+      task_description: rest.task_description ?? task,
+    };
     const queryParams: Record<string, string | undefined> = { format, namespace };
     return this.request<ContextPackage>('POST', '/api/compile', body, queryParams);
   }
