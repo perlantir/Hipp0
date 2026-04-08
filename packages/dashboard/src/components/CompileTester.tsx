@@ -12,6 +12,7 @@ interface ScoredDecision {
   reasoning?: string;
   wing?: string | null;
   made_by?: string;
+  namespace?: string | null;
 }
 
 interface CompileResult {
@@ -48,11 +49,18 @@ export function CompileTester() {
   const [error, setError] = useState<string | null>(null);
   const [error2, setError2] = useState<string | null>(null);
   const [sideBySide, setSideBySide] = useState(false);
+  const [namespace, setNamespace] = useState('');
+  const [namespaces, setNamespaces] = useState<Array<{ namespace: string; count: number }>>([]);
 
   useEffect(() => {
     get<Array<{ name: string }>>(`/api/projects/${projectId}/agents`)
       .then((data) => {
         if (Array.isArray(data)) setAgents(data);
+      })
+      .catch(() => {});
+    get<Array<{ namespace: string; count: number }>>(`/api/projects/${projectId}/namespaces`)
+      .then((data) => {
+        if (Array.isArray(data)) setNamespaces(data);
       })
       .catch(() => {});
   }, [get, projectId]);
@@ -67,6 +75,7 @@ export function CompileTester() {
         agent_name: agent,
         project_id: projectId,
         task_description: taskDescription.trim(),
+        ...(namespace ? { namespace } : {}),
       });
       setRes(data);
     } catch (err: any) {
@@ -123,15 +132,27 @@ export function CompileTester() {
           )}
         </div>
 
-        <div>
-          <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Task Description</label>
-          <textarea
-            value={taskDescription}
-            onChange={(e) => setTaskDescription(e.target.value)}
-            placeholder="Describe the task to compile decisions for…"
-            rows={3}
-            className="input w-full resize-none"
-          />
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-[1fr_200px]">
+          <div>
+            <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Task Description</label>
+            <textarea
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              placeholder="Describe the task to compile decisions for…"
+              rows={3}
+              className="input w-full resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Namespace</label>
+            <div className="relative">
+              <select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="input w-full appearance-none pr-8">
+                <option value="">All (no filter)</option>
+                {namespaces.map((ns) => <option key={ns.namespace} value={ns.namespace}>{ns.namespace} ({ns.count})</option>)}
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-secondary)]" />
+            </div>
+          </div>
         </div>
 
         <button
@@ -210,13 +231,21 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
             return (
               <div key={d.id ?? i} className="p-3 rounded-lg border border-[var(--border-light)] bg-[var(--bg-primary)]">
                 <div className="flex items-center justify-between mb-1">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     {dWing && (
                       <span style={{
                         display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
                         backgroundColor: dWingColor + '22', color: dWingColor, border: `1px solid ${dWingColor}44`,
                       }}>
                         {dWing}
+                      </span>
+                    )}
+                    {d.namespace && (
+                      <span style={{
+                        display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
+                        backgroundColor: '#6366f122', color: '#6366f1', border: '1px solid #6366f144',
+                      }}>
+                        ns:{d.namespace}
                       </span>
                     )}
                     <span className="text-sm font-medium">{d.title}</span>

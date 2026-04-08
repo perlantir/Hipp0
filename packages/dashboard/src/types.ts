@@ -30,6 +30,7 @@ export interface Decision {
   valid_from?: string | null;
   valid_until?: string | null;
   temporal_scope?: 'permanent' | 'sprint' | 'experiment' | 'deprecated';
+  namespace?: string | null;
 }
 
 export interface Relationship {

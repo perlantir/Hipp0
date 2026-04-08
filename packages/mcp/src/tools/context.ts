@@ -32,6 +32,10 @@ export function registerContextTools(
           .enum(['full', 'condensed', 'both'])
           .optional()
           .describe('Response format: "full" (default), "condensed" (Hipp0Condensed shorthand, ~10x smaller), or "both".'),
+        namespace: z
+          .string()
+          .optional()
+          .describe('Filter decisions by namespace. Comma-separated for multiple. Global (null namespace) decisions always included.'),
       },
     },
     async (args) => {
@@ -40,6 +44,7 @@ export function registerContextTools(
         project_id: config.projectId,
         task_description: args.task_description,
         max_tokens: args.max_tokens,
+        namespace: args.namespace,
       });
 
       const format = args.format ?? 'full';

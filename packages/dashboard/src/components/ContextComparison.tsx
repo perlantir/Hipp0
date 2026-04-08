@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Columns2, Loader2, ArrowRight, Eye, EyeOff, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Columns2, Loader2, ArrowRight, Eye, EyeOff, Search, ChevronDown } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { ContextResult, Decision } from '../types';
@@ -142,9 +142,12 @@ export function ContextComparison() {
   const { post } = useApi();
   const { projectId } = useProject();
 
+  const { get } = useApi();
   const [agentA, setAgentA] = useState('');
   const [agentB, setAgentB] = useState('');
   const [task, setTask] = useState('general context');
+  const [namespace, setNamespace] = useState('');
+  const [namespaces, setNamespaces] = useState<Array<{ namespace: string; count: number }>>([]);
 
   const [resultA, setResultA] = useState<ContextResult | null>(null);
   const [resultB, setResultB] = useState<ContextResult | null>(null);
@@ -152,6 +155,14 @@ export function ContextComparison() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShared, setShowShared] = useState(true);
+
+  useEffect(() => {
+    get<Array<{ namespace: string; count: number }>>(`/api/projects/${projectId}/namespaces`)
+      .then((data) => {
+        if (Array.isArray(data)) setNamespaces(data);
+      })
+      .catch(() => {});
+  }, [get, projectId]);
 
   async function handleCompare() {
     if (!agentA || !agentB || !task) return;
@@ -166,11 +177,13 @@ export function ContextComparison() {
           agent_name: agentA,
           project_id: projectId,
           task_description: task,
+          ...(namespace ? { namespace } : {}),
         }),
         post<ContextResult>('/api/compile', {
           agent_name: agentB,
           project_id: projectId,
           task_description: task,
+          ...(namespace ? { namespace } : {}),
         }),
       ]);
       setResultA(resA);
@@ -234,7 +247,7 @@ export function ContextComparison() {
 
         {/* Inputs */}
         <div className="card p-5 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)] mb-1.5 block">
                 Agent A
@@ -272,6 +285,19 @@ export function ContextComparison() {
                 placeholder="Describe the task…"
                 className="input"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1.5 block">
+                Namespace
+              </label>
+              <div className="relative">
+                <select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="input w-full appearance-none pr-8">
+                  <option value="">All</option>
+                  {namespaces.map((ns) => <option key={ns.namespace} value={ns.namespace}>{ns.namespace} ({ns.count})</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-secondary)]" />
+              </div>
             </div>
           </div>
 

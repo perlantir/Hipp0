@@ -76,6 +76,7 @@ export interface Decision {
   updated_at: string;
   metadata: Record<string, unknown>;
   wing?: string | null;
+  namespace?: string | null;
 }
 
 export interface CreateDecisionInput {
@@ -97,6 +98,7 @@ export interface CreateDecisionInput {
   confidence_decay_rate?: number;
   metadata?: Record<string, unknown>;
   temporal_scope?: 'permanent' | 'sprint' | 'experiment';
+  namespace?: string | null;
 }
 
 export interface UpdateDecisionInput {
@@ -116,6 +118,7 @@ export interface UpdateDecisionInput {
   metadata?: Record<string, unknown>;
   validated_at?: string;
   validation_source?: string;
+  namespace?: string | null;
 }
 
 export interface SupersedeDecisionInput {
@@ -287,6 +290,8 @@ export interface CompileContextInput {
   session_lookback_days?: number;
   /** Response format: json (default), h0c, markdown, condensed, both */
   format?: 'json' | 'h0c' | 'markdown' | 'condensed' | 'both';
+  /** Filter decisions by namespace. Comma-separated for multiple. */
+  namespace?: string;
 }
 
 export interface DecodedDecision {
@@ -298,6 +303,7 @@ export interface DecodedDecision {
   tags: string[];
   description: string;
   reasoning?: string;
+  namespace?: string;
 }
 
 export interface ContextPackage {

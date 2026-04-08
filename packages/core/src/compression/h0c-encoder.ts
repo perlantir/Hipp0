@@ -37,6 +37,7 @@ export interface DecodedDecision {
   tags: string[];
   description: string;
   reasoning?: string;
+  namespace?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,8 +128,11 @@ export function encodeH0C(
     // Description: first sentence, truncated
     const desc = safePipe(truncateWords(firstSentence(d.description), maxDescWords));
 
-    // Build line: [score|conf|by:agent|date] title|tags|description
-    let line = `[${score}|${conf}|${by}|${date}]${title}`;
+    // Namespace indicator
+    const nsStr = d.namespace ? `ns:${safePipe(d.namespace)}` : '';
+
+    // Build line: [score|conf|by:agent|date|ns:namespace] title|tags|description
+    let line = `[${score}|${conf}|${by}|${date}${nsStr ? `|${nsStr}` : ''}]${title}`;
     if (tagStr) line += `|${tagStr}`;
     if (desc) line += `|${desc}`;
 

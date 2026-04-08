@@ -85,6 +85,7 @@ export function registerDecisionRoutes(app: Hono): void {
       metadata?: Record<string, unknown>;
       depends_on?: unknown[];
       temporal_scope?: unknown;
+      namespace?: unknown;
     };
 
     const title = requireString(body.title, 'title', 500);
@@ -116,19 +117,21 @@ export function registerDecisionRoutes(app: Hono): void {
       : 'permanent';
 
     try {
+      const namespaceVal = body.namespace != null ? optionalString(body.namespace, 'namespace', 100) : null;
+
       const result = await db.query(
         `INSERT INTO decisions (
            project_id, title, description, reasoning, made_by,
            source, source_session_id, confidence, status, supersedes_id,
            alternatives_considered, affects, tags, assumptions,
            open_questions, dependencies, confidence_decay_rate, metadata, embedding,
-           domain, category, priority_level, temporal_scope, valid_from
+           domain, category, priority_level, temporal_scope, valid_from, namespace
          ) VALUES (
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
-           ?, ?, ?, ?, NOW()
+           ?, ?, ?, ?, NOW(), ?
          ) RETURNING *`,
         [
           projectId,
@@ -154,6 +157,7 @@ export function registerDecisionRoutes(app: Hono): void {
           classification.category,
           1, // default priority_level
           temporal_scope,
+          namespaceVal,
         ],
       );
 
@@ -318,6 +322,7 @@ export function registerDecisionRoutes(app: Hono): void {
         domain: unknown;
         category: unknown;
         priority_level: unknown;
+        namespace: unknown;
       }>
     >();
 
@@ -363,6 +368,9 @@ export function registerDecisionRoutes(app: Hono): void {
       const pl = Number(body.priority_level);
       if (![0, 1, 2].includes(pl)) throw new ValidationError('priority_level must be 0, 1, or 2');
       addField('priority_level', pl);
+    }
+    if (body.namespace !== undefined) {
+      addField('namespace', body.namespace === null ? null : optionalString(body.namespace, 'namespace', 100));
     }
 
     params.push(id);
@@ -1280,5 +1288,58 @@ export function registerDecisionRoutes(app: Hono): void {
       updated,
       summary,
     });
+  });
+
+  // ── Namespace endpoints ──────────────────────────────────────────────
+
+  // List all namespaces with decision counts for a project
+  app.get('/api/projects/:id/namespaces', async (c) => {
+    const db = getDb();
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+
+    const result = await db.query(
+      `SELECT namespace, COUNT(*) as count
+       FROM decisions
+       WHERE project_id = ? AND namespace IS NOT NULL
+       GROUP BY namespace
+       ORDER BY count DESC`,
+      [projectId],
+    );
+
+    const namespaces = result.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        namespace: r.namespace as string,
+        count: parseInt(String(r.count), 10),
+      };
+    });
+
+    return c.json(namespaces);
+  });
+
+  // Bulk assign namespace to multiple decisions
+  app.post('/api/decisions/bulk-namespace', async (c) => {
+    const db = getDb();
+    const body = await c.req.json<{
+      decision_ids?: unknown;
+      namespace?: unknown;
+    }>();
+
+    if (!Array.isArray(body.decision_ids) || body.decision_ids.length === 0) {
+      throw new ValidationError('decision_ids must be a non-empty array');
+    }
+    const namespace = body.namespace === null ? null : requireString(body.namespace, 'namespace', 100);
+    const ids: string[] = body.decision_ids.map((id: unknown) => requireUUID(id, 'decision_ids'));
+
+    let updated = 0;
+    for (const id of ids) {
+      const result = await db.query(
+        'UPDATE decisions SET namespace = ?, updated_at = NOW() WHERE id = ? RETURNING id',
+        [namespace, id],
+      );
+      if (result.rows.length > 0) updated++;
+    }
+
+    return c.json({ updated, total: ids.length, namespace });
   });
 }

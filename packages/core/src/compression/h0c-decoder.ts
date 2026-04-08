@@ -65,10 +65,13 @@ export function decodeH0C(h0c: string): DecodedDecision[] {
 
     let made_by = '';
     let date = '';
+    let namespace: string | undefined;
     for (let i = 2; i < metaParts.length; i++) {
       const part = metaParts[i]!.trim();
       if (part.startsWith('by:')) {
         made_by = part.slice(3);
+      } else if (part.startsWith('ns:')) {
+        namespace = part.slice(3);
       } else if (i === 2 && !part.startsWith('by:')) {
         // New format: agent name without by: prefix
         made_by = part;
@@ -94,6 +97,9 @@ export function decodeH0C(h0c: string): DecodedDecision[] {
           .map((idx) => tagMap.get(idx) ?? `tag-${idx}`);
       } else if (seg.startsWith('r:')) {
         reasoning = seg.slice(2).trim();
+      } else if (seg.startsWith('ns:')) {
+        // Namespace in rest segments (shouldn't happen normally, but be safe)
+        namespace = namespace ?? seg.slice(3).trim();
       } else {
         description = seg;
       }
@@ -108,6 +114,7 @@ export function decodeH0C(h0c: string): DecodedDecision[] {
       tags,
       description,
       ...(reasoning ? { reasoning } : {}),
+      ...(namespace ? { namespace } : {}),
     });
   }
 

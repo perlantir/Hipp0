@@ -86,6 +86,7 @@ export interface Decision {
   valid_until?: string | null;
   superseded_by?: string | null;
   temporal_scope: TemporalScope;
+  namespace?: string | null;
 }
 
 export interface CreateDecisionInput {
@@ -114,6 +115,7 @@ export interface CreateDecisionInput {
   temporal_scope?: TemporalScope;
   valid_from?: string;
   valid_until?: string | null;
+  namespace?: string | null;
 }
 
 export type DecisionSource = 'manual' | 'auto_distilled' | 'imported';
@@ -346,6 +348,7 @@ export interface CompileRequest {
   include_superseded?: boolean;
   session_lookback_days?: number;
   depth?: 'default' | 'full';
+  namespace?: string;
 }
 
 export interface ContextPackage {

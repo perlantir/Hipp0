@@ -172,6 +172,15 @@ export function Search() {
                           {d.tags.length > 3 && ` +${d.tags.length - 3}`}
                         </span>
                       )}
+
+                      {d.namespace && (
+                        <span style={{
+                          display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
+                          backgroundColor: '#6366f122', color: '#6366f1', border: '1px solid #6366f144',
+                        }}>
+                          ns:{d.namespace}
+                        </span>
+                      )}
                     </div>
                   </button>
 

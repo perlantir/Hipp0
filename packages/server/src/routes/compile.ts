@@ -31,6 +31,7 @@ export function registerCompileRoutes(app: Hono): void {
       task_session_id?: unknown;
       include_role_signal?: boolean;
       debug?: boolean;
+      namespace?: unknown;
     }>();
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
@@ -78,6 +79,9 @@ export function registerCompileRoutes(app: Hono): void {
     // This uses the full 5-signal scoring pipeline: freshness weighting,
     // confidence decay, graph expansion, score blending, context caching,
     // and markdown + JSON formatting.
+    // Namespace filter: from body or query parameter
+    const namespaceParam = typeof body.namespace === 'string' ? body.namespace : (c.req.query('namespace') ?? undefined);
+
     const request: CompileRequest = {
       agent_name,
       project_id,
@@ -86,6 +90,7 @@ export function registerCompileRoutes(app: Hono): void {
       include_superseded: body.include_superseded,
       session_lookback_days: body.session_lookback_days,
       depth: depthParam,
+      namespace: namespaceParam,
     };
 
     const result = await compileContext(request);

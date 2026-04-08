@@ -33,6 +33,7 @@ export interface CompileOptions {
   taskDescription: string;
   projectId?: string;
   depth?: number;
+  namespace?: string;
 }
 
 export interface AddDecisionOptions {
@@ -42,6 +43,7 @@ export interface AddDecisionOptions {
   affects?: string[];
   confidence?: 'high' | 'medium' | 'low';
   projectId?: string;
+  namespace?: string;
 }
 
 export interface SearchOptions {
@@ -92,6 +94,7 @@ export class Hipp0 {
       task_description: opts.taskDescription,
       project_id: this.pid(opts.projectId),
       max_tokens: opts.depth ? opts.depth * 16000 : undefined,
+      namespace: opts.namespace,
     });
   }
 
@@ -106,6 +109,7 @@ export class Hipp0 {
       tags: opts.tags ?? [],
       affects: opts.affects ?? [],
       confidence: opts.confidence ?? 'high',
+      namespace: opts.namespace,
     });
   }
 

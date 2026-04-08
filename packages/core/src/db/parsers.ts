@@ -130,6 +130,7 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     valid_until: row.valid_until ? (row.valid_until instanceof Date ? (row.valid_until as Date).toISOString() : String(row.valid_until)) : null,
     superseded_by: (row.superseded_by as string | null) ?? null,
     temporal_scope: (row.temporal_scope as Decision['temporal_scope']) ?? 'permanent',
+    namespace: (row.namespace as string | null) ?? null,
   };
 }
 

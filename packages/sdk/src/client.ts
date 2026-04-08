@@ -248,8 +248,8 @@ export class Hipp0Client {
   // Context Compiler
 
   compileContext(input: CompileContextInput): Promise<ContextPackage> {
-    const { format = 'h0c', ...body } = input;
-    const queryParams = { format };
+    const { format = 'h0c', namespace, ...body } = input;
+    const queryParams: Record<string, string | undefined> = { format, namespace };
     return this.request<ContextPackage>('POST', '/api/compile', body, queryParams);
   }
 
@@ -531,10 +531,13 @@ export class Hipp0Client {
 
       let made_by = '';
       let date = '';
+      let namespace: string | undefined;
       for (let i = 2; i < metaParts.length; i++) {
         const part = metaParts[i]!.trim();
         if (part.startsWith('by:')) {
           made_by = part.slice(3);
+        } else if (part.startsWith('ns:')) {
+          namespace = part.slice(3);
         } else if (i === 2 && !part.startsWith('by:')) {
           made_by = part;
         } else {
@@ -562,7 +565,7 @@ export class Hipp0Client {
         }
       }
 
-      decisions.push({ title, score, confidence, made_by, date, tags, description, ...(reasoning ? { reasoning } : {}) });
+      decisions.push({ title, score, confidence, made_by, date, tags, description, ...(reasoning ? { reasoning } : {}), ...(namespace ? { namespace } : {}) });
     }
 
     return decisions;

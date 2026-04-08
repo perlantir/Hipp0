@@ -45,6 +45,10 @@ export function registerDecisionTools(
           .array(z.string())
           .optional()
           .describe('Unresolved questions related to this decision.'),
+        namespace: z
+          .string()
+          .optional()
+          .describe('Namespace to scope this decision to (e.g. "auth", "infra", "frontend"). Null = global.'),
       },
     },
     async (args) => {
@@ -60,6 +64,7 @@ export function registerDecisionTools(
         assumptions: args.assumptions,
         open_questions: args.open_questions,
         source: 'manual',
+        namespace: args.namespace,
       });
 
       // Check for contradictions via impact analysis (best-effort)

@@ -821,17 +821,29 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     ? ` AND (valid_until IS NULL OR valid_until > NOW()) AND (temporal_scope IS NULL OR temporal_scope != 'deprecated')`
     : '';
 
+  // Namespace filter: when set, include matching namespace + global (NULL) decisions
+  let namespaceFilter = '';
+  const namespaceParams: unknown[] = [];
+  if (request.namespace) {
+    const namespaces = request.namespace.split(',').map((ns) => ns.trim()).filter(Boolean);
+    if (namespaces.length > 0) {
+      const placeholders = namespaces.map(() => '?').join(', ');
+      namespaceFilter = ` AND (namespace IS NULL OR namespace IN (${placeholders}))`;
+      namespaceParams.push(...namespaces);
+    }
+  }
+
   // Fetch L0 (critical) decisions — always included
   const l0Result = await db.query<Record<string, unknown>>(
-    `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 0${statusFilter}${temporalFilter} ORDER BY created_at DESC LIMIT 5`,
-    [project_id],
+    `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 0${statusFilter}${temporalFilter}${namespaceFilter} ORDER BY created_at DESC LIMIT 5`,
+    [project_id, ...namespaceParams],
   );
   const l0Decisions = l0Result.rows.map(parseDecision);
 
   // Fetch L1 (standard) decisions
   const l1Result = await db.query<Record<string, unknown>>(
-    `SELECT * FROM decisions WHERE project_id = ? AND (priority_level = 1 OR priority_level IS NULL)${statusFilter}${temporalFilter} ORDER BY created_at DESC`,
-    [project_id],
+    `SELECT * FROM decisions WHERE project_id = ? AND (priority_level = 1 OR priority_level IS NULL)${statusFilter}${temporalFilter}${namespaceFilter} ORDER BY created_at DESC`,
+    [project_id, ...namespaceParams],
   );
   const l1Decisions = l1Result.rows.map(parseDecision);
 
@@ -840,15 +852,15 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   let l2Available = 0;
   if (includeL2) {
     const l2Result = await db.query<Record<string, unknown>>(
-      `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter} ORDER BY created_at DESC`,
-      [project_id],
+      `SELECT * FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter}${namespaceFilter} ORDER BY created_at DESC`,
+      [project_id, ...namespaceParams],
     );
     l2Decisions = l2Result.rows.map(parseDecision);
     l2Available = l2Decisions.length;
   } else {
     const l2CountResult = await db.query<Record<string, unknown>>(
-      `SELECT COUNT(*) as count FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter}`,
-      [project_id],
+      `SELECT COUNT(*) as count FROM decisions WHERE project_id = ? AND priority_level = 2${statusFilter}${temporalFilter}${namespaceFilter}`,
+      [project_id, ...namespaceParams],
     );
     l2Available = parseInt(String((l2CountResult.rows[0] as Record<string, unknown>)?.count ?? '0'), 10);
   }
