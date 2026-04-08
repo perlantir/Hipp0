@@ -219,10 +219,10 @@ export function Import() {
               />
               <div
                 className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-                  dragOver ? 'bg-primary/20' : 'bg-[var(--border-light)]/30'
+                  dragOver ? 'bg-[#063ff9]/20' : 'bg-[#063ff9]/5'
                 }`}
               >
-                <Upload size={22} className={dragOver ? 'text-primary' : 'text-[var(--text-secondary)]'} />
+                <Upload size={22} className={dragOver ? 'text-[#063ff9]' : 'text-[var(--text-secondary)]'} />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium mb-0.5">
@@ -269,7 +269,7 @@ export function Import() {
             {/* Divider */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-[var(--border-light)]" />
-              <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">
                 or paste text
               </span>
               <div className="flex-1 h-px bg-[var(--border-light)]" />
@@ -304,7 +304,7 @@ export function Import() {
                 </div>
                 <div className="h-1.5 rounded-full bg-[var(--border-light)] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    className="h-full rounded-full bg-[#063ff9] transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -315,7 +315,7 @@ export function Import() {
             <button
               onClick={handleImport}
               disabled={importing || (files.length === 0 && !pastedText.trim())}
-              className="btn-primary flex items-center gap-2 text-sm"
+              className="flex items-center gap-2 text-sm px-5 py-2.5 bg-[#063ff9] text-white rounded-xl font-medium shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:bg-[#063ff9]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {importing ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -330,7 +330,7 @@ export function Import() {
             {/* Results header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-primary" />
+                <CheckCircle2 size={18} className="text-[#063ff9]" />
                 <p className="text-sm font-medium">
                   {results.length} decision{results.length !== 1 ? 's' : ''} extracted
                 </p>
@@ -350,7 +350,7 @@ export function Import() {
                 </button>
               </div>
             ) : (
-              <div className="card overflow-hidden">
+              <div className="overflow-hidden" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
                 {/* Table header */}
                 <div className="grid grid-cols-[1fr_120px_auto] gap-4 px-4 py-2.5 border-b border-[var(--border-light)]">
                   <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
