@@ -200,7 +200,7 @@ async function runCaptureExtraction(
     await db.query(
       `UPDATE captures SET status = 'completed', extracted_decision_ids = ?, completed_at = ?
        WHERE id = ?`,
-      [JSON.stringify(decisionIds), new Date().toISOString(), captureId],
+      [db.arrayParam(decisionIds), new Date().toISOString(), captureId],
     );
 
     logAudit('capture_completed', projectId, {

@@ -80,10 +80,10 @@ export async function getPatternRecommendations(
     `SELECT id, pattern_type, tag_a, tag_b, title_pattern_a, title_pattern_b,
             occurrence_count, tenant_count, confidence
      FROM anonymous_patterns
-     WHERE active = 1 AND confidence >= ?
+     WHERE active = ? AND confidence >= ?
      ORDER BY confidence DESC, tenant_count DESC
      LIMIT 50`,
-    [minConfidence],
+    [true, minConfidence],
   );
 
   if (result.rows.length === 0) return [];
@@ -137,8 +137,8 @@ export async function listPatterns(opts?: {
   limit?: number;
 }): Promise<SuggestedPattern[]> {
   const db = getDb();
-  const conditions: string[] = ['active = 1'];
-  const params: unknown[] = [];
+  const conditions: string[] = ['active = ?'];
+  const params: unknown[] = [true];
 
   if (opts?.minConfidence != null) {
     conditions.push('confidence >= ?');

@@ -413,8 +413,8 @@ async function rulePatternDivergence(projectId: string): Promise<EvolutionPropos
   const patternResult = await db.query(
     `SELECT id, pattern_type, tag_a, tag_b, title_pattern_a, title_pattern_b, tenant_count, confidence
      FROM anonymous_patterns
-     WHERE active = 1 AND tenant_count >= 3 AND confidence > 0.70`,
-    [],
+     WHERE active = ? AND tenant_count >= 3 AND confidence > 0.70`,
+    [true],
   );
 
   const proposals: EvolutionProposal[] = [];
