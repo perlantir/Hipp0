@@ -23,8 +23,10 @@ import type {
   ContextPackage,
   ScoringBreakdown,
   DecisionDomain,
+  WingAffinity,
 } from '../types.js';
 import { inferDomainFromTask } from '../hierarchy/classifier.js';
+import { computeWingSources } from '../wings/affinity.js';
 
 // Embedding helper — imported from decision-graph (generated at runtime).
 // We use a dynamic import shape so the module can be provided at runtime.
@@ -847,6 +849,27 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     return sd;
   });
 
+  // ── Wing-aware affinity boost ──────────────────────────────────────
+  // Orchestrator agents (role "orchestrator") see all wings equally — no bias.
+  const isOrchestrator = agent.role.toLowerCase() === 'orchestrator';
+  if (!isOrchestrator) {
+    const wingAffinity: WingAffinity = agent.wing_affinity ?? { cross_wing_weights: {}, last_recalculated: '', feedback_count: 0 };
+    for (const sd of scored) {
+      const decisionWing = sd.wing ?? sd.made_by;
+      if (decisionWing === agent_name || decisionWing === agent.name) {
+        // Own-wing: +0.10 flat boost
+        sd.combined_score = Math.min(1.0, sd.combined_score + 0.10);
+      } else {
+        const affinityWeight = wingAffinity.cross_wing_weights[decisionWing] ?? 0;
+        if (affinityWeight >= 0.5) {
+          // High-affinity wing: boost of (affinity * 0.08)
+          sd.combined_score = Math.min(1.0, sd.combined_score + affinityWeight * 0.08);
+        }
+        // Other wings: standard scoring (no boost or penalty)
+      }
+    }
+  }
+
   const depth = agent.relevance_profile.decision_depth;
 
   // L0 decisions always pass regardless of score
@@ -1040,6 +1063,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
       l1_count: packedDecisions.filter((d) => d.loading_layer === 'L1').length,
       l2_available: l2Available,
     },
+    wing_sources: computeWingSources(packedDecisions, agent_name),
   };
 
   const includedDecisionIds = packedDecisions.map((d) => d.id);

@@ -16,6 +16,12 @@ export interface CreateProjectInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface WingAffinity {
+  cross_wing_weights: Record<string, number>;
+  last_recalculated: string;
+  feedback_count: number;
+}
+
 export interface Agent {
   id: string;
   project_id: string;
@@ -23,6 +29,8 @@ export interface Agent {
   role: string;
   relevance_profile: RelevanceProfile;
   context_budget_tokens: number;
+  wing_affinity?: WingAffinity;
+  primary_domain?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +75,7 @@ export interface Decision {
   created_at: string;
   updated_at: string;
   metadata: Record<string, unknown>;
+  wing?: string | null;
 }
 
 export interface CreateDecisionInput {
@@ -293,6 +302,7 @@ export interface ContextPackage {
   decisions_included: number;
   relevance_threshold_used: number;
   compilation_time_ms: number;
+  wing_sources?: Record<string, number>;
 }
 
 export interface DistillInput {

@@ -15,6 +15,7 @@ import type {
   AuditEntry,
   ApiKey,
   RelevanceProfile,
+  WingAffinity,
 } from '../types.js';
 
 /**
@@ -81,6 +82,12 @@ export function parseAgent(row: Record<string, unknown>): Agent {
       include_superseded: false,
     }),
     context_budget_tokens: row.context_budget_tokens as number,
+    wing_affinity: parseJsonb<WingAffinity>(row.wing_affinity, {
+      cross_wing_weights: {},
+      last_recalculated: new Date().toISOString(),
+      feedback_count: 0,
+    }),
+    primary_domain: (row.primary_domain as string | null) ?? null,
     created_at: (row.created_at as Date).toISOString(),
     updated_at: (row.updated_at as Date).toISOString(),
   };
@@ -115,6 +122,7 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     domain: (row.domain as DecisionDomain | null) ?? null,
     category: (row.category as DecisionCategory | null) ?? null,
     priority_level: ((row.priority_level as number) ?? 1) as PriorityLevel,
+    wing: (row.wing as string | null) ?? null,
   };
 }
 

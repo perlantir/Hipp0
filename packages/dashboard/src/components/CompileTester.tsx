@@ -10,13 +10,27 @@ interface ScoredDecision {
   score?: number;
   status?: string;
   reasoning?: string;
+  wing?: string | null;
+  made_by?: string;
 }
 
 interface CompileResult {
   decisions?: ScoredDecision[];
   context_used?: number;
   agent_name?: string;
+  wing_sources?: Record<string, number>;
   [key: string]: unknown;
+}
+
+const WING_COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+];
+
+function wingColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  return WING_COLORS[Math.abs(hash) % WING_COLORS.length];
 }
 
 export function CompileTester() {
@@ -162,6 +176,7 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
   if (!result) return null;
 
   const decisions = result.decisions ?? [];
+  const wingSources = result.wing_sources;
 
   return (
     <div className="card p-5">
@@ -169,24 +184,54 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
       {result.context_used != null && (
         <p className="text-xs text-[var(--text-secondary)] mb-3">Context tokens used: {result.context_used}</p>
       )}
+      {wingSources && Object.keys(wingSources).length > 0 && (
+        <div className="mb-3" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {Object.entries(wingSources).sort(([,a],[,b]) => b - a).map(([wing, count]) => {
+            const color = wing === 'own_wing' ? '#10b981' : wingColor(wing);
+            return (
+              <span key={wing} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                backgroundColor: color + '22', color, border: `1px solid ${color}44`,
+              }}>
+                {wing} <span style={{ fontWeight: 400 }}>({count})</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
       {decisions.length === 0 ? (
         <p className="text-sm text-[var(--text-secondary)]">No decisions returned</p>
       ) : (
         <div className="space-y-2">
-          {decisions.map((d, i) => (
-            <div key={d.id ?? i} className="p-3 rounded-lg border border-[var(--border-light)] bg-[var(--bg-primary)]">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">{d.title}</span>
-                {d.score != null && (
-                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                    {d.score.toFixed(2)}
-                  </span>
-                )}
+          {decisions.map((d, i) => {
+            const dWing = d.wing ?? d.made_by;
+            const dWingColor = dWing ? wingColor(dWing) : '#6b7280';
+            return (
+              <div key={d.id ?? i} className="p-3 rounded-lg border border-[var(--border-light)] bg-[var(--bg-primary)]">
+                <div className="flex items-center justify-between mb-1">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {dWing && (
+                      <span style={{
+                        display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
+                        backgroundColor: dWingColor + '22', color: dWingColor, border: `1px solid ${dWingColor}44`,
+                      }}>
+                        {dWing}
+                      </span>
+                    )}
+                    <span className="text-sm font-medium">{d.title}</span>
+                  </div>
+                  {d.score != null && (
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      {d.score.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                {d.description && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{d.description}</p>}
+                {d.reasoning && <p className="text-xs text-[var(--text-tertiary)] mt-1 italic">{d.reasoning}</p>}
               </div>
-              {d.description && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{d.description}</p>}
-              {d.reasoning && <p className="text-xs text-[var(--text-tertiary)] mt-1 italic">{d.reasoning}</p>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

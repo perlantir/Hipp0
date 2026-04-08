@@ -22,8 +22,17 @@ export interface Agent {
   role: string;
   relevance_profile: RelevanceProfile;
   context_budget_tokens: number;
+  wing_affinity?: WingAffinity;
+  primary_domain?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// --- Wing Affinity ---
+export interface WingAffinity {
+  cross_wing_weights: Record<string, number>;
+  last_recalculated: string;
+  feedback_count: number;
 }
 
 export interface CreateAgentInput {
@@ -72,6 +81,7 @@ export interface Decision {
   domain?: DecisionDomain | null;
   category?: DecisionCategory | null;
   priority_level: PriorityLevel;
+  wing?: string | null;
 }
 
 export interface CreateDecisionInput {
@@ -96,6 +106,7 @@ export interface CreateDecisionInput {
   domain?: DecisionDomain | null;
   category?: DecisionCategory | null;
   priority_level?: PriorityLevel;
+  wing?: string | null;
 }
 
 export type DecisionSource = 'manual' | 'auto_distilled' | 'imported';
@@ -345,6 +356,7 @@ export interface ContextPackage {
   relevance_threshold_used: number;
   compilation_time_ms: number;
   loading_layers?: { l0_count: number; l1_count: number; l2_available: number };
+  wing_sources?: Record<string, number>;
 }
 
 // --- Contradictions ---
@@ -478,6 +490,7 @@ export interface CondensedCompileResponse {
   compilation_time_ms: number;
   feedback_hint: string;
   outcome_hint: string;
+  wing_sources?: Record<string, number>;
 }
 
 export interface CompressionMetrics {
@@ -485,6 +498,23 @@ export interface CompressionMetrics {
   compressed_tokens: number;
   compression_ratio: number;
   format_version: string;
+}
+
+// --- Wing Types ---
+export interface WingSummary {
+  wing: string;
+  decision_count: number;
+  top_domains: string[];
+  cross_wing_connections: Array<{ wing: string; strength: number }>;
+}
+
+export interface WingStats {
+  agent_name: string;
+  wing: string;
+  decision_count: number;
+  top_domains: string[];
+  cross_wing_connections: Array<{ wing: string; strength: number }>;
+  wing_affinity: WingAffinity;
 }
 
 // --- Error Types ---

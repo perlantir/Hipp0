@@ -40,6 +40,7 @@ export interface SessionStep {
   compile_time_ms: number | null;
   status: string;
   created_at: string;
+  wing: string | null;
 }
 
 export interface SessionContext {
@@ -159,6 +160,7 @@ function parseStep(row: Record<string, unknown>): SessionStep {
     compile_time_ms: row.compile_time_ms != null ? Number(row.compile_time_ms) : null,
     status: row.status as string,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    wing: (row.wing as string | null) ?? null,
   };
 }
 
@@ -232,13 +234,13 @@ export async function recordStep(input: {
   // Generate summary if output is long
   const outputSummary = await generateSummary(input.output);
 
-  // Insert the step
+  // Insert the step (wing = agent_name, the agent's dedicated context space)
   const stepResult = await db.query<Record<string, unknown>>(
     `INSERT INTO session_steps
        (session_id, project_id, step_number, agent_name, agent_role,
         task_description, output, output_summary, artifacts,
-        decisions_created, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        decisions_created, duration_ms, wing)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      RETURNING id, step_number`,
     [
       input.session_id,
@@ -252,6 +254,7 @@ export async function recordStep(input: {
       JSON.stringify(input.artifacts ?? []),
       db.arrayParam(input.decisions_created ?? []),
       input.duration_ms ?? null,
+      input.agent_name, // wing = agent who created the step
     ],
   );
 
@@ -346,7 +349,52 @@ export async function getSessionContext(
      ORDER BY step_number ASC`,
     [sessionId],
   );
-  const steps = stepsResult.rows.map((r) => parseStep(r as Record<string, unknown>));
+  const allSteps = stepsResult.rows.map((r) => parseStep(r as Record<string, unknown>));
+
+  // Wing-aware step prioritization:
+  // Lookup requesting agent's wing affinity to determine priority
+  const agentResult = await db.query<Record<string, unknown>>(
+    `SELECT wing_affinity, role FROM agents WHERE project_id = ? AND name = ? LIMIT 1`,
+    [session.project_id, agentName],
+  );
+  const isOrchestrator = agentResult.rows.length > 0 && (agentResult.rows[0].role as string || '').toLowerCase() === 'orchestrator';
+
+  let steps: SessionStep[];
+  if (isOrchestrator) {
+    // Orchestrator sees all steps equally
+    steps = allSteps;
+  } else {
+    let wingAffinityData: Record<string, number> = {};
+    if (agentResult.rows.length > 0) {
+      const rawAffinity = agentResult.rows[0].wing_affinity;
+      if (rawAffinity) {
+        let parsed: Record<string, unknown> = {};
+        if (typeof rawAffinity === 'string') {
+          try { parsed = JSON.parse(rawAffinity); } catch { /* skip */ }
+        } else if (typeof rawAffinity === 'object') {
+          parsed = rawAffinity as Record<string, unknown>;
+        }
+        wingAffinityData = (parsed.cross_wing_weights ?? {}) as Record<string, number>;
+      }
+    }
+
+    // Categorize steps: own-wing (full detail), high-affinity (full), low-affinity (condensed)
+    const ownWingSteps: SessionStep[] = [];
+    const highAffinitySteps: SessionStep[] = [];
+    const lowAffinitySteps: SessionStep[] = [];
+    for (const step of allSteps) {
+      const stepWing = step.wing ?? step.agent_name;
+      if (stepWing === agentName) {
+        ownWingSteps.push(step);
+      } else if ((wingAffinityData[stepWing] ?? 0) >= 0.5) {
+        highAffinitySteps.push(step);
+      } else {
+        lowAffinitySteps.push(step);
+      }
+    }
+    // Prioritized order: own-wing first, then high-affinity, then low-affinity
+    steps = [...ownWingSteps, ...highAffinitySteps, ...lowAffinitySteps];
+  }
 
   // Format as markdown
   const lines: string[] = [
@@ -372,15 +420,45 @@ export async function getSessionContext(
     }
 
     lines.push('', '### Previous Steps', '');
-    for (const step of steps) {
-      const outputText = step.output_summary ?? step.output?.slice(0, 500) ?? '(no output)';
-      lines.push(`**Step ${step.step_number} — ${step.agent_name}${step.agent_role ? ` (${step.agent_role})` : ''} completed:**`);
-      lines.push(`Here is what ${step.agent_name} decided: ${outputText}`);
-      if (step.decisions_created.length > 0) {
-        lines.push(`Decisions created: ${step.decisions_created.join(', ')}`);
+
+    // Build a set of low-affinity step wings for condensed rendering
+    const lowAffinityWings = new Set<string>();
+    if (!isOrchestrator && agentResult.rows.length > 0) {
+      let wingAffinityMap: Record<string, number> = {};
+      const rawAff = agentResult.rows[0].wing_affinity;
+      if (rawAff) {
+        let p: Record<string, unknown> = {};
+        if (typeof rawAff === 'string') { try { p = JSON.parse(rawAff); } catch {} }
+        else if (typeof rawAff === 'object') p = rawAff as Record<string, unknown>;
+        wingAffinityMap = (p.cross_wing_weights ?? {}) as Record<string, number>;
       }
-      if (step.artifacts.length > 0) {
-        lines.push(`Artifacts: ${JSON.stringify(step.artifacts)}`);
+      for (const step of steps) {
+        const sw = step.wing ?? step.agent_name;
+        if (sw !== agentName && (wingAffinityMap[sw] ?? 0) < 0.5) {
+          lowAffinityWings.add(sw);
+        }
+      }
+    }
+
+    for (const step of steps) {
+      const stepWing = step.wing ?? step.agent_name;
+      const isLowAffinity = !isOrchestrator && lowAffinityWings.has(stepWing) && stepWing !== agentName;
+
+      if (isLowAffinity) {
+        // Condensed: just summary line for low-affinity wings
+        const summary = step.output_summary ?? step.output?.slice(0, 100) ?? 'completed';
+        lines.push(`**Step ${step.step_number} — ${step.agent_name}** _(low-affinity wing):_ ${summary.split('.')[0]}`);
+      } else {
+        // Full detail for own-wing and high-affinity
+        const outputText = step.output_summary ?? step.output?.slice(0, 500) ?? '(no output)';
+        lines.push(`**Step ${step.step_number} — ${step.agent_name}${step.agent_role ? ` (${step.agent_role})` : ''} completed:**`);
+        lines.push(`Here is what ${step.agent_name} decided: ${outputText}`);
+        if (step.decisions_created.length > 0) {
+          lines.push(`Decisions created: ${step.decisions_created.join(', ')}`);
+        }
+        if (step.artifacts.length > 0) {
+          lines.push(`Artifacts: ${JSON.stringify(step.artifacts)}`);
+        }
       }
       lines.push('');
     }

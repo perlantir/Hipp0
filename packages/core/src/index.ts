@@ -122,3 +122,16 @@ export {
   inferDomainFromTask,
 } from './hierarchy/classifier.js';
 export type { ClassificationResult } from './hierarchy/classifier.js';
+
+// --- Wings / Affinity ---
+export {
+  getWingAffinity,
+  getDecisionWing,
+  increaseWingAffinity,
+  decreaseWingAffinity,
+  processWingFeedback,
+  processWingFeedbackBatch,
+  processWingOutcome,
+  rebalanceWingAffinity,
+  computeWingSources,
+} from './wings/affinity.js';

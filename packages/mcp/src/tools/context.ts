@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Hipp0Client } from '../../../sdk/src/index.js';
 import type { Hipp0ServerConfig } from '../server.js';
 import type { ContextPackage as CoreContextPackage } from '../../../core/src/types.js';
-import { condenseCompileResponse } from '@hipp0/core';
+import { condenseCompileResponse, computeWingSources } from '@hipp0/core';
 
 export function registerContextTools(
   server: McpServer,
@@ -91,6 +91,11 @@ export function registerContextTools(
         };
       }
 
+      // Compute wing sources from decisions
+      const decisions = (pkg as unknown as CoreContextPackage).decisions ?? [];
+      const wing_sources = (pkg as unknown as { wing_sources?: Record<string, number> }).wing_sources ??
+        computeWingSources(decisions, args.agent_name);
+
       // Full (default)
       return {
         content: [
@@ -99,6 +104,7 @@ export function registerContextTools(
             text: JSON.stringify(
               {
                 formatted_markdown: pkg.formatted_markdown,
+                wing_sources,
                 stats: {
                   token_count: pkg.token_count,
                   budget_used_pct: pkg.budget_used_pct,
@@ -113,6 +119,42 @@ export function registerContextTools(
           },
         ],
       };
+    },
+  );
+
+  // ── hipp0_my_wing_summary — agent's own wing stats ──────────────────
+  server.registerTool(
+    'hipp0_my_wing_summary',
+    {
+      title: 'Get wing summary for an agent',
+      description:
+        'Returns the requesting agent\'s wing stats: decision count, top domains, cross-wing affinity, and connections. Use this to understand which other agents\' decisions are most useful to you.',
+      inputSchema: {
+        agent_name: z.string().min(1).describe('Name of the agent to get wing stats for.'),
+      },
+    },
+    async (args) => {
+      try {
+        const apiBase = (config as unknown as Record<string, string>).apiUrl ?? 'http://localhost:3100';
+        const response = await fetch(
+          `${apiBase}/api/agents/${encodeURIComponent(args.agent_name)}/wing?project_id=${config.projectId}`,
+        );
+        if (!response.ok) {
+          return {
+            content: [{ type: 'text' as const, text: `Failed to get wing stats: ${response.statusText}` }],
+            isError: true,
+          };
+        }
+        const data = await response.json();
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error fetching wing stats: ${(err as Error).message}` }],
+          isError: true,
+        };
+      }
     },
   );
 }

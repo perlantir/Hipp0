@@ -7,6 +7,7 @@ import {
   recordBatchFeedback,
   computeAndApplyWeightUpdates,
 } from '@hipp0/core/relevance-learner/index.js';
+import { processWingOutcome } from '@hipp0/core';
 
 // ---------------------------------------------------------------------------
 // Alignment analysis (keyword-based v1)
@@ -231,6 +232,11 @@ export function registerOutcomeRoutes(app: Hono): void {
       task_completed: taskCompleted,
       alignment_score: alignment.alignment_score,
     });
+
+    // Wing affinity: boost for all contributing wings on successful outcome
+    if (taskCompleted) {
+      processWingOutcome(agentId, compileRequestId).catch(() => {});
+    }
 
     // Check auto-learning trigger
     const count = (outcomeCounters.get(agentId) ?? 0) + 1;

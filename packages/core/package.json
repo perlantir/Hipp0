@@ -134,6 +134,10 @@
     "./hierarchy/classifier.js": {
       "import": "./dist/hierarchy/classifier.js",
       "types": "./dist/hierarchy/classifier.d.ts"
+    },
+    "./wings/affinity.js": {
+      "import": "./dist/wings/affinity.js",
+      "types": "./dist/wings/affinity.d.ts"
     }
   },
   "scripts": {

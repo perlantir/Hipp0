@@ -11,6 +11,7 @@ import {
   resetWeights,
   getWeightHistory,
 } from '@hipp0/core/relevance-learner/index.js';
+import { processWingFeedback, processWingFeedbackBatch } from '@hipp0/core';
 import { requireUUID, requireString, optionalString, mapDbError, logAudit } from './validation.js';
 import { randomUUID } from 'node:crypto';
 
@@ -63,6 +64,11 @@ export function registerFeedbackRoutes(app: Hono): void {
         notes: optionalString(body.notes, 'notes', 5000),
       } as Record<string, unknown> as any);
 
+      // Wing affinity learning
+      if (rating) {
+        processWingFeedback(agent_id, decision_id, rating).catch(() => {});
+      }
+
       // Check for auto-apply threshold
       checkAutoApply(agent_id).catch(() => {});
 
@@ -102,6 +108,9 @@ export function registerFeedbackRoutes(app: Hono): void {
     });
 
     const result = await recordBatchFeedback(agent_id, compile_request_id, task_description, ratings);
+
+    // Wing affinity learning from batch
+    processWingFeedbackBatch(agent_id, ratings).catch(() => {});
 
     // Check for auto-apply
     checkAutoApply(agent_id).catch(() => {});

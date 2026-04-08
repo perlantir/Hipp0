@@ -103,6 +103,7 @@ import { TeamScore } from './components/TeamScore';
 import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
 import { WeeklyDigest } from './components/WeeklyDigest';
+import { WingView } from './components/WingView';
 
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -161,7 +162,8 @@ type View =
   | 'live-tasks'
   | 'team-score'
   | 'import-wizard'
-  | 'collab-room';
+  | 'collab-room'
+  | 'wings';
 
 
 interface NavItem {
@@ -180,7 +182,7 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score','import-wizard','collab-room'];
+  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score','import-wizard','collab-room','wings'];
 
   if (all.includes(hash)) return hash;
   return 'graph';
@@ -228,6 +230,7 @@ function ViewContent({ view }: { view: View }) {
     case 'team-score': return <TeamScore />;
     case 'import-wizard': return <ImportWizard />;
     case 'collab-room': return <CollabRoom />;
+    case 'wings': return <WingView />;
 
     default: return <DecisionGraph />;
   }
@@ -392,6 +395,7 @@ export default function App() {
     { id: 'live-tasks', label: 'Live Tasks', icon: <Activity size={18} />, group: 'main' },
     { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'main' },
     { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'main' },
+    { id: 'wings', label: 'Wings', icon: <Users size={18} />, group: 'main' },
     { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
     { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
     { id: 'import-wizard', label: 'Import Wizard', icon: <Upload size={18} />, group: 'integrations' },

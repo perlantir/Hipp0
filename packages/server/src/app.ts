@@ -54,6 +54,7 @@ import { registerSessionRoutes } from './routes/sessions.js';
 import { registerImportWizardRoutes } from './routes/import-wizard.js';
 import { registerCollabRoomRoutes } from './routes/collab-room.js';
 import { registerHierarchyRoutes } from './routes/hierarchy.js';
+import { registerWingRoutes } from './routes/wings.js';
 
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@hipp0/core/db/index.js';
@@ -258,6 +259,7 @@ export function createApp() {
   registerImportWizardRoutes(app);
   registerCollabRoomRoutes(app);
   registerHierarchyRoutes(app);
+  registerWingRoutes(app);
 
   // ── Phase 6: Billing + Stripe webhook ─────────────────────────────
   registerBillingRoutes(app);
