@@ -277,7 +277,7 @@ export function Contradictions() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-8 py-12">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-end justify-between mb-10">
           <div>
             <h1 className="text-4xl font-bold tracking-tight mb-1">Contradictions</h1>
             <p className="text-base text-[var(--text-secondary)]">
@@ -398,16 +398,16 @@ export function Contradictions() {
                   </div>
 
                   {/* Similarity score */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-[var(--text-secondary)]">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-[var(--text-secondary)] font-medium uppercase tracking-wider">
                         Similarity Score
                       </span>
-                      <span className="font-medium">
+                      <span className="font-bold text-sm">
                         {(contradiction.similarity_score * 100).toFixed(0)}%
                       </span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-[var(--border-light)] overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-[var(--border-light)] overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           severity === 'critical' ? 'bg-red-400' : 'bg-yellow-400'
@@ -431,7 +431,7 @@ export function Contradictions() {
                     explanation?: string;
                     resolution_suggestion?: string;
                   }).explanation && (
-                    <div className="flex items-start gap-2 p-3 rounded-md bg-[var(--border-light)]/20 mb-3">
+                    <div className="flex items-start gap-2 p-4 rounded-xl bg-[var(--border-light)]/20 mb-4">
                       <Info
                         size={13}
                         className="shrink-0 mt-0.5 text-[var(--text-secondary)]"
@@ -448,7 +448,7 @@ export function Contradictions() {
                   )}
                   {(contradiction as unknown as { resolution_suggestion?: string })
                     .resolution_suggestion && (
-                    <div className="flex items-start gap-2 p-3 rounded-md bg-primary/8 border border-primary/15 mb-3">
+                    <div className="flex items-start gap-2 p-4 rounded-xl bg-primary/8 border border-primary/15 mb-4">
                       <Info size={13} className="shrink-0 mt-0.5 text-primary" />
                       <div>
                         <p className="text-xs font-medium text-primary mb-0.5">
@@ -466,7 +466,7 @@ export function Contradictions() {
 
                   {/* Resolution (if resolved) */}
                   {contradiction.resolution && (
-                    <div className="p-3 rounded-md bg-status-active/10 text-sm mb-4">
+                    <div className="p-4 rounded-xl bg-status-active/10 text-sm mb-4">
                       <span className="text-xs font-medium text-primary block mb-1">
                         Resolution
                       </span>
@@ -602,7 +602,7 @@ export function Contradictions() {
 
             {/* LLM suggestion if available */}
             {(resolving as unknown as { resolution_suggestion?: string }).resolution_suggestion && (
-              <div className="flex items-start gap-2 p-3 rounded-md bg-primary/8 border border-primary/15 mb-4">
+              <div className="flex items-start gap-2 p-4 rounded-xl bg-primary/8 border border-primary/15 mb-5">
                 <Info size={13} className="shrink-0 mt-0.5 text-primary" />
                 <div>
                   <p className="text-xs font-medium text-primary mb-0.5">Suggested resolution</p>

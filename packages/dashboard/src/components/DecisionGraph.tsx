@@ -675,7 +675,7 @@ export function DecisionGraph() {
 
               {/* Description */}
               <div>
-                <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                   Description
                 </label>
                 <p className="leading-relaxed">{selectedNode.description}</p>
@@ -683,18 +683,18 @@ export function DecisionGraph() {
 
               {/* Reasoning */}
               {selectedNode.reasoning && (
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                <div className="rounded-xl p-4 border border-primary/10" style={{ background: 'rgba(6,63,249,0.05)' }}>
+                  <label className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-2">
                     Reasoning
                   </label>
-                  <p className="leading-relaxed">{selectedNode.reasoning}</p>
+                  <p className="leading-relaxed italic text-slate-600">{selectedNode.reasoning}</p>
                 </div>
               )}
 
               {/* Tags */}
               {(selectedNode.tags ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Tags
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -713,7 +713,7 @@ export function DecisionGraph() {
               {/* Alternatives */}
               {(selectedNode.alternatives ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Alternatives Considered
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
@@ -727,7 +727,7 @@ export function DecisionGraph() {
               {/* Assumptions */}
               {(selectedNode.assumptions ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Assumptions
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
@@ -757,7 +757,7 @@ function AlertTriangleIcon() {
         height="20"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#A13544"
+        stroke="#DC2626"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

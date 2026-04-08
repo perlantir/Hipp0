@@ -162,10 +162,10 @@ export function NotificationFeed() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-lg font-semibold mb-1 flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
               Notifications
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-primary text-white">
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[#063ff9] text-white">
                   {unreadCount}
                 </span>
               )}
@@ -188,7 +188,7 @@ export function NotificationFeed() {
             onClick={() => setFilter('all')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               filter === 'all'
-                ? 'border-primary text-primary'
+                ? 'border-[#063ff9] text-[#063ff9]'
                 : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -199,7 +199,7 @@ export function NotificationFeed() {
             onClick={() => setFilter('unread')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               filter === 'unread'
-                ? 'border-primary text-primary'
+                ? 'border-[#063ff9] text-[#063ff9]'
                 : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -230,17 +230,22 @@ export function NotificationFeed() {
                 return (
                   <div
                     key={notification.id}
-                    className={`card p-4 transition-all animate-slide-up ${
+                    className={`p-4 transition-all animate-slide-up ${
                       !notification.read ? 'border-l-2' : ''
                     }`}
                     style={{
+                      background: 'rgba(255,255,255,0.6)',
+                      backdropFilter: 'blur(24px)',
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      borderRadius: '16px',
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
                       borderLeftColor: !notification.read
                         ? notification.urgency === 'critical'
                           ? '#A13544'
                           : notification.urgency === 'high'
                             ? '#DA7101'
                             : notification.urgency === 'medium'
-                              ? '#01696F'
+                              ? '#063ff9'
                               : '#7A7974'
                         : undefined,
                     }}

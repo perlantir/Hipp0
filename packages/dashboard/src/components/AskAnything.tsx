@@ -59,7 +59,7 @@ export function AskAnything() {
     <div className="flex flex-col h-full max-h-[calc(100vh-3.5rem)] md:max-h-screen">
       {/* Header */}
       <div className="px-6 py-4 border-b border-[var(--border-light)]">
-        <h1 className="text-xl font-semibold">Ask Anything</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Ask Anything</h1>
         <p className="text-xs text-[var(--text-secondary)] mt-1">Ask questions about your project's decisions and context</p>
       </div>
 
