@@ -415,7 +415,7 @@ describe('HTTP method correctness', () => {
       task_description: 'Implement the login endpoint',
     });
     const [url, init] = spy.mock.calls[0]!;
-    expect(String(url)).toBe('http://localhost:4000/api/compile');
+    expect(String(url)).toBe('http://localhost:4000/api/compile?format=h0c');
     expect(init?.method).toBe('POST');
   });
 

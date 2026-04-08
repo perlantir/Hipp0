@@ -209,7 +209,7 @@ describe('API Integration Tests', () => {
   describe('Compile', () => {
     it('POST /api/compile returns compiled context', async () => {
       mockQuery.mockResolvedValue({ rows: [{ id: 'agent1' }], rowCount: 0 });
-      const res = await request(app, 'POST', '/api/compile', {
+      const res = await request(app, 'POST', '/api/compile?format=json', {
         agent_name: 'backend-engineer',
         project_id: PROJECT_ID,
         task_description: 'implement auth',

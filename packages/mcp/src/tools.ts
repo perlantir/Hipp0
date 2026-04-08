@@ -38,7 +38,7 @@ export function registerAllTools(
         task_description: z.string().describe('What the agent is working on'),
         project_id: z.string().optional().describe('Project ID (optional, uses default)'),
         task_session_id: z.string().optional().describe('Task session ID — includes session context from previous steps'),
-        format: z.enum(['json', 'h0c', 'markdown']).optional().describe('Response format: json (default), h0c (compact), or markdown'),
+        format: z.enum(['json', 'h0c', 'markdown']).default('h0c').describe('Response format: h0c (default, compact), json (verbose with scoring_breakdown), or markdown'),
       },
     },
     async (args) => {
@@ -47,7 +47,7 @@ export function registerAllTools(
         project_id: args.project_id ?? config.projectId,
         task_description: args.task_description,
         task_session_id: args.task_session_id,
-        ...(args.format ? { format: args.format } : {}),
+        format: args.format,
       } as CompileContextInput & { task_session_id?: string; format?: string });
 
       return {

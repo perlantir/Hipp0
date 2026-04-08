@@ -37,8 +37,11 @@ export function registerCompileRoutes(app: Hono): void {
     const project_id = requireUUID(body.project_id, 'project_id');
     const task_description = requireString(body.task_description, 'task_description', 100000);
 
-    // ── Format parameter: full/json (default) | condensed | both | h0c | markdown ─────────
-    const format = (c.req.query('format') ?? 'full') as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
+    // ── Format parameter: h0c (default) | json/full | condensed | both | markdown ─────────
+    // ?expanded=true is an alias for ?format=json
+    const expandedParam = c.req.query('expanded');
+    const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? 'h0c');
+    const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
     // ── Depth parameter: default | full (loads L2 background decisions) ──
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
 
@@ -325,20 +328,21 @@ export function registerCompileRoutes(app: Hono): void {
       roleSignals: teamScores,
     });
 
+    // ── Always compute compression ratio for the header ──────────────
+    const h0cForRatio = encodeH0C(result.decisions);
+    const originalJson = result.formatted_json || JSON.stringify(result);
+    const originalTokens = estimateTokens(originalJson);
+    const compressedTokens = estimateTokens(h0cForRatio);
+    const compressionRatio = compressedTokens > 0
+      ? Math.round((originalTokens / compressedTokens) * 10) / 10
+      : 0;
+    c.header('X-Hipp0-Compression-Ratio', `${compressionRatio}x`);
+
     // ── H0C format: ultra-compact one-line-per-decision with tag dedup ──
     if (format === 'h0c') {
-      const h0cOutput = encodeH0C(result.decisions);
-      const originalJson = result.formatted_json || JSON.stringify(result);
-      const originalTokens = estimateTokens(originalJson);
-      const compressedTokens = estimateTokens(h0cOutput);
-      const ratio = compressedTokens > 0
-        ? Math.round((originalTokens / compressedTokens) * 10) / 10
-        : 0;
-
       c.header('X-Hipp0-Format', 'h0c');
-      c.header('X-Hipp0-Compression-Ratio', `${ratio}x`);
-      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio });
-      return c.text(h0cOutput);
+      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio: compressionRatio });
+      return c.text(h0cForRatio);
     }
 
     // ── Markdown format ──

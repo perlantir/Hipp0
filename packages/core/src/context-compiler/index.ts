@@ -214,58 +214,56 @@ function formatTemporalContext(decision: Decision): string | null {
 }
 
 function generateExplanation(
-  agentName: string,
-  decision: { made_by?: string; confidence?: string },
+  _agentName: string,
+  decision: { made_by?: string; confidence?: string; title?: string },
   signals: {
     directAffect: number;
     matchedTags: string[];
     semanticScore: number;
     freshnessMultiplier: number;
     keywordScore: number;
-  }
+  },
+  taskDescription?: string,
 ): string {
-  const parts: string[] = [];
+  // Build a concise, task-specific explanation (1 sentence max)
+  const tagFragment = signals.matchedTags.length > 0
+    ? signals.matchedTags.slice(0, 3).join(', ')
+    : '';
 
-  // Lead with strongest signal
-  if (signals.directAffect > 0) {
-    parts.push(`Assigned directly to ${agentName}`);
+  // Extract a short task phrase from the task description
+  const taskPhrase = taskDescription
+    ? taskDescription.length > 60 ? taskDescription.slice(0, 57) + '...' : taskDescription
+    : '';
+
+  // Semantic match — closely related to the task
+  if (signals.semanticScore > 0.3 && taskPhrase) {
+    if (tagFragment) {
+      return `Directly relevant to ${taskPhrase} \u2014 covers ${tagFragment}.`;
+    }
+    return `Closely related to ${taskPhrase}.`;
   }
 
-  // Describe tags in context of the agent's role
-  if (signals.matchedTags.length > 0 && signals.directAffect > 0) {
-    parts.push(`covers ${signals.matchedTags.slice(0, 3).join(', ')} \u2014 core to your role`);
-  } else if (signals.matchedTags.length > 0) {
-    parts.push(`Relevant to your focus on ${signals.matchedTags.slice(0, 3).join(', ')}`);
+  // Strong tag match with task context
+  if (tagFragment && taskPhrase) {
+    return `Relevant to ${taskPhrase} \u2014 covers ${tagFragment}.`;
   }
 
-  // Semantic match — only if meaningful
-  if (signals.semanticScore > 0.3) {
-    parts.push('closely matches your current task');
-  } else if (signals.semanticScore > 0.15) {
-    parts.push('related to your current task');
+  // Tag match without task context
+  if (tagFragment) {
+    return `Covers ${tagFragment}.`;
   }
 
-  // Attribution
-  if (decision.made_by && decision.made_by !== agentName) {
-    parts.push(`decided by ${decision.made_by}`);
+  // Semantic match without tags
+  if (signals.semanticScore > 0.15 && taskPhrase) {
+    return `Related to ${taskPhrase}.`;
   }
 
-  // Freshness
-  if (signals.freshnessMultiplier > 1.05) {
-    parts.push('recent decision');
-  } else if (signals.freshnessMultiplier < 0.9) {
-    parts.push('older decision \u2014 may need review');
+  // Attribution as context
+  if (decision.made_by) {
+    return `Cross-team context from ${decision.made_by}${taskPhrase ? ` \u2014 may affect ${taskPhrase}` : ''}.`;
   }
 
-  // Confidence
-  if (decision.confidence === 'low') {
-    parts.push('low confidence \u2014 verify before acting');
-  }
-
-  // Fallback
-  if (parts.length === 0) parts.push('Matches general project context');
-
-  return parts.join('. ').replace(/^./, c => c.toUpperCase()) + '.';
+  return 'General project context.';
 }
 
 export function scoreDecision(
@@ -273,6 +271,7 @@ export function scoreDecision(
   agent: Agent,
   taskEmbedding: number[],
   domainContext?: { taskDomain?: DecisionDomain | null; agentDomain?: DecisionDomain | null },
+  taskDescription?: string,
 ): ScoredDecision {
   const profile = agent.relevance_profile;
   const agentNameLower = agent.name.toLowerCase();
@@ -435,7 +434,7 @@ export function scoreDecision(
 
   const explanation = generateExplanation(
     agent.name,
-    { made_by: decision.made_by, confidence: decision.confidence },
+    { made_by: decision.made_by, confidence: decision.confidence, title: decision.title },
     {
       directAffect: directAffectScore,
       matchedTags: allMatchedTags,
@@ -443,6 +442,7 @@ export function scoreDecision(
       freshnessMultiplier,
       keywordScore,
     },
+    taskDescription,
   );
 
   const statusPenaltyVal = decision.status === 'superseded' ? 0.4 : decision.status === 'pending' ? 0.6 : 1.0;
@@ -879,7 +879,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const domainContext = { taskDomain, agentDomain };
 
   const scored = allDecisions.map((d) => {
-    const sd = scoreDecision(d, agent, taskEmbedding, domainContext);
+    const sd = scoreDecision(d, agent, taskEmbedding, domainContext, task_description);
     // Tag loading layer
     if (l0Ids.has(d.id)) {
       sd.loading_layer = 'L0';
@@ -937,7 +937,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const expandedScored: ScoredDecision[] = expanded
     .filter((e) => !scoredIds.has(e.decision.id))
     .map((e) => {
-      const base = scoreDecision(e.decision, agent, taskEmbedding);
+      const base = scoreDecision(e.decision, agent, taskEmbedding, undefined, task_description);
       const decayed: ScoredDecision = {
         ...base,
         combined_score: e.parentScore,

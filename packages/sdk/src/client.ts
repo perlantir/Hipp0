@@ -246,8 +246,8 @@ export class Hipp0Client {
   // Context Compiler
 
   compileContext(input: CompileContextInput): Promise<ContextPackage> {
-    const { format, ...body } = input;
-    const queryParams = format ? { format } : undefined;
+    const { format = 'h0c', ...body } = input;
+    const queryParams = { format };
     return this.request<ContextPackage>('POST', '/api/compile', body, queryParams);
   }
 
