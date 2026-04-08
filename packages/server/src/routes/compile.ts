@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
-import { condenseCompileResponse, computeCompressionMetrics } from '@hipp0/core/context-compiler/compression.js';
+import { condenseCompileResponse, computeCompressionMetrics } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';

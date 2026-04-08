@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Hipp0Client } from '../../../sdk/src/index.js';
 import type { Hipp0ServerConfig } from '../server.js';
 import type { ContextPackage as CoreContextPackage } from '../../../core/src/types.js';
-import { condenseCompileResponse } from '../../../core/src/context-compiler/compression.js';
+import { condenseCompileResponse } from '@hipp0/core';
 
 export function registerContextTools(
   server: McpServer,
