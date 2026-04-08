@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Hipp0 API",
-    "description": "Decision memory layer for AI agent teams. Hipp0 provides shared memory, context compilation, contradiction detection, and decision tracking for multi-agent AI systems.",
+    "description": "Decision memory layer for AI agent teams. Hipp0 provides shared memory, context compilation, contradiction detection, and decision tracking for multi-agent AI systems. Note: This spec covers core decision and compilation endpoints. Additional routes (auth, billing, governance, collab, evolution) are documented in the individual docs/ markdown files. Full OpenAPI coverage is planned for v1.1.",
     "version": "1.0.0",
     "contact": {
       "name": "Perlantir",

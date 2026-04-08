@@ -142,6 +142,11 @@ Hipp0 gives every AI agent on your team a shared decision memory — a structure
 - **18+ MCP tools** for any MCP-compatible client
 - **Framework adapters** — LangChain, CrewAI, AutoGen, OpenAI Agents SDK *(Experimental)*
 - **TypeScript SDK** (`@hipp0/sdk`), **Python SDK** (`hipp0-sdk`), **CLI** (`@hipp0/cli`)
+
+> **Note:** Packages are not yet published to npm/PyPI. 
+> Use local installation from the repo for now. 
+> See [Getting Started](docs/getting-started.md) for local setup.
+
 - **BYOK model support** — bring your own API keys for OpenAI, Anthropic, or OpenRouter
 
 ---
@@ -376,6 +381,10 @@ This exposes 18+ tools including `record_decision`, `get_context`, `search_decis
 
 ### TypeScript
 
+> **Note:** Packages are not yet published to npm/PyPI. 
+> Use local installation from the repo for now. 
+> See [Getting Started](docs/getting-started.md) for local setup.
+
 ```typescript
 import { Hipp0Client } from '@hipp0/sdk';
 
@@ -465,6 +474,14 @@ context = client.compile(
 │         Embeddings · Collab Rooms · Import Scans         │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Background Workers
+
+Hipp0 runs these automated tasks:
+- **Staleness check**: On startup + every 24 hours. Marks decisions older than their temporal scope as stale.
+- **Weekly digest**: Every Monday at 8:00 AM UTC. Generates a summary for projects with 20+ decisions.
+- **Pattern extraction**: Weekly. Extracts cross-project patterns for Community Insights.
+- **Evolution scan**: Configurable via `HIPP0_EVOLUTION_CRON` (default: daily at 6:00 AM UTC).
 
 ---
 

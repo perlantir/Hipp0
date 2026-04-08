@@ -113,14 +113,25 @@ done
 echo ""
 
 if [ $WAITED -ge $MAX_WAIT ]; then
-    echo -e "${RED}DeciGraph did not start within ${MAX_WAIT}s${NC}"
+    echo -e "${RED}Hipp0 did not start within ${MAX_WAIT}s${NC}"
     echo "Check logs: docker compose logs server"
     exit 1
 fi
 
+echo -e "${GREEN}Retrieving auto-generated API key...${NC}"
+sleep 5
+HIPP0_KEY=$(docker logs hipp0-server 2>&1 | grep "h0_live_" | head -1 | grep -o "h0_live_[a-f0-9]*")
+if [ -n "$HIPP0_KEY" ]; then
+  echo -e "  Your API key: ${YELLOW}${HIPP0_KEY}${NC}"
+  echo -e "  ${RED}Save this key — it will NOT be shown again${NC}"
+else
+  echo -e "  ${YELLOW}API key generated. Retrieve it with:${NC}"
+  echo "    docker logs hipp0-server 2>&1 | grep h0_live_"
+fi
+
 echo ""
 echo -e "${GREEN}================================${NC}"
-echo -e "${GREEN}  DeciGraph is running!${NC}"
+echo -e "${GREEN}  Hipp0 is running!${NC}"
 echo -e "${GREEN}================================${NC}"
 echo ""
 
@@ -149,7 +160,6 @@ echo ""
 echo -e "  ${BLUE}Open the dashboard to set up your first project:${NC}"
 echo -e "  ${GREEN}http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):3200${NC}"
 echo ""
-echo -e "  Your API key: ${YELLOW}$(grep DECIGRAPH_API_KEY .env | cut -d= -f2)${NC}"
 echo ""
-echo "  Docs:  https://github.com/perlantir/decigraph/blob/main/docs/getting-started.md"
+echo "  Docs:  https://github.com/perlantir/Hipp0/blob/main/docs/getting-started.md"
 echo ""

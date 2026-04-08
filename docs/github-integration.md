@@ -4,7 +4,7 @@ Bidirectional linking between Hipp0 decisions and GitHub pull requests.
 
 ## Features
 
-- **PR Reference Scanning** — Automatically detects `DG-<uuid>` and `Implements: "title"` patterns in PR descriptions
+- **PR Reference Scanning** — Automatically detects `H0-<uuid>` and `Implements: "title"` patterns in PR descriptions
 - **Relevant Decision Comments** — Posts a table of related decisions on new PRs based on changed file analysis
 - **Merge Status Tracking** — Updates link status when PRs are merged or closed
 - **Supersede Notifications** — Warns linked PRs when a decision is superseded
@@ -65,10 +65,10 @@ docker compose restart server
 
 ### By UUID
 
-Include `DG-<uuid>` anywhere in your PR description:
+Include `H0-<uuid>` anywhere in your PR description:
 
 ```
-This PR addresses DG-a1b2c3d4-e5f6-7890-abcd-ef1234567890
+This PR addresses H0-a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 ### By Title

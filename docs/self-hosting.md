@@ -1203,3 +1203,18 @@ docker compose up -d
 
 # If migrations need reverting, restore from backup
 ```
+
+---
+
+## Rate Limiting in Multi-Instance Deployments
+
+By default, Hipp0 uses in-memory rate limiting. In a single-server
+deployment this works correctly. In multi-instance deployments 
+(Kubernetes, ECS, multiple Docker containers behind a load balancer),
+each instance tracks limits independently.
+
+For global rate limiting across instances, configure Redis:
+
+```
+HIPP0_REDIS_URL=redis://your-redis-host:6379
+```

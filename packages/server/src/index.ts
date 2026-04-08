@@ -218,6 +218,11 @@ async function main() {
     console.warn('[hipp0] GitHub PR webhook: active');
   }
 
+  // Dashboard static files are served when running without Docker
+  // (npm start mode). In Docker, nginx serves the dashboard separately.
+  // The dashboard must be pre-built (cd packages/dashboard && pnpm build)
+  // before these paths resolve correctly.
+
   // Serve the dashboard static files when they are available (non-Docker mode).
   const dashboardDist = resolveDashboardPath();
   if (dashboardDist) {
