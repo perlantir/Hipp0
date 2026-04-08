@@ -285,6 +285,19 @@ export interface CompileContextInput {
   max_tokens?: number;
   include_superseded?: boolean;
   session_lookback_days?: number;
+  /** Response format: json (default), h0c, markdown, condensed, both */
+  format?: 'json' | 'h0c' | 'markdown' | 'condensed' | 'both';
+}
+
+export interface DecodedDecision {
+  title: string;
+  score: number;
+  confidence: ConfidenceLevel;
+  made_by: string;
+  date: string;
+  tags: string[];
+  description: string;
+  reasoning?: string;
 }
 
 export interface ContextPackage {

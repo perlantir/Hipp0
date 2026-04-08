@@ -44,6 +44,8 @@ import {
   type AcceptSuggestionInput,
   type AcceptSuggestionResult,
   type WhatChangedResponse,
+  type DecodedDecision,
+  type ConfidenceLevel,
 } from './types.js';
 
 export class Hipp0Client {
@@ -244,7 +246,9 @@ export class Hipp0Client {
   // Context Compiler
 
   compileContext(input: CompileContextInput): Promise<ContextPackage> {
-    return this.post<ContextPackage>('/api/compile', input);
+    const { format, ...body } = input;
+    const queryParams = format ? { format } : undefined;
+    return this.request<ContextPackage>('POST', '/api/compile', body, queryParams);
   }
 
   // Distillery
@@ -465,5 +469,87 @@ export class Hipp0Client {
       project_id: projectId,
       since,
     });
+  }
+
+  // ── H0C Decode Utility ──────────────────────────────────────────
+
+  /**
+   * Parse an H0C-encoded string back to decision objects.
+   * Works entirely client-side — no network call.
+   */
+  static decodeH0C(h0c: string): DecodedDecision[] {
+    if (!h0c || h0c.trim().length === 0) return [];
+
+    const lines = h0c.split('\n');
+    const tagMap = new Map<number, string>();
+    const decisions: DecodedDecision[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === '---' || trimmed === '(empty)') continue;
+      if (trimmed.startsWith('#H0C')) continue;
+
+      if (trimmed.startsWith('#TAGS:')) {
+        const tagPart = trimmed.slice('#TAGS:'.length).trim();
+        const entries = tagPart.split(/\s+/);
+        for (const entry of entries) {
+          const eqIdx = entry.indexOf('=');
+          if (eqIdx > 0) {
+            const idx = parseInt(entry.slice(0, eqIdx), 10);
+            const tag = entry.slice(eqIdx + 1);
+            if (!isNaN(idx) && tag) tagMap.set(idx, tag);
+          }
+        }
+        continue;
+      }
+
+      const bracketMatch = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (!bracketMatch) continue;
+
+      const meta = bracketMatch[1]!;
+      const rest = bracketMatch[2]!;
+      const metaParts = meta.split('|');
+      const scoreRaw = parseInt(metaParts[0] ?? '0', 10);
+      const score = isNaN(scoreRaw) ? 0 : scoreRaw / 100;
+      const confStr = metaParts[1]?.trim() ?? 'M';
+      const confidence: ConfidenceLevel = confStr === 'H' ? 'high' : confStr === 'M' ? 'medium' : 'low';
+
+      let made_by = '';
+      let date = '';
+      for (let i = 2; i < metaParts.length; i++) {
+        const part = metaParts[i]!.trim();
+        if (part.startsWith('by:')) {
+          made_by = part.slice(3);
+        } else if (i === 2 && !part.startsWith('by:')) {
+          made_by = part;
+        } else {
+          date = part;
+        }
+      }
+
+      const segments = rest.split('|');
+      const title = segments[0]?.trim() ?? '';
+      let tags: string[] = [];
+      let description = '';
+      let reasoning: string | undefined;
+
+      for (let i = 1; i < segments.length; i++) {
+        const seg = segments[i]!.trim();
+        if (seg.startsWith('g:')) {
+          tags = seg.slice(2).split(',')
+            .map((s) => parseInt(s.trim(), 10))
+            .filter((idx) => !isNaN(idx))
+            .map((idx) => tagMap.get(idx) ?? `tag-${idx}`);
+        } else if (seg.startsWith('r:')) {
+          reasoning = seg.slice(2).trim();
+        } else {
+          description = seg;
+        }
+      }
+
+      decisions.push({ title, score, confidence, made_by, date, tags, description, ...(reasoning ? { reasoning } : {}) });
+    }
+
+    return decisions;
   }
 }

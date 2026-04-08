@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
-import { condenseCompileResponse, computeCompressionMetrics } from '@hipp0/core';
+import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, estimateTokens } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { broadcast } from '../websocket.js';
@@ -37,8 +37,8 @@ export function registerCompileRoutes(app: Hono): void {
     const project_id = requireUUID(body.project_id, 'project_id');
     const task_description = requireString(body.task_description, 'task_description', 100000);
 
-    // ── Format parameter: full (default) | condensed | both ─────────
-    const format = (c.req.query('format') ?? 'full') as 'full' | 'condensed' | 'both';
+    // ── Format parameter: full/json (default) | condensed | both | h0c | markdown ─────────
+    const format = (c.req.query('format') ?? 'full') as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
     // ── Depth parameter: default | full (loads L2 background decisions) ──
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
 
@@ -325,6 +325,29 @@ export function registerCompileRoutes(app: Hono): void {
       roleSignals: teamScores,
     });
 
+    // ── H0C format: ultra-compact one-line-per-decision with tag dedup ──
+    if (format === 'h0c') {
+      const h0cOutput = encodeH0C(result.decisions);
+      const originalJson = result.formatted_json || JSON.stringify(result);
+      const originalTokens = estimateTokens(originalJson);
+      const compressedTokens = estimateTokens(h0cOutput);
+      const ratio = compressedTokens > 0
+        ? Math.round((originalTokens / compressedTokens) * 10) / 10
+        : 0;
+
+      c.header('X-Hipp0-Format', 'h0c');
+      c.header('X-Hipp0-Compression-Ratio', `${ratio}x`);
+      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'h0c', ratio });
+      return c.text(h0cOutput);
+    }
+
+    // ── Markdown format ──
+    if (format === 'markdown') {
+      c.header('X-Hipp0-Format', 'markdown');
+      console.log('[hipp0/compile-response]', { agent: agent_name, format: 'markdown' });
+      return c.text(formattedMarkdown);
+    }
+
     if (format === 'condensed') {
       const condensed = condenseCompileResponse({
         contextPackage: result,
@@ -349,7 +372,8 @@ export function registerCompileRoutes(app: Hono): void {
       });
     }
 
-    // ── Response (full, default) ─────────────────────────────────────
+    // ── Response (full/json, default) ──────────────────────────────────
+    c.header('X-Hipp0-Format', 'json');
     console.log("[hipp0/compile-response]", { agent: agent_name, resultDecisions: (result.decisions ?? []).length, decisionsIncluded: result.decisions_included });
     return c.json({
       ...responsePayload,

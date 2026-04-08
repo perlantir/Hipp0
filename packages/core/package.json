@@ -131,6 +131,14 @@
       "import": "./dist/context-compiler/compression.js",
       "types": "./dist/context-compiler/compression.d.ts"
     },
+    "./compression/h0c-encoder.js": {
+      "import": "./dist/compression/h0c-encoder.js",
+      "types": "./dist/compression/h0c-encoder.d.ts"
+    },
+    "./compression/h0c-decoder.js": {
+      "import": "./dist/compression/h0c-decoder.js",
+      "types": "./dist/compression/h0c-decoder.d.ts"
+    },
     "./hierarchy/classifier.js": {
       "import": "./dist/hierarchy/classifier.js",
       "types": "./dist/hierarchy/classifier.d.ts"

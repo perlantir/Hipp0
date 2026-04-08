@@ -201,7 +201,7 @@ Hipp0 ships with a full-featured React dashboard (port 3200) with 31 views:
 
 ## Benchmarks
 
-Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, contradiction detection, role differentiation, and token efficiency against a naive RAG baseline.
+Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, contradiction detection, role differentiation, token efficiency, and compile latency against a naive RAG baseline.
 
 | Metric | Hipp0 | Naive RAG | Delta |
 |--------|-------|-----------|-------|
@@ -211,8 +211,11 @@ Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, cont
 | MRR | 0.94 | 0.79 | +0.16 |
 | Contradiction F1 | 0.92 | N/A | — |
 | Differentiation | 100% | 0% | +100% |
-| Avg Compression | 13.3x | N/A | — |
-| Compile P95 (500 dec) | 22ms | N/A | — |
+| H0C Compression (bench) | 3.4x | N/A | — |
+| H0C Compression (full) | 10-12x | N/A | — |
+| Compile P95 (500 dec) | 24ms | N/A | — |
+
+H0C compression achieves 10-12x on full `ScoredDecision[]` JSON and 3.4x on simplified benchmark decisions. See [docs/h0c-format.md](docs/h0c-format.md) for the format specification.
 
 Run benchmarks:
 

@@ -55,6 +55,7 @@ export type {
   OutcomeResult,
   ReportOutcomeInput,
   WhatChangedResponse,
+  DecodedDecision,
 } from './types.js';
 
 export { Hipp0ApiError } from './types.js';

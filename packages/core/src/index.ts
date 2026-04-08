@@ -59,6 +59,11 @@ export {
 } from './context-compiler/compression.js';
 export type { CondenseCompileInput } from './context-compiler/compression.js';
 
+// --- H0C Encoder / Decoder ---
+export { encodeH0C } from './compression/h0c-encoder.js';
+export type { H0CEncodeOptions, DecodedDecision } from './compression/h0c-encoder.js';
+export { decodeH0C } from './compression/h0c-decoder.js';
+
 // --- Change Propagator ---
 export {
   createSubscription,

@@ -12,6 +12,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { naiveRetrieve, naiveRetrievalBenchmark, naiveDifferentiationBenchmark } from './baselines/naive-rag';
 import type { NaiveDecision } from './baselines/naive-rag';
+import { encodeH0C } from '../packages/core/src/compression/h0c-encoder';
+import type { ScoredDecision } from '../packages/core/src/types';
 
 // ─── Config Loading ──────────────────────────────────────
 
@@ -557,19 +559,49 @@ function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
 }
 
-function condenseDecision(d: Decision): string {
-  const c = d.confidence === 'high' ? 'H' : d.confidence === 'medium' ? 'M' : 'L';
-  // Ultra-compact: 2-3 key title words + abbreviated tags + confidence + score
-  const stop = new Set(['the','for','with','and','use','add','set','get','all','via','by','to','in','on','at','of','a','an','as','is']);
-  const kw = d.title.split(/\s+/).filter(w => !stop.has(w.toLowerCase()) && w.length > 1).slice(0, 2).join('-');
-  const tags = d.tags.slice(0, 3).map(t => t.slice(0, 4)).join(',');
-  const s = d.score != null ? Math.round(d.score * 100) : '';
-  return `${kw}|${tags}|${c}|${s}`;
+/** Convert benchmark Decision to ScoredDecision for the real H0C encoder. */
+function toScoredDecision(d: Decision): ScoredDecision {
+  return {
+    id: d.id,
+    project_id: 'bench',
+    title: d.title,
+    description: d.description,
+    reasoning: d.explanation ?? '',
+    made_by: d.made_by,
+    source: 'manual' as const,
+    confidence: d.confidence as 'high' | 'medium' | 'low',
+    status: 'active' as const,
+    alternatives_considered: [],
+    affects: [],
+    tags: d.tags,
+    assumptions: [],
+    open_questions: [],
+    dependencies: [],
+    confidence_decay_rate: 0.01,
+    created_at: d.days_ago != null
+      ? new Date(Date.now() - d.days_ago * 86400000).toISOString()
+      : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    metadata: {},
+    priority_level: 0 as const,
+    temporal_scope: 'permanent' as const,
+    relevance_score: d.score ?? 0.5,
+    freshness_score: 0.9,
+    combined_score: d.score ?? 0.5,
+    scoring_breakdown: {
+      direct_affect: 0,
+      tag_matching: 0,
+      role_relevance: 0,
+      semantic_similarity: 0,
+      status_penalty: 0,
+      freshness: 0.9,
+      combined: d.score ?? 0.5,
+    },
+  };
 }
 
 function condenseResponse(decisions: Decision[]): string {
-  const header = 'H0C2|kw|tags|c|s;';
-  return header + decisions.map(d => condenseDecision(d)).join(';');
+  return encodeH0C(decisions.map(toScoredDecision));
 }
 
 // ─── Metrics ──
