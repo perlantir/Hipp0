@@ -374,7 +374,7 @@ export async function getSessionContext(
         } else if (typeof rawAffinity === 'object') {
           parsed = rawAffinity as Record<string, unknown>;
         }
-        wingAffinityData = (parsed.cross_wing_weights ?? {}) as Record<string, number>;
+        wingAffinityData = ((parsed as Record<string, unknown>).cross_wing_weights ?? {}) as Record<string, number>;
       }
     }
 
@@ -386,7 +386,7 @@ export async function getSessionContext(
       const stepWing = step.wing ?? step.agent_name;
       if (stepWing === agentName) {
         ownWingSteps.push(step);
-      } else if ((wingAffinityData[stepWing] ?? 0) >= 0.5) {
+      } else if ((wingAffinityData[stepWing] ?? 0.5) >= 0.5) {
         highAffinitySteps.push(step);
       } else {
         lowAffinitySteps.push(step);
@@ -430,11 +430,11 @@ export async function getSessionContext(
         let p: Record<string, unknown> = {};
         if (typeof rawAff === 'string') { try { p = JSON.parse(rawAff); } catch {} }
         else if (typeof rawAff === 'object') p = rawAff as Record<string, unknown>;
-        wingAffinityMap = (p.cross_wing_weights ?? {}) as Record<string, number>;
+        wingAffinityMap = ((p as Record<string, unknown>).cross_wing_weights ?? {}) as Record<string, number>;
       }
       for (const step of steps) {
         const sw = step.wing ?? step.agent_name;
-        if (sw !== agentName && (wingAffinityMap[sw] ?? 0) < 0.5) {
+        if (sw !== agentName && (wingAffinityMap[sw] ?? 0.5) < 0.5) {
           lowAffinityWings.add(sw);
         }
       }

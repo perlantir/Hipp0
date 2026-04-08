@@ -82,11 +82,14 @@ export function parseAgent(row: Record<string, unknown>): Agent {
       include_superseded: false,
     }),
     context_budget_tokens: row.context_budget_tokens as number,
-    wing_affinity: parseJsonb<WingAffinity>(row.wing_affinity, {
-      cross_wing_weights: {},
-      last_recalculated: new Date().toISOString(),
-      feedback_count: 0,
-    }),
+    wing_affinity: (() => {
+      const raw = parseJsonb<Partial<WingAffinity>>(row.wing_affinity, {});
+      return {
+        cross_wing_weights: raw.cross_wing_weights ?? {},
+        last_recalculated: raw.last_recalculated ?? new Date().toISOString(),
+        feedback_count: raw.feedback_count ?? 0,
+      };
+    })(),
     primary_domain: (row.primary_domain as string | null) ?? null,
     created_at: (row.created_at as Date).toISOString(),
     updated_at: (row.updated_at as Date).toISOString(),

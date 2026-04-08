@@ -35,10 +35,17 @@ export async function getWingAffinity(agentId: string): Promise<WingAffinity> {
   if (result.rows.length === 0) return { ...DEFAULT_AFFINITY };
   const raw = result.rows[0].wing_affinity;
   if (!raw || raw === '{}') return { ...DEFAULT_AFFINITY };
+  let parsed: Record<string, unknown>;
   if (typeof raw === 'string') {
-    try { return JSON.parse(raw); } catch { return { ...DEFAULT_AFFINITY }; }
+    try { parsed = JSON.parse(raw); } catch { return { ...DEFAULT_AFFINITY }; }
+  } else {
+    parsed = raw as Record<string, unknown>;
   }
-  return raw as WingAffinity;
+  return {
+    cross_wing_weights: (parsed.cross_wing_weights ?? {}) as Record<string, number>,
+    last_recalculated: (parsed.last_recalculated as string) ?? new Date().toISOString(),
+    feedback_count: (parsed.feedback_count as number) ?? 0,
+  };
 }
 
 /**

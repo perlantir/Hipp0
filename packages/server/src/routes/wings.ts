@@ -80,7 +80,7 @@ export function registerWingRoutes(app: Hono): void {
       top_domains: topDomains,
       cross_wing_connections: connections.map((name) => ({
         wing: name,
-        strength: (wingAffinity.cross_wing_weights as Record<string, number>)[name] ?? 0,
+        strength: ((wingAffinity.cross_wing_weights ?? {}) as Record<string, number>)[name] ?? 0,
       })),
       wing_affinity: wingAffinity,
     });
@@ -115,7 +115,7 @@ export function registerWingRoutes(app: Hono): void {
       }
       agentAffinities[row.name as string] = {
         name: row.name as string,
-        affinity: parsed.cross_wing_weights ?? {},
+        affinity: (parsed.cross_wing_weights ?? {}) as Record<string, number>,
       };
     }
 
@@ -221,7 +221,7 @@ export function registerWingRoutes(app: Hono): void {
     }
 
     // Sort wings by affinity score descending
-    const sortedWings = Object.entries(wingAffinity.cross_wing_weights)
+    const sortedWings = Object.entries(wingAffinity.cross_wing_weights ?? {})
       .sort(([, a], [, b]) => b - a)
       .map(([wing, score]) => ({
         wing,
@@ -338,7 +338,7 @@ export function registerWingRoutes(app: Hono): void {
     logAudit('wing_rebalanced', agentResult.rows[0].project_id as string, {
       agent_name: agentName,
       agent_id: agentIdVal,
-      wings_count: Object.keys(affinity.cross_wing_weights).length,
+      wings_count: Object.keys(affinity.cross_wing_weights ?? {}).length,
       feedback_count: affinity.feedback_count,
     });
 

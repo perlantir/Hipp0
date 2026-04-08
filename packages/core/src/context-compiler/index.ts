@@ -323,7 +323,7 @@ export function scoreDecision(
   // If agent has learned affinity for the decision's wing, boost/penalize
   const decisionWing = decision.wing ?? decision.made_by;
   if (decisionWing && agent.wing_affinity) {
-    const affinityScore = agent.wing_affinity.cross_wing_weights[decisionWing] ?? 0.5;
+    const affinityScore = (agent.wing_affinity.cross_wing_weights ?? {})[decisionWing] ?? 0.5;
     if (affinityScore >= 0.3) {
       // Boost: affinity * 0.125 (max +0.125 at affinity=1.0)
       wingAffinityBoost = affinityScore * 0.125;
@@ -896,13 +896,14 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const isOrchestrator = agent.role.toLowerCase() === 'orchestrator';
   if (!isOrchestrator) {
     const wingAffinity: WingAffinity = agent.wing_affinity ?? { cross_wing_weights: {}, last_recalculated: '', feedback_count: 0 };
+    const crossWingWeights = wingAffinity.cross_wing_weights ?? {};
     for (const sd of scored) {
       const decisionWing = sd.wing ?? sd.made_by;
       if (decisionWing === agent_name || decisionWing === agent.name) {
         // Own-wing: +0.10 flat boost
         sd.combined_score = Math.min(1.0, sd.combined_score + 0.10);
       } else {
-        const affinityWeight = wingAffinity.cross_wing_weights[decisionWing] ?? 0;
+        const affinityWeight = crossWingWeights[decisionWing] ?? 0;
         if (affinityWeight >= 0.5) {
           // High-affinity wing: boost of (affinity * 0.08)
           sd.combined_score = Math.min(1.0, sd.combined_score + affinityWeight * 0.08);
