@@ -12,10 +12,10 @@ import { wingColor } from './WingView';
 /* ------------------------------------------------------------------ */
 
 const STATUS_COLORS: Record<DecisionStatus, string> = {
-  active: '#01696F',
-  superseded: '#D19900',
-  reverted: '#A13544',
-  pending: '#FFC553',
+  active: '#16A34A',
+  superseded: '#94a3b8',
+  reverted: '#DC2626',
+  pending: '#063ff9',
 };
 
 const EDGE_PATTERNS: Record<string, string> = {
@@ -411,9 +411,9 @@ export function DecisionGraph() {
   return (
     <div className="flex flex-col md:flex-row h-full">
       {/* Graph area */}
-      <div className={`flex-1 relative min-h-[400px] ${isExpanded ? 'fixed inset-0 z-50 bg-[var(--bg-primary)]' : ''}`} ref={containerRef}>
+      <div className={`flex-1 relative min-h-[400px] ${isExpanded ? 'fixed inset-0 z-50 bg-[var(--bg-primary)]' : ''}`} ref={containerRef} style={{ background: 'rgba(245,246,248,0.5)' }}>
         {/* Filter bar */}
-        <div className="absolute top-4 left-4 right-16 z-10 flex items-center gap-2 flex-wrap">
+        <div className="absolute top-4 left-4 right-16 z-10 flex items-center gap-2 flex-wrap rounded-xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <h1 className="text-lg font-semibold mr-1 shrink-0">Decision Graph</h1>
           <div className="relative flex-1 min-w-[140px] max-w-[260px]">
             <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
@@ -471,7 +471,7 @@ export function DecisionGraph() {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="btn-secondary text-xs gap-1.5"
+            className="btn-secondary text-xs gap-1.5 rounded-xl"
           >
             <Filter size={14} />
             Filters
@@ -479,7 +479,7 @@ export function DecisionGraph() {
         </div>
 
         {/* Zoom controls */}
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button onClick={() => handleZoom(1.3)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(1.3); }} className="btn-ghost p-2 touch-target" title="Zoom in">
             <ZoomIn size={16} />
           </button>
@@ -493,7 +493,7 @@ export function DecisionGraph() {
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="absolute top-14 left-4 z-10 card p-4 w-72 animate-fade-in">
+          <div className="absolute top-14 left-4 z-10 card p-4 w-72 animate-fade-in rounded-xl" style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">Filters</span>
               <button onClick={() => setShowFilters(false)} className="btn-ghost p-1">
@@ -575,7 +575,7 @@ export function DecisionGraph() {
         )}
 
         {/* Legend — dynamic based on color mode */}
-        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
           {colorByWing ? (
             allWings.slice(0, 8).map((w) => (
               <div key={w} className="flex items-center gap-1.5">
@@ -614,16 +614,16 @@ export function DecisionGraph() {
 
       {/* Detail panel — renders below graph on mobile, beside on desktop */}
       {selectedNode && (
-        <aside className="w-full md:w-96 shrink-0 border-t md:border-t-0 md:border-l border-[var(--border-light)] overflow-y-auto max-h-[50vh] md:max-h-none animate-slide-in" style={{ backgroundColor: 'var(--bg-primary)', zIndex: 20 }}>
+        <aside className="w-full md:w-96 shrink-0 border-t md:border-t-0 md:border-l border-white/30 overflow-y-auto max-h-[50vh] md:max-h-none animate-slide-in rounded-l-2xl shadow-2xl" style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', zIndex: 20 }}>
           <div className="p-5">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1 min-w-0 pr-3">
-                <span className={`badge badge-${selectedNode.status} mb-2`}>
+                <span className={`badge badge-${selectedNode.status} mb-2 rounded-full text-[10px] font-bold uppercase`}>
                   {selectedNode.status}
                 </span>
                 <h2 className="text-base font-semibold leading-snug">{selectedNode.title}</h2>
               </div>
-              <button onClick={() => setSelectedNode(null)} className="btn-ghost p-1.5 shrink-0">
+              <button onClick={() => setSelectedNode(null)} className="btn-ghost p-1.5 shrink-0 rounded-full hover:bg-slate-200 transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -632,30 +632,30 @@ export function DecisionGraph() {
               {/* Made by + Confidence */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Made by</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Made by</label>
                   <p className="font-medium">{selectedNode.made_by}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Confidence</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Confidence</label>
                   <p className="font-medium">{(selectedNode as any).confidence ?? 'medium'}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Date</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Date</label>
                   <p>{new Date(selectedNode.created_at).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Validation</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Validation</label>
                   <p>{(selectedNode as any).validated_at ? '✅ Validated' : '⏳ Unvalidated'}</p>
                 </div>
                 {selectedNode.domain && (
                   <div>
-                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Domain</label>
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Domain</label>
                     <p className="capitalize">{selectedNode.domain}</p>
                   </div>
                 )}
                 {selectedNode.category && (
                   <div>
-                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Category</label>
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Category</label>
                     <p className="capitalize">{selectedNode.category}</p>
                   </div>
                 )}
@@ -664,10 +664,10 @@ export function DecisionGraph() {
               {/* Affects */}
               {((selectedNode as any).affects ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Affects</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Affects</label>
                   <div className="flex flex-wrap gap-1.5">
                     {((selectedNode as any).affects ?? []).map((a: string) => (
-                      <span key={a} className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">{a}</span>
+                      <span key={a} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">{a}</span>
                     ))}
                   </div>
                 </div>
@@ -701,7 +701,7 @@ export function DecisionGraph() {
                     {(selectedNode.tags ?? []).map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary"
                       >
                         {tag}
                       </span>

@@ -451,7 +451,7 @@ export function Timeline() {
                           {formatDate(decision.created_at)}
                         </span>
                         {decision.valid_until && (
-                          <span className="text-status-reverted">
+                          <span className="text-red-600 font-bold">
                             Expired {formatDate(decision.valid_until)}
                           </span>
                         )}

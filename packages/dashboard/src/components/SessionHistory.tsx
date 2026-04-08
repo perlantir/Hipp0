@@ -110,7 +110,7 @@ export function SessionHistory() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-lg font-semibold mb-1">Sessions</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-1">Sessions</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             History of agent sessions and extracted decisions
           </p>
@@ -141,7 +141,7 @@ export function SessionHistory() {
                   : null;
 
                 return (
-                  <div key={session.id} className="card overflow-hidden animate-slide-up">
+                  <div key={session.id} className="overflow-hidden animate-slide-up" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
                     {/* Summary row */}
                     <button
                       onClick={() => toggleExpand(session.id)}
@@ -196,9 +196,9 @@ export function SessionHistory() {
                                 width: `${session.extraction_confidence * 100}%`,
                                 backgroundColor:
                                   session.extraction_confidence >= 0.8
-                                    ? '#01696F'
+                                    ? '#063ff9'
                                     : session.extraction_confidence >= 0.5
-                                      ? '#D19900'
+                                      ? '#063ff9aa'
                                       : '#A13544',
                               }}
                             />
@@ -218,7 +218,7 @@ export function SessionHistory() {
                           {/* Summary */}
                           {session.summary && (
                             <div>
-                              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
                                 <FileText size={12} />
                                 Summary
                               </label>
@@ -229,7 +229,7 @@ export function SessionHistory() {
                           {/* Decision IDs */}
                           {session.decision_ids && session.decision_ids.length > 0 && (
                             <div>
-                              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
                                 <CheckCircle2 size={12} />
                                 Extracted Decisions
                               </label>
@@ -237,7 +237,7 @@ export function SessionHistory() {
                                 {session.decision_ids.map((id) => (
                                   <span
                                     key={id}
-                                    className="px-2 py-0.5 text-xs rounded bg-primary/10 text-primary font-mono"
+                                    className="px-2 py-0.5 text-xs rounded-full bg-[#063ff9]/10 text-[#063ff9] font-mono"
                                   >
                                     {id.length > 12 ? id.slice(0, 10) + '…' : id}
                                   </span>
@@ -249,7 +249,7 @@ export function SessionHistory() {
                           {/* Assumptions */}
                           {session.assumptions && session.assumptions.length > 0 && (
                             <div>
-                              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
                                 <AlertCircle size={12} />
                                 Assumptions
                               </label>
@@ -264,7 +264,7 @@ export function SessionHistory() {
                           {/* Open questions */}
                           {session.open_questions && session.open_questions.length > 0 && (
                             <div>
-                              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
                                 <HelpCircle size={12} />
                                 Open Questions
                               </label>
@@ -279,7 +279,7 @@ export function SessionHistory() {
                           {/* Lessons learned */}
                           {session.lessons_learned && session.lessons_learned.length > 0 && (
                             <div>
-                              <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1 block flex items-center gap-1.5">
                                 <Lightbulb size={12} />
                                 Lessons Learned
                               </label>

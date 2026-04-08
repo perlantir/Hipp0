@@ -275,7 +275,7 @@ export function Contradictions() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-8 py-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -502,10 +502,10 @@ export function Contradictions() {
 
       {/* ---- Flag contradiction modal -------------------------------- */}
       {showFlagModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in p-4">
-          <div className="card p-6 w-full max-w-lg animate-slide-up">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Flag Contradiction</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
+          <div className="card rounded-2xl p-8 w-full max-w-lg animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold tracking-tight">Flag Contradiction</h3>
               <button onClick={() => setShowFlagModal(false)} className="btn-ghost p-1">
                 <X size={16} />
               </button>
@@ -548,14 +548,14 @@ export function Contradictions() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 justify-end mt-5">
-              <button onClick={() => setShowFlagModal(false)} className="btn-secondary text-xs">
+            <div className="flex items-center gap-3 justify-end mt-6">
+              <button onClick={() => setShowFlagModal(false)} className="rounded-xl px-6 py-3 border-2 border-[var(--border-light)] text-[var(--text-secondary)] font-bold hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all duration-300 text-sm">
                 Cancel
               </button>
               <button
                 onClick={handleFlagContradiction}
                 disabled={!flagDecisionA || !flagDecisionB || !flagDescription || flagSubmitting}
-                className="btn-primary text-xs"
+                className="rounded-xl px-6 py-3 bg-primary text-white font-bold hover:opacity-90 transition-all duration-300 text-sm inline-flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
               >
                 {flagSubmitting ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
                 Flag
@@ -567,33 +567,33 @@ export function Contradictions() {
 
       {/* ---- Resolve modal ---------------------------------------- */}
       {resolving && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in p-4">
-          <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Resolve Contradiction</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
+          <div className="card rounded-2xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold tracking-tight">Resolve Contradiction</h3>
               <button onClick={() => setResolving(null)} className="btn-ghost p-1">
                 <X size={16} />
               </button>
             </div>
 
             {/* Mode toggle */}
-            <div className="flex gap-2 mb-5">
+            <div className="flex gap-3 mb-6">
               <button
                 onClick={() => setResolveMode('win')}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all border ${
+                className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all duration-300 ${
                   resolveMode === 'win'
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-[var(--border-light)] text-[var(--text-secondary)] hover:border-primary/40'
+                    ? 'bg-primary text-white shadow-md'
+                    : 'border-2 border-[var(--border-light)] text-[var(--text-secondary)] hover:border-primary hover:text-primary'
                 }`}
               >
                 One decision wins
               </button>
               <button
                 onClick={() => setResolveMode('not_conflict')}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all border ${
+                className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all duration-300 ${
                   resolveMode === 'not_conflict'
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-[var(--border-light)] text-[var(--text-secondary)] hover:border-primary/40'
+                    ? 'bg-primary text-white shadow-md'
+                    : 'border-2 border-[var(--border-light)] text-[var(--text-secondary)] hover:border-primary hover:text-primary'
                 }`}
               >
                 Not a conflict
@@ -659,14 +659,14 @@ export function Contradictions() {
                   rows={2}
                 />
 
-                <div className="flex items-center gap-2 justify-end">
-                  <button onClick={() => setResolving(null)} className="btn-secondary text-xs">
+                <div className="flex items-center gap-3 justify-end">
+                  <button onClick={() => setResolving(null)} className="rounded-xl px-6 py-3 border-2 border-[var(--border-light)] text-[var(--text-secondary)] font-bold hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all duration-300 text-sm">
                     Cancel
                   </button>
                   <button
                     onClick={handleResolve}
                     disabled={!keepDecision || !resolution || submitting}
-                    className="btn-primary text-xs"
+                    className="rounded-xl px-6 py-3 bg-primary text-white font-bold hover:opacity-90 transition-all duration-300 text-sm inline-flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {submitting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -695,14 +695,14 @@ export function Contradictions() {
                   autoFocus
                 />
 
-                <div className="flex items-center gap-2 justify-end">
-                  <button onClick={() => setResolving(null)} className="btn-secondary text-xs">
+                <div className="flex items-center gap-3 justify-end">
+                  <button onClick={() => setResolving(null)} className="rounded-xl px-6 py-3 border-2 border-[var(--border-light)] text-[var(--text-secondary)] font-bold hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all duration-300 text-sm">
                     Cancel
                   </button>
                   <button
                     onClick={handleResolve}
                     disabled={!resolutionNotes || submitting}
-                    className="btn-primary text-xs"
+                    className="rounded-xl px-6 py-3 bg-primary text-white font-bold hover:opacity-90 transition-all duration-300 text-sm inline-flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {submitting ? (
                       <Loader2 size={14} className="animate-spin" />

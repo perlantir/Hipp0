@@ -95,10 +95,10 @@ export function CompileTester() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Compile Tester</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Compile Tester</h1>
         <button
           onClick={() => { setSideBySide(!sideBySide); setResult2(null); setError2(null); }}
-          className={`btn-secondary text-xs gap-1.5 ${sideBySide ? 'bg-blue-100 text-blue-800' : ''}`}
+          className={`btn-secondary text-xs gap-1.5 rounded-xl ${sideBySide ? 'bg-[#063ff9]/10 text-[#063ff9]' : ''}`}
         >
           <Columns2 size={14} />
           {sideBySide ? 'Single Mode' : 'Side-by-Side'}
@@ -106,10 +106,10 @@ export function CompileTester() {
       </div>
 
       {/* Input area */}
-      <div className="card p-5 space-y-4">
+      <div className="p-5 space-y-4" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
         <div className={`grid gap-4 ${sideBySide ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
           <div>
-            <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Agent</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] block mb-1.5">Agent</label>
             <div className="relative">
               <select value={agentName} onChange={(e) => setAgentName(e.target.value)} className="input w-full appearance-none pr-8">
                 <option value="">Select agent…</option>
@@ -120,7 +120,7 @@ export function CompileTester() {
           </div>
           {sideBySide && (
             <div>
-              <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Agent B</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] block mb-1.5">Agent B</label>
               <div className="relative">
                 <select value={agentName2} onChange={(e) => setAgentName2(e.target.value)} className="input w-full appearance-none pr-8">
                   <option value="">Select agent…</option>
@@ -134,7 +134,7 @@ export function CompileTester() {
 
         <div className="grid gap-4 grid-cols-1 md:grid-cols-[1fr_200px]">
           <div>
-            <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Task Description</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] block mb-1.5">Task Description</label>
             <textarea
               value={taskDescription}
               onChange={(e) => setTaskDescription(e.target.value)}
@@ -144,7 +144,7 @@ export function CompileTester() {
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--text-secondary)] block mb-1.5">Namespace</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] block mb-1.5">Namespace</label>
             <div className="relative">
               <select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="input w-full appearance-none pr-8">
                 <option value="">All (no filter)</option>
@@ -158,7 +158,7 @@ export function CompileTester() {
         <button
           onClick={handleCompile}
           disabled={!agentName || !taskDescription.trim() || loading}
-          className="btn-primary gap-2"
+          className="gap-2 px-5 py-2.5 bg-[#063ff9] text-white rounded-xl font-medium shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:bg-[#063ff9]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
           Compile
@@ -179,7 +179,7 @@ export function CompileTester() {
 function ResultColumn({ label, result, loading, error }: { label?: string; result: CompileResult | null; loading: boolean; error: string | null }) {
   if (loading) {
     return (
-      <div className="card p-6 flex items-center justify-center">
+      <div className="p-6 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
         <Loader2 size={20} className="animate-spin text-[var(--text-secondary)]" />
       </div>
     );
@@ -187,7 +187,7 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
 
   if (error) {
     return (
-      <div className="card p-5">
+      <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
         {label && <h3 className="text-sm font-medium mb-3">{label}</h3>}
         <p className="text-sm text-red-600">{error}</p>
       </div>
@@ -200,7 +200,7 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
   const wingSources = result.wing_sources;
 
   return (
-    <div className="card p-5">
+    <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
       {label && <h3 className="text-sm font-medium mb-3">{label}</h3>}
       {result.context_used != null && (
         <p className="text-xs text-[var(--text-secondary)] mb-3">Context tokens used: {result.context_used}</p>
@@ -251,7 +251,7 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
                     <span className="text-sm font-medium">{d.title}</span>
                   </div>
                   {d.score != null && (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[#063ff9]/10 text-[#063ff9]">
                       {d.score.toFixed(2)}
                     </span>
                   )}
