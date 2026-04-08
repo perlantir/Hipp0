@@ -188,7 +188,7 @@ export function Import() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-lg font-semibold mb-1">Import Decisions</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-1">Import Decisions</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Upload conversation files or paste text to extract decisions automatically.
           </p>
@@ -204,9 +204,10 @@ export function Import() {
               onClick={() => fileInputRef.current?.click()}
               className={`relative flex flex-col items-center justify-center gap-3 p-10 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-150 mb-6 ${
                 dragOver
-                  ? 'border-primary bg-primary/10 scale-[1.01]'
-                  : 'border-[var(--border-light)] hover:border-primary/50 hover:bg-primary/5'
+                  ? 'border-[#063ff9] scale-[1.01]'
+                  : 'border-[rgba(255,255,255,0.4)] hover:border-[#063ff9]/50'
               }`}
+              style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}
             >
               <input
                 ref={fileInputRef}

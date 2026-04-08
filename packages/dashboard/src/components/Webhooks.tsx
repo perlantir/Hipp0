@@ -170,21 +170,21 @@ export function Webhooks() {
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Webhooks</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Get notified in Slack, Discord, or Telegram when decisions change
           </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#063ff9] text-white text-sm font-medium hover:bg-[#063ff9]/90 shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-colors"
         >
           <Plus size={16} /> Add Webhook
         </button>
       </div>
 
       {/* Setup instructions */}
-      <div className="mb-6 p-4 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-light)] text-sm text-[var(--text-secondary)]">
+      <div className="mb-6 p-4 text-sm text-[var(--text-secondary)]" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
         <p className="font-medium text-[var(--text-primary)] mb-2">Platform Setup</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Slack:</strong> Create an Incoming Webhook at <em>api.slack.com/messaging/webhooks</em></li>
@@ -195,14 +195,14 @@ export function Webhooks() {
 
       {/* Add form */}
       {showForm && (
-        <div className="mb-6 p-5 rounded-lg border border-[var(--border-light)] bg-[var(--bg-hover)]">
+        <div className="mb-6 p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
           <h2 className="text-lg font-semibold mb-4">New Webhook</h2>
           {formError && (
             <div className="mb-3 p-2 rounded bg-red-500/10 text-red-400 text-sm">{formError}</div>
           )}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium mb-1 text-[var(--text-secondary)]">Name</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest mb-1 text-[var(--text-secondary)]">Name</label>
               <input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
@@ -211,7 +211,7 @@ export function Webhooks() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1 text-[var(--text-secondary)]">Platform</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest mb-1 text-[var(--text-secondary)]">Platform</label>
               <select
                 value={formPlatform}
                 onChange={(e) => setFormPlatform(e.target.value)}
@@ -265,7 +265,7 @@ export function Webhooks() {
           <div className="flex gap-3">
             <button
               onClick={handleCreate}
-              className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90"
+              className="px-4 py-2.5 rounded-xl bg-[#063ff9] text-white text-sm font-medium hover:bg-[#063ff9]/90 shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-colors"
             >
               Create Webhook
             </button>
@@ -296,11 +296,12 @@ export function Webhooks() {
             return (
               <div
                 key={wh.id}
-                className={`p-4 rounded-lg border transition-colors ${
+                className={`p-4 transition-colors ${
                   isEnabled
-                    ? 'border-[var(--border-light)] bg-[var(--bg-hover)]'
-                    : 'border-[var(--border-light)] bg-[var(--bg-secondary)] opacity-60'
+                    ? ''
+                    : 'opacity-60'
                 }`}
+                style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">

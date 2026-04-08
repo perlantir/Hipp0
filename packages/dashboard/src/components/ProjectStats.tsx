@@ -361,7 +361,7 @@ export function ProjectStats() {
                 <FileText size={18} className="text-[#063ff9]" />
               </div>
               <div>
-                <p className="text-2xs text-[var(--text-secondary)] uppercase tracking-wide mb-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-0.5">
                   Artifacts
                 </p>
                 <p className="text-xl font-semibold tabular-nums">{stats.total_artifacts}</p>
