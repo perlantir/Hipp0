@@ -198,9 +198,9 @@ async function runCaptureExtraction(
 
     // Update capture record
     await db.query(
-      `UPDATE captures SET status = 'completed', extracted_decision_ids = ?, completed_at = datetime('now')
+      `UPDATE captures SET status = 'completed', extracted_decision_ids = ?, completed_at = ?
        WHERE id = ?`,
-      [JSON.stringify(decisionIds), captureId],
+      [JSON.stringify(decisionIds), new Date().toISOString(), captureId],
     );
 
     logAudit('capture_completed', projectId, {
@@ -222,9 +222,9 @@ async function runCaptureExtraction(
     console.error(`[hipp0:capture] Extraction failed for capture ${captureId}:`, errorMsg);
 
     await db.query(
-      `UPDATE captures SET status = 'failed', error_message = ?, completed_at = datetime('now')
+      `UPDATE captures SET status = 'failed', error_message = ?, completed_at = ?
        WHERE id = ?`,
-      [errorMsg.slice(0, 2000), captureId],
+      [errorMsg.slice(0, 2000), new Date().toISOString(), captureId],
     ).catch((updateErr) => {
       console.error(`[hipp0:capture] Failed to update capture status:`, (updateErr as Error).message);
     });
