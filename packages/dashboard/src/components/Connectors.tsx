@@ -63,11 +63,11 @@ interface DiscoveryStatus {
 function connectorIcon(name: ConnectorType) {
   switch (name) {
     case 'openclaw':
-      return <Search size={16} className="text-primary" />;
+      return <Search size={16} className="text-[#063ff9]" />;
     case 'directory':
-      return <FolderOpen size={16} className="text-primary" />;
+      return <FolderOpen size={16} className="text-[#063ff9]" />;
     case 'webhook':
-      return <Webhook size={16} className="text-primary" />;
+      return <Webhook size={16} className="text-[#063ff9]" />;
   }
 }
 
@@ -119,10 +119,10 @@ function ConnectorCard({ connector, onToggle, onDelete }: ConnectorCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="card p-4 animate-slide-up">
+    <div className="p-4 animate-slide-up" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
       <div className="flex items-center gap-3">
         {/* Icon */}
-        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-[#063ff9]/10 flex items-center justify-center shrink-0">
           {connectorIcon(connector.name)}
         </div>
 
@@ -294,7 +294,7 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-5 animate-slide-up">
+    <form onSubmit={handleSubmit} className="p-5 animate-slide-up" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
       <h3 className="text-sm font-semibold mb-4">New connector</h3>
 
       {error && (
@@ -444,9 +444,9 @@ function GitHubSettings({ projectId }: { projectId: string }) {
   }, [testConnection]);
 
   return (
-    <div className="card p-4 mb-6">
+    <div className="p-4 mb-6" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
       <div className="flex items-center gap-2 mb-3">
-        <GitBranch size={16} className="text-primary" />
+        <GitBranch size={16} className="text-[#063ff9]" />
         <h3 className="text-sm font-semibold">GitHub Integration</h3>
         {status?.connected ? (
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
@@ -924,7 +924,7 @@ export function Connectors() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-lg font-semibold mb-1">Connectors</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-1">Connectors</h1>
             <p className="text-sm text-[var(--text-secondary)]">
               Manage auto-discovery sources for this project.
             </p>
@@ -962,9 +962,9 @@ export function Connectors() {
 
         {/* Discovery status banner */}
         {discovery && (
-          <div className="card p-4 mb-6">
+          <div className="p-4 mb-6" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <Activity size={16} className="text-primary" />
+              <Activity size={16} className="text-[#063ff9]" />
               <h3 className="text-sm font-semibold">Discovery Status</h3>
               {discovery.running ? (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
