@@ -6,19 +6,22 @@
  * - optionalAuth: Attaches user if present, passes through if not
  * - apiKeyOrAuth: Accepts either Bearer JWT or dg_* API key
  *
- * Feature flag: HIPP0_AUTH_REQUIRED (default: false)
- * When false, optionalAuth is used everywhere and defaults to the "nick" tenant.
+ * Feature flag: HIPP0_AUTH_REQUIRED (default: true)
+ * When false (dev only), optionalAuth is used everywhere and defaults to the default tenant.
+ * In production, auth is always required regardless of env var.
  */
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { getDb } from '@hipp0/core/db/index.js';
 import { getSupabase } from './supabase.js';
 import crypto from 'node:crypto';
-
-const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
+import { DEFAULT_TENANT_ID, DEFAULT_USER_ID } from '../constants.js';
 
 export function isAuthRequired(): boolean {
-  return process.env.HIPP0_AUTH_REQUIRED === 'true';
+  // In production, auth is ALWAYS required regardless of env var
+  if (process.env.NODE_ENV === 'production') return true;
+  // In dev, default to true unless explicitly set to false
+  return process.env.HIPP0_AUTH_REQUIRED !== 'false';
 }
 
 export interface AuthUser {
@@ -30,11 +33,16 @@ export interface AuthUser {
 }
 
 function getClientIp(c: Context): string {
-  return (
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-    c.req.header('x-real-ip') ??
-    'unknown'
-  );
+  // Only trust X-Forwarded-For when behind a known proxy
+  if (process.env.HIPP0_TRUSTED_PROXY === 'true') {
+    const forwarded = c.req.header('x-forwarded-for');
+    if (forwarded) {
+      // Only use the first (leftmost) value — set by the trusted proxy
+      return forwarded.split(',')[0]?.trim() ?? 'unknown';
+    }
+  }
+  // Fall back to X-Real-IP (typically set by reverse proxies) or socket address
+  return c.req.header('x-real-ip') ?? 'unknown';
 }
 
 // ── Free-tier IP tracking (50 requests without signup) ──────────────
@@ -204,17 +212,17 @@ async function authenticateToken(token: string, c: Context): Promise<AuthUser | 
 
 /**
  * Strict auth middleware — returns 401 if no valid auth.
- * When HIPP0_AUTH_REQUIRED=false, defaults to nick tenant.
+ * When HIPP0_AUTH_REQUIRED=false (dev only), defaults to default tenant with viewer role.
  */
 export const phase3AuthMiddleware: MiddlewareHandler = createMiddleware(async (c, next) => {
   if (!isAuthRequired()) {
-    // Feature flag off: default to nick tenant
+    // Dev mode only: default to default tenant with read-only viewer access
     c.set('user', {
       id: 'anonymous',
       email: '',
       tenant_id: DEFAULT_TENANT_ID,
-      role: 'owner',
-      plan: 'enterprise',
+      role: 'viewer',
+      plan: 'free',
     } satisfies AuthUser);
     await next();
     return;
@@ -235,8 +243,8 @@ export const phase3AuthMiddleware: MiddlewareHandler = createMiddleware(async (c
 });
 
 /**
- * Optional auth — attaches user if present, defaults to nick tenant if not.
- * Used for backward compatibility when HIPP0_AUTH_REQUIRED=false.
+ * Optional auth — attaches user if present, returns 401 for invalid tokens.
+ * When no token provided in dev mode, defaults to default tenant with viewer role.
  */
 export const optionalAuth: MiddlewareHandler = createMiddleware(async (c, next) => {
   const token = extractToken(c);
@@ -248,15 +256,17 @@ export const optionalAuth: MiddlewareHandler = createMiddleware(async (c, next) 
       await next();
       return;
     }
+    // Invalid/expired token = 401, NOT silent elevation
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' } }, 401);
   }
 
-  // No auth or invalid — use default tenant
+  // No token provided — use default tenant with read-only access (dev mode only)
   c.set('user', {
     id: 'anonymous',
     email: '',
     tenant_id: DEFAULT_TENANT_ID,
-    role: 'owner',
-    plan: 'enterprise',
+    role: 'viewer',
+    plan: 'free',
   } satisfies AuthUser);
 
   await next();
@@ -271,8 +281,8 @@ export const freeTierOrAuth: MiddlewareHandler = createMiddleware(async (c, next
       id: 'anonymous',
       email: '',
       tenant_id: DEFAULT_TENANT_ID,
-      role: 'owner',
-      plan: 'enterprise',
+      role: 'viewer',
+      plan: 'free',
     } satisfies AuthUser);
     await next();
     return;

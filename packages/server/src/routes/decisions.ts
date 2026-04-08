@@ -21,6 +21,7 @@ import {
 } from './validation.js';
 import { broadcast } from '../websocket.js';
 import { invalidateDecisionCaches } from '../cache/redis.js';
+import { isAuthRequired, getTenantId } from '../auth/middleware.js';
 import { notifySupersededDecision } from '../connectors/github.js';
 import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
 import { classifyDecisionWing, maybeRecalculateWings } from '@hipp0/core';
@@ -293,7 +294,16 @@ export function registerDecisionRoutes(app: Hono): void {
   app.get('/api/decisions/:id', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
+    let result;
+    if (isAuthRequired()) {
+      const tenantId = getTenantId(c);
+      result = await db.query(
+        'SELECT * FROM decisions WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE tenant_id = ?)',
+        [id, tenantId],
+      );
+    } else {
+      result = await db.query('SELECT * FROM decisions WHERE id = ?', [id]);
+    }
     if (result.rows.length === 0) throw new NotFoundError('Decision', id);
     return c.json(parseDecision(result.rows[0] as Record<string, unknown>));
   });
@@ -326,7 +336,16 @@ export function registerDecisionRoutes(app: Hono): void {
       }>
     >();
 
-    const existing = await db.query('SELECT id FROM decisions WHERE id = ?', [id]);
+    let existing;
+    if (isAuthRequired()) {
+      const tenantId = getTenantId(c);
+      existing = await db.query(
+        'SELECT id FROM decisions WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE tenant_id = ?)',
+        [id, tenantId],
+      );
+    } else {
+      existing = await db.query('SELECT id FROM decisions WHERE id = ?', [id]);
+    }
     if (existing.rows.length === 0) throw new NotFoundError('Decision', id);
 
     const setClauses: string[] = ['updated_at = NOW()'];

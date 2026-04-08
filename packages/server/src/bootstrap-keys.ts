@@ -6,8 +6,7 @@
 import { getDb } from '@hipp0/core/db/index.js';
 import crypto from 'node:crypto';
 
-const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
-const DEFAULT_USER_ID = 'a0000000-0000-4000-8000-000000000001';
+import { DEFAULT_TENANT_ID, DEFAULT_USER_ID } from './constants.js';
 
 export function generateApiKey(): { key: string; prefix: string; hash: string } {
   const randomPart = crypto.randomBytes(32).toString('hex');
@@ -67,12 +66,12 @@ export async function bootstrapApiKeys(): Promise<void> {
       [DEFAULT_TENANT_ID, projectId, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
     );
 
+    const masked = key.slice(0, 16) + '...';
     console.log('============================================================');
     console.log(`\ud83d\udd11 API Key generated for project "${projectName}"`);
-    console.log(`   Key: ${key}`);
+    console.log(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
     console.log('');
-    console.log('   Save this key now \u2014 it will NOT be shown again.');
-    console.log('   Use it in the dashboard login and API requests.');
+    console.log('   Full key is NOT logged for security.');
     console.log('============================================================');
   }
 }

@@ -161,7 +161,7 @@ export function registerSessionRoutes(app: Hono): void {
       return c.json(state);
     } catch (err) {
       if ((err as Error).message?.includes('not found')) {
-        return c.json({ error: { code: 'NOT_FOUND', message: (err as Error).message } }, 404);
+        return c.json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }, 404);
       }
       throw err;
     }
@@ -232,7 +232,7 @@ export function registerSessionRoutes(app: Hono): void {
       return c.json(suggestion);
     } catch (err) {
       if ((err as Error).message?.includes('not found')) {
-        return c.json({ error: { code: 'NOT_FOUND', message: (err as Error).message } }, 404);
+        return c.json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }, 404);
       }
       mapDbError(err);
     }
@@ -256,7 +256,7 @@ export function registerSessionRoutes(app: Hono): void {
       return c.json(plan);
     } catch (err) {
       if ((err as Error).message?.includes('not found')) {
-        return c.json({ error: { code: 'NOT_FOUND', message: (err as Error).message } }, 404);
+        return c.json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }, 404);
       }
       mapDbError(err);
     }

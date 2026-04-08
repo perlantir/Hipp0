@@ -163,6 +163,9 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   // ---- vectorSearch -------------------------------------------------------
 
+  private static readonly ALLOWED_TABLES = new Set(['decisions', 'sessions', 'agents']);
+  private static readonly ALLOWED_COLUMNS = new Set(['embedding', 'id', 'title', 'project_id', 'status']);
+
   async vectorSearch(
     table: string,
     embeddingColumn: string,
@@ -170,12 +173,22 @@ export class PostgresAdapter implements DatabaseAdapter {
     limit: number,
     filters?: Record<string, unknown>,
   ): Promise<QueryResult> {
+    if (!PostgresAdapter.ALLOWED_TABLES.has(table)) {
+      throw new Error('Invalid table');
+    }
+    if (!PostgresAdapter.ALLOWED_COLUMNS.has(embeddingColumn)) {
+      throw new Error('Invalid column');
+    }
+
     const conditions: string[] = [`${embeddingColumn} IS NOT NULL`];
     const params: unknown[] = [JSON.stringify(queryVector), limit];
     let paramIdx = 3;
 
     if (filters) {
       for (const [key, value] of Object.entries(filters)) {
+        if (!PostgresAdapter.ALLOWED_COLUMNS.has(key)) {
+          throw new Error('Invalid column');
+        }
         conditions.push(`${key} = $${paramIdx++}`);
         params.push(value);
       }

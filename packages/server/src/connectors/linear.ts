@@ -405,12 +405,14 @@ export function registerLinearConnector(app: Hono): void {
     const rawBody = await c.req.text();
     const signature = c.req.header('linear-signature') ?? c.req.header('Linear-Signature');
 
-    // Verify signature if secret is configured
-    if (config.webhookSecret) {
-      if (!verifyWebhookSignature(rawBody, signature, config.webhookSecret)) {
-        console.warn('[hipp0/linear] Webhook signature verification failed');
-        return c.json({ error: 'Invalid signature' }, 401);
-      }
+    // Verify HMAC-SHA256 signature — required when LINEAR_WEBHOOK_SECRET is configured
+    if (!config.webhookSecret) {
+      console.error('[hipp0/linear] LINEAR_WEBHOOK_SECRET not configured — rejecting webhook');
+      return c.json({ error: 'Webhook not configured' }, 500);
+    }
+    if (!verifyWebhookSignature(rawBody, signature, config.webhookSecret)) {
+      console.warn('[hipp0/linear] Webhook signature verification failed');
+      return c.json({ error: 'Invalid signature' }, 401);
     }
 
     let payload: Record<string, unknown>;
@@ -468,15 +470,15 @@ export function registerLinearConnector(app: Hono): void {
         if (metadata.linear_auto_validate !== false) {
           // Auto-validate the decision
           await db.query(
-            `UPDATE decisions SET validated_at = datetime('now'), validation_source = 'linear_issue' WHERE id = ? AND validated_at IS NULL`,
-            [decisionId],
+            `UPDATE decisions SET validated_at = ?, validation_source = 'linear_issue' WHERE id = ? AND validated_at IS NULL`,
+            [new Date().toISOString(), decisionId],
           );
         }
 
         // Update link status
         await db.query(
-          `UPDATE decision_links SET status = 'completed', updated_at = datetime('now') WHERE id = ?`,
-          [row.id as string],
+          `UPDATE decision_links SET status = 'completed', updated_at = ? WHERE id = ?`,
+          [new Date().toISOString(), row.id as string],
         );
 
         logAudit('linear_issue_completed', projectId, {
@@ -519,8 +521,8 @@ export function registerLinearConnector(app: Hono): void {
 
         // Update link status
         await db.query(
-          `UPDATE decision_links SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`,
-          [row.id as string],
+          `UPDATE decision_links SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+          [new Date().toISOString(), row.id as string],
         );
 
         logAudit('linear_issue_cancelled', projectId, {

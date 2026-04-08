@@ -68,7 +68,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
         results.push({
           source_id: sourceId,
           decisions_extracted: 0,
-          error: (err as Error).message,
+          error: 'Invalid discovery request',
         });
         continue;
       }
@@ -91,7 +91,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
         results.push({
           source_id: sourceId,
           decisions_extracted: 0,
-          error: (err as Error).message,
+          error: 'Discovery operation failed',
         });
       }
     }
@@ -135,7 +135,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
       sourceId = requireString(body.source_id, 'source_id', 500);
       projectId = requireUUID(body.project_id, 'project_id');
     } catch (err) {
-      return c.json({ error: (err as Error).message }, 400);
+      return c.json({ error: 'Invalid discovery request' }, 400);
     }
 
     const agentName =
@@ -187,7 +187,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
     try {
       connectorName = requireString(body.connector_name, 'connector_name', 200);
     } catch (err) {
-      return c.json({ error: (err as Error).message }, 400);
+      return c.json({ error: 'Invalid discovery request' }, 400);
     }
 
     const enabled = body.enabled !== false; // default true
@@ -310,7 +310,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
       return c.json(result);
     } catch (err) {
       console.error('[hipp0] Contradiction scan failed:', (err as Error).message);
-      return c.json({ error: 'Contradiction scan failed', details: (err as Error).message }, 500);
+      return c.json({ error: 'Discovery operation failed' }, 500);
     }
   });
 }

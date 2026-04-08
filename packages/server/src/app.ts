@@ -13,7 +13,7 @@ import {
   rateLimiter,
   bodyLimit,
 } from './middleware/index.js';
-import { phase3AuthMiddleware, optionalAuth, freeTierOrAuth, isAuthRequired } from './auth/middleware.js';
+import { phase3AuthMiddleware, optionalAuth, freeTierOrAuth, isAuthRequired, requireRole } from './auth/middleware.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerAgentRoutes } from './routes/agents.js';
 import { registerDecisionRoutes } from './routes/decisions.js';
@@ -87,6 +87,8 @@ export function createApp() {
     '/api/*/decisions',
     rateLimiter({ maxRequests: 60, windowMs: 60000, namespace: 'decisions' }),
   );
+  // Rate limit auth endpoints: 10 req/min per IP
+  app.use('/api/auth/*', rateLimiter({ maxRequests: 10, windowMs: 60000, namespace: 'auth' }));
   app.onError(errorHandler);
 
   // ── Phase 3: Auth middleware ───────────────────────────────────────
@@ -96,14 +98,11 @@ export function createApp() {
   app.use('/api/*', async (c, next) => {
     const path = c.req.path;
 
-    // Always public
+    // Always public (health probes, docs, webhooks, auth)
     if (
       path === '/api/health' ||
       path === '/api/health/ready' ||
       path === '/api/health/live' ||
-      path === '/api/status' ||
-      path === '/api/metrics' ||
-      path === '/api/cache/clear' ||
       path === '/api/docs' ||
       path === '/api/openapi.json' ||
       path.startsWith('/api/auth/') ||
@@ -136,7 +135,7 @@ export function createApp() {
     if (isAuthRequired()) {
       await phase3AuthMiddleware(c, next);
     } else {
-      // Legacy: optionalAuth attaches user if token present, defaults to nick tenant
+      // Legacy: optionalAuth attaches user if token present, defaults to default tenant
       // Then fall through to original authMiddleware for HIPP0_API_KEY compat
       await optionalAuth(c, async () => {
         if (process.env.HIPP0_API_KEY) {
@@ -191,8 +190,14 @@ export function createApp() {
     }
   });
 
-  // Metrics endpoint — operational counters
+  // Metrics endpoint — operational counters (admin only)
   app.get('/api/metrics', async (c) => {
+    if (isAuthRequired()) {
+      const user = c.get('user' as never) as { role?: string } | undefined;
+      if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+        return c.json({ error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } }, 403);
+      }
+    }
     try {
       const db = getDb();
       const [decisionsToday, compilesToday, avgCompile] = await Promise.all([

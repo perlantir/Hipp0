@@ -106,11 +106,7 @@ export function registerBillingRoutes(app: Hono): void {
           }],
           proration_behavior: 'create_prorations',
         });
-        // Update tenant plan immediately
-        await db.query(
-          'UPDATE tenants SET plan = ?, updated_at = NOW() WHERE id = ?',
-          [plan, tenantId],
-        );
+        // Plan update handled by customer.subscription.updated webhook
         return c.json({ subscription_id: updated.id, status: updated.status, prorated: true });
       }
     }
@@ -263,17 +259,17 @@ export function registerBillingRoutes(app: Hono): void {
     );
     const totalDecisions = Number((decisionsResult.rows[0] as Record<string, unknown>)?.total ?? 0);
 
-    // Get project count
+    // Get project count (tenant-scoped)
     const projectsResult = await db.query(
-      'SELECT COUNT(*) as total FROM projects',
-      [],
+      'SELECT COUNT(*) as total FROM projects WHERE tenant_id = ?',
+      [tenantId],
     );
     const totalProjects = Number((projectsResult.rows[0] as Record<string, unknown>)?.total ?? 0);
 
-    // Get agent count
+    // Get agent count (tenant-scoped via projects)
     const agentsResult = await db.query(
-      'SELECT COUNT(DISTINCT name) as total FROM agents',
-      [],
+      'SELECT COUNT(DISTINCT a.name) as total FROM agents a JOIN projects p ON p.id = a.project_id WHERE p.tenant_id = ?',
+      [tenantId],
     );
     const totalAgents = Number((agentsResult.rows[0] as Record<string, unknown>)?.total ?? 0);
 

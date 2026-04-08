@@ -6,12 +6,6 @@ import crypto from 'node:crypto';
 
 // Legacy API key — kept for backward compat (step 5 in auth flow)
 const LEGACY_API_KEY: string | undefined = process.env.HIPP0_API_KEY;
-function isDev(): boolean {
-  return process.env.NODE_ENV !== 'production';
-}
-
-// Auth-disabled flag: log warning ONCE
-let authDisabledWarned = false;
 
 // Timing-safe comparison that handles length mismatches without leaking length info.
 // Both buffers are padded to the longer length before comparison; original lengths
@@ -25,9 +19,14 @@ function safeEqual(a: Buffer, b: Buffer): boolean {
 }
 
 function getClientIp(c: Context): string {
-  return (
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'unknown'
-  );
+  // Only trust X-Forwarded-For when behind a known proxy
+  if (process.env.HIPP0_TRUSTED_PROXY === 'true') {
+    const forwarded = c.req.header('x-forwarded-for');
+    if (forwarded) {
+      return forwarded.split(',')[0]?.trim() ?? 'unknown';
+    }
+  }
+  return c.req.header('x-real-ip') ?? 'unknown';
 }
 
 // Sanitise PostgreSQL errors — strip table/column/constraint names
@@ -110,23 +109,18 @@ export const corsMiddleware: MiddlewareHandler = createMiddleware(async (c, next
   const origin = c.req.header('Origin') ?? '';
   let allowOrigin: string;
 
-  if (isDev()) {
-    allowOrigin = origin || '*';
-  } else {
-    const defaultOrigins = ['https://hipp0.ai', 'http://localhost:3200'];
-    const envOrigins = (process.env.HIPP0_CORS_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '')
-      .split(',')
-      .map((o) => o.trim())
-      .filter(Boolean);
-    const allowed = [...new Set([...defaultOrigins, ...envOrigins])];
+  // Explicit allowlist — no wildcard even in dev
+  const defaultOrigins = ['https://hipp0.ai', 'http://localhost:3200', 'http://localhost:3100'];
+  const envOrigins = (process.env.HIPP0_CORS_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const allowed = [...new Set([...defaultOrigins, ...envOrigins])];
 
-    if (allowed.includes(origin)) {
-      allowOrigin = origin;
-    } else if (allowed.length === 0) {
-      allowOrigin = 'null';
-    } else {
-      allowOrigin = allowed[0] ?? 'null';
-    }
+  if (allowed.includes(origin)) {
+    allowOrigin = origin;
+  } else {
+    allowOrigin = allowed[0] ?? 'null';
   }
 
   c.header('Access-Control-Allow-Origin', allowOrigin);
@@ -147,7 +141,6 @@ const PUBLIC_ROUTES = new Set([
   '/health',
   '/api/docs',
   '/api/openapi.json',
-  '/api/metrics',
   '/api/health/ready',
   '/api/health/live',
 ]);
@@ -169,15 +162,7 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
     return;
   }
 
-  // Step 2: Auth explicitly disabled (local dev only)
-  if (process.env.HIPP0_AUTH_DISABLED === 'true') {
-    if (!authDisabledWarned) {
-      authDisabledWarned = true;
-      console.warn('[hipp0] \u26a0\ufe0f AUTH DISABLED \u2014 set HIPP0_AUTH_DISABLED=false for production');
-    }
-    await next();
-    return;
-  }
+  // HIPP0_AUTH_DISABLED removed — auth cannot be disabled
 
   const authHeader = c.req.header('Authorization');
   const ip = getClientIp(c);
@@ -306,11 +291,7 @@ export function rateLimiter(opts: RateLimiterConfig = {}): MiddlewareHandler {
   const ns = opts.namespace ?? 'global';
 
   return createMiddleware(async (c, next) => {
-    if (isDev() && process.env.RATE_LIMIT_ENABLED !== 'true') {
-      await next();
-      return;
-    }
-
+    // Rate limiting is always active regardless of NODE_ENV
     const ip = getClientIp(c);
 
     // Check auth-failure lockout first

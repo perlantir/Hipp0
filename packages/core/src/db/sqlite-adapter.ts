@@ -250,6 +250,9 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
   // ---- vectorSearch -------------------------------------------------------
 
+  private static readonly ALLOWED_TABLES = new Set(['decisions', 'sessions', 'agents']);
+  private static readonly ALLOWED_COLUMNS = new Set(['embedding', 'id', 'title', 'project_id', 'status']);
+
   async vectorSearch(
     table: string,
     embeddingColumn: string,
@@ -257,6 +260,13 @@ export class SQLiteAdapter implements DatabaseAdapter {
     limit: number,
     filters?: Record<string, unknown>,
   ): Promise<QueryResult> {
+    if (!SQLiteAdapter.ALLOWED_TABLES.has(table)) {
+      throw new Error('Invalid table');
+    }
+    if (!SQLiteAdapter.ALLOWED_COLUMNS.has(embeddingColumn)) {
+      throw new Error('Invalid column');
+    }
+
     if (!this._vecLoaded) {
       console.warn(
         '[hipp0/sqlite] sqlite-vec extension not loaded — vector search unavailable. ' +
@@ -275,6 +285,9 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     if (filters) {
       for (const [key, value] of Object.entries(filters)) {
+        if (!SQLiteAdapter.ALLOWED_COLUMNS.has(key)) {
+          throw new Error('Invalid column');
+        }
         conditions.push(`t.${key} = ?`);
         params.push(value);
         paramIdx++;

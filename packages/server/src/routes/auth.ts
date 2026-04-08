@@ -91,7 +91,7 @@ export function registerAuthRoutes(app: Hono): void {
       });
 
       if (error) {
-        return c.json({ error: { code: 'AUTH_ERROR', message: error.message } }, 400);
+        return c.json({ error: { code: 'AUTH_ERROR', message: 'Authentication failed' } }, 400);
       }
 
       if (data.user) {
@@ -111,7 +111,7 @@ export function registerAuthRoutes(app: Hono): void {
       });
 
       if (error) {
-        return c.json({ error: { code: 'AUTH_ERROR', message: error.message } }, 400);
+        return c.json({ error: { code: 'AUTH_ERROR', message: 'Authentication failed' } }, 400);
       }
 
       return c.json({ message: 'Magic link sent to your email' }, 200);
@@ -183,7 +183,7 @@ export function registerAuthRoutes(app: Hono): void {
     if (!isAuthRequired() || user.id === 'anonymous') {
       return c.json({
         user: { id: 'anonymous', email: '' },
-        tenant: { id: user.tenant_id, name: 'Default', slug: 'nick', plan: user.plan },
+        tenant: { id: user.tenant_id, name: 'Default', slug: 'default', plan: user.plan },
         role: user.role,
       });
     }
@@ -247,7 +247,7 @@ export function registerAuthRoutes(app: Hono): void {
     const { error } = await supabase.auth.signInWithOtp({ email: parsed.data.email });
 
     if (error) {
-      return c.json({ error: { code: 'AUTH_ERROR', message: error.message } }, 400);
+      return c.json({ error: { code: 'AUTH_ERROR', message: 'Authentication failed' } }, 400);
     }
 
     return c.json({ message: 'Magic link sent to your email' });

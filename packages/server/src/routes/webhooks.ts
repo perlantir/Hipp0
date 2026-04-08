@@ -3,7 +3,54 @@ import { getDb } from '@hipp0/core/db/index.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { testWebhook } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, requireString, mapDbError, logAudit } from './validation.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
+
+/** Validate a webhook URL to prevent SSRF */
+function validateWebhookUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new ValidationError('Invalid webhook URL');
+  }
+
+  // In production, require HTTPS
+  if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+    throw new ValidationError('Webhook URL must use HTTPS in production');
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new ValidationError('Webhook URL must use HTTP or HTTPS');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost and loopback
+  const blocked = [
+    'localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1',
+    '169.254.169.254', 'metadata.google.internal',
+  ];
+  if (blocked.includes(hostname)) {
+    throw new ValidationError('Webhook URL must not target localhost or metadata services');
+  }
+
+  // Block private IP ranges
+  const parts = hostname.split('.');
+  if (parts.length === 4) {
+    const first = parseInt(parts[0], 10);
+    const second = parseInt(parts[1], 10);
+    if (first === 10) throw new ValidationError('Webhook URL must not target private IPs');
+    if (first === 172 && second >= 16 && second <= 31) throw new ValidationError('Webhook URL must not target private IPs');
+    if (first === 192 && second === 168) throw new ValidationError('Webhook URL must not target private IPs');
+    if (first === 127) throw new ValidationError('Webhook URL must not target loopback IPs');
+    if (first === 169 && second === 254) throw new ValidationError('Webhook URL must not target link-local IPs');
+  }
+
+  // Block IPv6 private ranges
+  if (hostname.startsWith('[fd') || hostname.startsWith('fd')) {
+    throw new ValidationError('Webhook URL must not target private IPs');
+  }
+}
 
 const VALID_PLATFORMS = ['generic', 'slack', 'discord', 'telegram'] as const;
 const VALID_EVENTS = [
@@ -65,9 +112,11 @@ export function registerWebhookRoutes(app: Hono): void {
 
     const name = requireString(body.name, 'name', 200);
     const url = requireString(body.url, 'url', 2000);
+    validateWebhookUrl(url);
     const platform = body.platform != null ? validatePlatform(body.platform) : 'generic';
     const events = body.events != null ? validateEvents(body.events) : [];
-    const secret = body.secret != null ? requireString(body.secret, 'secret', 500) : null;
+    // Secret is required — generate one if not provided
+    const secret = body.secret != null ? requireString(body.secret, 'secret', 500) : randomBytes(32).toString('hex');
     const metadata = body.metadata ?? {};
 
     const id = randomUUID();
@@ -122,8 +171,10 @@ export function registerWebhookRoutes(app: Hono): void {
       params.push(requireString(body.name, 'name', 200));
     }
     if (body.url != null) {
+      const newUrl = requireString(body.url, 'url', 2000);
+      validateWebhookUrl(newUrl);
       sets.push('url = ?');
-      params.push(requireString(body.url, 'url', 2000));
+      params.push(newUrl);
     }
     if (body.platform != null) {
       sets.push('platform = ?');

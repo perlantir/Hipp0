@@ -4,6 +4,8 @@ import { parseProject } from '@hipp0/core/db/parsers.js';
 import { NotFoundError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, optionalString, mapDbError } from './validation.js';
 import { generateApiKey } from '../bootstrap-keys.js';
+import { isAuthRequired, getTenantId } from '../auth/middleware.js';
+import { DEFAULT_TENANT_ID, DEFAULT_USER_ID } from '../constants.js';
 
 export function registerProjectRoutes(app: Hono): void {
   app.post('/api/projects', async (c) => {
@@ -30,8 +32,6 @@ export function registerProjectRoutes(app: Hono): void {
       let apiKey: string | undefined;
       try {
         const { key, prefix, hash } = generateApiKey();
-        const DEFAULT_TENANT_ID = 'a0000000-0000-4000-8000-000000000001';
-        const DEFAULT_USER_ID = 'a0000000-0000-4000-8000-000000000001';
         await db.query(
           `INSERT INTO api_keys (tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -39,12 +39,12 @@ export function registerProjectRoutes(app: Hono): void {
         );
         apiKey = key;
 
+        const masked = key.slice(0, 16) + '...';
         console.log('============================================================');
         console.log(`\ud83d\udd11 API Key generated for project "${name}"`);
-        console.log(`   Key: ${key}`);
+        console.log(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
         console.log('');
-        console.log('   Save this key now \u2014 it will NOT be shown again.');
-        console.log('   Use it in the dashboard login and API requests.');
+        console.log('   Full key is NOT logged for security.');
         console.log('============================================================');
       } catch {
         // api_keys table may not exist yet — project still created successfully
@@ -62,7 +62,13 @@ export function registerProjectRoutes(app: Hono): void {
 
   app.get('/api/projects', async (c) => {
     const db = getDb();
-    const result = await db.query('SELECT * FROM projects ORDER BY created_at DESC', []);
+    let result;
+    if (isAuthRequired()) {
+      const tenantId = getTenantId(c);
+      result = await db.query('SELECT * FROM projects WHERE tenant_id = ? ORDER BY created_at DESC', [tenantId]);
+    } else {
+      result = await db.query('SELECT * FROM projects ORDER BY created_at DESC', []);
+    }
     return c.json(result.rows.map((r: Record<string, unknown>) => parseProject(r)));
   });
 
