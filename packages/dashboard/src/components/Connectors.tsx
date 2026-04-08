@@ -612,9 +612,9 @@ function LinearSettingsPanel({ projectId }: { projectId: string }) {
 
   if (loading) {
     return (
-      <div className="card p-5">
+      <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
         <div className="flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin text-primary" />
+          <Loader2 size={14} className="animate-spin text-[#063ff9]" />
           <span className="text-sm text-[var(--text-secondary)]">Loading Linear status…</span>
         </div>
       </div>
@@ -622,7 +622,7 @@ function LinearSettingsPanel({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="card p-5">
+    <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
       <div className="flex items-center gap-2 mb-4">
         <div className="w-8 h-8 rounded-lg bg-[#5E6AD2]/10 flex items-center justify-center shrink-0">
           <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
@@ -767,7 +767,7 @@ export function LinkedIssues({ decisionId }: { decisionId: string }) {
     switch (status) {
       case 'completed': return <CheckCircle2 size={13} className="text-green-500" />;
       case 'cancelled': return <XCircle size={13} className="text-red-400" />;
-      default: return <Clock size={13} className="text-amber-500" />;
+      default: return <Clock size={13} className="text-[#063ff9]" />;
     }
   };
 
