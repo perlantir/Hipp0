@@ -1191,6 +1191,33 @@ Hipp0 migrations are always additive (no destructive DDL in migrations). Before 
 3. Test on a staging environment
 4. Apply migrations before restarting the server
 
+---
+
+## Rate Limiting in Multi-Instance Deployments
+
+Hipp0's built-in rate limiter stores counters in process memory. When running
+a single server instance this works out of the box. In a multi-instance
+deployment behind a load balancer each instance maintains its own counters,
+so a client could theoretically receive `N x limit` requests across `N`
+instances.
+
+To enforce shared rate limits across instances, configure a Redis-backed
+store:
+
+```bash
+CACHE_PROVIDER=redis
+REDIS_URL=redis://redis:6379
+```
+
+When `CACHE_PROVIDER=redis` is set, rate-limit counters, auth-failure lockouts,
+and the context cache are all stored in Redis, giving you consistent limits
+regardless of how many server processes are running.
+
+If Redis is not available the server falls back to in-process memory
+automatically, so a Redis outage does not take down the API.
+
+---
+
 ### Rollback
 
 If a new version causes issues:

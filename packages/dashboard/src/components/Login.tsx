@@ -26,7 +26,7 @@ export function Login({ onLogin, error }: LoginProps) {
       >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center">
-            <span className="text-white font-bold text-sm">N</span>
+            <span className="text-white font-bold text-sm">H0</span>
           </div>
           <span className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Hipp0</span>
         </div>
@@ -44,7 +44,7 @@ export function Login({ onLogin, error }: LoginProps) {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="dg_live_..."
+            placeholder="h0_live_..."
             autoFocus
             className="w-full px-3 py-2 rounded-lg text-sm mb-4"
             style={{
@@ -69,7 +69,7 @@ export function Login({ onLogin, error }: LoginProps) {
             Check your server logs for your API key.
           </p>
           <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
-            Run: docker logs hipp0-server | grep "dg_live_"
+            Run: docker logs hipp0-server | grep "h0_live_"
           </p>
         </div>
       </div>

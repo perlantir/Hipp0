@@ -219,6 +219,8 @@ async function main() {
   }
 
   // Serve the dashboard static files when they are available (non-Docker mode).
+  // Dashboard path is resolved by resolveDashboardPath() which checks several
+  // candidate directories relative to the server build output.
   const dashboardDist = resolveDashboardPath();
   if (dashboardDist) {
     app.get('/dashboard/*', serveStatic({ root: dashboardDist }));
