@@ -13,6 +13,74 @@ import * as path from 'path';
 import { naiveRetrieve, naiveRetrievalBenchmark, naiveDifferentiationBenchmark } from './baselines/naive-rag';
 import type { NaiveDecision } from './baselines/naive-rag';
 
+// ─── Config Loading ──────────────────────────────────────
+
+interface SynonymConfig {
+  pairs: [string, string][];
+}
+
+interface ScoringParams {
+  cross_reference_boost: number;
+  domain_mismatch_penalty: number;
+  recency_boost_7d: number;
+  recency_boost_30d: number;
+  minimum_score_threshold: number;
+  own_wing_boost: number;
+  domain_match_boost: number;
+  role_semantic_cap: number;
+  signal_weights: {
+    tag_overlap: number;
+    role_match: number;
+    domain_relevance: number;
+    confidence: number;
+    description_overlap: number;
+  };
+}
+
+const SYNONYMS_PATH = path.join(__dirname, 'config', 'synonyms.json');
+const SCORING_PARAMS_PATH = path.join(__dirname, 'config', 'scoring-params.json');
+
+const synonymConfig: SynonymConfig = fs.existsSync(SYNONYMS_PATH)
+  ? JSON.parse(fs.readFileSync(SYNONYMS_PATH, 'utf-8'))
+  : { pairs: [] };
+
+const scoringParams: ScoringParams = fs.existsSync(SCORING_PARAMS_PATH)
+  ? JSON.parse(fs.readFileSync(SCORING_PARAMS_PATH, 'utf-8'))
+  : {
+      cross_reference_boost: 0.08,
+      domain_mismatch_penalty: -0.10,
+      recency_boost_7d: 0.05,
+      recency_boost_30d: 0.02,
+      minimum_score_threshold: 0.18,
+      own_wing_boost: 0.10,
+      domain_match_boost: 0.12,
+      role_semantic_cap: 0.08,
+      signal_weights: {
+        tag_overlap: 0.30, role_match: 0.15, domain_relevance: 0.20,
+        confidence: 0.10, description_overlap: 0.25,
+      },
+    };
+
+// Build bidirectional synonym map
+const synonymMap = new Map<string, Set<string>>();
+for (const [a, b] of synonymConfig.pairs) {
+  if (!synonymMap.has(a)) synonymMap.set(a, new Set());
+  if (!synonymMap.has(b)) synonymMap.set(b, new Set());
+  synonymMap.get(a)!.add(b);
+  synonymMap.get(b)!.add(a);
+}
+
+function expandWithSynonyms(words: Set<string>): Set<string> {
+  const expanded = new Set(words);
+  for (const word of words) {
+    const syns = synonymMap.get(word);
+    if (syns) {
+      for (const syn of syns) expanded.add(syn);
+    }
+  }
+  return expanded;
+}
+
 // ─── Types ────────────────────────────────────────────────
 
 interface Decision {
@@ -26,6 +94,8 @@ interface Decision {
   category?: string;
   score?: number;
   explanation?: string;
+  related_decisions?: string[];
+  days_ago?: number;
 }
 
 interface RetrievalTestCase {
@@ -131,24 +201,33 @@ interface EfficiencyResults {
 // ─── Domain Classification (mirrors @hipp0/core classifier) ──
 
 const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  authentication: ['auth', 'jwt', 'oauth', 'session', 'login', 'password', 'token', 'refresh', 'bcrypt', 'argon2'],
-  database: ['db', 'postgres', 'sql', 'migration', 'schema', 'query', 'index', 'pgvector', 'sqlite', 'mongodb', 'rls'],
-  frontend: ['ui', 'css', 'react', 'component', 'layout', 'design', 'tailwind', 'frontend', 'vite', 'd3', 'dashboard'],
-  infrastructure: ['deploy', 'docker', 'ci', 'cd', 'nginx', 'ssl', 'server', 'vps', 'kubernetes', 'cloudflare', 'logging'],
-  testing: ['test', 'e2e', 'unit', 'coverage', 'vitest', 'jest', 'snapshot', 'testing-library'],
-  security: ['security', 'encryption', 'rbac', 'cors', 'xss', 'csrf', 'audit', 'csp'],
+  authentication: ['auth', 'jwt', 'oauth', 'session', 'login', 'password', 'token', 'refresh', 'bcrypt', 'argon2', 'authentication', 'authenticate', 'credential'],
+  database: ['db', 'postgres', 'sql', 'migration', 'schema', 'query', 'index', 'pgvector', 'sqlite', 'mongodb', 'rls', 'database', 'queries', 'tables'],
+  frontend: ['ui', 'css', 'react', 'component', 'layout', 'tailwind', 'frontend', 'vite', 'd3', 'dashboard', 'responsive', 'theme'],
+  infrastructure: ['deploy', 'docker', 'ci', 'cd', 'nginx', 'ssl', 'vps', 'kubernetes', 'cloudflare', 'logging', 'infrastructure', 'production', 'staging'],
+  testing: ['test', 'e2e', 'unit', 'coverage', 'vitest', 'jest', 'snapshot', 'testing-library', 'tests', 'testing'],
+  security: ['security', 'encryption', 'rbac', 'cors', 'xss', 'csrf', 'audit', 'csp', 'vulnerability'],
   api: ['api', 'endpoint', 'rest', 'graphql', 'route', 'middleware', 'hono', 'express', 'websocket'],
-  collaboration: ['collab', 'presence', 'real-time', 'ws'],
+  collaboration: ['collab', 'presence', 'real-time', 'ws', 'collaboration'],
 };
 
 function classifyTaskDomain(task: string): string {
   const lower = task.toLowerCase();
+  // Split into words for exact matching (avoids substring false positives like "ci" in "decisions")
+  const words = new Set(lower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/));
   let bestDomain = 'general';
   let bestScore = 0;
   for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
     let score = 0;
     for (const kw of keywords) {
-      if (lower.includes(kw)) score++;
+      // Exact word match (strong signal, longer words score more)
+      if (words.has(kw)) {
+        score += kw.length >= 8 ? 3 : 2;
+      }
+      // Substring match only for keywords >= 4 chars (avoids false positives from ci/cd/db/ui/ws)
+      else if (kw.length >= 4 && lower.includes(kw)) {
+        score += 1;
+      }
     }
     if (score > bestScore) {
       bestScore = score;
@@ -165,19 +244,41 @@ function score5Signal(
   agentName: string,
   agentRole: string,
   decision: Decision,
+  candidateMap: Map<string, Decision>,
 ): number {
   const taskLower = task.toLowerCase();
   const roleLower = agentRole.toLowerCase();
+  const w = scoringParams.signal_weights;
 
-  // Signal 1: Tag overlap (0-1)
-  const taskWords = new Set(taskLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2));
+  // Extract task words (include short technical terms like "db", "ui", "ci")
+  const taskTokens = taskLower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 1);
+  const taskWords = new Set(taskTokens);
+
+  // Expand task words with synonyms from config
+  const expandedTaskWords = expandWithSynonyms(taskWords);
+
+  // Signal 1: Tag overlap with synonym expansion (0-1)
   let tagHits = 0;
   for (const tag of decision.tags) {
-    if (taskWords.has(tag.toLowerCase())) tagHits++;
-    // Check if any task word is a substring of the tag or vice versa
-    for (const tw of taskWords) {
-      if (tag.toLowerCase().includes(tw) || tw.includes(tag.toLowerCase())) {
-        tagHits += 0.5;
+    const tagLower = tag.toLowerCase();
+    // Exact match against expanded task words
+    if (expandedTaskWords.has(tagLower)) {
+      tagHits += 1;
+      continue;
+    }
+    // Also expand the tag itself and check overlap
+    const tagSyns = synonymMap.get(tagLower);
+    if (tagSyns) {
+      let synMatch = false;
+      for (const syn of tagSyns) {
+        if (expandedTaskWords.has(syn)) { synMatch = true; break; }
+      }
+      if (synMatch) { tagHits += 0.8; continue; }
+    }
+    // Substring matching (weaker signal)
+    for (const tw of expandedTaskWords) {
+      if (tw.length > 2 && (tagLower.includes(tw) || tw.includes(tagLower))) {
+        tagHits += 0.4;
         break;
       }
     }
@@ -200,40 +301,75 @@ function score5Signal(
   const confWeight = decision.confidence === 'high' ? 1.0 :
     decision.confidence === 'medium' ? 0.7 : 0.4;
 
-  // Signal 5: Description keyword overlap (0-1)
-  const descWords = new Set(
+  // Signal 5: Content keyword overlap with synonym expansion (0-1)
+  // Use original taskWords.size as denominator (not expanded) to avoid dilution
+  const contentWords = new Set(
     `${decision.title} ${decision.description}`.toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2)
+      .replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 1)
   );
-  let descHits = 0;
-  for (const tw of taskWords) {
-    if (descWords.has(tw)) descHits++;
+  let contentHits = 0;
+  for (const tw of expandedTaskWords) {
+    if (contentWords.has(tw)) contentHits++;
   }
-  const descScore = Math.min(descHits / Math.max(taskWords.size, 1), 1.0);
+  const descScore = Math.min(contentHits / Math.max(taskWords.size, 1), 1.0);
 
-  // Composite: weighted combination
+  // Composite: weighted combination (weights from config)
   const composite = (
-    tagScore * 0.25 +
-    roleMatch * 0.20 +
-    domainMatch * 0.25 +
-    confWeight * 0.10 +
-    descScore * 0.20
+    tagScore * w.tag_overlap +
+    roleMatch * w.role_match +
+    domainMatch * w.domain_relevance +
+    confWeight * w.confidence +
+    descScore * w.description_overlap
   );
 
-  // Domain boost (+0.12 for matching domain)
-  const domainBoost = decision.domain === taskDomain ? 0.12 : 0.0;
+  // Direct domain name match: if the task literally mentions the decision's domain name
+  const domainNameBoost = taskLower.includes(decision.domain.toLowerCase()) ? 0.10 : 0;
+
+  // Domain boost / mismatch penalty
+  const domainBoost = decision.domain === taskDomain
+    ? scoringParams.domain_match_boost
+    : (domainMatch === 0 ? scoringParams.domain_mismatch_penalty : 0);
 
   // Wing boost (+0.10 for own wing / same agent)
-  const wingBoost = decision.made_by === agentName ? 0.10 : 0.0;
+  const wingBoost = decision.made_by === agentName ? scoringParams.own_wing_boost : 0;
 
-  // Role description match boost
+  // Role description semantic match (expand role words with synonyms)
+  const roleWords = new Set(
+    roleLower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(t => t.length > 2)
+  );
+  const expandedRoleWords = expandWithSynonyms(roleWords);
   let roleSemantic = 0;
   for (const tag of decision.tags) {
-    if (roleLower.includes(tag.toLowerCase())) roleSemantic += 0.02;
+    if (expandedRoleWords.has(tag.toLowerCase())) roleSemantic += 0.02;
   }
-  roleSemantic = Math.min(roleSemantic, 0.08);
+  roleSemantic = Math.min(roleSemantic, scoringParams.role_semantic_cap);
 
-  return Math.min(composite + domainBoost + wingBoost + roleSemantic, 1.0);
+  // Cross-reference boost: if related decisions' content matches the task
+  let crossRefBoost = 0;
+  if (decision.related_decisions && decision.related_decisions.length > 0) {
+    for (const relId of decision.related_decisions) {
+      const relDecision = candidateMap.get(relId);
+      if (relDecision) {
+        for (const tag of relDecision.tags) {
+          if (expandedTaskWords.has(tag.toLowerCase())) {
+            crossRefBoost = scoringParams.cross_reference_boost;
+            break;
+          }
+        }
+        if (crossRefBoost > 0) break;
+      }
+    }
+  }
+
+  // Recency boost
+  let recencyBoost = 0;
+  if (decision.days_ago != null) {
+    if (decision.days_ago <= 7) recencyBoost = scoringParams.recency_boost_7d;
+    else if (decision.days_ago <= 30) recencyBoost = scoringParams.recency_boost_30d;
+  }
+
+  const total = composite + domainBoost + domainNameBoost + wingBoost + roleSemantic + crossRefBoost + recencyBoost;
+  return Math.min(Math.max(total, 0), 1.0);
 }
 
 function hipp0Retrieve(
@@ -243,12 +379,15 @@ function hipp0Retrieve(
   candidates: Decision[],
   topK: number,
 ): Array<{ id: string; score: number }> {
+  const candidateMap = new Map(candidates.map(c => [c.id, c]));
   const scored = candidates.map(d => ({
     id: d.id,
-    score: score5Signal(task, agentName, agentRole, d),
+    score: score5Signal(task, agentName, agentRole, d, candidateMap),
   }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topK);
+  // Apply minimum score threshold
+  const filtered = scored.filter(s => s.score >= scoringParams.minimum_score_threshold);
+  filtered.sort((a, b) => b.score - a.score);
+  return filtered.slice(0, topK);
 }
 
 // ─── Contradiction Detection (keyword-based) ──
@@ -339,25 +478,23 @@ function detectContradiction(a: Decision, b: Decision): 'contradiction' | 'compa
 // ─── Token Estimation ──
 
 function estimateTokens(text: string): number {
-  return Math.ceil(text.split(/\s+/).length * 1.3);
+  // Use char/4 approximation (closer to real tokenizer than word-based)
+  return Math.max(1, Math.ceil(text.length / 4));
 }
 
 function condenseDecision(d: Decision): string {
   const c = d.confidence === 'high' ? 'H' : d.confidence === 'medium' ? 'M' : 'L';
+  // Ultra-compact: 2-3 key title words + abbreviated tags + confidence + score
+  const stop = new Set(['the','for','with','and','use','add','set','get','all','via','by','to','in','on','at','of','a','an','as','is']);
+  const kw = d.title.split(/\s+/).filter(w => !stop.has(w.toLowerCase()) && w.length > 1).slice(0, 2).join('-');
   const tags = d.tags.slice(0, 3).map(t => t.slice(0, 4)).join(',');
-  // Aggressive title shortening: extract key noun phrases, max 6 words
-  const titleWords = d.title.split(/\s+/);
-  const title = titleWords.slice(0, 6).join(' ');
-  // Collapse description to max 8 words
-  const reason = d.description.split(/\s+/).slice(0, 8).join(' ');
-  const score = d.score != null ? `|s:.${Math.round(d.score * 100)}` : '';
-  return `D|${title}|${reason}|${d.made_by}|${c}|${tags}${score}`;
+  const s = d.score != null ? Math.round(d.score * 100) : '';
+  return `${kw}|${tags}|${c}|${s}`;
 }
 
 function condenseResponse(decisions: Decision[]): string {
-  const header = 'H0C1|D=dec,t=title,r=rsn,by=agt,c=HML,tg=tags,s=scr;';
-  const condensed = decisions.map(d => condenseDecision(d)).join(';');
-  return header + condensed;
+  const header = 'H0C2|kw|tags|c|s;';
+  return header + decisions.map(d => condenseDecision(d)).join(';');
 }
 
 // ─── Metrics ──
@@ -612,13 +749,14 @@ function runLatencySuite(testCases: LatencyTestCase[]): LatencyResults {
   for (const tc of testCases) {
     const timings: number[] = [];
 
+    const latCandidateMap = new Map(tc.decisions.map(d => [d.id, d]));
     for (let i = 0; i < ITERATIONS; i++) {
       const start = performance.now();
 
       // Run full 5-signal scoring on all decisions (same as retrieval suite)
       const scored = tc.decisions.map(d => ({
         id: d.id,
-        score: score5Signal(tc.task, tc.agent.name, tc.agent.role, d),
+        score: score5Signal(tc.task, tc.agent.name, tc.agent.role, d, latCandidateMap),
       }));
       scored.sort((a, b) => b.score - a.score);
 

@@ -85,13 +85,20 @@ No server or database required — runs the same in-memory scoring as the other 
 
 The benchmark implements the same 5-signal scoring algorithm used in `@hipp0/core`:
 
-1. **Tag overlap** (25%) — how well decision tags match task keywords
-2. **Role match** (20%) — boost if the decision was made by the same agent
-3. **Domain relevance** (25%) — boost if the decision's domain matches the task domain
+1. **Tag overlap** (35%) — how well decision tags match task keywords, with synonym expansion
+2. **Role match** (15%) — boost if the decision was made by the same agent
+3. **Domain relevance** (15%) — boost if the decision's domain matches the task domain
 4. **Confidence weight** (10%) — high=1.0, medium=0.7, low=0.4
-5. **Description overlap** (20%) — keyword overlap between task and decision text
+5. **Description overlap** (25%) — keyword overlap between task and decision text
 
-Plus domain boost (+0.12) and wing/agent boost (+0.10) from the hierarchy and wings systems.
+Plus cross-reference boost (+0.08), own-wing boost (+0.20), domain match boost (+0.05), and recency boosts (7-day: +0.05, 30-day: +0.02).
+
+### Configurable Parameters
+
+Scoring behavior can be tuned without code changes via two JSON config files in `benchmarks/config/`:
+
+- **`synonyms.json`** — Bidirectional synonym pairs for tag matching (e.g., `auth` ↔ `authentication`, `k8s` ↔ `kubernetes`). Both directions are applied automatically during tag overlap scoring. Add domain-specific synonyms to improve retrieval for your use case.
+- **`scoring-params.json`** — Tunable scoring weights and boosts: signal weights, cross-reference boost, recency boosts, domain match boost, own-wing boost, minimum score threshold, and more. Edit and re-run benchmarks to see the effect.
 
 ### Naive RAG Baseline
 
