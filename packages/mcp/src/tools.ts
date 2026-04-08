@@ -636,6 +636,44 @@ export function registerAllTools(
     },
   );
 
+  // ── Tool: hipp0_save_before_trim ───────────────────────────────────
+
+  server.registerTool(
+    'hipp0_save_before_trim',
+    {
+      title: 'Save checkpoint before context trim',
+      description:
+        'Save a checkpoint before your context gets compressed. The checkpoint will be restored on your next compile for this session, so important decisions survive context window trimming.',
+      inputSchema: {
+        session_id: z.string().describe('Task session ID'),
+        agent_name: z.string().describe('Your agent name'),
+        context_summary: z.string().describe('Summary of important context to preserve'),
+        important_decisions: z.array(z.string()).optional().describe('IDs of important decisions to flag'),
+      },
+    },
+    async (args) => {
+      try {
+        const result = await client.saveBeforeTrim({
+          session_id: args.session_id,
+          agent_name: args.agent_name,
+          context_summary: args.context_summary,
+          important_decisions: args.important_decisions ?? [],
+        });
+
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Checkpoint saved (id: ${result.checkpoint_id}). Your context summary and ${args.important_decisions?.length ?? 0} decision IDs will be restored on next compile.`,
+          }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error saving checkpoint: ${(err as Error).message}` }],
+        };
+      }
+    },
+  );
+
   // ── Tool: hipp0_what_changed ───────────────────────────────────────
 
   server.registerTool(

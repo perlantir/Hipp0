@@ -46,6 +46,8 @@ import {
   type WhatChangedResponse,
   type DecodedDecision,
   type ConfidenceLevel,
+  type SaveBeforeTrimInput,
+  type SaveBeforeTrimResult,
 } from './types.js';
 
 export class Hipp0Client {
@@ -460,6 +462,19 @@ export class Hipp0Client {
       task_description: params.taskDescription,
       session_id: params.sessionId,
     });
+  }
+
+  // ── Context Compression Survival ──────────────────────────────────
+
+  saveBeforeTrim(params: SaveBeforeTrimInput): Promise<SaveBeforeTrimResult> {
+    return this.post<SaveBeforeTrimResult>(
+      `/api/tasks/session/${params.session_id}/checkpoint`,
+      {
+        agent_name: params.agent_name,
+        context_summary: params.context_summary,
+        important_decisions: params.important_decisions,
+      },
+    );
   }
 
   // ── Temporal Intelligence ─────────────────────────────────────────

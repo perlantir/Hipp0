@@ -588,6 +588,21 @@ export interface WhatChangedResponse {
   summary: string;
 }
 
+// ── Context Compression Survival ───────────────────────────────────
+
+export interface SaveBeforeTrimInput {
+  session_id: string;
+  agent_name: string;
+  context_summary: string;
+  important_decisions: string[];
+}
+
+export interface SaveBeforeTrimResult {
+  checkpoint_id: string;
+  session_id: string;
+  agent_name: string;
+}
+
 export class Hipp0ApiError extends Error {
   constructor(
     message: string,

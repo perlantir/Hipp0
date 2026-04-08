@@ -45,6 +45,23 @@ export function registerCompileRoutes(app: Hono): void {
     // ── Depth parameter: default | full (loads L2 background decisions) ──
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
 
+    // ── Check prefetch cache first (session-aware) ────────────────────
+    if (body.task_session_id && body.debug !== true) {
+      try {
+        const sessionId = requireUUID(body.task_session_id, 'task_session_id');
+        const prefetchKey = `prefetch:${sessionId}:${agent_name}`;
+        const prefetchHit = await cache.get(prefetchKey);
+        if (prefetchHit) {
+          const prefetched = JSON.parse(prefetchHit);
+          // Clear the prefetch entry after use
+          await cache.del(prefetchKey);
+          return c.json({ ...prefetched, cache_hit: true, prefetch_hit: true });
+        }
+      } catch {
+        // Invalid prefetch entry or bad session_id, proceed normally
+      }
+    }
+
     // ── Check cache first ───────────────────────────────────────────
     const taskHash = crypto.createHash('sha256').update(task_description).digest('hex');
     const cacheHit = await cache.get(compileKey(project_id, agent_name, taskHash));
@@ -240,6 +257,30 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
+    // ── Checkpoint Restoration: include saved checkpoints in session context ──
+    let checkpointMarkdown = '';
+    if (body.task_session_id) {
+      try {
+        const taskSessionId = requireUUID(body.task_session_id, 'task_session_id');
+        const checkpointResult = await db.query(
+          `SELECT checkpoint_text, important_decision_ids, created_at
+           FROM session_checkpoints
+           WHERE session_id = ? AND agent_name = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [taskSessionId, agent_name],
+        );
+        if (checkpointResult.rows.length > 0) {
+          const cp = checkpointResult.rows[0] as Record<string, unknown>;
+          const cpText = cp.checkpoint_text as string;
+          const cpDate = cp.created_at instanceof Date ? cp.created_at.toISOString() : String(cp.created_at);
+          checkpointMarkdown = `## [RESTORED FROM CHECKPOINT]\n_Saved at ${cpDate}_\n\n${cpText}\n\n---\n\n`;
+        }
+      } catch (err) {
+        console.warn('[hipp0:compile] Checkpoint restoration failed:', (err as Error).message);
+      }
+    }
+
     // ── Role Signal: generate when session or explicitly requested ──
     let roleSignal: Record<string, unknown> | undefined;
     let abstentionMarkdown = '';
@@ -267,7 +308,7 @@ export function registerCompileRoutes(app: Hono): void {
     }
 
     // Prepend policy markdown to formatted output
-    const formattedMarkdown = abstentionMarkdown + sessionMarkdown
+    const formattedMarkdown = abstentionMarkdown + checkpointMarkdown + sessionMarkdown
       + (policyMarkdown ? policyMarkdown : '')
       + (result.formatted_markdown ?? '');
 

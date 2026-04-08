@@ -15,6 +15,9 @@ import {
 import { scoreTeamForTask } from '@hipp0/core/intelligence/role-signals.js';
 import { suggestNextAgent, generateSessionPlan } from '@hipp0/core/intelligence/orchestrator.js';
 import { getDb } from '@hipp0/core/db/index.js';
+import { compileContext } from '@hipp0/core/context-compiler/index.js';
+import type { CompileRequest } from '@hipp0/core/types.js';
+import { cache, CACHE_TTL } from '../cache/redis.js';
 
 export function registerSessionRoutes(app: Hono): void {
   // ── Start a new task session ────────────────────────────────────────
@@ -89,6 +92,60 @@ export function registerSessionRoutes(app: Hono): void {
         step_number: result.step_number,
         agent_name,
       });
+
+      // ── Session Prefetch: fire-and-forget compile for likely next agents ──
+      void (async () => {
+        try {
+          // Check project settings for prefetch config
+          const prefetchDb = getDb();
+          const projResult = await prefetchDb.query('SELECT metadata FROM projects WHERE id = ?', [project_id]);
+          let prefetchEnabled = true;
+          let prefetchAgentCount = 3;
+          if (projResult.rows.length > 0) {
+            let meta: Record<string, unknown> = {};
+            const rawMeta = (projResult.rows[0] as Record<string, unknown>).metadata;
+            if (typeof rawMeta === 'string') {
+              try { meta = JSON.parse(rawMeta); } catch { /* empty */ }
+            } else if (typeof rawMeta === 'object' && rawMeta !== null) {
+              meta = rawMeta as Record<string, unknown>;
+            }
+            if (meta.prefetch_enabled === false) prefetchEnabled = false;
+            if (typeof meta.prefetch_agent_count === 'number') prefetchAgentCount = meta.prefetch_agent_count;
+          }
+
+          if (!prefetchEnabled) return;
+
+          // Get top-ranked agents who haven't participated
+          const teamResult = await scoreTeamForTask(project_id, task_description, sessionId);
+          const sessionState = await getSessionState(sessionId);
+          const participatedAgents = new Set(sessionState.session.agents_involved);
+
+          const candidateAgents = teamResult.recommended_participants
+            .filter((p) => !participatedAgents.has(p.agent_name))
+            .slice(0, prefetchAgentCount);
+
+          // Invalidate existing prefetch cache for this session
+          await cache.invalidatePrefix(`prefetch:${sessionId}`);
+
+          // Pre-compile context for each candidate agent
+          for (const candidate of candidateAgents) {
+            try {
+              const request: CompileRequest = {
+                agent_name: candidate.agent_name,
+                project_id,
+                task_description,
+              };
+              const compiled = await compileContext(request);
+              const cacheKey = `prefetch:${sessionId}:${candidate.agent_name}`;
+              await cache.set(cacheKey, JSON.stringify(compiled), CACHE_TTL.COMPILE);
+            } catch {
+              // Non-fatal — prefetch is best-effort
+            }
+          }
+        } catch {
+          // Non-fatal — prefetch failure should never affect step recording
+        }
+      })();
 
       return c.json(result, 201);
     } catch (err) {
@@ -265,6 +322,108 @@ export function registerSessionRoutes(app: Hono): void {
     } catch (err) {
       mapDbError(err);
     }
+  });
+
+  // ── Save checkpoint (Context Compression Survival) ──────────────────
+  app.post('/api/tasks/session/:id/checkpoint', async (c) => {
+    const sessionId = requireUUID(c.req.param('id'), 'session_id');
+    const body = await c.req.json<{
+      agent_name?: unknown;
+      context_summary?: unknown;
+      important_decisions?: string[];
+    }>();
+
+    const agent_name = requireString(body.agent_name, 'agent_name', 200);
+    const context_summary = requireString(body.context_summary, 'context_summary', 100000);
+    const importantDecisions = body.important_decisions ?? [];
+
+    const db = getDb();
+
+    try {
+      const result = await db.query(
+        `INSERT INTO session_checkpoints (session_id, agent_name, checkpoint_text, important_decision_ids)
+         VALUES (?, ?, ?, ?)
+         RETURNING id`,
+        [sessionId, agent_name, context_summary, JSON.stringify(importantDecisions)],
+      );
+
+      const checkpointId = (result.rows[0] as Record<string, unknown>).id as string;
+
+      // Get project_id for audit
+      const state = await getSessionState(sessionId);
+      logAudit('checkpoint_saved', state.session.project_id, {
+        session_id: sessionId,
+        agent_name,
+        checkpoint_id: checkpointId,
+      });
+
+      return c.json({
+        checkpoint_id: checkpointId,
+        session_id: sessionId,
+        agent_name,
+      }, 201);
+    } catch (err) {
+      mapDbError(err);
+    }
+  });
+
+  // ── Project settings (prefetch config) ─────────────────────────────
+  app.get('/api/projects/:id/settings', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'project_id');
+    const db = getDb();
+
+    const result = await db.query('SELECT metadata FROM projects WHERE id = ?', [projectId]);
+    if (result.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Project not found' } }, 404);
+    }
+
+    let metadata: Record<string, unknown> = {};
+    const raw = (result.rows[0] as Record<string, unknown>).metadata;
+    if (typeof raw === 'string') {
+      try { metadata = JSON.parse(raw); } catch { /* empty */ }
+    } else if (typeof raw === 'object' && raw !== null) {
+      metadata = raw as Record<string, unknown>;
+    }
+
+    // Return settings with defaults
+    return c.json({
+      prefetch_enabled: metadata.prefetch_enabled ?? true,
+      prefetch_agent_count: metadata.prefetch_agent_count ?? 3,
+      ...metadata,
+    });
+  });
+
+  app.patch('/api/projects/:id/settings', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'project_id');
+    const body = await c.req.json<Record<string, unknown>>();
+    const db = getDb();
+
+    // Read current metadata
+    const result = await db.query('SELECT metadata FROM projects WHERE id = ?', [projectId]);
+    if (result.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Project not found' } }, 404);
+    }
+
+    let metadata: Record<string, unknown> = {};
+    const raw = (result.rows[0] as Record<string, unknown>).metadata;
+    if (typeof raw === 'string') {
+      try { metadata = JSON.parse(raw); } catch { /* empty */ }
+    } else if (typeof raw === 'object' && raw !== null) {
+      metadata = raw as Record<string, unknown>;
+    }
+
+    // Merge new settings
+    const updated = { ...metadata, ...body };
+    await db.query(
+      'UPDATE projects SET metadata = ?, updated_at = NOW() WHERE id = ?',
+      [JSON.stringify(updated), projectId],
+    );
+
+    return c.json({
+      prefetch_enabled: updated.prefetch_enabled ?? true,
+      prefetch_agent_count: updated.prefetch_agent_count ?? 3,
+      ...updated,
+    });
   });
 
   // ── Score team for a task (Super Brain Phase 2) ─────────────────────
