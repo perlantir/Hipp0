@@ -29,7 +29,7 @@ class ErrorBoundary extends React.Component<
           <p className="text-sm mb-4">{this.state.error?.message}</p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700"
+            className="px-4 py-2 bg-[#063ff9] text-white rounded-lg text-sm hover:bg-[#0534d4]"
           >
             Try Again
           </button>
@@ -310,10 +310,15 @@ function SidebarContent({
     <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-sm">N</span>
+        <div className="w-8 h-8 rounded-lg bg-[#063ff9] flex items-center justify-center shrink-0">
+          <span className="text-white font-bold text-sm">H0</span>
         </div>
-        {!collapsed && <span className="font-bold text-lg text-white tracking-tight">Hipp0</span>}
+        {!collapsed && (
+          <span className="font-bold text-lg tracking-tight">
+            <span className="text-white">HIPP</span>
+            <span className="text-[#00C2FF]">0</span>
+          </span>
+        )}
       </div>
 
       {/* Nav groups */}
@@ -532,7 +537,7 @@ export default function App() {
       <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
         <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-primary)' }}>
-          <div className="w-10 h-10 rounded-xl bg-[#D97706] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#063ff9] flex items-center justify-center">
             <span className="text-white font-bold">N</span>
           </div>
         </div>

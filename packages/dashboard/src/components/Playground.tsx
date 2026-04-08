@@ -494,7 +494,7 @@ export function Playground() {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#D97706' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-primary)' }}>
               <span className="text-white font-bold text-sm">D</span>
             </div>
             <span className="text-white font-bold text-lg tracking-tight">Hipp0</span>
@@ -553,7 +553,7 @@ export function Playground() {
             disabled={loading || !task.trim() || agents.length === 0}
             className="w-full sm:w-auto px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
             style={{
-              background: loading ? '#92400E' : '#D97706',
+              background: loading ? '#0534d4' : 'var(--accent-primary)',
               opacity: (loading || !task.trim()) ? 0.7 : 1,
               cursor: loading ? 'wait' : 'pointer',
             }}
@@ -671,7 +671,7 @@ export function Playground() {
             <a
               href="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-              style={{ background: '#D97706' }}
+              style={{ background: 'var(--accent-primary)' }}
             >
               Get Started Free <ArrowRight size={16} />
             </a>

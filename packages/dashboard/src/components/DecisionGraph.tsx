@@ -667,7 +667,7 @@ export function DecisionGraph() {
                   <label className="text-xs text-[var(--text-secondary)] block mb-1">Affects</label>
                   <div className="flex flex-wrap gap-1.5">
                     {((selectedNode as any).affects ?? []).map((a: string) => (
-                      <span key={a} className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">{a}</span>
+                      <span key={a} className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">{a}</span>
                     ))}
                   </div>
                 </div>

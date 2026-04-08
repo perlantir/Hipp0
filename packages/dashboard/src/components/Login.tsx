@@ -25,7 +25,7 @@ export function Login({ onLogin, error }: LoginProps) {
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)' }}
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-[#063ff9] flex items-center justify-center">
             <span className="text-white font-bold text-sm">N</span>
           </div>
           <span className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Hipp0</span>
@@ -58,7 +58,7 @@ export function Login({ onLogin, error }: LoginProps) {
           )}
           <button
             type="submit"
-            className="w-full px-4 py-2 bg-[#D97706] text-white rounded-lg text-sm font-medium hover:bg-[#B45309] transition-colors"
+            className="w-full px-4 py-2 bg-[#063ff9] text-white rounded-lg text-sm font-medium hover:bg-[#0534d4] transition-colors"
           >
             Sign In
           </button>

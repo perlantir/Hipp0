@@ -76,7 +76,7 @@ const PLANS: PlanDef[] = [
     monthlyPrice: 29,
     annualPrice: 278,
     icon: <Crown size={20} />,
-    color: '#D97706',
+    color: 'var(--accent-primary)',
     features: [
       { label: 'Unlimited projects', included: true },
       { label: '10,000 decisions', included: true },
@@ -241,7 +241,7 @@ export function Pricing() {
         <button
           onClick={() => setAnnual(!annual)}
           className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-          style={{ background: annual ? '#D97706' : 'var(--border-medium)' }}
+          style={{ background: annual ? 'var(--accent-primary)' : 'var(--border-medium)' }}
         >
           <span
             className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform"
@@ -255,7 +255,7 @@ export function Pricing() {
           Annual
         </span>
         {annual && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
             Save 20%
           </span>
         )}
@@ -274,14 +274,14 @@ export function Pricing() {
               key={plan.id}
               className="card relative flex flex-col"
               style={{
-                borderColor: isPopular ? '#D97706' : isCurrent ? plan.color : 'var(--border-light)',
+                borderColor: isPopular ? 'var(--accent-primary)' : isCurrent ? plan.color : 'var(--border-light)',
                 borderWidth: isPopular ? '2px' : '1px',
               }}
             >
               {isPopular && (
                 <div
                   className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold px-3 py-0.5 rounded-full text-white"
-                  style={{ background: '#D97706' }}
+                  style={{ background: 'var(--accent-primary)' }}
                 >
                   Most Popular
                 </div>
@@ -394,7 +394,7 @@ export function Pricing() {
               label="Total Decisions"
               current={usage.totals.decisions}
               max={decisionLimit}
-              color="#D97706"
+              color="var(--accent-primary)"
             />
             <UsageMeter
               label="Compiles Today"

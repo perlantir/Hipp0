@@ -61,7 +61,7 @@ function linkTypeBadge(type: string) {
     implements: 'bg-green-100 text-green-800',
     references: 'bg-blue-100 text-blue-800',
     created_by: 'bg-purple-100 text-purple-800',
-    validates: 'bg-amber-100 text-amber-800',
+    validates: 'bg-blue-100 text-blue-800',
     affects: 'bg-orange-100 text-orange-800',
   };
   return (

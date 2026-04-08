@@ -316,7 +316,7 @@ export function EvolutionProposals() {
           <button
             onClick={handleScan}
             disabled={scanning || !projectId}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#063ff9] text-white hover:bg-[#0534d4] disabled:opacity-50"
           >
             {scanning ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
             Scan Now

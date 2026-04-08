@@ -338,7 +338,7 @@ export function WhatIfSimulator() {
                 onClick={runSimulation}
                 disabled={simulating}
                 className="px-4 py-2 rounded-md text-sm font-medium text-white flex items-center gap-2"
-                style={{ background: simulating ? '#6B7280' : '#D97706' }}
+                style={{ background: simulating ? '#6B7280' : 'var(--accent-primary)' }}
               >
                 {simulating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 {simulating ? 'Simulating...' : 'Run Simulation'}

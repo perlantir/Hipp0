@@ -66,7 +66,7 @@ function planIcon(plan: string) {
 function planColor(plan: string) {
   switch (plan) {
     case 'enterprise': return '#7C3AED';
-    case 'pro': return '#D97706';
+    case 'pro': return '#063ff9';
     default: return '#6B7280';
   }
 }
@@ -94,7 +94,7 @@ function formatDate(iso: string) {
 function statusBadge(status: string) {
   const colors: Record<string, { bg: string; text: string }> = {
     paid: { bg: 'bg-green-50', text: 'text-green-700' },
-    open: { bg: 'bg-amber-50', text: 'text-amber-700' },
+    open: { bg: 'bg-blue-50', text: 'bg-blue-700' },
     draft: { bg: 'bg-gray-50', text: 'text-gray-600' },
     void: { bg: 'bg-red-50', text: 'text-red-700' },
     uncollectible: { bg: 'bg-red-50', text: 'text-red-700' },
@@ -135,7 +135,7 @@ function CancelModal({
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
             <AlertTriangle size={20} className="text-amber-600" />
           </div>
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -387,7 +387,7 @@ export function BillingSettings() {
             <button
               onClick={handleManageSubscription}
               className="ml-auto text-xs font-medium"
-              style={{ color: '#D97706' }}
+              style={{ color: 'var(--accent-primary)' }}
             >
               Update
             </button>
@@ -437,7 +437,7 @@ export function BillingSettings() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-medium"
-                            style={{ color: '#D97706' }}
+                            style={{ color: 'var(--accent-primary)' }}
                           >
                             View
                           </a>

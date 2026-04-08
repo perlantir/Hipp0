@@ -98,7 +98,7 @@ export function CompileTester() {
         <h1 className="text-xl font-semibold">Compile Tester</h1>
         <button
           onClick={() => { setSideBySide(!sideBySide); setResult2(null); setError2(null); }}
-          className={`btn-secondary text-xs gap-1.5 ${sideBySide ? 'bg-amber-100 text-amber-800' : ''}`}
+          className={`btn-secondary text-xs gap-1.5 ${sideBySide ? 'bg-blue-100 text-blue-800' : ''}`}
         >
           <Columns2 size={14} />
           {sideBySide ? 'Single Mode' : 'Side-by-Side'}
@@ -251,7 +251,7 @@ function ResultColumn({ label, result, loading, error }: { label?: string; resul
                     <span className="text-sm font-medium">{d.title}</span>
                   </div>
                   {d.score != null && (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                       {d.score.toFixed(2)}
                     </span>
                   )}
