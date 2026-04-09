@@ -242,9 +242,8 @@ export class PostgresAdapter implements DatabaseAdapter {
         });
         console.warn(`[hipp0/migrations] ✅ Applied ${file}`);
       } catch (err) {
-        console.warn(`[hipp0/migrations] ⚠️ ${file} failed: ${(err as Error).message}`);
-        // Mark as applied anyway so it doesn't block other migrations
-        await this.query('INSERT INTO _hipp0_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
+        console.error(`[hipp0/migrations] ❌ ${file} failed: ${(err as Error).message}`);
+        throw new Error(`Migration ${file} failed: ${(err as Error).message}. Fix the migration and restart.`);
       }
     }
   }

@@ -207,15 +207,17 @@ async function runCaptureExtraction(
     // Run the distillery pipeline
     const result = await distill(projectId, conversation, agentName, sessionId ?? undefined);
 
-    // Mark extracted decisions with source = 'auto_capture' and flag for review
+    // Mark extracted decisions with appropriate source and flag for review
+    // SQLite's original CHECK constraint only allows 'manual', 'auto_distilled', 'imported'
+    // so we use 'auto_distilled' on SQLite and record the real origin in provenance_chain
+    const captureSource = db.dialect === 'sqlite' ? 'auto_distilled' : 'auto_capture';
     const decisionIds = result.decisions.map((d) => d.id);
     for (const id of decisionIds) {
       await db.query(
-        `UPDATE decisions SET source = 'auto_capture', confidence = 'low', review_status = 'pending_review', status = 'pending'
+        `UPDATE decisions SET source = ?, confidence = 'low', review_status = 'pending_review', status = 'pending'
          WHERE id = ?`,
-        [id],
+        [captureSource, id],
       ).catch((err) => {
-        // If CHECK constraint prevents 'auto_capture', leave as auto_distilled
         console.warn(`[hipp0:capture] Could not update source for decision ${id}:`, (err as Error).message);
       });
     }
