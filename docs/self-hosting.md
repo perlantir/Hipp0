@@ -1230,3 +1230,20 @@ docker compose up -d
 
 # If migrations need reverting, restore from backup
 ```
+
+---
+
+## Production Deployment Checklist
+
+Before deploying to production, ensure:
+
+1. **Database password**: Set a strong `POSTGRES_PASSWORD` (the default `hipp0_dev` is for local development only)
+2. **Auth enabled**: `HIPP0_AUTH_REQUIRED=true` (enforced automatically when `NODE_ENV=production`)
+3. **API keys**: Generated automatically on project creation. Retrieve via `GET /api/api-keys`
+4. **TLS**: Configure a reverse proxy (nginx, Caddy, Traefik) with TLS termination
+5. **Proxy trust**: Set `HIPP0_TRUSTED_PROXY=true` when behind a reverse proxy
+6. **CORS**: Set `HIPP0_CORS_ORIGINS` to your dashboard domain
+7. **Database**: Bind PostgreSQL to localhost only (default in docker-compose.yml)
+8. **Secrets**: Never commit `.env` files. Use environment variables or secret management
+9. **Backups**: Configure PostgreSQL backup schedule for the `nexus_nexus_pgdata` volume
+10. **Monitoring**: Check `/api/health` and `/api/metrics` endpoints
