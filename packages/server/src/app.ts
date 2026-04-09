@@ -91,10 +91,9 @@ export function createApp() {
   app.use('/api/auth/*', rateLimiter({ maxRequests: 10, windowMs: 60000, namespace: 'auth' }));
   app.onError(errorHandler);
 
-    // Auth middleware
-  // When HIPP0_AUTH_REQUIRED=false (default), optionalAuth is used.
-  // When true, phase3AuthMiddleware enforces JWT or API key.
-  // Public routes are always exempt.
+  // Auth middleware
+  // When HIPP0_AUTH_REQUIRED=true (default), phase3AuthMiddleware enforces auth.
+  // Set HIPP0_AUTH_REQUIRED=false for local development only.
   app.use('/api/*', async (c, next) => {
     const path = c.req.path;
 

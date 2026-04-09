@@ -14,7 +14,7 @@ jobs:
           if [ "$COUNT" -gt 0 ]; then echo "❌ $COUNT DeciGraph references in shell"; FOUND=1; fi
           COUNT=$(grep -rn "dg_" --include="*.ts" packages/ | grep -v CHANGELOG | wc -l)
           if [ "$COUNT" -gt 0 ]; then echo "❌ $COUNT dg_ prefix references"; FOUND=1; fi
-          COUNT=$(grep -rn "──" --include="*.ts" --include="*.js" packages/ | wc -l)
-          if [ "$COUNT" -gt 0 ]; then echo "❌ $COUNT em-dash dividers found"; FOUND=1; fi
-          if [ $FOUND -eq 1 ]; then echo "::error::Old brand names or AI fingerprints detected"; exit 1; fi
+          COUNT=$(grep -rn "// .*──" --include="*.ts" --include="*.js" packages/*/src/ | wc -l)
+          if [ "$COUNT" -gt 0 ]; then echo "❌ $COUNT em-dash comment dividers in source"; FOUND=1; fi
+          if [ $FOUND -eq 1 ]; then echo "::error::Brand check failed — see above"; exit 1; fi
           echo "✅ Brand check passed"

@@ -19,7 +19,7 @@ export function registerProjectRoutes(app: Hono): void {
     const name = requireString(body.name, 'name', 500);
     const description = optionalString(body.description, 'description', 10000);
 
-    const tenantId = (c.req.header('x-tenant-id') ?? '') as string || 'a0000000-0000-4000-8000-000000000001';
+    const tenantId = isAuthRequired() ? getTenantId(c) : 'a0000000-0000-4000-8000-000000000001';
 
     try {
       const result = await db.query(
@@ -72,7 +72,7 @@ export function registerProjectRoutes(app: Hono): void {
   app.get('/api/projects/:id', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const tenantId = (c.req.header('x-tenant-id') ?? '') as string;
+    const tenantId = isAuthRequired() ? getTenantId(c) : '';
     let result;
     if (tenantId) {
       result = await db.query('SELECT * FROM projects WHERE id = ? AND tenant_id = ?', [id, tenantId]);
