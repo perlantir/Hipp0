@@ -233,6 +233,25 @@ export function registerOutcomeRoutes(app: Hono): void {
       alignment_score: alignment.alignment_score,
     });
 
+    // Attribute outcome to individual decisions from this compile
+    const outcomeType = taskCompleted ? 'success' : errorOccurred ? 'failure' : 'partial';
+    const outcomeScore = taskCompleted ? (alignment.alignment_score * 0.7 + 0.3) : (errorOccurred ? 0.1 : 0.4);
+
+    let decisionsAttributed = 0;
+    try {
+      const { attributeOutcomeToDecisions } = await import('@hipp0/core/intelligence/outcome-memory.js');
+      decisionsAttributed = await attributeOutcomeToDecisions({
+        compile_history_id: compileRequestId,
+        project_id: projectId,
+        agent_id: agentId,
+        outcome_type: outcomeType,
+        outcome_score: outcomeScore,
+        notes: body.error_message ?? undefined,
+      });
+    } catch (err) {
+      console.warn('[hipp0:outcomes] Decision attribution failed:', (err as Error).message);
+    }
+
     // Wing affinity: boost for all contributing wings on successful outcome
     if (taskCompleted) {
       processWingOutcome(agentId, compileRequestId).catch(() => {});
@@ -256,6 +275,7 @@ export function registerOutcomeRoutes(app: Hono): void {
       decisions_compiled: totalDecisions,
       decisions_referenced: alignment.decisions_referenced,
       decisions_ignored: alignment.decisions_ignored,
+      decisions_attributed: decisionsAttributed,
     }, 201);
   });
 
@@ -379,5 +399,22 @@ export function registerOutcomeRoutes(app: Hono): void {
         previous_count: parseInt(previous.count as string) || 0,
       },
     });
+  });
+
+  // GET /api/decisions/:id/outcomes — Decision outcome history
+  app.get('/api/decisions/:id/outcomes', async (c) => {
+    const decisionId = requireUUID(c.req.param('id'), 'decisionId');
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 200);
+    const { getDecisionOutcomes } = await import('@hipp0/core/intelligence/outcome-memory.js');
+    const outcomes = await getDecisionOutcomes(decisionId, limit);
+    return c.json(outcomes);
+  });
+
+  // GET /api/decisions/:id/outcome-stats — Decision outcome aggregates
+  app.get('/api/decisions/:id/outcome-stats', async (c) => {
+    const decisionId = requireUUID(c.req.param('id'), 'decisionId');
+    const { getOutcomeStats } = await import('@hipp0/core/intelligence/outcome-memory.js');
+    const stats = await getOutcomeStats(decisionId);
+    return c.json(stats);
   });
 }

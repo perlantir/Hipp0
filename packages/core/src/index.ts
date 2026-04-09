@@ -185,6 +185,9 @@ export {
   validationProvenance,
 } from './intelligence/trust-scorer.js';
 
+// --- Outcome Memory ---
+export { recordDecisionOutcome, getDecisionOutcomes, getOutcomeStats, outcomeMultiplier, attributeOutcomeToDecisions } from './intelligence/outcome-memory.js';
+
 // --- Pattern Recommendations ---
 export {
   getPatternRecommendations,
