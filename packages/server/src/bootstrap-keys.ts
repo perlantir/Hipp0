@@ -67,11 +67,6 @@ export async function bootstrapApiKeys(): Promise<void> {
     );
 
     const masked = key.slice(0, 16) + '...';
-    console.warn('============================================================');
-    console.warn(`\ud83d\udd11 API Key generated for project "${projectName}"`);
-    console.warn(`   Key: ${masked} (retrieve via GET /api/api-keys)`);
-    console.warn('');
-    console.warn('   Full key is NOT logged for security.');
-    console.warn('============================================================');
+    console.warn(`[hipp0] API key generated for project "${projectName}": ${masked} (retrieve via GET /api/api-keys)`);
   }
 }
