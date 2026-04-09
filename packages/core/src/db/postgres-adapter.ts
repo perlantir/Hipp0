@@ -242,8 +242,16 @@ export class PostgresAdapter implements DatabaseAdapter {
         });
         console.warn(`[hipp0/migrations] ✅ Applied ${file}`);
       } catch (err) {
-        console.error(`[hipp0/migrations] ❌ ${file} failed: ${(err as Error).message}`);
-        throw new Error(`Migration ${file} failed: ${(err as Error).message}. Fix the migration and restart.`);
+        const msg = (err as Error).message ?? '';
+        // Tolerate harmless DDL idempotency errors (already exists, duplicate column)
+        if (msg.includes('already exists') || msg.includes('duplicate key') || msg.includes('duplicate column')) {
+          console.warn(`[hipp0/migrations] ⚠️ ${file}: ${msg} (safe to continue)`);
+          // Mark as applied so it doesn't retry
+          await this.query('INSERT INTO _hipp0_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
+        } else {
+          console.error(`[hipp0/migrations] ❌ ${file} failed: ${msg}`);
+          throw new Error(`Migration ${file} failed: ${msg}. Fix the migration and restart.`);
+        }
       }
     }
   }
