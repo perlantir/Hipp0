@@ -2,7 +2,7 @@
  * Super Brain Playground — interactive step-by-step agent simulation.
  *
  * 100% client-side, zero API/LLM calls. Uses hardcoded demo scenarios.
- * Copper #D97757 accents, glassmorphism cards, smooth animations.
+ * Cyanic Swarm #063ff9 accents, glassmorphism cards, smooth animations.
  *
  * Flow: Hero → Task Input → Team Plan → Step Simulation → Completion
  */
@@ -14,16 +14,16 @@ import { findScenario, type DemoScenario, type DemoStep } from '../data/demo-sce
 type Phase = 'input' | 'planning' | 'simulation' | 'complete';
 type Speed = 'normal' | 'fast' | 'skip';
 
-const COPPER = '#D97757';
-const COPPER_BG = 'rgba(217, 119, 87, 0.08)';
-const COPPER_BORDER = 'rgba(217, 119, 87, 0.25)';
-const GREEN = '#10B981';
-const GREEN_BG = 'rgba(16, 185, 129, 0.08)';
-const GREEN_BORDER = 'rgba(16, 185, 129, 0.3)';
-const SURFACE = 'rgba(255, 255, 255, 0.03)';
-const SURFACE_BORDER = 'rgba(255, 255, 255, 0.08)';
-const GLASS = 'rgba(255, 255, 255, 0.04)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.1)';
+const COPPER = '#063ff9';
+const COPPER_BG = 'rgba(6, 63, 249, 0.08)';
+const COPPER_BORDER = 'rgba(6, 63, 249, 0.25)';
+const GREEN = '#16A34A';
+const GREEN_BG = 'rgba(22, 163, 74, 0.08)';
+const GREEN_BORDER = 'rgba(22, 163, 74, 0.3)';
+const SURFACE = 'rgba(6, 63, 249, 0.03)';
+const SURFACE_BORDER = 'rgba(6, 63, 249, 0.08)';
+const GLASS = 'rgba(255, 255, 255, 0.6)';
+const GLASS_BORDER = 'rgba(255, 255, 255, 0.4)';
 
 const STEP_MS: Record<Speed, number> = { normal: 3000, fast: 1500, skip: 0 };
 
@@ -220,7 +220,9 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         {showOutput && (
           <div style={{
             padding: '12px 16px', borderRadius: 8,
-            backgroundColor: 'rgba(0,0,0,0.2)',
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
             fontFamily: 'monospace', fontSize: 13, color: '#e5e7eb', lineHeight: 1.7,
           }}>
             <div style={{ color: '#6b7280', fontSize: 11, marginBottom: 6, letterSpacing: '0.5px' }}>OUTPUT</div>
@@ -543,7 +545,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
               'docker compose up -d',
             ].map((cmd, i) => (
               <button key={i} onClick={() => navigator.clipboard?.writeText(cmd)} style={{
-                padding: '8px 14px', backgroundColor: 'rgba(0,0,0,0.3)',
+                padding: '8px 14px', background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(24px)',
                 color: '#9ca3af', border: `1px solid ${SURFACE_BORDER}`, borderRadius: 8,
                 fontSize: 12, fontFamily: 'monospace', cursor: 'pointer',
                 transition: 'all 0.2s',
