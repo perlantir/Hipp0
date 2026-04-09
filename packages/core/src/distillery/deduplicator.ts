@@ -76,6 +76,27 @@ export async function deduplicateDecisions(
       continue;
     }
 
+    // Within-batch dedup: check against already-accepted items
+    const normalizedTitle = decision.title.toLowerCase().trim();
+    const batchDuplicate = unique.some((accepted) => {
+      const acceptedTitle = accepted.title.toLowerCase().trim();
+      // Exact title match
+      if (acceptedTitle === normalizedTitle) return true;
+      // Near-match: one title contains the other and they're similar length
+      if (acceptedTitle.length > 10 && normalizedTitle.length > 10) {
+        if (acceptedTitle.includes(normalizedTitle) || normalizedTitle.includes(acceptedTitle)) {
+          const lenRatio = Math.min(acceptedTitle.length, normalizedTitle.length) / Math.max(acceptedTitle.length, normalizedTitle.length);
+          if (lenRatio > 0.7) return true;
+        }
+      }
+      return false;
+    });
+
+    if (batchDuplicate) {
+      console.warn(`[hipp0:distillery] Within-batch duplicate: "${decision.title}" — skipping.`);
+      continue;
+    }
+
     unique.push(decision);
   }
 

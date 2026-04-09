@@ -8,6 +8,7 @@ import {
   computeAndApplyWeightUpdates,
 } from '@hipp0/core/relevance-learner/index.js';
 import { processWingOutcome } from '@hipp0/core';
+import { invalidateDecisionCaches } from '../cache/redis.js';
 
 // ---------------------------------------------------------------------------
 // Alignment analysis (keyword-based v1)
@@ -68,8 +69,6 @@ function analyzeAlignment(
 // ---------------------------------------------------------------------------
 // Auto-learning: processOutcomeSignals
 // ---------------------------------------------------------------------------
-
-const outcomeCounters = new Map<string, number>();
 
 async function processOutcomeSignals(agentId: string): Promise<void> {
   const db = getDb();
@@ -254,21 +253,26 @@ export function registerOutcomeRoutes(app: Hono): void {
 
     // Wing affinity: boost for all contributing wings on successful outcome
     if (taskCompleted) {
-      processWingOutcome(agentId, compileRequestId).catch(() => {});
+      processWingOutcome(agentId, compileRequestId)
+        .then(() => invalidateDecisionCaches(projectId))
+        .catch(() => {});
     }
 
-    // Check auto-learning trigger
-    const count = (outcomeCounters.get(agentId) ?? 0) + 1;
-    outcomeCounters.set(agentId, count);
-    if (count >= 10) {
-      outcomeCounters.set(agentId, 0);
+    // Check auto-learning trigger based on DB count
+    const countResult = await db.query<Record<string, unknown>>(
+      `SELECT COUNT(*) as cnt FROM compile_outcomes WHERE agent_id = ? AND created_at >= ${db.dialect === 'sqlite' ? "datetime('now', '-1 hour')" : "NOW() - INTERVAL '1 hour'"}`,
+      [agentId],
+    );
+    const recentCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
+    if (recentCount > 0 && recentCount % 10 === 0) {
       processOutcomeSignals(agentId).catch(() => {});
     }
 
     // Trigger cross-agent learning every 20 outcomes
-    if (count % 20 === 0 && count > 0) {
+    if (recentCount > 0 && recentCount % 20 === 0) {
       import('@hipp0/core/intelligence/cross-agent-learner.js')
         .then(({ applyCrossAgentLearning }) => applyCrossAgentLearning(projectId))
+        .then(() => invalidateDecisionCaches(projectId))
         .catch(() => {});
     }
 

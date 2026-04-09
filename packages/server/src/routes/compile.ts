@@ -361,6 +361,10 @@ export function registerCompileRoutes(app: Hono): void {
       outcome_hint: `Report task results: POST /api/outcomes with compile_request_id=${compileRequestId}`,
       ...(policyNotices.length > 0 ? { policy_notices: policyNotices } : {}),
       ...(policySummary ? { policy_summary: policySummary } : {}),
+      ...(() => {
+        const hasBlockPolicy = (policyNotices ?? []).some((n: any) => n.enforcement === 'block');
+        return hasBlockPolicy ? { policy_blocked: true } : {};
+      })(),
 
       ...(hint ? { hint } : {}),
       ...(sessionMeta ? { session: sessionMeta } : {}),
