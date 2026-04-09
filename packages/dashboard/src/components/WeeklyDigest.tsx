@@ -156,7 +156,7 @@ export function WeeklyDigest() {
               <div className="card p-6 rounded-3xl flex flex-col items-end">
                 <span className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">System Health</span>
                 {(() => {
-                  const h = HEALTH_CONFIG[digest.summary.overall_health] || HEALTH_CONFIG.good;
+                  const h = HEALTH_CONFIG[digest.summary?.overall_health] || HEALTH_CONFIG.good;
                   return (
                     <span className="text-3xl font-bold" style={{ color: h.color }}>
                       {h.label}
@@ -200,28 +200,28 @@ export function WeeklyDigest() {
               <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                 <BarChart3 size={20} />
               </div>
-              <div className="text-4xl font-bold mb-1">{digest.summary.findings_count}</div>
+              <div className="text-4xl font-bold mb-1">{digest.summary?.findings_count ?? 0}</div>
               <div className="text-[var(--text-secondary)] font-medium">total findings</div>
             </div>
             <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
               <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center mb-6 text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors">
                 <AlertOctagon size={20} />
               </div>
-              <div className="text-4xl font-bold mb-1">{digest.summary.critical}</div>
+              <div className="text-4xl font-bold mb-1">{digest.summary?.critical ?? 0}</div>
               <div className="text-[var(--text-secondary)] font-medium">critical</div>
             </div>
             <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                 <AlertTriangle size={20} />
               </div>
-              <div className="text-4xl font-bold mb-1">{digest.summary.warnings}</div>
+              <div className="text-4xl font-bold mb-1">{digest.summary?.warnings ?? 0}</div>
               <div className="text-[var(--text-secondary)] font-medium">warnings</div>
             </div>
             <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
               <div className="w-12 h-12 rounded-2xl bg-slate-200 flex items-center justify-center mb-6 text-slate-600 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <Info size={20} />
               </div>
-              <div className="text-4xl font-bold mb-1">{digest.summary.period}</div>
+              <div className="text-4xl font-bold mb-1">{digest.summary?.period ?? '7d'}</div>
               <div className="text-[var(--text-secondary)] font-medium">period</div>
             </div>
           </section>
@@ -233,15 +233,15 @@ export function WeeklyDigest() {
               <span className="text-2xl font-bold">{timeAgo(digest.generated_at)}</span>
             </div>
             <div className="h-1 w-full bg-white/20 rounded-full mb-4">
-              <div className="h-full bg-white rounded-full" style={{ width: `${digest.summary.overall_health === 'good' ? 90 : digest.summary.overall_health === 'fair' ? 60 : 30}%` }} />
+              <div className="h-full bg-white rounded-full" style={{ width: `${digest.summary?.overall_health === 'good' ? 90 : digest.summary?.overall_health === 'fair' ? 60 : 30}%` }} />
             </div>
             <p className="text-xs opacity-80 italic">
-              {digest.summary.findings_count} findings analyzed across the reporting period.
+              {digest.summary?.findings_count ?? 0} findings analyzed across the reporting period.
             </p>
           </div>
 
           {/* Findings */}
-          {digest.findings.length === 0 ? (
+          {(!digest.findings || digest.findings.length === 0) ? (
             <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>
               <p className="text-sm">No findings -- your project is in good shape.</p>
             </div>
