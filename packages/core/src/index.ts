@@ -207,3 +207,6 @@ export {
   DEFAULT_MIN_PATTERN_CONFIDENCE,
   MAX_SUGGESTED_PATTERNS,
 } from './intelligence/pattern-extractor.js';
+
+// --- Execution Governor ---
+export { evaluateProposal, recordOverride } from './governance/execution-governor.js';

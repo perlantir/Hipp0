@@ -135,6 +135,56 @@ export interface CrossAgentSignal {
   last_updated_at: string;
 }
 
+// --- Execution Governor ---
+export type GovernorStatus = 'allow' | 'warn' | 'block';
+export type GovernorReasonCode =
+  | 'conflicts_active_decision'
+  | 'low_trust_dependency'
+  | 'poor_outcome_history'
+  | 'unresolved_contradiction'
+  | 'stale_assumption'
+  | 'superseded_pattern'
+  | 'policy_block'
+  | 'review_required'
+  | 'deprecated_scope';
+export type GovernorSeverity = 'info' | 'warn' | 'block';
+
+export interface ExecutionProposal {
+  project_id: string;
+  agent_id?: string;
+  agent_name?: string;
+  action_type: string;
+  target_decision_ids?: string[];
+  related_decision_ids?: string[];
+  task?: string;
+  proposed_tags?: string[];
+  proposed_domain?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GovernorReason {
+  code: GovernorReasonCode;
+  severity: GovernorSeverity;
+  decision_id?: string;
+  message: string;
+  evidence?: Record<string, unknown>;
+}
+
+export interface GovernorDecision {
+  status: GovernorStatus;
+  summary: string;
+  reasons: GovernorReason[];
+  required_actions?: string[];
+  override_allowed: boolean;
+}
+
+export interface GovernorOverrideRequest {
+  proposal: ExecutionProposal;
+  justification: string;
+  actor_id: string;
+  metadata?: Record<string, unknown>;
+}
+
 // --- Decisions ---
 export interface Decision {
   id: string;
