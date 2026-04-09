@@ -199,13 +199,13 @@ export function WeeklyDigest() {
                   {digest.summary.warnings} warning{digest.summary.warnings !== 1 ? 's' : ''}
                 </span>
               )}
-              <span>{digest.summary.findings_count} total findings</span>
+              <span>{digest.summary?.findings_count ?? 0} total findings</span>
               <span>Generated {timeAgo(digest.generated_at)}</span>
             </div>
           </div>
 
           {/* Findings */}
-          {digest.findings.length === 0 ? (
+          {(!digest.findings || digest.findings.length === 0) ? (
             <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>
               <p className="text-sm">No findings — your project is in good shape.</p>
             </div>
