@@ -150,6 +150,14 @@
     "./wings/affinity.js": {
       "import": "./dist/wings/affinity.js",
       "types": "./dist/wings/affinity.d.ts"
+    },
+    "./intelligence/capture-dedup.js": {
+      "import": "./dist/intelligence/capture-dedup.js",
+      "types": "./dist/intelligence/capture-dedup.d.ts"
+    },
+    "./intelligence/trust-scorer.js": {
+      "import": "./dist/intelligence/trust-scorer.js",
+      "types": "./dist/intelligence/trust-scorer.d.ts"
     }
   },
   "scripts": {
