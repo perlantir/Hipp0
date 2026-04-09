@@ -7,6 +7,7 @@
 
 import type { Hono } from 'hono';
 import { getProjectPatterns, extractPatterns } from '@hipp0/core/intelligence/pattern-extractor.js';
+import { isAuthRequired } from '../auth/middleware.js';
 
 export function registerPatternRoutes(app: Hono): void {
   // Get patterns relevant to this project (only surfaced if 5+ tenants)
@@ -23,6 +24,14 @@ export function registerPatternRoutes(app: Hono): void {
 
   // Trigger pattern extraction manually (admin)
   app.post('/api/patterns/extract', async (c) => {
+    // Require authentication — reject if auth is required and no user context
+    if (isAuthRequired()) {
+      const user = c.get('user' as never) as { role?: string } | undefined;
+      if (!user) {
+        return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+      }
+    }
+
     try {
       const result = await extractPatterns();
       return c.json(result);
