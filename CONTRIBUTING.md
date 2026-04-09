@@ -1,115 +1,115 @@
 # Contributing to Hipp0
 
-Thank you for your interest in contributing to Hipp0. This guide will help you get started.
+Thanks for your interest in contributing. Hipp0 is an Apache 2.0 open-source project built by Perlantir AI Studio.
 
-## Development Setup
+---
 
-### Prerequisites
+## Before You Start
 
-- Node.js 22+
-- pnpm 9+
-- Docker and Docker Compose
-- Git
+Open an issue before writing code for anything non-trivial. This avoids the situation where you build something we can't merge — either because it conflicts with planned work, or because it needs a design discussion first.
 
-### Getting Started
+For typo fixes, documentation improvements, and obvious bug fixes: PRs are welcome without an issue.
+
+---
+
+## Getting the Repo Running
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/Hipp0.git
-cd hipp0
+git clone https://github.com/perlantir/Hipp0.git
+cd Hipp0
 
 # Install dependencies
 pnpm install
 
-# Start the database
-docker compose up -d postgres
+# Set up environment
+cp .env.example .env
+# Edit .env — add ANTHROPIC_API_KEY at minimum
 
-# Build all packages
-pnpm build
+# Start everything
+docker compose up -d
 
-# Run tests
-pnpm test
-
-# Start the development server
-pnpm --filter @hipp0/server dev
+# Or start without Docker (SQLite mode)
+pnpm --filter @hipp0/cli build
+node packages/cli/dist/index.js init dev-project
 ```
 
-## Project Structure
+Full setup: [docs/getting-started.md](docs/getting-started.md)
 
-```
-packages/
-  core/       — Decision graph, context compiler, change propagator, distillery, temporal engine
-  server/     — Hono REST API (33 endpoints)
-  sdk/        — TypeScript client library
-  mcp/        — MCP server for AI agents (Claude, Cursor, etc.)
-  dashboard/  — React + D3.js web UI
-  cli/        — Command-line interface
+---
 
-integrations/
-  langchain/       — LangChain/LangGraph adapter
-  crewai/          — CrewAI adapter
-  autogen/         — Microsoft AutoGen adapter
-  openai-agents/   — OpenAI Agents SDK adapter
+## Running the Benchmarks
 
-python-sdk/   — Python REST client (shared by all integrations)
+Before submitting any PR that touches the scoring engine, context compiler, or retrieval pipeline, run the benchmark suite and include results in your PR description:
+
+```bash
+npx tsx benchmarks/runner.ts --suite all
 ```
 
-## Submitting Changes
+We care about these numbers. Don't regress them. See [docs/benchmarks.md](docs/benchmarks.md).
 
-### Branch Naming
-
-- `feat/description` for new features
-- `fix/description` for bug fixes
-- `docs/description` for documentation
-- `test/description` for test additions
-
-### Commit Messages
-
-We use [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat: add WebSocket support for real-time notifications
-fix: correct freshness scoring for validated decisions
-docs: update MCP setup guide for Cursor
-test: add integration tests for context compiler
-chore: update dependencies
-```
-
-### Pull Request Process
-
-1. Fork the repository and create your branch from `main`
-2. Write or update tests for your changes
-3. Ensure all tests pass: `pnpm test`
-4. Ensure TypeScript compiles: `pnpm build`
-5. Update documentation if your changes affect public APIs
-6. Submit your PR with a clear description of the changes
+---
 
 ## Code Style
 
-- TypeScript strict mode, ES2022 target
-- All imports use `.js` extensions (NodeNext module resolution)
-- Prettier for formatting: `pnpm format`
-- ESLint for linting: `pnpm lint`
+- TypeScript everywhere on the server and SDK
+- No `any` without a comment explaining why
+- Prefer explicit over clever — this codebase is read by agents as much as humans
+- Keep functions small and named for what they do
 
-## Testing
+Run the linter before opening a PR:
 
-- Unit tests with Vitest
-- Test files go in `tests/` directories adjacent to source
-- Name test files `*.test.ts`
-- Run all tests: `pnpm test`
-- Run specific package tests: `pnpm --filter @hipp0/core test`
+```bash
+pnpm lint
+pnpm typecheck
+```
+
+---
+
+## What We're Looking For
+
+Good candidates for contribution:
+
+- **Bug fixes** — especially anything in the scoring pipeline or MCP tools
+- **Framework guides** — integration examples for agent frameworks not yet covered
+- **Benchmark datasets** — more test cases for the retrieval and contradiction suites
+- **Documentation** — corrections, clarifications, examples
+- **SDK methods** — wrappers for API endpoints not yet in the TypeScript or Python SDK
+
+Things we handle internally:
+
+- Core architecture changes
+- New dashboard views
+- Pricing and billing
+- Database schema changes
+
+---
+
+## Pull Request Process
+
+1. Fork the repo and create a branch from `main`
+2. Make your changes
+3. Run `pnpm lint && pnpm typecheck`
+4. Run benchmarks if relevant
+5. Open a PR with a clear description of what changed and why
+6. Reference any related issues
+
+PRs are reviewed by the Perlantir team. We'll respond within a few business days.
+
+---
 
 ## Reporting Issues
 
-Use [GitHub Issues](../../issues) with the provided templates:
+Use GitHub Issues. Include:
+- What you were doing
+- What you expected to happen
+- What actually happened
+- Relevant logs (`docker compose logs server --tail 50`)
+- Your environment (OS, Docker version, Node version)
 
-- **Bug reports**: Include steps to reproduce, expected vs actual behavior, and your environment
-- **Feature requests**: Describe the use case and proposed solution
+For security issues, do not open a public issue. Email hello@hipp0.ai with the details.
 
-## Code of Conduct
-
-This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.
+---
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [Apache License 2.0](LICENSE).
+By contributing, you agree that your contributions will be licensed under the Apache 2.0 license.
