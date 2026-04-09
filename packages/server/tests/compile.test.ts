@@ -46,7 +46,7 @@ vi.mock('@hipp0/core/context-compiler/index.js', () => ({
     token_count: 3200,
     budget_used_pct: 6,
     decisions: [
-      { id: 'dec-1', title: 'Use JWT', combined_score: 0.92, scoring_breakdown: { direct_affect: 0.3, tag_matching: 0.2, role_relevance: 0.15, semantic_similarity: 0.22, status_penalty: 0 } },
+      { id: 'dec-1', title: 'Use JWT', description: 'Token auth', reasoning: 'Stateless', made_by: 'architect', confidence: 'high', status: 'active', tags: ['auth'], affects: ['builder'], combined_score: 0.92, scoring_breakdown: { direct_affect: 0.3, tag_matching: 0.2, role_relevance: 0.15, semantic_similarity: 0.22, status_penalty: 0 }, created_at: '2026-04-01', updated_at: '2026-04-01' },
     ],
     artifacts: [],
     notifications: [],
@@ -82,7 +82,7 @@ describe('POST /api/compile', () => {
     // Agent lookup for history recording
     mockQuery.mockResolvedValue({ rows: [{ id: 'agent-1' }], rowCount: 1 });
 
-    const res = await request(app, 'POST', '/api/compile', {
+    const res = await request(app, 'POST', '/api/compile?format=json', {
       agent_name: 'builder',
       project_id: '11111111-1111-1111-1111-111111111111',
       task_description: 'Build auth module',
@@ -99,7 +99,7 @@ describe('POST /api/compile', () => {
   it('returns decisions with combined_score and scoring_breakdown', async () => {
     mockQuery.mockResolvedValue({ rows: [{ id: 'agent-1' }], rowCount: 1 });
 
-    const res = await request(app, 'POST', '/api/compile', {
+    const res = await request(app, 'POST', '/api/compile?format=json', {
       agent_name: 'builder',
       project_id: '11111111-1111-1111-1111-111111111111',
       task_description: 'Build auth',

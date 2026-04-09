@@ -116,7 +116,7 @@ describe('markProcessed', () => {
     expect(sql).toContain('ON CONFLICT');
     expect(sql).toContain('DO UPDATE');
     expect(sql).toContain('processed_at');
-    expect(sql).toContain('NOW()');
+    expect(sql).toContain("datetime('now')");
   });
 });
 

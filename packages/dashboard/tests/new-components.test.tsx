@@ -1,5 +1,5 @@
 /**
- * New component tests — Wizard, Import, Connectors
+ * New component tests - Wizard, Import, Connectors
  *
  * Uses the exact same mock setup as components.test.tsx:
  *   - useApi, useProject mocked
@@ -59,9 +59,13 @@ function resetMocks() {
   mockPost.mockReset();
   mockPatch.mockReset();
   mockDel.mockReset();
+  // Default: all API calls resolve to empty arrays so components that call
+  // get(...) on mount (e.g. CaptureHistory) don't crash
+  mockGet.mockResolvedValue([]);
+  mockPost.mockResolvedValue([]);
 }
 
-// ── Wizard ────────────────────────────────────────────────────────────────────
+// -- Wizard--
 
 describe('Wizard', () => {
   beforeEach(resetMocks);
@@ -76,7 +80,7 @@ describe('Wizard', () => {
     });
   });
 
-  it('advances through steps — clicking next changes step content', async () => {
+  it('advances through steps - clicking next changes step content', async () => {
     const { Wizard } = await import('../src/components/Wizard');
     await act(async () => {
       render(<Wizard onComplete={vi.fn()} />);
@@ -99,7 +103,7 @@ describe('Wizard', () => {
     });
   });
 
-  it('creates project on step 2 submit — calls mockPost with project data', async () => {
+  it('creates project on step 2 submit - calls mockPost with project data', async () => {
     mockPost.mockResolvedValue({ id: 'new-project-uuid' });
 
     const { Wizard } = await import('../src/components/Wizard');
@@ -135,7 +139,7 @@ describe('Wizard', () => {
     });
   });
 
-  it('registers agents on step 3 submit — calls mockPost for each agent', async () => {
+  it('registers agents on step 3 submit - calls mockPost for each agent', async () => {
     // Step 2: project creation succeeds
     mockPost.mockResolvedValueOnce({ id: 'proj-abc123' });
     // Step 3: agent registrations succeed
@@ -146,7 +150,7 @@ describe('Wizard', () => {
       render(<Wizard onComplete={vi.fn()} />);
     });
 
-    // Go to step 1 — Create Project
+    // Go to step 1 - Create Project
     await act(async () => {
       fireEvent.click(screen.getByText(/Set up your first project/i));
     });
@@ -167,7 +171,7 @@ describe('Wizard', () => {
       fireEvent.click(screen.getByRole('button', { name: /Create Project/i }));
     });
 
-    // Wait for step 2 — Add Agents
+    // Wait for step 2 - Add Agents
     await waitFor(() => {
       expect(screen.getByText(/Add your agents/i)).toBeTruthy();
     });
@@ -193,7 +197,7 @@ describe('Wizard', () => {
   });
 });
 
-// ── Import ────────────────────────────────────────────────────────────────────
+// -- Import--
 
 describe('Import', () => {
   beforeEach(resetMocks);
@@ -239,7 +243,7 @@ describe('Import', () => {
       });
     });
 
-    // Click Import — the button text is "Import" when not importing
+    // Click Import - the button text is "Import" when not importing
     const importBtn = screen.getByRole('button', { name: /^Import$/i });
     await act(async () => {
       fireEvent.click(importBtn);
@@ -291,7 +295,7 @@ describe('Import', () => {
   });
 });
 
-// ── Connectors ────────────────────────────────────────────────────────────────
+// -- Connectors--
 
 describe('Connectors', () => {
   beforeEach(resetMocks);
@@ -365,7 +369,7 @@ describe('Connectors', () => {
     });
   });
 
-  it('toggles enabled/disabled — calls mockPatch when toggle button clicked', async () => {
+  it('toggles enabled/disabled - calls mockPatch when toggle button clicked', async () => {
     const mockConnectors = [
       {
         id: 'conn-toggle',

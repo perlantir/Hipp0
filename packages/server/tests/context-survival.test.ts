@@ -124,6 +124,7 @@ vi.mock('@hipp0/core/intelligence/orchestrator.js', () => ({
 }));
 
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
 async function request(app: ReturnType<typeof createApp>, method: string, path: string, body?: unknown) {
   const url = `http://localhost${path}`;

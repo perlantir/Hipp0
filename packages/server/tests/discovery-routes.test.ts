@@ -1,4 +1,4 @@
-// Discovery Route Integration Tests (Hono test client — no real DB)
+// Discovery Route Integration Tests (Hono test client - no real DB)
 // DB query function, distill, and scanProjectContradictions are all mocked.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -119,7 +119,7 @@ afterEach(() => {
 // ── POST /api/projects/:id/import ─────────────────────────────────────────────
 
 describe('POST /api/projects/:id/import', () => {
-  it('validates conversations array — returns 400 if not array', async () => {
+  it('validates conversations array - returns 400 if not array', async () => {
     const res = await request(app, 'POST', `/api/projects/${PROJECT_ID}/import`, {
       conversations: 'not-an-array',
     });
@@ -157,7 +157,7 @@ describe('POST /api/projects/:id/import', () => {
     expect(body.results[1].decisions_extracted).toBe(5);
   });
 
-  it('handles invalid text gracefully — counts as error, continues remaining items', async () => {
+  it('handles invalid text gracefully - counts as error, continues remaining items', async () => {
     mockDistill.mockResolvedValueOnce({ decisions_extracted: 2 });
 
     const res = await request(app, 'POST', `/api/projects/${PROJECT_ID}/import`, {
@@ -192,7 +192,7 @@ describe('POST /api/ingest/webhook', () => {
     agent_name: 'arch-agent',
   };
 
-  it('rejects missing Authorization header — returns 401', async () => {
+  it('rejects missing Authorization header - returns 401', async () => {
     vi.stubEnv('HIPP0_API_KEY', 'super-secret-key');
     const newApp = createApp();
 
@@ -203,9 +203,10 @@ describe('POST /api/ingest/webhook', () => {
 
     vi.unstubAllEnvs();
     vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
   });
 
-  it('rejects invalid auth token — returns 401', async () => {
+  it('rejects invalid auth token - returns 401', async () => {
     vi.stubEnv('HIPP0_API_KEY', 'super-secret-key');
     const newApp = createApp();
 
@@ -218,9 +219,10 @@ describe('POST /api/ingest/webhook', () => {
 
     vi.unstubAllEnvs();
     vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
   });
 
-  it('accepts valid request with correct Bearer token — returns queued', async () => {
+  it('accepts valid request with correct Bearer token - returns queued', async () => {
     vi.stubEnv('HIPP0_API_KEY', 'super-secret-key');
     const newApp = createApp();
 
@@ -234,9 +236,10 @@ describe('POST /api/ingest/webhook', () => {
 
     vi.unstubAllEnvs();
     vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
   });
 
-  it('validates required fields (text, source_id, project_id) — returns 400 when missing', async () => {
+  it('validates required fields (text, project_id) - returns 400 when missing', async () => {
     // No HIPP0_API_KEY set → auth check skipped, goes straight to validation
     const resMissingText = await request(app, 'POST', '/api/ingest/webhook', {
       source_id: 'some-source',
@@ -244,11 +247,12 @@ describe('POST /api/ingest/webhook', () => {
     });
     expect(resMissingText.status).toBe(400);
 
+    // source_id is optional - defaults to webhook-<timestamp>
     const resMissingSource = await request(app, 'POST', '/api/ingest/webhook', {
       text: 'Some text',
       project_id: PROJECT_ID,
     });
-    expect(resMissingSource.status).toBe(400);
+    expect(resMissingSource.status).toBe(200);
 
     const resMissingProject = await request(app, 'POST', '/api/ingest/webhook', {
       text: 'Some text',
@@ -304,7 +308,7 @@ describe('GET /api/projects/:id/connectors', () => {
 // ── POST /api/projects/:id/connectors ────────────────────────────────────────
 
 describe('POST /api/projects/:id/connectors', () => {
-  it('creates a new connector config — returns 201 with connector row', async () => {
+  it('creates a new connector config - returns 201 with connector row', async () => {
     const mockRow = {
       id: 'conn-new',
       project_id: PROJECT_ID,
@@ -337,7 +341,7 @@ describe('POST /api/projects/:id/connectors', () => {
     expect(body.connector_name).toBe('directory');
   });
 
-  it('upserts existing connector — same row returned after conflict resolution', async () => {
+  it('upserts existing connector - same row returned after conflict resolution', async () => {
     const mockRow = {
       id: 'conn-existing',
       project_id: PROJECT_ID,
@@ -374,7 +378,7 @@ describe('POST /api/projects/:id/connectors', () => {
 // ── DELETE /api/projects/:id/connectors/:name ─────────────────────────────────
 
 describe('DELETE /api/projects/:id/connectors/:name', () => {
-  it('removes connector — returns deleted: true', async () => {
+  it('removes connector - returns deleted: true', async () => {
     mockQuery
       .mockResolvedValueOnce({
         rows: [{ id: 'conn-1' }],

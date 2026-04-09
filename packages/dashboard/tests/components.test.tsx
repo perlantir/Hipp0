@@ -186,6 +186,10 @@ function resetMocks() {
   mockPost.mockReset();
   mockPatch.mockReset();
   mockDel.mockReset();
+  // Default: all API calls resolve to empty arrays so components that call
+  // get(...) on mount (e.g. ContextComparison, CaptureHistory) don't crash
+  mockGet.mockResolvedValue([]);
+  mockPost.mockResolvedValue([]);
 }
 
 // --- DecisionGraph ---

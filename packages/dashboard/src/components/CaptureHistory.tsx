@@ -110,7 +110,7 @@ export function CaptureHistory() {
     setError(null);
     try {
       const data = await get<CaptureEntry[]>(`/api/projects/${projectId}/captures?limit=50`);
-      setCaptures(data);
+      setCaptures(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
       const e = err as { message?: string };
       setError(e.message || 'Failed to load captures');
