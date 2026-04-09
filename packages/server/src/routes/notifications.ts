@@ -66,10 +66,17 @@ export function registerNotificationRoutes(app: Hono): void {
   app.patch('/api/notifications/:id/read', async (c) => {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
-    const result = await db.query(
-      'UPDATE notifications SET read_at = NOW() WHERE id = ? RETURNING *',
-      [id],
-    );
+    const projectId = c.req.query('project_id');
+
+    let sql = 'UPDATE notifications SET read_at = NOW() WHERE id = ?';
+    const params: unknown[] = [id];
+    if (projectId) {
+      sql += ' AND agent_id IN (SELECT a.id FROM agents a WHERE a.project_id = ?)';
+      params.push(projectId);
+    }
+    sql += ' RETURNING *';
+
+    const result = await db.query(sql, params);
     if (result.rows.length === 0) throw new NotFoundError('Notification', id);
     return c.json(parseNotification(result.rows[0] as Record<string, unknown>));
   });
