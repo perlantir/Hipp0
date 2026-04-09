@@ -219,13 +219,13 @@ export function Pricing() {
   const askLimit = currentPlan === 'free' ? 10 : currentPlan === 'pro' ? 100 : null;
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 md:p-12 max-w-6xl mx-auto space-y-10">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+      <div className="text-center space-y-3">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Plans & Pricing
         </h1>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
           Choose the plan that fits your team. Upgrade or downgrade at any time.
         </p>
       </div>
@@ -255,7 +255,7 @@ export function Pricing() {
           Annual
         </span>
         {annual && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+          <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(6,63,249,0.1)', color: 'var(--accent-primary)', border: '1px solid rgba(6,63,249,0.2)' }}>
             Save 20%
           </span>
         )}
