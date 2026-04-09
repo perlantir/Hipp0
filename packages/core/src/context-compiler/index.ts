@@ -28,6 +28,7 @@ import type {
 } from '../types.js';
 import { getPatternRecommendations, DEFAULT_MIN_PATTERN_CONFIDENCE } from '../intelligence/pattern-extractor.js';
 import { inferDomainFromTask } from '../hierarchy/classifier.js';
+import { trustMultiplier } from '../intelligence/trust-scorer.js';
 import { computeWingSources } from '../wings/affinity.js';
 
 // Embedding helper — imported from decision-graph (generated at runtime).
@@ -424,6 +425,10 @@ export function scoreDecision(
     domainBoost = Math.min(domainBoost, 0.15); // cap total domain boost
   }
   finalScore += domainBoost;
+
+  // Trust multiplier: low-trust decisions penalized (0.70x), high-trust boosted (1.15x)
+  const trustMult = trustMultiplier(decision.trust_score);
+  finalScore *= trustMult;
 
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
