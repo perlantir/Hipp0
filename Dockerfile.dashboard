@@ -29,9 +29,12 @@ RUN if echo "$VITE_API_URL" | grep -q "http"; then \
   echo "ERROR: VITE_API_URL must be empty or '/' — never an absolute URL" && exit 1; \
 fi
 
-RUN VITE_API_URL=$VITE_API_URL \
+# Build dashboard: run tsc then vite using root node_modules paths
+RUN cd packages/dashboard && \
+    VITE_API_URL=$VITE_API_URL \
     VITE_BUILD_VERSION=$(date -u +%Y%m%d-%H%M%S)-${CACHE_BUSTER} \
-    pnpm --filter @hipp0/dashboard build
+    ../../node_modules/.bin/tsc -b && \
+    ../../node_modules/.bin/vite build
 
 # Stage 2: nginx
 FROM nginx:1.27-alpine
