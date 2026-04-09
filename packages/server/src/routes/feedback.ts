@@ -14,6 +14,7 @@ import {
 import { processWingFeedback, processWingFeedbackBatch } from '@hipp0/core';
 import { requireUUID, requireString, optionalString, mapDbError, logAudit } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { invalidateDecisionCaches } from '../cache/redis.js';
 import { randomUUID } from 'node:crypto';
 
 const VALID_RATINGS = ['useful', 'irrelevant', 'critical', 'missing'] as const;
@@ -67,7 +68,17 @@ export function registerFeedbackRoutes(app: Hono): void {
 
       // Wing affinity learning
       if (rating) {
-        processWingFeedback(agent_id, decision_id, rating).catch(() => {});
+        processWingFeedback(agent_id, decision_id, rating)
+          .then(() => {
+            // Invalidate caches after wing affinity changes
+            const db = getDb();
+            return db.query<Record<string, unknown>>('SELECT project_id FROM decisions WHERE id = ?', [decision_id]);
+          })
+          .then((res) => {
+            const pid = res.rows[0]?.project_id as string | undefined;
+            if (pid) invalidateDecisionCaches(pid).catch(() => {});
+          })
+          .catch(() => {});
       }
 
       // Check for auto-apply threshold
@@ -111,7 +122,20 @@ export function registerFeedbackRoutes(app: Hono): void {
     const result = await recordBatchFeedback(agent_id, compile_request_id, task_description, ratings);
 
     // Wing affinity learning from batch
-    processWingFeedbackBatch(agent_id, ratings).catch(() => {});
+    processWingFeedbackBatch(agent_id, ratings)
+      .then(() => {
+        // Invalidate caches after wing affinity changes
+        const db = getDb();
+        if (ratings.length === 0) return;
+        return db.query<Record<string, unknown>>('SELECT project_id FROM decisions WHERE id = ? LIMIT 1', [ratings[0].decision_id]);
+      })
+      .then((res) => {
+        if (res && res.rows[0]) {
+          const pid = res.rows[0].project_id as string | undefined;
+          if (pid) invalidateDecisionCaches(pid).catch(() => {});
+        }
+      })
+      .catch(() => {});
 
     // Check for auto-apply
     checkAutoApply(agent_id).catch(() => {});

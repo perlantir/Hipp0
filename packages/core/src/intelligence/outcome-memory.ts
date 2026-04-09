@@ -178,7 +178,7 @@ export async function attributeOutcomeToDecisions(params: {
 
   // Fetch the decisions that were part of this compile
   const historyResult = await db.query<Record<string, unknown>>(
-    'SELECT decision_ids FROM compile_history WHERE id = ?',
+    'SELECT decision_ids, decision_scores FROM compile_history WHERE id = ?',
     [params.compile_history_id],
   );
 
@@ -194,19 +194,42 @@ export async function attributeOutcomeToDecisions(params: {
 
   if (decisionIds.length === 0) return 0;
 
+  // Parse decision_scores to get per-decision relevance
+  let decisionScores: Record<string, number> = {};
+  const rawScores = historyResult.rows[0].decision_scores;
+  if (typeof rawScores === 'string') {
+    try {
+      const parsed = JSON.parse(rawScores);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item.id && item.combined_score != null) {
+            decisionScores[item.id] = item.combined_score;
+          }
+        }
+      }
+    } catch {}
+  } else if (Array.isArray(rawScores)) {
+    for (const item of rawScores as any[]) {
+      if (item.id && item.combined_score != null) {
+        decisionScores[item.id] = item.combined_score;
+      }
+    }
+  }
+
   // Create outcome records for each referenced decision
   let count = 0;
   for (const decisionId of decisionIds) {
+    const relevance = decisionScores[decisionId] ?? 0.5;
+    // Weight attribution: strongly relevant decisions get full attribution,
+    // weakly relevant decisions get dampened attribution
+    const attributionWeight = Math.max(0.3, Math.min(1.0, relevance));
+    const weightedScore = params.outcome_score * attributionWeight + (1 - attributionWeight) * 0.5;
+
     try {
       await recordDecisionOutcome({
+        ...params,
         decision_id: decisionId,
-        project_id: params.project_id,
-        agent_id: params.agent_id,
-        compile_history_id: params.compile_history_id,
-        task_session_id: params.task_session_id,
-        outcome_type: params.outcome_type,
-        outcome_score: params.outcome_score,
-        notes: params.notes,
+        outcome_score: weightedScore,
       });
       count++;
     } catch {
