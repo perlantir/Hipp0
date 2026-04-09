@@ -136,6 +136,8 @@ export function registerOutcomeRoutes(app: Hono): void {
     const db = getDb();
     const body = await c.req.json<{
       compile_request_id?: unknown;
+      project_id?: unknown;
+      agent_id?: unknown;
       task_completed?: boolean;
       task_duration_ms?: number;
       agent_output?: string;
@@ -143,7 +145,18 @@ export function registerOutcomeRoutes(app: Hono): void {
       error_message?: string;
     }>();
 
-    const compileRequestId = requireUUID(body.compile_request_id, 'compile_request_id');
+    const compileRequestId = body.compile_request_id ? requireUUID(body.compile_request_id, 'compile_request_id') : null;
+
+    if (!compileRequestId) {
+      // No compile history — record outcome without alignment analysis
+      const outcomeId = randomUUID();
+      await db.query(
+        `INSERT INTO compile_outcomes (id, compile_history_id, project_id, agent_id, task_completed, error_occurred, error_message, metadata)
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?)`,
+        [outcomeId, body.project_id ?? null, body.agent_id ?? null, body.task_completed ?? null, body.error_occurred ?? false, body.error_message ?? null, JSON.stringify({})],
+      );
+      return c.json({ id: outcomeId, status: 'recorded_without_compile_history' }, 201);
+    }
 
     // Look up compile_history record
     const historyResult = await db.query<Record<string, unknown>>(

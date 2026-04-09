@@ -21,6 +21,8 @@ export function registerCaptureRoutes(app: Hono): void {
       agent_name?: unknown;
       project_id?: unknown;
       conversation?: unknown;
+      content?: unknown;
+      text?: unknown;
       session_id?: unknown;
       source?: unknown;
       source_event_id?: unknown;
@@ -29,14 +31,16 @@ export function registerCaptureRoutes(app: Hono): void {
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
-    const conversation = requireString(body.conversation, 'conversation', 500000);
+    // Accept content/text as aliases for conversation
+    const rawConversation = body.conversation ?? body.content ?? body.text;
+    const conversation = requireString(rawConversation, 'conversation', 500000);
     const session_id = body.session_id ? requireUUID(body.session_id, 'session_id') : null;
     const source = optionalString(body.source, 'source', 50) ?? 'api';
 
     const source_event_id = optionalString(body.source_event_id, 'source_event_id', 500) ?? null;
     const source_channel = optionalString(body.source_channel, 'source_channel', 200) ?? null;
 
-    const validSources = ['openclaw', 'telegram', 'slack', 'discord', 'github', 'api'];
+    const validSources = ['openclaw', 'telegram', 'slack', 'discord', 'github', 'api', 'cli', 'web', 'vscode', 'jetbrains'];
     if (!validSources.includes(source)) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: `source must be one of: ${validSources.join(', ')}` } }, 400);
     }
