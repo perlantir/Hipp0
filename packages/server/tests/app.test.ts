@@ -8,7 +8,10 @@ import { createApp } from '../src/app.js';
 // We mock @hipp0/core/db/index.js before importing the app so that all
 // database calls in app.ts resolve to controlled values.
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
@@ -77,6 +80,7 @@ function nowIso() {
 
 // Set development mode so authMiddleware skips API key validation
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
 let app: ReturnType<typeof createApp>;
 

@@ -5,7 +5,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../src/app.js';
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
@@ -43,6 +46,7 @@ async function request(app: ReturnType<typeof createApp>, path: string) {
 }
 
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
 let app: ReturnType<typeof createApp>;
 beforeEach(() => {

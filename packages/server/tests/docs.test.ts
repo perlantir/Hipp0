@@ -7,7 +7,10 @@ import { createApp } from '../src/app.js';
 
   // DB Mock (same pattern as app.test.ts)
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,

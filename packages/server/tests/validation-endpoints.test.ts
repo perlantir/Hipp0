@@ -10,7 +10,10 @@ import { createApp } from '../src/app.js';
 
   // DB Mock
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
@@ -97,6 +100,7 @@ function makeDecisionRow(overrides: Record<string, unknown> = {}): Record<string
   // Setup
 
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
 let app: ReturnType<typeof createApp>;
 

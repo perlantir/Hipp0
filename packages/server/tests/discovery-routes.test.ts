@@ -6,7 +6,10 @@ import { createApp } from '../src/app.js';
 
   // DB Mock
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
@@ -96,6 +99,7 @@ async function request(
 
 // Set development mode so authMiddleware skips API key validation
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
 const PROJECT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 

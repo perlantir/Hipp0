@@ -117,6 +117,9 @@ vi.mock('@hipp0/core/intelligence/orchestrator.js', () => ({
   buildReasoningExplanation: vi.fn().mockReturnValue(''),
 }));
 
+vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
+
 vi.mock('../src/cache/redis.js', () => ({
   cache: {
     get: vi.fn().mockResolvedValue(null),

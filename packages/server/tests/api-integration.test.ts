@@ -9,7 +9,10 @@ import { createApp } from '../src/app.js';
 
   // DB Mock
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
 vi.mock('@hipp0/core/db/index.js', () => ({
   getDb: () => ({
     query: mockQuery,
@@ -86,6 +89,7 @@ vi.mock('@hipp0/core/dependency-cascade/index.js', () => ({
 }));
 
 vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 
   // Helpers
 
