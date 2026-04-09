@@ -136,8 +136,11 @@ export function registerOutcomeRoutes(app: Hono): void {
     const db = getDb();
     const body = await c.req.json<{
       compile_request_id?: unknown;
+      decision_id?: unknown;
       project_id?: unknown;
       agent_id?: unknown;
+      outcome_type?: string;
+      outcome_score?: number;
       task_completed?: boolean;
       task_duration_ms?: number;
       agent_output?: string;
@@ -148,14 +151,28 @@ export function registerOutcomeRoutes(app: Hono): void {
     const compileRequestId = body.compile_request_id ? requireUUID(body.compile_request_id, 'compile_request_id') : null;
 
     if (!compileRequestId) {
-      // No compile history — record outcome without alignment analysis
-      const outcomeId = randomUUID();
-      await db.query(
-        `INSERT INTO compile_outcomes (id, compile_history_id, project_id, agent_id, task_completed, error_occurred, error_message, metadata)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?)`,
-        [outcomeId, body.project_id ?? null, body.agent_id ?? null, body.task_completed ?? null, body.error_occurred ?? false, body.error_message ?? null, JSON.stringify({})],
-      );
-      return c.json({ id: outcomeId, status: 'recorded_without_compile_history' }, 201);
+      // No compile history — record directly to decision_outcomes if decision_id provided
+      const decisionId = body.decision_id ? requireUUID(body.decision_id, 'decision_id') : null;
+      const projectId = body.project_id ? requireUUID(body.project_id, 'project_id') : null;
+
+      if (decisionId && projectId) {
+        try {
+          const { recordDecisionOutcome } = await import('@hipp0/core/intelligence/outcome-memory.js');
+          const outcome = await recordDecisionOutcome({
+            decision_id: decisionId,
+            project_id: projectId,
+            agent_id: body.agent_id ? String(body.agent_id) : undefined,
+            outcome_type: (body as any).outcome_type ?? (body.task_completed ? 'success' : 'unknown'),
+            outcome_score: (body as any).outcome_score ?? 0.5,
+            notes: body.error_message ?? undefined,
+          });
+          return c.json({ id: outcome.id, status: 'recorded_to_decision_outcomes' }, 201);
+        } catch (err) {
+          return c.json({ error: { code: 'INTERNAL_ERROR', message: (err as Error).message } }, 500);
+        }
+      }
+
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Either compile_request_id or decision_id + project_id is required' } }, 400);
     }
 
     // Look up compile_history record
