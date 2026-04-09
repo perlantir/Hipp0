@@ -49,7 +49,7 @@ export async function bootstrapApiKeys(): Promise<void> {
     const existing = await db.query(
       `SELECT id FROM api_keys
        WHERE project_id = ?
-         AND (expires_at IS NULL OR expires_at > NOW())`,
+         AND (expires_at IS NULL OR expires_at > ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'})`,
       [projectId],
     );
 
