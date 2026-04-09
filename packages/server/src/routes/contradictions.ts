@@ -21,10 +21,13 @@ export function registerContradictionRoutes(app: Hono): void {
     const db = getDb();
     const id = requireUUID(c.req.param('id'), 'id');
     const body = await c.req.json<{
+      project_id?: unknown;
       status?: unknown;
       resolved_by?: unknown;
       resolution?: unknown;
     }>();
+
+    const projectId = requireUUID(body.project_id, 'project_id');
 
     const statusVal = body.status !== undefined ? optionalString(body.status, 'status', 50) : null;
     const resolvedByVal =
@@ -41,8 +44,8 @@ export function registerContradictionRoutes(app: Hono): void {
         resolved_by = COALESCE(?, resolved_by),
         resolution = COALESCE(?, resolution),
         resolved_at = CASE WHEN ? = 'resolved' THEN NOW() ELSE resolved_at END
-      WHERE id = ? RETURNING *`,
-      [statusVal, resolvedByVal, resolutionVal, statusVal, id],
+      WHERE id = ? AND project_id = ? RETURNING *`,
+      [statusVal, resolvedByVal, resolutionVal, statusVal, id, projectId],
     );
 
     if (result.rows.length === 0) throw new NotFoundError('Contradiction', id);
