@@ -9,315 +9,69 @@
 
 # Hipp0
 
-**The memory and intelligence compiler for AI agent teams.**
+**No agent starts from zero. No decision gets lost.**
 
-Hipp0 gives every AI agent on your team a shared decision memory — a structured graph of what was decided, why, by whom, and how it connects to everything else. Agents query context before acting, record decisions after acting, and the graph grows smarter over time. One API, any framework, any model.
+Hipp0 is a persistent decision memory system for AI agent teams. Every decision an agent makes — architecture choices, tool selections, trade-offs, rejected alternatives — gets captured, scored, and served back as context the next time it's needed.
 
----
+The core problem: AI agents are stateless. They repeat the same mistakes, contradict each other, and forget what was decided last week. Hipp0 gives them a shared hippocampus — a memory layer that learns which past decisions matter for the current task.
 
-## Key Differentiators
-
-- **Role-differentiated compilation** — different agents get different context for the same task, unlike naive RAG which returns identical results.
-- **5-signal scoring engine** — directAffect, tagMatch, personaMatch, semanticSimilarity, temporal — not just text similarity.
-- **100% agent differentiation** vs 0% for naive RAG (benchmark-proven).
-- **0.92 F1 contradiction detection** — automatically catches conflicting decisions.
-- **Session memory** — Agent B sees Agent A's actual output, not just historical decisions.
-- **Zero-config BYOK** — bring your own Anthropic/OpenAI keys, self-host for free forever.
-
----
-
-## Features
-
-### Decision Graph Engine
-- **5-signal relevance scoring** — directAffect, tagMatch, personaMatch, semanticSimilarity, temporal — with per-agent weight profiles
-- **Role-differentiated context compilation** — each agent gets context tuned to its role and current task
-- **Tag matcher with stemming** — exact → substring → stemmed fallback for flexible matching
-- **PostgreSQL + pgvector** — embeddings via OpenAI `text-embedding-3-small` for semantic search
-- **Change Propagator + Dependency Cascade** — when a decision changes, affected decisions are flagged and downstream impacts traced
-- **Hierarchy Classifier** — automatic categorization of decisions into domain hierarchies
-
-### Super Brain Orchestration
-- **Session management** with multi-step workflows and recommended actions
-- **Agent Decision Protocol** — `PROCEED` / `PROCEED_WITH_NOTE` / `SKIP` / `OVERRIDE_TO` / `ASK_FOR_CLARIFICATION` + `action_reason`
-- **2 MCP orchestrator tools** — `hipp0_follow_orchestrator` and `hipp0_override_orchestrator`
-
-### Webhooks
-- **Outbound webhook delivery** for decision lifecycle events (`decision_created`, `decision_superseded`, `decision_reverted`, `contradiction_detected`, `distillery_completed`, `scan_completed`)
-- **Multi-platform formatting** — generic JSON, Slack Block Kit, Discord embeds, Telegram Bot API
-- **HMAC-SHA256 signing** with configurable secrets per webhook
-- **Validation & test pings** — verify connectivity before going live
-
-### Agent Wings
-- **Domain-based agent groupings** with learned cross-wing affinity scores
-- **Affinity learning from feedback** — useful/critical ratings boost wing weights, irrelevant ratings reduce them
-- **Wing-aware context compilation** — own-wing decisions get a configurable boost
-- **Rebalance API** — full recomputation of affinity weights from historical feedback
-
-### Temporal Intelligence
-- **Temporal scopes** — `permanent`, `sprint`, `experiment`, `deprecated` with `valid_from`/`valid_until` bounds
-- **Freshness scoring** — exponential decay with configurable half-lives (30d validated, 7d unvalidated)
-- **Staleness detection** — automatic flags for unvalidated, stale, superseded, and low-confidence decisions
-- **Auto-supersede** — new decisions can automatically supersede old ones with full propagation
-
-### Benchmarks
-- **5 reproducible benchmark suites** — retrieval accuracy, contradiction detection, role differentiation, token efficiency, compile latency
-- **Naive RAG baseline comparison** — side-by-side scoring against a standard RAG approach
-- **Configurable scoring parameters** — tunable weights, synonym expansion, cross-reference boosts
-
-### Time Travel
-- **Historical context reconstruction** — view what any agent's compiled context looked like at any past date
-- **Compile snapshot diffing** — compare two compilations to see added, removed, and re-ranked decisions
-- **Weight snapshots** — reconstruct historical scoring weights alongside decisions
-
-### Review Queue
-- **Pending decision review** — decisions created with `pending` status enter a review queue
-- **Approve/reject workflow** — approval triggers all deferred side-effects (webhooks, contradiction checks, embeddings)
-- **Rejection with reason** — rejected decisions are reverted with an audit trail
-
-### Cascade Alerts
-- **Dependency graph traversal** — BFS through `requires` edges up to 5 levels deep
-- **Urgency-based notifications** — direct impacts are `high` urgency, transitive impacts are `medium`
-- **Governor alerts** — all governor-role agents receive critical-urgency summaries of full cascade chains
-- **Subscription-based propagation** — agents subscribe to tags or specific decisions for targeted notifications
-
-### Import Wizard
-- **GitHub scanning via Octokit** — real PR extraction (titles, descriptions, labels, reviewers, file paths)
-- **Full execute pipeline** — scan → preview → selective import with confidence scoring
-- **Permanent GitHub Sync wizard** — 3-step guided setup for webhook-driven continuous import
-
-### Collaboration Rooms
-- **Real-time WebSocket** — presence tracking, typing indicators, `@mention` autocomplete
-- **Cross-platform agent communication** — humans, OpenClaw, Hermes, Claude Code, CrewAI, any agent on any platform
-- **Session timeline** with Brain suggestion accept/override
-
-### Interactive Playground
-- 4 built-in demo scenarios with with/without comparison
-- Speed controls and step-by-step execution
-- Live visualization of scoring and context compilation
-
-### Distillery
-- **Auto-extract decisions from conversations** using Claude (Anthropic)
-- Deduplication, contradiction detection, and graph integration
-- Session summarization
-
-### Ask Anything
-- **Natural-language Q&A** over your entire decision graph
-- Freeform chat interface powered by the Distillery's `/api/distill/ask` endpoint
-
-### Governance
-- Weekly digest generation
-- Outcomes tracking with impact analysis
-- Decision evolution proposals
-- **Policy enforcement** — block/warn rules with violation tracking
-
-### Weight Snapshots
-- **Point-in-time capture** of agent scoring weights for audit and time-travel reconstruction
-
-### Relevance Feedback
-- **Per-decision feedback loop** — rate compiled decisions as critical, useful, or irrelevant
-- Feedback drives wing affinity learning and weight tuning
-
-### Export/Import
-- **Bulk decision import** from JSON/CSV with preview and deduplication
-- **Data export** for offline analysis and backup
-
-### Token Usage & Monitoring
-- **Daily compile and decision activity charts** with trend visualization
-- **Monitoring dashboard** with health cards, project stats, and alert feeds
-- **Sentry integration** for error tracking and performance monitoring
-
-### Billing & Pricing
-- **Stripe integration** — checkout, customer portal, webhook-driven subscription management
-- **Three-tier pricing** — Free, Pro, Enterprise with monthly/annual billing
-- **Usage metering** — compiles, asks, and decisions tracked against plan limits
-
-### Keyboard Shortcuts & Command Palette
-- **`Ctrl+K` command palette** for keyboard-driven navigation to any view
-- **Full keyboard shortcut system** with `?` to view all bindings
-
-### Cross-Tenant Patterns
-- **Community Insights** — anonymized cross-tenant pattern suggestions and tag recommendations
-
-### Integrations
-- **18+ MCP tools** for any MCP-compatible client
-- **Framework adapters** — LangChain, CrewAI, AutoGen, OpenAI Agents SDK *(Experimental)*
-- **TypeScript SDK** (`@hipp0/sdk`), **Python SDK** (`hipp0-sdk`), **CLI** (`@hipp0/cli`)
-- **BYOK model support** — bring your own API keys for OpenAI, Anthropic, or OpenRouter
-
----
-
-## Dashboard
-
-Hipp0 ships with a full-featured React dashboard (port 3200) with 31 views:
-
-### Main Views
-| View | Route | Description |
-|------|-------|-------------|
-| Playground | `#playground` | Interactive multi-agent demo with Super Brain step-by-step simulation |
-| Decision Graph | `#graph` | D3 force-directed graph of all decisions, edges, and statuses |
-| Timeline | `#timeline` | Chronological decision list with validation sources and status badges |
-| Contradictions | `#contradictions` | Conflicting decisions with inline resolution actions |
-| Context Compare | `#context` | Side-by-side context package comparison across agents |
-| Search | `#search` | Full-text semantic search across all decisions |
-| Impact Analysis | `#impact` | Dependency chain visualization for change impact assessment |
-| Sessions | `#sessions` | Paginated history of agent sessions with collapsible detail panels |
-| Compile Tester | `#compile-tester` | On-demand compile with scored results, diffs, and time-travel mode |
-| Review Queue | `#review-queue` | Pending decisions inbox with approve/reject/edit actions |
-| Ask Anything | `#ask-anything` | Natural-language chat interface over the decision graph |
-| Evolution | `#evolution` | AI-generated improvement proposals for underperforming decisions |
-| What-If | `#whatif` | Hypothetical decision modification with live score preview |
-| Live Tasks | `#live-tasks` | Real-time active session dashboard with pause/resume controls |
-| Team Score | `#team-score` | Agent relevance leaderboard for a given task |
-| Collab Room | `#collab-room` | Real-time multi-agent collaboration with WebSocket messaging |
-| Wings | `#wings` | Agent wing visualization with cross-wing affinity graph |
-
-### Integration Views
-| View | Route | Description |
-|------|-------|-------------|
-| Import | `#import` | Drag-and-drop bulk import from JSON/CSV |
-| Import Wizard | `#import-wizard` | 5-phase guided import from GitHub or files |
-| Connectors | `#connectors` | External data source management (databases, folders, webhooks, Git) |
-| Webhooks | `#webhooks` | Outbound webhook CRUD with test-send and enable/disable toggles |
-| Time Travel | `#timetravel` | Historical compile browsing with snapshot diffing |
-
-### Monitoring Views
-| View | Route | Description |
-|------|-------|-------------|
-| Token Usage | `#token-usage` | Daily decision and compile activity charts |
-| Alerts | `#notifications` | System notification feed with mark-as-read |
-| Health | `#stats` | Project health overview with monitoring cards and trend charts |
-| Outcomes | `#outcomes` | Task outcome tracking linked to compiled decisions |
-| Weekly Digest | `#digest` | Aggregated weekly health report with severity-based insights |
-| Policies | `#policies` | Governance policy management with violation tracking |
-| Violations | `#violations` | Policy violation log with severity, evidence, and resolution |
-
-### Settings Views
-| View | Route | Description |
-|------|-------|-------------|
-| Pricing | `#pricing` | Subscription plan comparison (Free/Pro/Enterprise) |
-| Billing | `#billing` | Subscription status, usage counters, and invoice history |
-
----
-
-## Benchmarks
-
-Hipp0 includes a reproducible benchmark suite measuring retrieval accuracy, contradiction detection, role differentiation, token efficiency, and compile latency against a naive RAG baseline.
-
-| Metric | Hipp0 | Naive RAG | Delta |
-|--------|-------|-----------|-------|
-| Recall@5 | 78% | 39% | +39% |
-| Recall@10 | 99% | 50% | +49% |
-| Precision@5 | 70% | 34% | +37% |
-| MRR | 0.94 | 0.79 | +0.16 |
-| Contradiction F1 | 0.92 | N/A | — |
-| Differentiation | 100% | 0% | +100% |
-| H0C Compression (bench) | 3.4x | N/A | — |
-| H0C Compression (full) | 10-12x | N/A | — |
-| Compile P95 (500 dec) | 24ms | N/A | — |
-
-\* Token efficiency measured on simplified benchmark decisions. Production compile on full `ScoredDecision` objects achieves 10–12x compression.
-
-H0C compression achieves 10-12x on full `ScoredDecision[]` JSON and 3.4x on simplified benchmark decisions. See [docs/h0c-format.md](docs/h0c-format.md) for the format specification.
-
-Run benchmarks:
-
-```bash
-npx tsx benchmarks/runner.ts --suite all
-```
-
-Full methodology and results: [benchmarks/README.md](benchmarks/README.md)
-
----
-
-## How Hipp0 Compares
-
-| Capability | Hipp0 | Mem0 | Supermemory | Zep | LangMem |
-|-----------|-------|------|-------------|-----|---------|
-| Multi-agent role differentiation | ✅ 100% (benchmark-proven) | ❌ Single-user | ❌ Single-user | ⚠️ Basic | ❌ No |
-| Decision memory (not just chat) | ✅ Structured decisions | ❌ Chat history | ❌ Chat history | ❌ Chat history | ❌ Chat history |
-| 5-signal scoring engine | ✅ 5 signals + learned affinity | ❌ Embedding only | ❌ Embedding only | ⚠️ 2 signals | ❌ Embedding only |
-| Contradiction detection | ✅ 0.92 F1 | ❌ No | ❌ No | ❌ No | ❌ No |
-| Session memory (Agent B sees Agent A) | ✅ Super Brain | ❌ No | ❌ No | ⚠️ Basic | ❌ No |
-| Token compression | ✅ 10-12x H0C format | ❌ No | ❌ No | ❌ No | ❌ No |
-| Autonomous evolution (self-improving) | ✅ Rule-based + LLM optional | ❌ No | ❌ No | ❌ No | ❌ No |
-| Real-time collaboration rooms | ✅ WebSocket | ❌ No | ❌ No | ❌ No | ❌ No |
-| Self-hosted free tier | ✅ Unlimited forever | ❌ Cloud only | ⚠️ Partial | ✅ Yes | ✅ Yes |
-| Import from GitHub PRs | ✅ Full wizard | ❌ No | ❌ No | ❌ No | ❌ No |
-| Framework agnostic | ✅ Any via MCP | ⚠️ Python SDK | ⚠️ Python SDK | ⚠️ Python SDK | ❌ LangChain only |
-| Governance / Policies | ✅ Built-in | ❌ No | ❌ No | ❌ No | ❌ No |
-| Smart forgetting | ✅ Temporal intelligence | ❌ No | ✅ Built-in | ❌ No | ❌ No |
-| Cross-project pattern learning | ✅ Pattern library | ❌ No | ❌ No | ❌ No | ❌ No |
-| Namespace isolation | ✅ Multi-scope | ❌ No | ✅ Containers | ❌ No | ❌ No |
-| Open source | ✅ Apache 2.0 | ✅ Apache 2.0 | ❌ Proprietary | ✅ MIT | ✅ MIT |
-
-> Comparison based on publicly available documentation as of April 2026. Features may have changed.
+One API. Any framework. Any model.
 
 ---
 
 ## Why Hipp0
 
-Most AI memory systems store chat history and retrieve by embedding similarity. Works for single-agent chatbots, fails for multi-agent teams where different agents need different context for the same task.
+Most AI memory systems store chat history and retrieve by embedding similarity. That works for single-agent chatbots. It breaks for multi-agent teams where different agents need different context for the same task — a security agent needs auth decisions ranked high, a frontend agent needs UI decisions instead.
 
-Hipp0 stores structured decisions, scores them with 5 signals, and compiles role-specific context. A security agent gets auth decisions ranked high. A frontend agent gets UI decisions instead. Same task, different context — automatically.
-
-The brain learns over time: wing affinity adapts from feedback, temporal intelligence auto-expires stale decisions, the evolution engine surfaces problems before they cause failures, and cross-project patterns share proven approaches. The result is agents that get smarter the longer they work together.
+Hipp0 stores structured decisions, scores them across five signals, and compiles role-specific context for each agent automatically. The graph learns over time: wing affinity adapts from feedback, temporal intelligence auto-expires stale decisions, and the evolution engine surfaces problems before they cause failures.
 
 ---
 
-## Roadmap
+## Key Differentiators
 
-- Calibration sprint (precision tuning to 82% target)
-- Publish `@hipp0/mcp` + `@hipp0/cli` + `@hipp0/sdk` to npm
-- Publish `hipp0-memory` to PyPI
-- Logo and launch video
-- Framework integration testing (LangChain / CrewAI / AutoGen / OpenAI Agents)
-- Latency benchmark suite
-- Background workers documentation (staleness cron, weekly digest, evolution worker, pattern extraction)
+- **Role-differentiated context** — same task, different context per agent. Benchmark-proven 100% differentiation vs 0% for naive RAG.
+- **5-signal scoring** — directAffect, tagMatch, personaMatch, semanticSimilarity, temporal. Not just cosine similarity.
+- **0.92 F1 contradiction detection** — catches conflicting decisions automatically before they cause agent failures.
+- **Session memory** — Agent B sees Agent A's actual reasoning, not just historical records.
+- **Self-hosted, free forever** — bring your own keys, run on your own infra, no vendor lock-in.
 
 ---
 
 ## Quick Start
 
-### Docker Compose (recommended)
+### No Docker (fastest)
+
+```bash
+npx @hipp0/cli init my-project
+```
+
+> **Note:** `@hipp0/cli` is not yet published to npm. See [docs/cli.md](docs/cli.md) for local setup while the package is in pre-release.
+
+Creates a SQLite database, starts the server, opens the dashboard. All features work immediately.
+
+### Docker Compose (recommended for production)
 
 ```bash
 git clone https://github.com/perlantir/Hipp0.git
 cd Hipp0
 
-# Create .env from template
 cp .env.example .env
-# Edit .env — add at minimum: ANTHROPIC_API_KEY
+# Add at minimum: ANTHROPIC_API_KEY
 
-# Start everything
 docker compose up -d
 ```
 
-The stack starts three services:
-| Service | Port | Description |
-|---------|------|-------------|
+Three services start:
+
+| Service | Port | What it does |
+|---------|------|--------------|
 | `hipp0-server` | 3100 | API + WebSocket server |
 | `hipp0-dashboard` | 3200 | React dashboard |
 | `hipp0-db` | 5432 | PostgreSQL 17 + pgvector |
 
-### API Key Setup
+Full setup walkthrough: [docs/getting-started.md](docs/getting-started.md)
 
-On first startup, Hipp0 auto-generates an API key for the default project. Retrieve it:
-
-```bash
-curl http://localhost:3100/api/projects
-# → returns project_id
-
-curl http://localhost:3100/api/api-keys?project_id=<PROJECT_ID>
-# → returns your API key
-```
-
-Include it in all requests:
-
-```
-Authorization: Bearer <API_KEY>
-```
-
-### Compile Context (your first API call)
+### First API Call
 
 ```bash
 # Compile context for an agent
@@ -327,31 +81,109 @@ curl http://localhost:3100/api/compile \
   -d '{"agent_name": "architect", "task_description": "design the auth system", "project_id": "<PROJECT_ID>"}'
 ```
 
+This is the core endpoint. Pass an agent name and task, get back a ranked set of relevant past decisions — scored and filtered for that agent's role.
+
 ---
 
-## MCP Configuration
+## How It Works
 
-> **Note:** `@hipp0/mcp`, `@hipp0/cli`, and `@hipp0/sdk` are not yet published to npm. Use local paths for now.
+### 1. Record decisions as they're made
 
-### Future (when published)
-
-```json
-{
-  "mcpServers": {
-    "hipp0": {
-      "command": "npx",
-      "args": ["-y", "@hipp0/mcp"],
-      "env": {
-        "HIPP0_API_URL": "http://localhost:3100",
-        "HIPP0_API_KEY": "<YOUR_API_KEY>",
-        "HIPP0_PROJECT_ID": "<YOUR_PROJECT_ID>"
-      }
-    }
-  }
-}
+```typescript
+await hipp0.recordDecision({
+  title: 'Use JWT for API auth',
+  reasoning: 'Stateless, scalable, framework-agnostic',
+  made_by: 'architect',
+  affects: ['builder', 'reviewer'],
+  tags: ['security', 'api'],
+  confidence: 'high',
+});
 ```
 
-### Current (local path)
+### 2. Compile role-specific context before each task
+
+```typescript
+const context = await hipp0.compile({
+  agent_name: 'builder',
+  task_description: 'implement refresh token rotation',
+  project_id: projectId,
+});
+// Returns decisions ranked for a builder role — auth decisions high, UI decisions deprioritized
+```
+
+### 3. The graph learns from feedback
+
+Rate compiled decisions as critical, useful, or irrelevant. Hipp0 adjusts scoring weights per agent over time. The more you use it, the better the context gets.
+
+---
+
+## Core Capabilities
+
+### Decision Graph Engine
+5-signal scoring, role-differentiated compilation, stemmed tag matching, PostgreSQL + pgvector, change propagation with dependency cascade, hierarchy classification.
+
+### Super Brain Orchestration
+Multi-step session memory, Agent Decision Protocol (PROCEED / SKIP / OVERRIDE_TO / ASK_FOR_CLARIFICATION), orchestrator mode for team-level synthesis, interactive Playground for exploring how the brain ranks decisions.
+
+### Import & Sync
+GitHub PR scanning via Octokit, AI-powered decision extraction from PR diffs, preview before import, permanent webhook-driven sync.
+
+### Governance
+Review queue for pending decisions, approve/reject workflow with audit trail, policy enforcement with block/warn rules, violation tracking, weekly digest.
+
+### Integrations
+18+ MCP tools, TypeScript SDK (`@hipp0/sdk`), Python SDK (`hipp0-sdk`), CLI (`@hipp0/cli`), framework adapters for LangGraph, CrewAI, AutoGen, OpenAI Agents, LangChain.
+
+---
+
+## Benchmarks
+
+Reproducible benchmark suite — run it yourself:
+
+```bash
+npx tsx benchmarks/runner.ts --suite all
+```
+
+| Metric | Hipp0 | Naive RAG | Delta |
+|--------|-------|-----------|-------|
+| Recall@5 | 78% | 39% | +39% |
+| Recall@10 | 99% | 50% | +49% |
+| Precision@5 | 70% | 34% | +37% |
+| MRR | 0.94 | 0.79 | +0.16 |
+| Contradiction F1 | 0.92 | N/A | — |
+| Role Differentiation | 100% | 0% | +100% |
+| H0C Compression (full) | 10-12x | N/A | — |
+| Compile P95 (500 decisions) | 24ms | N/A | — |
+
+Full methodology: [benchmarks/README.md](benchmarks/README.md) · [docs/benchmarks.md](docs/benchmarks.md)
+
+---
+
+## How Hipp0 Compares
+
+| Capability | Hipp0 | Mem0 | Supermemory | Zep | LangMem |
+|-----------|-------|------|-------------|-----|---------|
+| Multi-agent role differentiation | ✅ 100% benchmark-proven | ❌ Single-user | ❌ Single-user | ⚠️ Basic | ❌ No |
+| Decision memory (not just chat) | ✅ Structured decisions | ❌ Chat history | ❌ Chat history | ❌ Chat history | ❌ Chat history |
+| 5-signal scoring | ✅ 5 signals + learned affinity | ❌ Embedding only | ❌ Embedding only | ⚠️ 2 signals | ❌ Embedding only |
+| Contradiction detection | ✅ 0.92 F1 | ❌ No | ❌ No | ❌ No | ❌ No |
+| Session memory (Agent B sees Agent A) | ✅ Super Brain | ❌ No | ❌ No | ⚠️ Basic | ❌ No |
+| Token compression | ✅ 10-12x H0C format | ❌ No | ❌ No | ❌ No | ❌ No |
+| Self-hosted free tier | ✅ Unlimited forever | ❌ Cloud only | ⚠️ Partial | ✅ Yes | ✅ Yes |
+| Import from GitHub PRs | ✅ Full wizard | ❌ No | ❌ No | ❌ No | ❌ No |
+| Governance / Policies | ✅ Built-in | ❌ No | ❌ No | ❌ No | ❌ No |
+| Framework agnostic | ✅ Any via MCP | ⚠️ Python SDK | ⚠️ Python SDK | ⚠️ Python SDK | ❌ LangChain only |
+| Open source | ✅ Apache 2.0 | ✅ Apache 2.0 | ❌ Proprietary | ✅ MIT | ✅ MIT |
+
+> Comparison based on publicly available documentation as of April 2026. Verify against each project's current docs before making decisions.
+
+Detailed breakdown: [docs/comparison.md](docs/comparison.md)
+
+---
+
+## MCP Setup
+
+> **Note:** `@hipp0/mcp` is not yet published to npm. Use the local path below while the package is in pre-release.
 
 ```json
 {
@@ -369,13 +201,17 @@ curl http://localhost:3100/api/compile \
 }
 ```
 
-This exposes 18+ tools including `record_decision`, `get_context`, `search_decisions`, `hipp0_follow_orchestrator`, and `hipp0_override_orchestrator`.
+Exposes 18+ tools including `record_decision`, `get_context`, `search_decisions`, `hipp0_follow_orchestrator`, and `hipp0_override_orchestrator`.
+
+Full guide: [docs/mcp-setup.md](docs/mcp-setup.md)
 
 ---
 
-## SDK Usage
+## SDK
 
 ### TypeScript
+
+> **Note:** `@hipp0/sdk` is not yet published to npm. See [docs/sdk.md](docs/sdk.md) for local install instructions.
 
 ```typescript
 import { Hipp0Client } from '@hipp0/sdk';
@@ -386,16 +222,13 @@ const client = new Hipp0Client({
   projectId: 'your-project-id',
 });
 
-// Record a decision
 await client.recordDecision({
   title: 'Use JWT for auth',
-  description: 'Chose JWT over session cookies for stateless API auth',
   made_by: 'backend-agent',
   tags: ['auth', 'security'],
   confidence: 'high',
 });
 
-// Get context for an agent
 const context = await client.compile({
   agent_name: 'backend-agent',
   task: 'implement refresh token rotation',
@@ -404,12 +237,7 @@ const context = await client.compile({
 
 ### Python
 
-> **Note:** `hipp0-sdk` is not yet published to PyPI. Install locally (see python-sdk/README.md):
->
-> ```bash
-> cd python-sdk
-> pip install -e .
-> ```
+> **Note:** `hipp0-sdk` is not yet published to PyPI. Install locally: `cd python-sdk && pip install -e .`
 
 ```python
 from hipp0_sdk import Hipp0Client
@@ -420,16 +248,13 @@ client = Hipp0Client(
     project_id="your-project-id",
 )
 
-# Record a decision
 client.record_decision(
     title="Use JWT for auth",
-    description="Chose JWT over session cookies for stateless API auth",
     made_by="backend-agent",
     tags=["auth", "security"],
     confidence="high",
 )
 
-# Get context
 context = client.compile(
     agent_name="backend-agent",
     task="implement refresh token rotation",
@@ -438,48 +263,17 @@ context = client.compile(
 
 ---
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Hipp0 Dashboard                       │
-│              (React + Vite · port 3200)                  │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTP / WebSocket
-┌────────────────────────▼────────────────────────────────┐
-│                    Hipp0 Server                           │
-│               (Hono + Node · port 3100)                  │
-│                                                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
-│  │ Context  │ │  Super   │ │ Distill- │ │   Import   │ │
-│  │ Compiler │ │  Brain   │ │   ery    │ │   Wizard   │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
-│  │  Collab  │ │ Change   │ │ Contra-  │ │   MCP      │ │
-│  │  Rooms   │ │ Propag.  │ │ dictions │ │  (18+ tools│ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│             PostgreSQL 17 + pgvector                     │
-│         Decisions · Agents · Edges · Sessions            │
-│         Embeddings · Collab Rooms · Import Scans         │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
 ## Environment Variables
 
-See [`.env.example`](.env.example) for the full reference. Key variables:
+See [`.env.example`](.env.example) for the full reference.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | For Distillery (decision extraction via Claude) |
-| `OPENAI_API_KEY` | No | For semantic embeddings (`text-embedding-3-small`) |
-| `HIPP0_AUTH_REQUIRED` | No | Auth enforcement. Always true in production. Defaults to true in dev. Set `false` for local dev without API keys. |
-| `HIPP0_LLM_MODEL` | No | Override default LLM model |
-| `HIPP0_CORS_ORIGINS` | No | Allowed CORS origins (production) |
+| `ANTHROPIC_API_KEY` | Yes | Powers the Distillery (auto-extraction via Claude) |
+| `OPENAI_API_KEY` | No | Enables semantic embeddings (`text-embedding-3-small`) |
+| `HIPP0_AUTH_REQUIRED` | No | Set `false` for local dev without API keys. Always `true` in production. |
+| `HIPP0_LLM_MODEL` | No | Override the default LLM model |
+| `HIPP0_CORS_ORIGINS` | No | Allowed CORS origins for production |
 | `DATABASE_URL` | No | Custom PostgreSQL connection string |
 
 ---
@@ -488,43 +282,51 @@ See [`.env.example`](.env.example) for the full reference. Key variables:
 
 | Document | Description |
 |----------|-------------|
-| [Getting Started](docs/getting-started.md) | Initial setup and first steps |
-| [Quick Start](docs/quickstart.md) | Minimal setup to get running |
-| [Architecture](docs/architecture.md) | System design and component overview |
+| [Getting Started](docs/getting-started.md) | Deploy from zero to running |
+| [Architecture](docs/architecture.md) | System design and component internals |
 | [API Reference](docs/api-reference.md) | Complete REST API documentation |
-| [MCP Setup](docs/mcp-setup.md) | MCP client configuration guide |
+| [MCP Setup](docs/mcp-setup.md) | Connect Claude Desktop, Cursor, or any MCP client |
+| [TypeScript SDK](docs/sdk.md) | Full SDK method reference |
+| [Python SDK](docs/python-sdk.md) | Python SDK reference and examples |
+| [CLI](docs/cli.md) | CLI commands and flags |
+| [Super Brain](docs/super-brain.md) | Multi-step session memory and orchestration |
+| [Distillery](docs/distillery.md) | Auto-extraction of decisions from conversations |
 | [Agent Decision Protocol](docs/agent-protocol.md) | How agents interpret and act on Brain signals |
-| [GitHub Integration](docs/github-integration.md) | PR scanning, sync, and webhook setup |
+| [Agent Wings](docs/agent-wings.md) | Wing groupings, affinity learning, API |
+| [Temporal Intelligence](docs/temporal-intelligence.md) | Scopes, staleness detection, auto-supersede |
+| [Cascade Alerts](docs/cascade-alerts.md) | Upstream change propagation |
+| [Review Queue](docs/review-queue.md) | Pending decisions, approve/reject flow |
+| [Time Travel](docs/time-travel.md) | Historical graph state and snapshot diffing |
+| [Passive Capture](docs/passive-capture.md) | Auto-extract decisions from conversation transcripts |
+| [GitHub Integration](docs/github-integration.md) | PR scanning, sync, webhook setup |
+| [Webhooks](docs/webhooks.md) | Outbound events, payload format, retry behavior |
+| [Namespace Isolation](docs/namespaces.md) | Scoping decisions by domain |
+| [Policies & Governance](docs/policies.md) | Block/warn rules and violation tracking |
+| [Evolution Engine](docs/evolution.md) | AI-generated improvement proposals |
+| [Playground](docs/playground.md) | Interactive brain explorer |
+| [H0C Format](docs/h0c-format.md) | Token-efficient context serialization (10-12x compression) |
+| [Benchmarks](docs/benchmarks.md) | Running and interpreting benchmark suites |
+| [Comparison](docs/comparison.md) | vs Mem0, Supermemory, Zep, LangMem |
 | [Self-Hosting](docs/self-hosting.md) | Production deployment guide |
-| [Storage & Database](docs/storage.md) | PostgreSQL schema and migration info |
-| [Framework Guides](docs/framework-guides/) | LangChain, CrewAI, AutoGen, OpenAI Agents *(Experimental)* |
-| [Webhooks](docs/webhooks.md) | Webhook setup, event types, payload format, and retry behavior |
-| [Agent Wings](docs/agent-wings.md) | Wing groupings, affinity learning, and API endpoints |
-| [Temporal Intelligence](docs/temporal-intelligence.md) | Temporal scopes, staleness detection, and auto-supersede |
-| [Collaboration Rooms](docs/collab-rooms.md) | Room creation, WebSocket events, presence, and @mentions |
-| [Benchmarks](docs/benchmarks.md) | How to run, interpret results, and add custom suites |
-| [Time Travel](docs/time-travel.md) | Historical graph state and compile snapshot diffing |
-| [Review Queue](docs/review-queue.md) | What triggers review, approve/reject/edit flow |
-| [Cascade Alerts](docs/cascade-alerts.md) | Upstream change propagation and notification flow |
-| [How Hipp0 Compares](docs/comparison.md) | vs Mem0, Supermemory, Zep, LangMem |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common errors and fixes |
+| [Framework Guides](docs/framework-guides/) | LangGraph, CrewAI, AutoGen, OpenAI Agents, LangChain |
 
 ---
 
-## Links
+## Roadmap
 
-- **Dashboard**: `http://localhost:3200` (after Docker Compose)
-- **API**: `http://localhost:3100/api`
-- **Health check**: `http://localhost:3100/api/health`
-- **API docs**: `http://localhost:3100/api/docs`
+- Publish `@hipp0/mcp`, `@hipp0/cli`, `@hipp0/sdk` to npm
+- Publish `hipp0-sdk` to PyPI
+- Precision calibration sprint (Recall@5 → 82% target)
+- LangChain framework integration testing
+- Background workers documentation
 
 ---
 
 ## License
 
-Apache 2.0
+Apache 2.0 — self-host for free, forever.
 
 ---
 
-<p align="center">
-  Built by <strong>Perlantir AI Studio</strong>
-</p>
+<p align="center">Built by <strong>Perlantir AI Studio</strong></p>
