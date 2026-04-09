@@ -170,6 +170,7 @@ describe('Passive Decision Capture', () => {
       // Ordered mocks for specific queries (beforeEach sets default { rows: [] })
       mockQuery
         .mockResolvedValueOnce({ rows: [{ id: PROJECT_ID, metadata: '{}' }] }) // SELECT id, metadata FROM projects
+        .mockResolvedValueOnce({ rows: [] }) // checkExactDuplicate (no dup found)
         .mockResolvedValueOnce({ rows: [{ id: CAPTURE_ID }] }); // INSERT INTO captures RETURNING id
 
       // Mock distill (background, may fire after response)
@@ -226,7 +227,7 @@ describe('Passive Decision Capture', () => {
     });
 
     it('returns 404 when project not found', async () => {
-      // Project does not exist — query returns empty
+      // Project does not exist - query returns empty
       mockQuery.mockReset();
       mockQuery.mockResolvedValue({ rows: [] });
 

@@ -4,7 +4,7 @@ import { evaluateProposal, recordOverride } from '@hipp0/core/governance/executi
 import type { ExecutionProposal } from '@hipp0/core/types.js';
 
 export function registerExecutionRoutes(app: Hono): void {
-  // POST /api/execution/validate — Preflight governance check
+  // POST /api/execution/validate - Preflight governance check
   app.post('/api/execution/validate', async (c) => {
     const body = await c.req.json<ExecutionProposal>();
 
@@ -17,7 +17,7 @@ export function registerExecutionRoutes(app: Hono): void {
     return c.json(result);
   });
 
-  // POST /api/execution/override — Override a governor block with justification
+  // POST /api/execution/override - Override a governor block with justification
   app.post('/api/execution/override', async (c) => {
     const body = await c.req.json<{
       proposal: ExecutionProposal;
@@ -29,10 +29,10 @@ export function registerExecutionRoutes(app: Hono): void {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: 'proposal.project_id is required' } }, 400);
     }
     if (!body.justification || body.justification.trim().length < 10) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'justification must be at least 10 characters' } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'justification is required and must be at least 10 characters to ensure adequate reasoning is documented' } }, 400);
     }
     if (!body.actor_id) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'actor_id is required' } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'actor_id is required to identify who is performing the override' } }, 400);
     }
 
     // Re-evaluate to get current governor decision

@@ -1,10 +1,10 @@
 #!/bin/bash
-# HIPP0 — 5 Advanced Features Test (corrected)
+# HIPP0 - 5 Advanced Features Test (corrected)
 URL=http://localhost:3100
 PID=de000000-0000-4000-8000-000000000001
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; NC='\033[0m'
 pass() { echo -e "  ${G}✓${NC} $1"; }
-fail() { echo -e "  ${R}✗${NC} $1 — $2"; }
+fail() { echo -e "  ${R}✗${NC} $1 -- $2"; }
 skip() { echo -e "  ${Y}⊘${NC} $1"; }
 echo ""
 echo "=== HIPP0 -- 5 Advanced Features Test ==="
@@ -41,7 +41,7 @@ PROV=$(echo $RES | jq -r '.[0].provenance_chain // empty')
 [ -n "$PROV" ] && [ "$PROV" != "[]" ] && [ "$PROV" != "null" ] && pass "provenance_chain exists" || skip "provenance_chain not populated"
 
 # Compile with debug to check trust_multiplier
-RES=$(curl -s -X POST $URL/api/compile -H "Content-Type: application/json" -d "{\"project_id\":\"$PID\",\"agent_name\":\"architect\",\"task_description\":\"test trust\",\"format\":\"json\",\"debug\":true}")
+RES=$(curl -s -X POST "$URL/api/compile?threshold=0" -H "Content-Type: application/json" -d "{\"project_id\":\"$PID\",\"agent_name\":\"architect\",\"task_description\":\"test trust\",\"format\":\"json\",\"debug\":true}")
 TMULT=$(echo $RES | jq -r '.debug.decisions[0].trust_multiplier // empty')
 [ -n "$TMULT" ] && pass "trust_multiplier in debug: $TMULT" || skip "trust_multiplier not in debug"
 
@@ -75,11 +75,11 @@ RES=$(curl -s -w "\n%{http_code}" -X POST $URL/api/execution/validate -H "Conten
 CODE=$(echo "$RES" | tail -1)
 [ "$CODE" = "200" ] && pass "Governor validate ($CODE)" || fail "Governor validate" "$CODE"
 
-RES=$(curl -s -w "\n%{http_code}" -X POST $URL/api/execution/override -H "Content-Type: application/json" -d "{\"proposal\":{\"project_id\":\"$PID\",\"action_type\":\"create_decision\",\"target_decision_ids\":[\"$DEC_ID\"]},\"justification\":\"Testing override — this is a legitimate test of the governance system.\",\"actor_id\":\"test-actor\"}")
+RES=$(curl -s -w "\n%{http_code}" -X POST $URL/api/execution/override -H "Content-Type: application/json" -d "{\"proposal\":{\"project_id\":\"$PID\",\"action_type\":\"create_decision\",\"target_decision_ids\":[\"$DEC_ID\"]},\"justification\":\"Testing override - this is a legitimate test of the governance system.\",\"actor_id\":\"test-actor\"}")
 CODE=$(echo "$RES" | tail -1)
 [ "$CODE" = "200" ] && pass "Governor override ($CODE)" || fail "Governor override" "$CODE"
 
-RES=$(curl -s -w "\n%{http_code}" -X POST $URL/api/simulation/preview -H "Content-Type: application/json" -d "{\"project_id\":\"$PID\",\"decision_id\":\"$DEC_ID\",\"changes\":{\"status\":\"superseded\"}}")
+RES=$(curl -s -w "\n%{http_code}" -X POST $URL/api/simulation/preview -H "Content-Type: application/json" -d "{\"project_id\":\"$PID\",\"decision_id\":\"$DEC_ID\",\"proposed_changes\":{\"title\":\"Updated decision title\"}}")
 CODE=$(echo "$RES" | tail -1)
 [ "$CODE" = "200" ] && pass "Simulation preview ($CODE)" || fail "Simulation preview" "$CODE"
 
