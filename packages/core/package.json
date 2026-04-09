@@ -99,6 +99,10 @@
       "import": "./dist/intelligence/weekly-digest.js",
       "types": "./dist/intelligence/weekly-digest.d.ts"
     },
+    "./intelligence/outcome-memory.js": {
+      "import": "./dist/intelligence/outcome-memory.js",
+      "types": "./dist/intelligence/outcome-memory.d.ts"
+    },
     "./intelligence/pattern-extractor.js": {
       "import": "./dist/intelligence/pattern-extractor.js",
       "types": "./dist/intelligence/pattern-extractor.d.ts"

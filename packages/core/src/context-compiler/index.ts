@@ -29,6 +29,7 @@ import type {
 import { getPatternRecommendations, DEFAULT_MIN_PATTERN_CONFIDENCE } from '../intelligence/pattern-extractor.js';
 import { inferDomainFromTask } from '../hierarchy/classifier.js';
 import { trustMultiplier } from '../intelligence/trust-scorer.js';
+import { outcomeMultiplier } from '../intelligence/outcome-memory.js';
 import { computeWingSources } from '../wings/affinity.js';
 
 // Embedding helper — imported from decision-graph (generated at runtime).
@@ -430,6 +431,13 @@ export function scoreDecision(
   const trustMult = trustMultiplier(decision.trust_score);
   finalScore *= trustMult;
 
+  // Outcome multiplier: decisions with strong track records get modest boost (0.85 to 1.10)
+  const outcomeMult = outcomeMultiplier(
+    (decision as Decision & { outcome_success_rate?: number | null }).outcome_success_rate,
+    (decision as Decision & { outcome_count?: number }).outcome_count,
+  );
+  finalScore *= outcomeMult;
+
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
 
@@ -472,6 +480,7 @@ export function scoreDecision(
     domain_boost: domainBoost,
     wing_affinity_boost: wingAffinityBoost,
     trust_multiplier: trustMult,
+    outcome_multiplier: outcomeMult,
     explanation,
   } as ScoringBreakdown;
 
