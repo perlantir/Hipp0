@@ -34,7 +34,7 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
   // GET /api/projects/:id/intelligence/contradictions/:cid — get detail
   app.get('/api/projects/:id/intelligence/contradictions/:cid', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     const cid = requireUUID(c.req.param('cid'), 'contradictionId');
 
     const result = await db.query(
@@ -44,8 +44,8 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
        FROM phase2_contradictions c
        JOIN decisions da ON da.id = c.decision_a_id
        JOIN decisions db ON db.id = c.decision_b_id
-       WHERE c.id = ?`,
-      [cid],
+       WHERE c.id = ? AND da.project_id = ?`,
+      [cid, projectId],
     );
 
     if (result.rows.length === 0) throw new NotFoundError('Contradiction', cid);
@@ -55,7 +55,7 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
   // POST /api/projects/:id/intelligence/contradictions/:cid/resolve
   app.post('/api/projects/:id/intelligence/contradictions/:cid/resolve', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     const cid = requireUUID(c.req.param('cid'), 'contradictionId');
 
     const body = await c.req.json<{
@@ -75,6 +75,15 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
 
     const newStatus = action === 'dismiss' ? 'dismissed' : 'resolved';
 
+    // Verify the contradiction belongs to this project before updating
+    const verifyResult = await db.query(
+      `SELECT c.id FROM phase2_contradictions c
+       JOIN decisions da ON da.id = c.decision_a_id
+       WHERE c.id = ? AND da.project_id = ?`,
+      [cid, projectId],
+    );
+    if (verifyResult.rows.length === 0) throw new NotFoundError('Contradiction', cid);
+
     const result = await db.query(
       `UPDATE phase2_contradictions
        SET status = ?, resolved_by = ?, resolved_at = NOW(), resolution_note = ?
@@ -89,13 +98,13 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
     const contradiction = result.rows[0] as Record<string, unknown>;
     if (action === 'keep_a') {
       await db.query(
-        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ?",
-        [contradiction.decision_b_id],
+        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ? AND project_id = ?",
+        [contradiction.decision_b_id, projectId],
       );
     } else if (action === 'keep_b') {
       await db.query(
-        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ?",
-        [contradiction.decision_a_id],
+        "UPDATE decisions SET status = 'superseded', updated_at = NOW() WHERE id = ? AND project_id = ?",
+        [contradiction.decision_a_id, projectId],
       );
     }
 

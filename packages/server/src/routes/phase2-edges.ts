@@ -15,7 +15,7 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
   // POST /api/projects/:id/decisions/:did/p2edges — create edge
   app.post('/api/projects/:id/decisions/:did/p2edges', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     const fromId = requireUUID(c.req.param('did'), 'decisionId');
 
     const body = await c.req.json<{
@@ -36,11 +36,11 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
       throw new ValidationError('Cannot create self-referencing edge');
     }
 
-    // Verify both decisions exist
-    const fromResult = await db.query('SELECT id FROM decisions WHERE id = ?', [fromId]);
+    // Verify both decisions exist and belong to this project
+    const fromResult = await db.query('SELECT id FROM decisions WHERE id = ? AND project_id = ?', [fromId, projectId]);
     if (fromResult.rows.length === 0) throw new NotFoundError('Decision', fromId);
 
-    const toResult = await db.query('SELECT id FROM decisions WHERE id = ?', [toId]);
+    const toResult = await db.query('SELECT id FROM decisions WHERE id = ? AND project_id = ?', [toId, projectId]);
     if (toResult.rows.length === 0) throw new NotFoundError('Decision', toId);
 
     const result = await db.query(
@@ -61,7 +61,7 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
   // GET /api/projects/:id/decisions/:did/p2edges — list edges
   app.get('/api/projects/:id/decisions/:did/p2edges', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     const decisionId = requireUUID(c.req.param('did'), 'decisionId');
 
     const result = await db.query(
@@ -71,9 +71,9 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
        FROM phase2_decision_edges e
        JOIN decisions df ON df.id = e.from_decision_id
        JOIN decisions dt ON dt.id = e.to_decision_id
-       WHERE e.from_decision_id = ? OR e.to_decision_id = ?
+       WHERE (e.from_decision_id = ? OR e.to_decision_id = ?) AND df.project_id = ?
        ORDER BY e.created_at DESC`,
-      [decisionId, decisionId],
+      [decisionId, decisionId, projectId],
     );
 
     return c.json(result.rows);
@@ -82,13 +82,16 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
   // DELETE /api/projects/:id/decisions/:did/p2edges/:eid — remove edge
   app.delete('/api/projects/:id/decisions/:did/p2edges/:eid', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     requireUUID(c.req.param('did'), 'decisionId');
     const edgeId = requireUUID(c.req.param('eid'), 'edgeId');
 
+    // Verify the edge belongs to a decision in this project before deleting
     const result = await db.query(
-      'DELETE FROM phase2_decision_edges WHERE id = ? RETURNING id',
-      [edgeId],
+      `DELETE FROM phase2_decision_edges
+       WHERE id = ? AND from_decision_id IN (SELECT id FROM decisions WHERE project_id = ?)
+       RETURNING id`,
+      [edgeId, projectId],
     );
 
     if (result.rows.length === 0) throw new NotFoundError('Edge', edgeId);
