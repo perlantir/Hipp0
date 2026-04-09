@@ -91,12 +91,17 @@ export function registerCaptureRoutes(app: Hono): void {
     // GET /api/capture/:id — Check capture status
   app.get('/api/capture/:id', async (c) => {
     const captureId = requireUUID(c.req.param('id'), 'capture_id');
+    const projectId = c.req.query('project_id');
     const db = getDb();
 
-    const result = await db.query(
-      'SELECT id, project_id, agent_name, session_id, source, status, extracted_decision_ids, error_message, created_at, completed_at FROM captures WHERE id = ?',
-      [captureId],
-    );
+    let sql = 'SELECT id, project_id, agent_name, session_id, source, status, extracted_decision_ids, error_message, created_at, completed_at FROM captures WHERE id = ?';
+    const params: unknown[] = [captureId];
+    if (projectId) {
+      sql += ' AND project_id = ?';
+      params.push(projectId);
+    }
+
+    const result = await db.query(sql, params);
 
     if (result.rows.length === 0) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Capture not found' } }, 404);

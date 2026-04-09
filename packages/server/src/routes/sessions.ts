@@ -32,6 +32,13 @@ export function registerSessionRoutes(app: Hono): void {
     const title = requireString(body.title, 'title', 500);
     const description = optionalString(body.description, 'description', 5000);
 
+    // Verify project exists before creating session
+    const db = getDb();
+    const projCheck = await db.query('SELECT id FROM projects WHERE id = ?', [project_id]);
+    if (projCheck.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Project not found' } }, 404);
+    }
+
     try {
       const result = await startSession({ project_id, title, description });
 

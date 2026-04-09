@@ -97,8 +97,12 @@ export function registerLinkRoutes(app: Hono): void {
   app.delete('/api/links/:id', async (c) => {
     const db = getDb();
     const linkId = requireUUID(c.req.param('id'), 'id');
+    const projectId = c.req.query('project_id');
+    if (!projectId) {
+      return c.json({ error: 'project_id query parameter is required' }, 400);
+    }
 
-    const result = await db.query('DELETE FROM decision_links WHERE id = ? RETURNING id', [linkId]);
+    const result = await db.query('DELETE FROM decision_links WHERE id = ? AND project_id = ? RETURNING id', [linkId, projectId]);
     if (result.rows.length === 0) throw new NotFoundError('Link', linkId);
 
     return c.json({ deleted: true, id: linkId });
