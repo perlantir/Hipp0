@@ -63,11 +63,11 @@ interface DiscoveryStatus {
 function connectorIcon(name: ConnectorType) {
   switch (name) {
     case 'openclaw':
-      return <Search size={16} className="text-[#063ff9]" />;
+      return <Search size={20} className="text-white" />;
     case 'directory':
-      return <FolderOpen size={16} className="text-[#063ff9]" />;
+      return <FolderOpen size={20} className="text-white" />;
     case 'webhook':
-      return <Webhook size={16} className="text-[#063ff9]" />;
+      return <Webhook size={20} className="text-white" />;
   }
 }
 
@@ -82,15 +82,38 @@ function connectorLabel(name: ConnectorType) {
   }
 }
 
+function connectorBgColor(name: ConnectorType) {
+  switch (name) {
+    case 'openclaw':
+      return '#ff2e93';
+    case 'directory':
+      return '#1A1D27';
+    case 'webhook':
+      return '#063ff9';
+  }
+}
+
 function statusDot(status: Connector['status']) {
-  const base = 'w-2 h-2 rounded-full shrink-0';
   switch (status) {
     case 'active':
-      return <span className={`${base} bg-green-400`} title="Active" />;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#063ff9]/10 text-[#063ff9]">
+          <span className="w-2 h-2 bg-[#063ff9] rounded-full animate-pulse" />
+          Connected
+        </span>
+      );
     case 'error':
-      return <span className={`${base} bg-red-400`} title="Error" />;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-red-500/10 text-red-500">
+          Error
+        </span>
+      );
     case 'idle':
-      return <span className={`${base} bg-yellow-400`} title="Idle" />;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]">
+          Disconnected
+        </span>
+      );
   }
 }
 
@@ -119,75 +142,100 @@ function ConnectorCard({ connector, onToggle, onDelete }: ConnectorCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="p-4 animate-slide-up" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
-      <div className="flex items-center gap-3">
-        {/* Icon */}
-        <div className="w-9 h-9 rounded-lg bg-[#063ff9]/10 flex items-center justify-center shrink-0">
+    <div
+      className="p-6 rounded-3xl animate-slide-up hover:-translate-y-1 transition-all duration-300"
+      style={{
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+      }}
+    >
+      {/* Header row: icon + status badge */}
+      <div className="flex justify-between items-start mb-6">
+        <div
+          className="w-12 h-12 rounded-2xl flex items-center justify-center"
+          style={{ backgroundColor: connectorBgColor(connector.name) }}
+        >
           {connectorIcon(connector.name)}
         </div>
+        {statusDot(connector.status)}
+      </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            {statusDot(connector.status)}
-            <span className="text-sm font-semibold">{connectorLabel(connector.name)}</span>
-          </div>
-          <p className="text-xs text-[var(--text-secondary)] truncate">
-            {connector.config.path || connector.config.url || '—'}
-          </p>
-        </div>
+      {/* Title */}
+      <h3 className="text-xl font-bold mb-4">{connectorLabel(connector.name)}</h3>
 
-        {/* Stats */}
-        <div className="hidden sm:flex items-center gap-4 mr-4">
-          <div className="text-right">
-            <p className="text-xs text-[var(--text-secondary)]">
-              Last poll
-            </p>
-            <p className="text-xs font-medium">{relativeTime(connector.last_poll_at)}</p>
+      {/* Config info */}
+      <div className="space-y-4">
+        {connector.config.path && (
+          <div>
+            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest block mb-1">Path</label>
+            <input
+              className="w-full bg-white/50 rounded-xl px-4 py-2 text-sm outline-none transition-all"
+              style={{ border: '1px solid rgba(255,255,255,0.6)' }}
+              readOnly
+              type="text"
+              value={connector.config.path}
+            />
           </div>
-          <div className="text-right">
-            <p className="text-xs text-[var(--text-secondary)]">
-              Sources
-            </p>
-            <p className="text-xs font-medium">{connector.sources_processed}</p>
+        )}
+        {connector.config.url && (
+          <div>
+            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest block mb-1">URL</label>
+            <input
+              className="w-full bg-white/50 rounded-xl px-4 py-2 text-sm outline-none transition-all font-mono"
+              style={{ border: '1px solid rgba(255,255,255,0.6)' }}
+              readOnly
+              type="text"
+              value={connector.config.url}
+            />
           </div>
-        </div>
+        )}
 
-        {/* Toggle */}
-        <button
-          onClick={() => onToggle(connector.id, !connector.enabled)}
-          className="shrink-0 transition-colors"
-          title={connector.enabled ? 'Disable connector' : 'Enable connector'}
-        >
-          {connector.enabled ? (
-            <ToggleRight size={24} className="text-primary" />
-          ) : (
-            <ToggleLeft size={24} className="text-[var(--text-secondary)]" />
+        {/* Stats row */}
+        <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)]">
+          <span>Last poll: <strong className="text-[var(--text-primary)]">{relativeTime(connector.last_poll_at)}</strong></span>
+          <span>Sources: <strong className="text-[var(--text-primary)]">{connector.sources_processed}</strong></span>
+          {connector.config.interval_minutes && (
+            <span>Interval: <strong className="text-[var(--text-primary)]">{connector.config.interval_minutes}m</strong></span>
           )}
-        </button>
+        </div>
 
-        {/* Expand */}
-        <button
-          onClick={() => setExpanded((e) => !e)}
-          className="btn-ghost p-1"
-          title={expanded ? 'Collapse' : 'Expand'}
-        >
-          {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-        </button>
-
-        {/* Delete */}
-        <button
-          onClick={() => onDelete(connector.id)}
-          className="btn-ghost p-1 hover:text-red-400 transition-colors"
-          title="Remove connector"
-        >
-          <X size={15} />
-        </button>
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onToggle(connector.id, !connector.enabled)}
+            className="flex-1 py-2.5 text-sm font-bold rounded-xl transition-all"
+            style={{
+              ...(connector.enabled
+                ? { border: '1px solid rgba(6,63,249,0.2)', color: '#063ff9', background: 'transparent' }
+                : { background: '#063ff9', color: 'white', border: 'none', boxShadow: '0 0 20px rgba(6,63,249,0.2)' }),
+            }}
+          >
+            {connector.enabled ? 'Disable' : 'Enable'}
+          </button>
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="p-2.5 rounded-xl transition-all hover:bg-black/5"
+            style={{ border: '1px solid rgba(6,63,249,0.2)' }}
+            title={expanded ? 'Collapse' : 'Expand'}
+          >
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          <button
+            onClick={() => onDelete(connector.id)}
+            className="p-2.5 rounded-xl transition-all hover:bg-red-50 hover:text-red-500"
+            style={{ border: '1px solid rgba(6,63,249,0.2)' }}
+            title="Remove connector"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Expanded details */}
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-[var(--border-light)] space-y-3">
+        <div className="mt-6 pt-6 space-y-3" style={{ borderTop: '1px solid var(--border-light)' }}>
           {/* Mobile stats */}
           <div className="flex items-center gap-6 sm:hidden">
             <div>
@@ -200,37 +248,11 @@ function ConnectorCard({ connector, onToggle, onDelete }: ConnectorCardProps) {
             </div>
           </div>
 
-          {/* Config details */}
-          {connector.config.path && (
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] mb-0.5">Path</p>
-              <code className="text-xs font-mono bg-[var(--border-light)]/30 px-2 py-1 rounded">
-                {connector.config.path}
-              </code>
-            </div>
-          )}
-          {connector.config.url && (
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] mb-0.5">URL</p>
-              <code className="text-xs font-mono bg-[var(--border-light)]/30 px-2 py-1 rounded break-all">
-                {connector.config.url}
-              </code>
-            </div>
-          )}
-          {connector.config.interval_minutes && (
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] mb-0.5">
-                Poll interval
-              </p>
-              <p className="text-xs font-medium">{connector.config.interval_minutes} minutes</p>
-            </div>
-          )}
-
           {/* Error */}
           {connector.status === 'error' && connector.error_message && (
-            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
-              <AlertCircle size={13} className="shrink-0 mt-0.5 text-red-400" />
-              <p className="text-xs text-red-300">{connector.error_message}</p>
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+              <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-500" />
+              <p className="text-xs text-red-600">{connector.error_message}</p>
             </div>
           )}
         </div>
@@ -294,26 +316,36 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 animate-slide-up" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
-      <h3 className="text-sm font-semibold mb-4">New connector</h3>
+    <form
+      onSubmit={handleSubmit}
+      className="p-6 rounded-3xl animate-slide-up"
+      style={{
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+      }}
+    >
+      <h3 className="text-xl font-bold mb-6">New Connector</h3>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 mb-4">
-          <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-400" />
-          <p className="text-sm text-red-300">{error}</p>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 mb-4" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+          <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-500" />
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       <div className="space-y-4">
         {/* Type */}
         <div>
-          <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider text-[var(--text-secondary)]">
+          <label className="block text-[10px] font-bold mb-1 uppercase tracking-widest text-[var(--text-secondary)]">
             Connector type
           </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as ConnectorType)}
-            className="input w-full"
+            className="w-full bg-white/50 rounded-xl px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#063ff9]/20"
+            style={{ border: '1px solid rgba(255,255,255,0.6)' }}
           >
             {CONNECTOR_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -326,7 +358,7 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
         {/* Path */}
         {(type === 'openclaw' || type === 'directory') && (
           <div>
-            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider text-[var(--text-secondary)]">
+            <label className="block text-[10px] font-bold mb-1 uppercase tracking-widest text-[var(--text-secondary)]">
               {type === 'openclaw' ? 'OpenClaw path' : 'Directory path'} <span className="text-red-400">*</span>
             </label>
             <input
@@ -334,7 +366,8 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
               value={path}
               onChange={(e) => setPath(e.target.value)}
               placeholder={type === 'openclaw' ? '/path/to/openclaw' : '/projects/myapp'}
-              className="input w-full"
+              className="w-full bg-white/50 rounded-xl px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#063ff9]/20"
+              style={{ border: '1px solid rgba(255,255,255,0.6)' }}
               autoFocus
             />
           </div>
@@ -344,20 +377,21 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
         {type === 'webhook' && (
           <>
             <div>
-              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="block text-[10px] font-bold mb-1 uppercase tracking-widest text-[var(--text-secondary)]">
                 Webhook URL <span className="text-red-400">*</span>
               </label>
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://hooks.example.com/…"
-                className="input w-full"
+                placeholder="https://hooks.example.com/..."
+                className="w-full bg-white/50 rounded-xl px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#063ff9]/20"
+                style={{ border: '1px solid rgba(255,255,255,0.6)' }}
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="block text-[10px] font-bold mb-1 uppercase tracking-widest text-[var(--text-secondary)]">
                 Secret <span className="opacity-50">(optional)</span>
               </label>
               <input
@@ -365,7 +399,8 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
                 placeholder="Signing secret"
-                className="input w-full"
+                className="w-full bg-white/50 rounded-xl px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#063ff9]/20"
+                style={{ border: '1px solid rgba(255,255,255,0.6)' }}
               />
             </div>
           </>
@@ -374,7 +409,7 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
         {/* Poll interval */}
         {type !== 'webhook' && (
           <div>
-            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider text-[var(--text-secondary)]">
+            <label className="block text-[10px] font-bold mb-1 uppercase tracking-widest text-[var(--text-secondary)]">
               Poll interval (minutes)
             </label>
             <input
@@ -383,17 +418,27 @@ function AddConnectorForm({ onAdd, onCancel }: AddConnectorFormProps) {
               onChange={(e) => setInterval(e.target.value)}
               min="1"
               max="1440"
-              className="input w-32"
+              className="w-32 bg-white/50 rounded-xl px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#063ff9]/20"
+              style={{ border: '1px solid rgba(255,255,255,0.6)' }}
             />
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2 justify-end mt-5">
-        <button type="button" onClick={onCancel} className="btn-secondary text-sm">
+      <div className="flex items-center gap-3 justify-end mt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-black/5"
+          style={{ border: '1px solid rgba(6,63,249,0.2)', color: 'var(--text-primary)' }}
+        >
           Cancel
         </button>
-        <button type="submit" disabled={loading} className="btn-primary text-sm flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-5 py-2.5 bg-[#063ff9] text-white text-sm font-bold rounded-xl shadow-[0_0_20px_rgba(6,63,249,0.2)] hover:shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-all flex items-center gap-2 disabled:opacity-50"
+        >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
           Add connector
         </button>
@@ -444,62 +489,74 @@ function GitHubSettings({ projectId }: { projectId: string }) {
   }, [testConnection]);
 
   return (
-    <div className="p-4 mb-6" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
-      <div className="flex items-center gap-2 mb-3">
-        <GitBranch size={16} className="text-[#063ff9]" />
-        <h3 className="text-sm font-semibold">GitHub Integration</h3>
+    <div
+      className="p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300"
+      style={{
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+      }}
+    >
+      <div className="flex justify-between items-start mb-6">
+        <div className="w-12 h-12 bg-[#1A1D27] rounded-2xl flex items-center justify-center">
+          <GitBranch size={20} className="text-white" />
+        </div>
         {status?.connected ? (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#063ff9]/10 text-[#063ff9]">
+            <span className="w-2 h-2 bg-[#063ff9] rounded-full animate-pulse" />
             Connected
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]">
             Not configured
           </span>
         )}
       </div>
 
+      <h3 className="text-xl font-bold mb-4">GitHub</h3>
+
       {error && (
-        <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20 mb-3">
-          <AlertCircle size={13} className="shrink-0 mt-0.5 text-red-400" />
-          <p className="text-xs text-red-300">{error}</p>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 mb-4" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+          <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-500" />
+          <p className="text-xs text-red-600">{error}</p>
         </div>
       )}
 
       {status && (
         <>
           {/* Connection details */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <div className="space-y-4 mb-4">
             {status.app_id && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">App ID</p>
-                <p className="text-xs font-medium">{status.app_id}</p>
+                <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest block mb-1">App ID</label>
+                <input
+                  className="w-full bg-white/50 rounded-xl px-4 py-2 text-sm outline-none"
+                  style={{ border: '1px solid rgba(255,255,255,0.6)' }}
+                  readOnly
+                  value={status.app_id}
+                />
               </div>
             )}
-            {status.installation_id && (
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Installation</p>
-                <p className="text-xs font-medium">{status.installation_id}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-0.5">Total links</p>
+                <p className="text-sm font-bold">{status.total_links}</p>
               </div>
-            )}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Total links</p>
-              <p className="text-xs font-medium">{status.total_links}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Open PRs</p>
-              <p className="text-xs font-medium">{status.open_pr_links}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-0.5">Merged PRs</p>
-              <p className="text-xs font-medium">{status.merged_pr_links}</p>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-0.5">Open PRs</p>
+                <p className="text-sm font-bold">{status.open_pr_links}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-0.5">Merged PRs</p>
+                <p className="text-sm font-bold">{status.merged_pr_links}</p>
+              </div>
             </div>
           </div>
 
           {/* Options */}
-          <div className="space-y-2 mb-4">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Options</p>
+          <div className="space-y-2.5 mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Options</p>
             {[
               { label: 'Post relevant decisions on new PRs', value: prComments, set: setPrComments },
               { label: 'Auto-extract decisions from merged PRs', value: autoExtract, set: setAutoExtract },
@@ -511,9 +568,9 @@ function GitHubSettings({ projectId }: { projectId: string }) {
                   type="checkbox"
                   checked={opt.value}
                   onChange={(e) => opt.set(e.target.checked)}
-                  className="rounded border-[var(--border-light)] text-primary focus:ring-primary/30"
+                  className="w-5 h-5 rounded text-[#063ff9] border-gray-300 focus:ring-[#063ff9]"
                 />
-                <span className="text-xs">{opt.label}</span>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">{opt.label}</span>
               </label>
             ))}
           </div>
@@ -523,10 +580,11 @@ function GitHubSettings({ projectId }: { projectId: string }) {
       <button
         onClick={testConnection}
         disabled={loading}
-        className="btn-secondary text-xs flex items-center gap-1.5"
+        className="w-full py-2.5 text-sm font-bold rounded-xl transition-all"
+        style={{ border: '1px solid rgba(6,63,249,0.2)', color: '#063ff9' }}
       >
-        {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-        Test Connection
+        {loading ? <Loader2 size={14} className="animate-spin inline mr-1.5" /> : <RefreshCw size={14} className="inline mr-1.5" />}
+        Manage Sync Settings
       </button>
     </div>
   );
@@ -612,48 +670,65 @@ function LinearSettingsPanel({ projectId }: { projectId: string }) {
 
   if (loading) {
     return (
-      <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+      <div
+        className="p-6 rounded-3xl"
+        style={{
+          background: 'rgba(255,255,255,0.6)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255,255,255,0.4)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+        }}
+      >
         <div className="flex items-center gap-2">
           <Loader2 size={14} className="animate-spin text-[#063ff9]" />
-          <span className="text-sm text-[var(--text-secondary)]">Loading Linear status…</span>
+          <span className="text-sm text-[var(--text-secondary)]">Loading Linear status...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-5" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-[#5E6AD2]/10 flex items-center justify-center shrink-0">
-          <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
-            <path d="M1.22541 61.5228c-.97401-6.5599-.62806-13.2361.95743-19.6243l57.919 57.9191c-6.3882 1.5855-13.0644 1.9315-19.6243.9574L1.22541 61.5228zM.00241111 46.8891c-.09505 1.1294-.15484 2.2628-.17908 3.3996L43.6813 93.1466c1.2981-.0285 2.5935-.1008 3.8833-.217L.00241111 46.8891zM.25025 40.8372c-.10912 1.1003-.18579 2.2043-.22972 3.3118L40.948 93.0771c1.0878-.0415 2.1728-.1155 3.2543-.2213L.25025 40.8372z" fill="#5E6AD2"/>
-            <path d="M92.8746 37.5765 37.5764 92.8747c-6.4289-2.6921-12.2583-6.7755-17.0422-11.5595l71.3002-71.3004c4.784 4.7839 8.8674 10.6133 11.5595 17.0422l-10.5193 10.5195z" fill="#5E6AD2"/>
-            <path d="M96.6356 46.8891c.095 1.1294.1548 2.2628.1791 3.3996L53.9569 93.1466c-1.2981-.0285-2.5935-.1008-3.8833-.217l46.5620-46.0405zM96.7875 40.8372c.1091 1.1003.1858 2.2043.2297 3.3118L50.0893 93.0771c-1.0878-.0415-2.1728-.1155-3.2543-.2213l49.9525-52.0186z" fill="#5E6AD2"/>
+    <div
+      className="p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300"
+      style={{
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+      }}
+    >
+      <div className="flex justify-between items-start mb-6">
+        <div className="w-12 h-12 rounded-2xl bg-[#5E6AD2] flex items-center justify-center shrink-0">
+          <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
+            <path d="M1.22541 61.5228c-.97401-6.5599-.62806-13.2361.95743-19.6243l57.919 57.9191c-6.3882 1.5855-13.0644 1.9315-19.6243.9574L1.22541 61.5228zM.00241111 46.8891c-.09505 1.1294-.15484 2.2628-.17908 3.3996L43.6813 93.1466c1.2981-.0285 2.5935-.1008 3.8833-.217L.00241111 46.8891zM.25025 40.8372c-.10912 1.1003-.18579 2.2043-.22972 3.3118L40.948 93.0771c1.0878-.0415 2.1728-.1155 3.2543-.2213L.25025 40.8372z" fill="#FFFFFF"/>
+            <path d="M92.8746 37.5765 37.5764 92.8747c-6.4289-2.6921-12.2583-6.7755-17.0422-11.5595l71.3002-71.3004c4.784 4.7839 8.8674 10.6133 11.5595 17.0422l-10.5193 10.5195z" fill="#FFFFFF"/>
+            <path d="M96.6356 46.8891c.095 1.1294.1548 2.2628.1791 3.3996L53.9569 93.1466c-1.2981-.0285-2.5935-.1008-3.8833-.217l46.5620-46.0405zM96.7875 40.8372c.1091 1.1003.1858 2.2043.2297 3.3118L50.0893 93.0771c-1.0878-.0415-2.1728-.1155-3.2543-.2213l49.9525-52.0186z" fill="#FFFFFF"/>
           </svg>
         </div>
-        <h3 className="text-sm font-semibold flex-1">Linear</h3>
         {status?.connected ? (
-          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#063ff9]/10 text-[#063ff9]">
+            <span className="w-2 h-2 bg-[#063ff9] rounded-full animate-pulse" />
             Connected
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]">
             Not connected
           </span>
         )}
       </div>
+
+      <h3 className="text-xl font-bold mb-4">Linear</h3>
 
       {status?.connected ? (
         <div className="space-y-4">
           {/* Team info */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-[var(--text-secondary)]">Team:</span>
-            <span className="font-medium">{status.team_name || status.team_id}</span>
+            <span className="font-bold">{status.team_name || status.team_id}</span>
           </div>
 
           {/* Settings toggles */}
-          <div className="space-y-3 pt-2 border-t border-[var(--border-light)]">
+          <div className="space-y-3 pt-4" style={{ borderTop: '1px solid var(--border-light)' }}>
             {[
               { key: 'auto_create', label: 'Auto-create issues for action-required decisions', value: status.auto_create },
               { key: 'auto_create_all', label: 'Auto-create issues for ALL decisions', value: status.auto_create_all },
@@ -678,8 +753,8 @@ function LinearSettingsPanel({ projectId }: { projectId: string }) {
           </div>
 
           {/* Trigger tags */}
-          <div className="pt-2 border-t border-[var(--border-light)]">
-            <p className="text-xs text-[var(--text-secondary)] mb-1.5">Auto-create trigger tags</p>
+          <div className="pt-4" style={{ borderTop: '1px solid var(--border-light)' }}>
+            <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-2">Auto-create trigger tags</p>
             <div className="flex flex-wrap gap-1.5">
               {status.trigger_tags.map((tag) => (
                 <span key={tag} className="tag-pill text-xs">{tag}</span>
@@ -688,25 +763,26 @@ function LinearSettingsPanel({ projectId }: { projectId: string }) {
           </div>
 
           {/* Disconnect */}
-          <div className="pt-3 border-t border-[var(--border-light)]">
+          <div className="pt-4" style={{ borderTop: '1px solid var(--border-light)' }}>
             <button
               onClick={handleDisconnect}
               disabled={saving}
-              className="btn-secondary text-xs text-red-500 hover:text-red-600 flex items-center gap-1.5"
+              className="w-full py-2.5 text-sm font-bold rounded-xl transition-all text-red-500 hover:bg-red-50"
+              style={{ border: '1px solid rgba(239,68,68,0.2)' }}
             >
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+              {saving ? <Loader2 size={14} className="animate-spin inline mr-1.5" /> : <X size={14} className="inline mr-1.5" />}
               Disconnect Linear
             </button>
           </div>
         </div>
       ) : (
-        <div>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
             Connect Linear to auto-create issues from decisions and sync issue status.
           </p>
           <a
             href="/api/linear/install"
-            className="btn-primary text-sm inline-flex items-center gap-2"
+            className="w-full py-2.5 bg-[#063ff9] text-white text-sm font-bold rounded-xl shadow-[0_0_20px_rgba(6,63,249,0.2)] hover:shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-all inline-flex items-center justify-center gap-2"
           >
             <ExternalLink size={14} />
             Connect Linear
@@ -909,10 +985,10 @@ export function Connectors() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin text-primary" />
-          <span className="text-sm text-[var(--text-secondary)]">Loading connectors…</span>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={28} className="animate-spin text-[#063ff9]" />
+          <span className="text-sm text-[var(--text-secondary)]">Loading connectors...</span>
         </div>
       </div>
     );
@@ -920,40 +996,39 @@ export function Connectors() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="p-12 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-1">Connectors</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Manage auto-discovery sources for this project.
-            </p>
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-4xl font-bold tracking-tight">Connectors &amp; Integrations</h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchAll}
+                className="px-5 py-2 rounded-xl text-sm font-bold transition-all hover:bg-black/5"
+                style={{ border: '1px solid rgba(6,63,249,0.2)' }}
+                title="Refresh"
+              >
+                <RefreshCw size={14} className="inline mr-1.5" />
+                Refresh
+              </button>
+              <button
+                onClick={() => setShowForm((v) => !v)}
+                className="px-5 py-2 bg-[#063ff9] text-white rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Plus size={15} />
+                Add connector
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchAll}
-              className="btn-secondary flex items-center gap-1.5 text-xs"
-              title="Refresh"
-            >
-              <RefreshCw size={13} />
-              Refresh
-            </button>
-            <button
-              onClick={() => setShowForm((v) => !v)}
-              className="btn-primary flex items-center gap-1.5 text-sm"
-            >
-              <Plus size={15} />
-              Add connector
-            </button>
-          </div>
+          <p className="text-[var(--text-secondary)] text-lg">Extend the swarm intelligence by bridging HIPP0 with your existing workflow stacks.</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 mb-6">
-            <AlertCircle size={15} className="shrink-0 mt-0.5 text-red-400" />
-            <p className="text-sm text-red-300">{error}</p>
-            <button onClick={fetchAll} className="ml-auto shrink-0 text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+          <div className="flex items-start gap-2 p-4 rounded-xl bg-red-500/10 mb-8" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+            <AlertCircle size={15} className="shrink-0 mt-0.5 text-red-500" />
+            <p className="text-sm text-red-600">{error}</p>
+            <button onClick={fetchAll} className="ml-auto shrink-0 text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
               <RefreshCw size={11} />
               Retry
             </button>
@@ -962,22 +1037,30 @@ export function Connectors() {
 
         {/* Discovery status banner */}
         {discovery && (
-          <div className="p-4 mb-6" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Activity size={16} className="text-[#063ff9]" />
-              <h3 className="text-sm font-semibold">Discovery Status</h3>
+          <div
+            className="p-6 mb-8 rounded-3xl"
+            style={{
+              background: 'rgba(255,255,255,0.6)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.4)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Activity size={18} className="text-[#063ff9]" />
+              <h3 className="text-lg font-bold">Discovery Status</h3>
               {discovery.running ? (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-green-500/15 text-green-600">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   Running
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--border-light)]/40 text-[var(--text-secondary)]">
+                <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]">
                   Idle
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
               {[
                 {
                   icon: <Database size={14} />,
@@ -1003,119 +1086,69 @@ export function Connectors() {
                 <div key={i}>
                   <div className="flex items-center gap-1.5 text-[var(--text-secondary)] mb-1">
                     {item.icon}
-                    <span className="text-xs">{item.label}</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
                   </div>
-                  <p className="text-sm font-semibold">{item.value}</p>
+                  <p className="text-lg font-bold">{item.value}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* GitHub integration */}
-        <GitHubSettings projectId={projectId} />
-
         {/* Add form */}
         {showForm && (
-          <div className="mb-6">
+          <div className="mb-8">
             <AddConnectorForm onAdd={handleAdd} onCancel={() => setShowForm(false)} />
           </div>
         )}
 
-        {/* Connector list */}
-        {(connectors ?? []).length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-14 h-14 rounded-xl bg-[var(--border-light)]/30 flex items-center justify-center mx-auto mb-4">
-              <Database size={22} className="text-[var(--text-secondary)]" />
-            </div>
-            <p className="text-sm font-medium mb-1">No connectors configured</p>
-            <p className="text-xs text-[var(--text-secondary)] mb-4">
-              Add a connector to start auto-discovering decisions.
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn-primary text-sm flex items-center gap-2 mx-auto"
+        {/* Integration Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* GitHub integration */}
+          <GitHubSettings projectId={projectId} />
+
+          {/* Linear Integration */}
+          <LinearSettingsPanel projectId={projectId} />
+
+          {/* Connector cards */}
+          {(connectors ?? []).length === 0 ? (
+            <div
+              className="p-8 rounded-3xl flex flex-col items-center justify-center text-center md:col-span-2 lg:col-span-1 hover:-translate-y-1 transition-all duration-300"
+              style={{
+                background: 'rgba(255,255,255,0.6)',
+                backdropFilter: 'blur(24px)',
+                border: '2px dashed rgba(6,63,249,0.2)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+              }}
             >
-              <Plus size={15} />
-              Add your first connector
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Active/disabled sections */}
-            {['active', 'idle', 'error'].map((status) => {
-              const group = (connectors ?? []).filter((c) => c.status === status);
-              if (group.length === 0) return null;
-              const labelMap: Record<string, string> = {
-                active: 'Active',
-                idle: 'Idle',
-                error: 'Errors',
-              };
-              const iconMap: Record<string, React.ReactNode> = {
-                active: <CheckCircle2 size={14} className="text-green-400" />,
-                idle: <Clock size={14} className="text-yellow-400" />,
-                error: <XCircle size={14} className="text-red-400" />,
-              };
-              return (
-                <div key={status} className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    {iconMap[status]}
-                    <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
-                      {labelMap[status]} ({group.length})
-                    </h2>
-                  </div>
-                  <div className="space-y-3">
-                    {group.map((c) => (
-                      <ConnectorCard
-                        key={c.id}
-                        connector={c}
-                        onToggle={handleToggle}
-                        onDelete={handleDelete}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Disabled connectors */}
-            {(() => {
-              const disabled = (connectors ?? []).filter((c) => !c.enabled);
-              if (disabled.length === 0) return null;
-              return (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ToggleLeft size={14} className="text-[var(--text-secondary)]" />
-                    <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
-                      Disabled ({disabled.length})
-                    </h2>
-                  </div>
-                  <div className="space-y-3 opacity-60">
-                    {disabled.map((c) => (
-                      <ConnectorCard
-                        key={c.id}
-                        connector={c}
-                        onToggle={handleToggle}
-                        onDelete={handleDelete}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </>
-        )}
-      </div>
-
-      {/* Linear Integration */}
-      <div className="mt-8">
-        <div className="flex items-center gap-2 mb-3">
-          <Link2 size={14} style={{ color: 'var(--text-secondary)' }} />
-          <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            Linear Integration
-          </h2>
+              <div className="w-16 h-16 rounded-full bg-[#063ff9]/5 flex items-center justify-center mx-auto mb-4">
+                <Database size={28} className="text-[#063ff9]" />
+              </div>
+              <p className="text-lg font-bold mb-2">No connectors configured</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-6">
+                Add a connector to start auto-discovering decisions.
+              </p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-6 py-2.5 bg-[#063ff9] text-white text-sm font-bold rounded-xl shadow-[0_0_20px_rgba(6,63,249,0.2)] hover:shadow-[0_0_20px_rgba(6,63,249,0.4)] transition-all flex items-center gap-2"
+              >
+                <Plus size={15} />
+                Add your first connector
+              </button>
+            </div>
+          ) : (
+            <>
+              {(connectors ?? []).map((c) => (
+                <ConnectorCard
+                  key={c.id}
+                  connector={c}
+                  onToggle={handleToggle}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </>
+          )}
         </div>
-        <LinearSettingsPanel projectId={projectId} />
       </div>
     </div>
   );
