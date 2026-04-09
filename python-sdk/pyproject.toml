@@ -1,9 +1,9 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "hipp0-sdk"
+name = "hipp0-memory"
 version = "0.1.0"
 description = "Official Python SDK for the Hipp0 multi-agent memory and decision platform."
 readme = "README.md"
