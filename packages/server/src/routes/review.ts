@@ -7,12 +7,14 @@ import { propagateChange } from '@hipp0/core/change-propagator/index.js';
 import { checkForContradictions } from '@hipp0/core/contradiction-detector/index.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, logAudit, generateEmbedding } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
 export function registerReviewRoutes(app: Hono): void {
     // Review Queue
   app.get('/api/projects/:id/review-queue', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const result = await db.query(
       `SELECT * FROM decisions

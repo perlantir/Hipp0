@@ -9,6 +9,7 @@ import {
   mapDbError,
   logAudit,
 } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
 import crypto from 'node:crypto';
 
@@ -29,6 +30,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   // POST /api/projects/:id/import — Bulk import conversation transcripts
   app.post('/api/projects/:id/import', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const body = await c.req.json<{
       conversations?: unknown;
@@ -143,6 +145,8 @@ export function registerDiscoveryRoutes(app: Hono): void {
         ? body.agent_name.trim()
         : 'webhook';
 
+    await requireProjectAccess(c, projectId);
+
     // Fire-and-forget: process via distill (acts as processChunk)
     distill(projectId, text, agentName)
       .then((result) => {
@@ -163,6 +167,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   app.get('/api/projects/:id/connectors', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const result = await db.query(
       `SELECT * FROM connector_configs WHERE project_id = ? ORDER BY created_at ASC`,
@@ -176,6 +181,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   app.post('/api/projects/:id/connectors', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const body = await c.req.json<{
       connector_name?: unknown;
@@ -223,6 +229,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   app.delete('/api/projects/:id/connectors/:name', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const connectorName = c.req.param('name');
 
     if (!connectorName || connectorName.trim().length === 0) {
@@ -247,6 +254,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   app.get('/api/projects/:id/discovery/status', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const [connectorsResult, countResult, recentResult] = await Promise.all([
       db.query(
@@ -293,6 +301,7 @@ export function registerDiscoveryRoutes(app: Hono): void {
   // POST /api/projects/:id/scan-contradictions — One-time contradiction scan
   app.post('/api/projects/:id/scan-contradictions', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     try {
       const result = await scanProjectContradictions(projectId);

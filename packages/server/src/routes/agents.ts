@@ -4,6 +4,7 @@ import { parseAgent } from '@hipp0/core/db/parsers.js';
 import { NotFoundError } from '@hipp0/core/types.js';
 import { getRoleProfile } from '@hipp0/core/roles.js';
 import { requireUUID, requireString, mapDbError } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { randomUUID } from 'node:crypto';
 import { cache, agentListKey, CACHE_TTL } from '../cache/redis.js';
 
@@ -11,6 +12,7 @@ export function registerAgentRoutes(app: Hono): void {
   app.post('/api/projects/:id/agents', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const body = await c.req.json<{
       name?: unknown;
       role?: unknown;
@@ -54,6 +56,7 @@ export function registerAgentRoutes(app: Hono): void {
   app.get('/api/projects/:id/agents', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     // Check cache
     const cached = await cache.get(agentListKey(projectId));

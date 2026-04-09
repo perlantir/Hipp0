@@ -7,6 +7,7 @@ import { getDb } from '@hipp0/core/db/index.js';
 import { parseDecision } from '@hipp0/core/db/parsers.js';
 import { classifyDecision } from '@hipp0/core/hierarchy/classifier.js';
 import { requireUUID, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
 export function registerHierarchyRoutes(app: Hono): void {
     // Bulk classify all decisions in a project
@@ -14,6 +15,7 @@ export function registerHierarchyRoutes(app: Hono): void {
   app.post('/api/projects/:id/decisions/bulk-classify', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const result = await db.query<Record<string, unknown>>(
       `SELECT id, title, description, tags, source, confidence FROM decisions WHERE project_id = ?`,
@@ -64,6 +66,7 @@ export function registerHierarchyRoutes(app: Hono): void {
   app.get('/api/projects/:id/domains', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     // Get domain counts
     const domainResult = await db.query<Record<string, unknown>>(

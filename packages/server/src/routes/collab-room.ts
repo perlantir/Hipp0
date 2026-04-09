@@ -6,6 +6,7 @@
  */
 import type { Hono } from 'hono';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { randomBytes } from 'crypto';
 import { broadcastToRoom } from '../collab-ws.js';
@@ -32,6 +33,7 @@ export function registerCollabRoomRoutes(app: Hono): void {
     try {
       const token = generateToken();
       const projectId = typeof body.project_id === 'string' ? body.project_id : null;
+      if (projectId) await requireProjectAccess(c, projectId);
       const sessionId = typeof body.session_id === 'string' ? body.session_id : null;
 
       const result = await db.query(

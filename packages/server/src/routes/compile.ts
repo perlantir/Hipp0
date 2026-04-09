@@ -12,6 +12,7 @@ import { compileContext } from '@hipp0/core/context-compiler/index.js';
 import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, encodeH0CPatterns, estimateTokens } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { broadcast } from '../websocket.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@hipp0/core/memory/session-manager.js';
@@ -37,6 +38,7 @@ export function registerCompileRoutes(app: Hono): void {
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, project_id);
     // Accept both `task` and `task_description` — prefer task_description when both provided
     const rawTaskDescription = body.task_description ?? body.task;
     const task_description = requireString(rawTaskDescription, 'task_description', 100000);

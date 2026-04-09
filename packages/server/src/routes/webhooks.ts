@@ -3,6 +3,7 @@ import { getDb } from '@hipp0/core/db/index.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { testWebhook } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, requireString, mapDbError, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { randomUUID, randomBytes } from 'node:crypto';
 
 /** Validate a webhook URL to prevent SSRF */
@@ -88,6 +89,7 @@ export function registerWebhookRoutes(app: Hono): void {
   app.get('/api/projects/:id/webhooks', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const result = await db.query(
       'SELECT * FROM webhook_configs WHERE project_id = ? ORDER BY created_at DESC',
@@ -101,6 +103,7 @@ export function registerWebhookRoutes(app: Hono): void {
   app.post('/api/projects/:id/webhooks', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const body = await c.req.json<{
       name?: unknown;
       url?: unknown;
@@ -151,6 +154,7 @@ export function registerWebhookRoutes(app: Hono): void {
   app.patch('/api/projects/:id/webhooks/:whId', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const whId = requireUUID(c.req.param('whId'), 'webhookId');
     const body = await c.req.json<{
       name?: unknown;
@@ -219,6 +223,7 @@ export function registerWebhookRoutes(app: Hono): void {
   app.delete('/api/projects/:id/webhooks/:whId', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const whId = requireUUID(c.req.param('whId'), 'webhookId');
 
     const result = await db.query(
@@ -236,6 +241,7 @@ export function registerWebhookRoutes(app: Hono): void {
     // TEST
   app.post('/api/projects/:id/webhooks/:whId/test', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const whId = requireUUID(c.req.param('whId'), 'webhookId');
 
     const result = await testWebhook(whId, projectId);

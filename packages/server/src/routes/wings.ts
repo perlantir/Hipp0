@@ -11,6 +11,7 @@ import {
   getWingAffinity,
 } from '@hipp0/core';
 import { requireUUID, requireString, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
 export function registerWingRoutes(app: Hono): void {
     // GET /api/agents/:name/wing — Wing stats for an agent
@@ -90,6 +91,7 @@ export function registerWingRoutes(app: Hono): void {
   app.get('/api/projects/:id/wings', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'project_id');
+    await requireProjectAccess(c, projectId);
 
     // Get all wings with counts and top domains
     const wingResult = await db.query<Record<string, unknown>>(
@@ -243,6 +245,7 @@ export function registerWingRoutes(app: Hono): void {
     // POST /api/projects/:id/wings/recalculate — Manual trigger
   app.post('/api/projects/:id/wings/recalculate', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'project_id');
+    await requireProjectAccess(c, projectId);
 
     const result = await recalculateProjectWings(projectId);
 

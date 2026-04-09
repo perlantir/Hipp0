@@ -13,6 +13,7 @@ import {
   mapDbError,
   logAudit,
 } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
   // Ask Anything system prompt
 
@@ -37,6 +38,7 @@ export function registerDistilleryRoutes(app: Hono): void {
     }>();
 
     const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
     const question = requireString(body.question, 'question', 2000);
     const agentName = optionalString(body.agent_name, 'agent_name', 200) ?? null;
 
@@ -203,6 +205,7 @@ export function registerDistilleryRoutes(app: Hono): void {
   // POST /api/projects/:id/distill — extract decisions from conversation text
   app.post('/api/projects/:id/distill', async (c) => {
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const body = await c.req.json<{
       conversation_text?: unknown;
       agent_name?: unknown;
@@ -227,6 +230,7 @@ export function registerDistilleryRoutes(app: Hono): void {
   app.post('/api/projects/:id/distill/session', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const body = await c.req.json<{
       conversation_text?: unknown;
       agent_name?: unknown;
@@ -284,6 +288,7 @@ export function registerDistilleryRoutes(app: Hono): void {
   app.post('/api/projects/:id/sessions', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const body = await c.req.json<{
       agent_name?: unknown;
       topic?: unknown;
@@ -336,6 +341,7 @@ export function registerDistilleryRoutes(app: Hono): void {
   app.get('/api/projects/:id/sessions', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const result = await db.query(
       'SELECT * FROM session_summaries WHERE project_id = ? ORDER BY created_at DESC',
       [projectId],

@@ -3,6 +3,7 @@ import { getDb } from '@hipp0/core/db/index.js';
 import { parseDecision, parseAgent, parseEdge, parseContradiction } from '@hipp0/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, mapDbError, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { randomUUID } from 'node:crypto';
 import { generateEmbedding } from './validation.js';
 
@@ -61,6 +62,7 @@ export function registerExportImportRoutes(app: Hono): void {
   app.get('/api/projects/:id/export', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     // Fetch project
     const projResult = await db.query('SELECT * FROM projects WHERE id = ?', [projectId]);
