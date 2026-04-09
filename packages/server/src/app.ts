@@ -209,8 +209,9 @@ export function createApp() {
           "SELECT COUNT(*) as c FROM compile_history WHERE compiled_at >= CURRENT_DATE",
           [],
         ).catch(() => ({ rows: [{ c: 0 }] })),
+        // Compile timing is persisted in audit_log.details (logAudit 'compile_request')
         db.query(
-          "SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (compiled_at - compiled_at)) * 1000), 0) as avg_ms FROM compile_history WHERE compiled_at >= CURRENT_DATE",
+          "SELECT COALESCE(AVG((details->>'compilation_time_ms')::float), 0) as avg_ms FROM audit_log WHERE event_type = 'compile_request' AND created_at >= CURRENT_DATE",
           [],
         ).catch(() => ({ rows: [{ avg_ms: 0 }] })),
       ]);

@@ -477,7 +477,7 @@ See [`.env.example`](.env.example) for the full reference. Key variables:
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | For Distillery (decision extraction via Claude) |
 | `OPENAI_API_KEY` | No | For semantic embeddings (`text-embedding-3-small`) |
-| `HIPP0_AUTH_DISABLED` | No | Set `true` for local dev (skips API key auth) |
+| `HIPP0_AUTH_REQUIRED` | No | Auth enforcement. Always true in production. Defaults to true in dev. Set `false` for local dev without API keys. |
 | `HIPP0_LLM_MODEL` | No | Override default LLM model |
 | `HIPP0_CORS_ORIGINS` | No | Allowed CORS origins (production) |
 | `DATABASE_URL` | No | Custom PostgreSQL connection string |
