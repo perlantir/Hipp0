@@ -16,7 +16,7 @@ ARG VITE_API_URL=""
 ENV VITE_API_URL=${VITE_API_URL}
 ARG CACHE_BUSTER=1
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/dashboard/package.json packages/dashboard/
 COPY packages/core/package.json packages/core/
 COPY packages/server/package.json packages/server/
