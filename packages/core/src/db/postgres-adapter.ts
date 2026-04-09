@@ -163,6 +163,9 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   // ---- vectorSearch -------------------------------------------------------
 
+  private static readonly ALLOWED_TABLES = new Set(['decisions', 'sessions', 'agents']);
+  private static readonly ALLOWED_COLUMNS = new Set(['embedding', 'id', 'title', 'project_id', 'status']);
+
   async vectorSearch(
     table: string,
     embeddingColumn: string,
@@ -170,12 +173,22 @@ export class PostgresAdapter implements DatabaseAdapter {
     limit: number,
     filters?: Record<string, unknown>,
   ): Promise<QueryResult> {
+    if (!PostgresAdapter.ALLOWED_TABLES.has(table)) {
+      throw new Error('Invalid table');
+    }
+    if (!PostgresAdapter.ALLOWED_COLUMNS.has(embeddingColumn)) {
+      throw new Error('Invalid column');
+    }
+
     const conditions: string[] = [`${embeddingColumn} IS NOT NULL`];
     const params: unknown[] = [JSON.stringify(queryVector), limit];
     let paramIdx = 3;
 
     if (filters) {
       for (const [key, value] of Object.entries(filters)) {
+        if (!PostgresAdapter.ALLOWED_COLUMNS.has(key)) {
+          throw new Error('Invalid column');
+        }
         conditions.push(`${key} = $${paramIdx++}`);
         params.push(value);
       }
@@ -227,11 +240,18 @@ export class PostgresAdapter implements DatabaseAdapter {
           await txQuery(sql);
           await txQuery('INSERT INTO _hipp0_migrations (name) VALUES (?)', [file]);
         });
-        console.log(`[hipp0/migrations] ✅ Applied ${file}`);
+        console.warn(`[hipp0/migrations] ✅ Applied ${file}`);
       } catch (err) {
-        console.warn(`[hipp0/migrations] ⚠️ ${file} failed: ${(err as Error).message}`);
-        // Mark as applied anyway so it doesn't block other migrations
-        await this.query('INSERT INTO _hipp0_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
+        const msg = (err as Error).message ?? '';
+        // Tolerate harmless DDL idempotency errors (already exists, duplicate column)
+        if (msg.includes('already exists') || msg.includes('duplicate key') || msg.includes('duplicate column')) {
+          console.warn(`[hipp0/migrations] ⚠️ ${file}: ${msg} (safe to continue)`);
+          // Mark as applied so it doesn't retry
+          await this.query('INSERT INTO _hipp0_migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [file]);
+        } else {
+          console.error(`[hipp0/migrations] ❌ ${file} failed: ${msg}`);
+          throw new Error(`Migration ${file} failed: ${msg}. Fix the migration and restart.`);
+        }
       }
     }
   }
