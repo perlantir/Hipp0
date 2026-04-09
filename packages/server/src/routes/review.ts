@@ -8,6 +8,7 @@ import { checkForContradictions } from '@hipp0/core/contradiction-detector/index
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { requireUUID, logAudit, generateEmbedding } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { invalidateDecisionCaches } from '../cache/redis.js';
 
 export function registerReviewRoutes(app: Hono): void {
     // Review Queue
@@ -45,6 +46,8 @@ export function registerReviewRoutes(app: Hono): void {
     );
 
     const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     logAudit('decision_approved', decision.project_id, { decision_id: decision.id });
 
@@ -102,6 +105,8 @@ export function registerReviewRoutes(app: Hono): void {
     );
 
     const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     logAudit('decision_rejected', decision.project_id, {
       decision_id: decision.id,
