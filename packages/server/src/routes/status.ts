@@ -6,11 +6,20 @@ import { getTelegramStatus } from '../connectors/telegram.js';
 import { getOpenClawStatus } from '../connectors/openclaw-watcher.js';
 import { getDiscordStatus } from '../connectors/discord.js';
 import { getSlackStatus } from '../connectors/slack.js';
+import { isAuthRequired } from '../auth/middleware.js';
 
 export function registerStatusRoutes(app: Hono): void {
   // POST /api/cache/clear — manually flush the context cache.
   // Useful after deploys, scoring changes, or debugging scored=0 issues.
   app.post('/api/cache/clear', async (c) => {
+    // Require authentication — reject if auth is required and no user context
+    if (isAuthRequired()) {
+      const user = c.get('user' as never) as { role?: string } | undefined;
+      if (!user) {
+        return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+      }
+    }
+
     const db = getDb();
     try {
       const result = await db.query('DELETE FROM context_cache', []);
