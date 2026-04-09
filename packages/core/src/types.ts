@@ -52,6 +52,33 @@ export interface RelevanceProfile {
 
 export type FreshnessPreference = 'recent_first' | 'validated_first' | 'balanced';
 
+// --- Provenance ---
+export type ProvenanceSourceType = 'manual' | 'auto_distilled' | 'auto_capture' | 'imported' | 'github_pr' | 'github_commit' | 'transcript' | 'connector' | 'system_inferred';
+export type ProvenanceActorType = 'human' | 'agent' | 'system';
+export type ProvenanceMethod = 'direct_entry' | 'llm_extraction' | 'import_sync' | 'capture_pipeline' | 'review_approval' | 'manual_validation';
+export type ProvenanceVerificationStatus = 'unverified' | 'pending_review' | 'validated' | 'disputed';
+
+export interface ProvenanceRecord {
+  source_type: ProvenanceSourceType;
+  source_id?: string;
+  source_label?: string;
+  actor_type: ProvenanceActorType;
+  actor_id?: string;
+  method: ProvenanceMethod;
+  timestamp: string;
+  verification_status: ProvenanceVerificationStatus;
+  evidence_refs?: string[];
+  notes?: string;
+}
+
+export interface TrustComponents {
+  source_weight: number;
+  validation_weight: number;
+  recency_weight: number;
+  contradiction_penalty: number;
+  confidence_weight: number;
+}
+
 // --- Decisions ---
 export interface Decision {
   id: string;
@@ -87,6 +114,9 @@ export interface Decision {
   superseded_by?: string | null;
   temporal_scope: TemporalScope;
   namespace?: string | null;
+  provenance_chain?: ProvenanceRecord[];
+  trust_score?: number | null;
+  trust_components?: TrustComponents | null;
 }
 
 export interface CreateDecisionInput {
@@ -116,6 +146,7 @@ export interface CreateDecisionInput {
   valid_from?: string;
   valid_until?: string | null;
   namespace?: string | null;
+  provenance_chain?: ProvenanceRecord[];
 }
 
 export type DecisionSource = 'manual' | 'auto_distilled' | 'imported' | 'auto_capture';
@@ -168,6 +199,7 @@ export interface ScoringBreakdown {
   freshness: number;
   combined: number;
   domain_boost?: number;
+  trust_multiplier?: number;
 }
 
 // --- Edges ---

@@ -131,6 +131,9 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     superseded_by: (row.superseded_by as string | null) ?? null,
     temporal_scope: (row.temporal_scope as Decision['temporal_scope']) ?? 'permanent',
     namespace: (row.namespace as string | null) ?? null,
+    provenance_chain: parseJsonb(row.provenance_chain, []),
+    trust_score: row.trust_score != null ? Number(row.trust_score) : null,
+    trust_components: parseJsonb(row.trust_components, null),
   };
 }
 
