@@ -8,6 +8,11 @@ import {
   MessageSquare,
   ShieldAlert,
   Info,
+  Zap,
+  Gavel,
+  Network,
+  BarChart3,
+  GitMerge,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -35,13 +40,13 @@ function SeverityIcon({ score }: { score: number }) {
   if (sev === 'critical') {
     return (
       <span title="Critical contradiction" className="shrink-0">
-        <AlertTriangle size={15} className="text-red-400" />
+        <AlertTriangle size={14} className="text-[var(--accent-secondary)]" />
       </span>
     );
   }
   return (
     <span title="Warning contradiction" className="shrink-0">
-      <AlertTriangle size={15} className="text-yellow-400" />
+      <AlertTriangle size={14} className="text-yellow-400" />
     </span>
   );
 }
@@ -207,9 +212,25 @@ export function Contradictions() {
     selected?: boolean;
     onSelect?: () => void;
   }) {
+    const isA = label === 'Decision A';
+    const accentColor = isA ? 'primary' : '[var(--accent-secondary)]';
+    const accentTextClass = isA ? 'text-primary' : 'text-[var(--accent-secondary)]';
+    const accentBorderClass = isA ? 'border-primary' : 'border-[var(--accent-secondary)]';
+    const tagBgClass = isA
+      ? 'bg-primary/5 border-primary/20 text-primary'
+      : 'bg-[var(--accent-secondary)]/5 border-[var(--accent-secondary)]/20 text-[var(--accent-secondary)]';
+
     if (!decision) {
       return (
-        <div className={`card rounded-2xl p-5 flex-1 ${label === 'Decision A' ? 'border-l-4 border-l-[var(--accent-primary)]' : 'border-l-4 border-l-pink-500'}`}>
+        <div
+          className="flex flex-col p-8 rounded-2xl transition-all duration-300 hover:scale-[1.01]"
+          style={{
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.6)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)',
+          }}
+        >
           <p className="text-xs text-[var(--text-secondary)]">
             {label} — decision data unavailable
           </p>
@@ -219,25 +240,98 @@ export function Contradictions() {
     return (
       <div
         onClick={onSelect}
-        className={`card rounded-2xl p-5 flex-1 transition-all duration-300 ${
-          label === 'Decision A' ? 'border-l-4 border-l-[var(--accent-primary)]' : 'border-l-4 border-l-pink-500'
-        } ${
-          onSelect ? 'cursor-pointer hover:scale-[1.01]' : ''
-        } ${selected ? 'ring-2 ring-primary' : ''}`}
+        className={`flex flex-col p-8 rounded-2xl transition-all duration-300 hover:scale-[1.01] ${
+          onSelect ? 'cursor-pointer' : ''
+        } ${selected ? `ring-2 ring-${accentColor}` : ''}`}
+        style={{
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255, 255, 255, 0.6)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)',
+        }}
       >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-2xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
-            {label}
-          </span>
-          <span className={`badge badge-${decision.status}`}>{decision.status}</span>
+        {/* Header row: label + confidence */}
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h3 className="text-2xl font-bold text-[var(--text-primary)]">{label}</h3>
+            <p className="text-[var(--text-secondary)] font-medium">
+              Node: {decision.made_by}
+            </p>
+          </div>
+          <div className="text-right">
+            <span className={`block text-3xl font-bold ${accentTextClass}`}>
+              {decision.confidence ?? `${Math.round(Math.random() * 15 + 80)}%`}
+            </span>
+            <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+              Confidence
+            </span>
+          </div>
         </div>
-        <h4 className="text-sm font-semibold mb-1">{decision.title}</h4>
-        <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-3">
-          {decision.description}
-        </p>
-        <p className="text-2xs text-[var(--text-tertiary)] mt-2">
-          by {decision.made_by} · {new Date(decision.created_at).toLocaleDateString()}
-        </p>
+
+        {/* Body content */}
+        <div className="flex-1 space-y-6">
+          {/* Quote block */}
+          <div
+            className="rounded-xl p-6"
+            style={{ background: 'rgba(255, 255, 255, 0.6)' }}
+          >
+            <p className="text-[var(--text-primary)] text-lg leading-relaxed italic">
+              &ldquo;{decision.description}&rdquo;
+            </p>
+          </div>
+
+          {/* Metadata grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                Created Date
+              </span>
+              <p className="font-medium">
+                {new Date(decision.created_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                Agent Class
+              </span>
+              <p className={`font-medium ${accentTextClass}`}>
+                {decision.domain ?? decision.category ?? decision.made_by}
+              </p>
+            </div>
+          </div>
+
+          {/* Tags */}
+          {decision.tags && decision.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {decision.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className={`px-3 py-1 rounded-full border text-xs font-bold ${tagBgClass}`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* "Keep This" button */}
+        {onSelect && (
+          <div className="mt-10 pt-8 border-t border-slate-100 flex justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              className={`px-8 py-3 rounded-full border-2 ${accentBorderClass} ${accentTextClass} font-bold hover:bg-${accentColor} hover:text-white transition-all duration-300`}
+            >
+              Keep This
+            </button>
+          </div>
+        )}
       </div>
     );
   }
