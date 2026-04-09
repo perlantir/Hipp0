@@ -410,8 +410,7 @@ export default function App() {
     { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
     { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
 
-    { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
-    { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
+    // Pricing and Billing removed — not needed for open source
   ];
 
   // Command palette items
