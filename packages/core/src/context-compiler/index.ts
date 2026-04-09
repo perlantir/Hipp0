@@ -530,17 +530,19 @@ async function writeCache(
   artifactIds: string[],
 ): Promise<void> {
   const db = getDb();
+  const now = db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()';
+  const expiry = db.dialect === 'sqlite' ? "datetime('now', '+1 hour')" : "NOW() + INTERVAL '1 hour'";
   await db.query(
     `INSERT INTO context_cache
        (agent_id, task_hash, compiled_context, decision_ids_included, artifact_ids_included, token_count, compiled_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW() + INTERVAL '1 hour')
+     VALUES (?, ?, ?, ?, ?, ?, ${now}, ${expiry})
      ON CONFLICT (agent_id, task_hash) DO UPDATE
        SET compiled_context = EXCLUDED.compiled_context,
            decision_ids_included = EXCLUDED.decision_ids_included,
            artifact_ids_included = EXCLUDED.artifact_ids_included,
            token_count = EXCLUDED.token_count,
-           compiled_at = NOW(),
-           expires_at = NOW() + INTERVAL '1 hour'`,
+           compiled_at = ${now},
+           expires_at = ${expiry}`,
     [agentId, taskHash, JSON.stringify(pkg), db.arrayParam(decisionIds), db.arrayParam(artifactIds), pkg.token_count],
   );
 }
@@ -1007,10 +1009,15 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const notifications = notifResult.rows.map(parseNotification);
 
   const sessionResult = await db.query<Record<string, unknown>>(
-    `SELECT * FROM session_summaries
-      WHERE project_id = ?
-        AND created_at >= NOW() - INTERVAL '1 day' * ?
-      ORDER BY created_at DESC`,
+    db.dialect === 'sqlite'
+      ? `SELECT * FROM session_summaries
+          WHERE project_id = ?
+            AND created_at >= datetime('now', '-' || ? || ' days')
+          ORDER BY created_at DESC`
+      : `SELECT * FROM session_summaries
+          WHERE project_id = ?
+            AND created_at >= NOW() - INTERVAL '1 day' * ?
+          ORDER BY created_at DESC`,
     [project_id, session_lookback_days],
   );
   const sessions = sessionResult.rows.map(parseSession);

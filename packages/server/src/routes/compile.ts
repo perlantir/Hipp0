@@ -45,8 +45,10 @@ export function registerCompileRoutes(app: Hono): void {
 
       // Format parameter: h0c (default) | json/full | condensed | both | markdown
     // ?expanded=true is an alias for ?format=json
+    // Accept header: application/json → json, otherwise h0c
+    const acceptsJson = c.req.header('Accept')?.includes('application/json');
     const expandedParam = c.req.query('expanded');
-    const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? 'h0c');
+    const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? (acceptsJson ? 'json' : 'h0c'));
     const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
       // Depth parameter: default | full (loads L2 background decisions)
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';

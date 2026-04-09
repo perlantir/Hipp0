@@ -98,6 +98,61 @@ CREATE TABLE IF NOT EXISTS decision_outcomes (
 );
 
 -- ============================================================
+-- Add remaining missing columns to decisions
+-- (domain, category, stale, last_referenced_at, reference_count,
+--  trust_components, embedding)
+-- ============================================================
+ALTER TABLE decisions ADD COLUMN domain TEXT;
+ALTER TABLE decisions ADD COLUMN category TEXT DEFAULT 'general';
+ALTER TABLE decisions ADD COLUMN stale INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE decisions ADD COLUMN last_referenced_at TEXT;
+ALTER TABLE decisions ADD COLUMN reference_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE decisions ADD COLUMN trust_components TEXT DEFAULT '{}';
+ALTER TABLE decisions ADD COLUMN embedding TEXT;
+
+-- ============================================================
+-- Add missing columns to api_keys
+-- (tenant_id, key_prefix, permissions, rate_limit, created_by, expires_at)
+-- ============================================================
+ALTER TABLE api_keys ADD COLUMN tenant_id TEXT;
+ALTER TABLE api_keys ADD COLUMN key_prefix TEXT;
+ALTER TABLE api_keys ADD COLUMN permissions TEXT DEFAULT 'read';
+ALTER TABLE api_keys ADD COLUMN rate_limit INTEGER DEFAULT 100;
+ALTER TABLE api_keys ADD COLUMN created_by TEXT;
+ALTER TABLE api_keys ADD COLUMN expires_at TEXT;
+
+-- ============================================================
+-- Daily usage table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS daily_usage (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  compile_count INTEGER DEFAULT 0,
+  ask_count INTEGER DEFAULT 0,
+  decision_count INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_daily_usage_tenant_date ON daily_usage(tenant_id, date);
+
+-- ============================================================
+-- Audit log v2 table (used by team, billing, api-keys routes)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_log_v2 (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+  tenant_id TEXT,
+  user_id TEXT,
+  action TEXT NOT NULL,
+  resource_type TEXT,
+  resource_id TEXT,
+  details TEXT DEFAULT '{}',
+  ip_address TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_v2_tenant ON audit_log_v2(tenant_id, created_at DESC);
+
+-- ============================================================
 -- Indexes
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_decision_outcomes_decision_sqlite ON decision_outcomes (decision_id);
@@ -105,3 +160,5 @@ CREATE INDEX IF NOT EXISTS idx_decision_outcomes_project_sqlite ON decision_outc
 CREATE INDEX IF NOT EXISTS idx_decisions_wing_sqlite ON decisions (wing);
 CREATE INDEX IF NOT EXISTS idx_decisions_temporal_sqlite ON decisions (temporal_scope);
 CREATE INDEX IF NOT EXISTS idx_decisions_trust_sqlite ON decisions (trust_score);
+CREATE INDEX IF NOT EXISTS idx_decisions_domain_sqlite ON decisions (domain);
+CREATE INDEX IF NOT EXISTS idx_decisions_stale_sqlite ON decisions (stale);

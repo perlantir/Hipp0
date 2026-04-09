@@ -333,11 +333,14 @@ export async function simulateHistoricalImpact(
 ): Promise<HistoricalImpact | null> {
   const db = getDb();
   try {
+    const lookbackClause = db.dialect === 'sqlite'
+      ? `compiled_at >= datetime('now', '-${lookbackDays} days')`
+      : `compiled_at >= NOW() - INTERVAL '${lookbackDays} days'`;
     const result = await db.query(
       `SELECT agent_name, decision_ids, decision_scores
        FROM compile_history
        WHERE project_id = ?
-         AND compiled_at >= NOW() - INTERVAL '${lookbackDays} days'
+         AND ${lookbackClause}
        ORDER BY compiled_at DESC`,
       [projectId],
     );

@@ -187,7 +187,7 @@ export async function findEvolutionCandidates(
               created_at, last_referenced_at, validated_at
        FROM decisions
        WHERE project_id = ? AND status = 'active' AND stale = true
-         AND (validated_at IS NULL OR validated_at < NOW() - INTERVAL '60 days')
+         AND (validated_at IS NULL OR validated_at < ${db.dialect === 'sqlite' ? "datetime('now', '-60 days')" : "NOW() - INTERVAL '60 days'"})
        ORDER BY COALESCE(last_referenced_at, created_at) ASC
        LIMIT 5`,
       [projectId],
@@ -270,7 +270,7 @@ export async function findEvolutionCandidates(
               created_at, valid_from, temporal_scope
        FROM decisions
        WHERE project_id = ? AND status = 'active' AND temporal_scope = 'sprint'
-         AND created_at < NOW() - INTERVAL '12 days'
+         AND created_at < ${db.dialect === 'sqlite' ? "datetime('now', '-12 days')" : "NOW() - INTERVAL '12 days'"}
        ORDER BY created_at ASC
        LIMIT 5`,
       [projectId],
@@ -305,7 +305,7 @@ export async function findEvolutionCandidates(
     try {
       const recentDomains = await db.query(
         `SELECT domain, COUNT(*) as cnt FROM decisions
-         WHERE project_id = ? AND domain IS NOT NULL AND created_at >= NOW() - INTERVAL '30 days'
+         WHERE project_id = ? AND domain IS NOT NULL AND created_at >= ${db.dialect === 'sqlite' ? "datetime('now', '-30 days')" : "NOW() - INTERVAL '30 days'"}
          GROUP BY domain ORDER BY cnt DESC LIMIT 3`,
         [projectId],
       );

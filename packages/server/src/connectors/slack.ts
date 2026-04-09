@@ -193,7 +193,7 @@ export function registerSlackConnector(app: Hono): void {
 
       await submitForExtraction({
         raw_text: text,
-        source: 'telegram', // Maps to 'auto_distilled' in ingestion worker
+        source: 'slack',
         source_session_id: `slack:${channel}:${ts}${threadTs ? ':' + threadTs : ''}`,
         made_by: event.user ?? 'slack-user',
         project_id: projectId,
@@ -236,7 +236,7 @@ export function registerSlackConnector(app: Hono): void {
 
         await submitForExtraction({
           raw_text: text,
-          source: 'telegram',
+          source: 'slack',
           source_session_id: `slack:cmd:${Date.now()}:${userId}`,
           made_by: userId,
           project_id: projectId,

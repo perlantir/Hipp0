@@ -134,7 +134,12 @@ const SELECT_RE = /^\s*(?:SELECT|PRAGMA|WITH\s)/i;
 const DML_RE = /^\s*(?:INSERT|UPDATE|DELETE|REPLACE|UPSERT)/i;
 
 function statementReturnsRows(sql: string): boolean {
-  return SELECT_RE.test(sql);
+  if (SELECT_RE.test(sql)) return true;
+  // INSERT/UPDATE/DELETE with RETURNING should return rows
+  if (/\b(INSERT|UPDATE|DELETE)\b/i.test(sql) && /\bRETURNING\b/i.test(sql)) {
+    return true;
+  }
+  return false;
 }
 
 function statementIsDml(sql: string): boolean {

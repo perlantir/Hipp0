@@ -188,17 +188,18 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   try {
     const db = getDb();
+    const nowExpr = db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()';
     const result = await db.query(
       `SELECT id, project_id FROM api_keys
        WHERE key_hash = ?
-         AND (expires_at IS NULL OR expires_at > NOW())`,
+         AND (expires_at IS NULL OR expires_at > ${nowExpr})`,
       [tokenHash],
     );
 
     if (result.rows.length > 0) {
       const row = result.rows[0] as Record<string, unknown>;
       // Update last_used_at, attach project_id
-      db.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = ?', [row.id]).catch(() => {});
+      db.query(`UPDATE api_keys SET last_used_at = ${nowExpr} WHERE id = ?`, [row.id]).catch(() => {});
       if (row.project_id) {
         c.set('projectId', row.project_id as string);
       }

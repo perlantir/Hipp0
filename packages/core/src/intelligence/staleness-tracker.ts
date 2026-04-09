@@ -7,8 +7,22 @@
  */
 import { getDb } from '../db/index.js';
 
+/** Return a dialect-aware "timestamp older than N days" expression */
+function olderThan(col: string, days: number, dialect: 'sqlite' | 'postgres'): string {
+  if (dialect === 'sqlite') {
+    return `${col} < datetime('now', '-${days} days')`;
+  }
+  return `${col} < NOW() - INTERVAL '${days} days'`;
+}
+
+/** Return a dialect-aware NOW() expression */
+function now(dialect: 'sqlite' | 'postgres'): string {
+  return dialect === 'sqlite' ? "datetime('now')" : 'NOW()';
+}
+
 export async function markStaleDecisions(projectId: string): Promise<number> {
   const db = getDb();
+  const dialect = db.dialect === 'sqlite' ? 'sqlite' as const : 'postgres' as const;
   let staleCount = 0;
 
   // Skip deprecated decisions entirely
@@ -21,9 +35,9 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        AND stale = false
        AND temporal_scope = 'sprint'
        AND (
-         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '14 days')
+         (last_referenced_at IS NOT NULL AND ${olderThan('last_referenced_at', 14, dialect)})
          OR
-         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '14 days')
+         (last_referenced_at IS NULL AND ${olderThan('created_at', 14, dialect)})
        )
      RETURNING id`,
     [projectId],
@@ -39,9 +53,9 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        AND stale = false
        AND temporal_scope = 'experiment'
        AND (
-         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '7 days')
+         (last_referenced_at IS NOT NULL AND ${olderThan('last_referenced_at', 7, dialect)})
          OR
-         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '7 days')
+         (last_referenced_at IS NULL AND ${olderThan('created_at', 7, dialect)})
        )
      RETURNING id`,
     [projectId],
@@ -57,9 +71,9 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        AND stale = false
        AND (temporal_scope = 'permanent' OR temporal_scope IS NULL)
        AND (
-         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '30 days')
+         (last_referenced_at IS NOT NULL AND ${olderThan('last_referenced_at', 30, dialect)})
          OR
-         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '30 days')
+         (last_referenced_at IS NULL AND ${olderThan('created_at', 30, dialect)})
        )
      RETURNING id`,
     [projectId],
@@ -85,9 +99,9 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        AND confidence = 'high'
        AND (temporal_scope IS NULL OR temporal_scope NOT IN ('deprecated'))
        AND (
-         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '60 days')
+         (last_referenced_at IS NOT NULL AND ${olderThan('last_referenced_at', 60, dialect)})
          OR
-         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '60 days')
+         (last_referenced_at IS NULL AND ${olderThan('created_at', 60, dialect)})
        )`,
     [projectId],
   );
@@ -101,9 +115,9 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
        AND confidence IN ('high', 'medium')
        AND (temporal_scope IS NULL OR temporal_scope NOT IN ('deprecated'))
        AND (
-         (last_referenced_at IS NOT NULL AND last_referenced_at < NOW() - INTERVAL '90 days')
+         (last_referenced_at IS NOT NULL AND ${olderThan('last_referenced_at', 90, dialect)})
          OR
-         (last_referenced_at IS NULL AND created_at < NOW() - INTERVAL '90 days')
+         (last_referenced_at IS NULL AND ${olderThan('created_at', 90, dialect)})
        )`,
     [projectId],
   );
@@ -142,10 +156,11 @@ export async function markStaleDecisions(projectId: string): Promise<number> {
 
 export async function reaffirmDecision(decisionId: string): Promise<void> {
   const db = getDb();
+  const nowExpr = now(db.dialect === 'sqlite' ? 'sqlite' : 'postgres');
 
   await db.query(
     `UPDATE decisions
-     SET stale = false, last_referenced_at = NOW()
+     SET stale = false, last_referenced_at = ${nowExpr}
      WHERE id = ?`,
     [decisionId],
   );

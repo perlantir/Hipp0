@@ -15,7 +15,7 @@ import { Redis } from 'ioredis';
 
 export interface ExtractionJobData {
   raw_text: string;
-  source: 'telegram' | 'openclaw' | 'api';
+  source: 'telegram' | 'openclaw' | 'api' | 'discord' | 'slack' | 'github';
   source_session_id: string;
   made_by: string;
   project_id: string;
@@ -29,7 +29,7 @@ export interface IngestionJobData {
   confidence: 'high' | 'medium' | 'low';
   reasoning: string;
   alternatives_considered: Array<{ option: string; rejected_reason: string }>;
-  source: 'telegram' | 'openclaw' | 'api';
+  source: 'telegram' | 'openclaw' | 'api' | 'discord' | 'slack' | 'github';
   source_session_id: string;
   made_by: string;
   project_id: string;
@@ -37,7 +37,7 @@ export interface IngestionJobData {
 
 export interface NotificationJobData {
   title: string;
-  source: 'telegram' | 'openclaw' | 'api';
+  source: 'telegram' | 'openclaw' | 'api' | 'discord' | 'slack' | 'github';
   chat_id?: string | number;
   message_id?: number;
   decision_id: string;

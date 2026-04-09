@@ -96,7 +96,14 @@ export function registerWebhookRoutes(app: Hono): void {
       [projectId],
     );
 
-    return c.json(result.rows);
+    const rows = result.rows.map((row) => {
+      const w = { ...(row as Record<string, unknown>) };
+      delete w.secret;
+      (w as any).has_secret = true;
+      return w;
+    });
+
+    return c.json(rows);
   });
 
     // CREATE
@@ -216,7 +223,10 @@ export function registerWebhookRoutes(app: Hono): void {
 
     logAudit('webhook_updated', projectId, { webhook_id: whId });
 
-    return c.json(result.rows[0]);
+    const webhook = { ...(result.rows[0] as Record<string, unknown>) };
+    delete webhook.secret;
+    (webhook as any).has_secret = true;
+    return c.json(webhook);
   });
 
     // DELETE

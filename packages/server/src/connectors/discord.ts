@@ -162,7 +162,7 @@ async function handleMessage(message: Message): Promise<void> {
     if (decisionText.length >= 10) {
       await submitForExtraction({
         raw_text: decisionText,
-        source: 'telegram', // Maps to 'auto_distilled' in ingestion worker
+        source: 'discord',
         source_session_id: `discord:${message.guildId}:${message.channelId}:${message.id}`,
         made_by: message.author.username,
         project_id: _projectId,
@@ -179,7 +179,7 @@ async function handleMessage(message: Message): Promise<void> {
 
   await submitForExtraction({
     raw_text: text,
-    source: 'telegram', // Maps to 'auto_distilled' in ingestion worker
+    source: 'discord',
     source_session_id: `discord:${message.guildId}:${message.channelId}:${message.id}`,
     made_by: message.author.username,
     project_id: _projectId,
@@ -199,7 +199,7 @@ async function handleSlashCommand(interaction: Interaction): Promise<void> {
 
       await submitForExtraction({
         raw_text: text,
-        source: 'telegram',
+        source: 'discord',
         source_session_id: `discord:${interaction.guildId}:${interaction.channelId}:${interaction.id}`,
         made_by: interaction.user.username,
         project_id: _projectId,

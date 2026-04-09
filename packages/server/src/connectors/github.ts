@@ -466,7 +466,7 @@ export function registerGitHubWebhook(app: Hono): void {
 
       await submitForExtraction({
         raw_text: rawText,
-        source: 'telegram', // Maps to 'auto_distilled' in ingestion worker
+        source: 'github',
         source_session_id: `github:pr:${prNumber}`,
         made_by: madeBy,
         project_id: projectId,
