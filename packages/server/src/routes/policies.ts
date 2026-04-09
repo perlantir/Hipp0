@@ -120,6 +120,8 @@ export function registerPolicyRoutes(app: Hono): void {
     const policyId = c.req.param('id');
     const body = await c.req.json<Record<string, unknown>>();
 
+    const projectId = requireString(body.project_id, 'project_id');
+
     const sets: string[] = [];
     const params: unknown[] = [];
 
@@ -138,13 +140,14 @@ export function registerPolicyRoutes(app: Hono): void {
     sets.push('updated_at = ?');
     params.push(new Date().toISOString());
     params.push(policyId);
+    params.push(projectId);
 
     await db.query(
-      `UPDATE decision_policies SET ${sets.join(', ')} WHERE id = ?`,
+      `UPDATE decision_policies SET ${sets.join(', ')} WHERE id = ? AND project_id = ?`,
       params,
     );
 
-    const result = await db.query('SELECT * FROM decision_policies WHERE id = ?', [policyId]);
+    const result = await db.query('SELECT * FROM decision_policies WHERE id = ? AND project_id = ?', [policyId, projectId]);
     if (result.rows.length === 0) return c.json({ error: 'Policy not found' }, 404);
     return c.json(result.rows[0]);
   });
@@ -153,10 +156,16 @@ export function registerPolicyRoutes(app: Hono): void {
   app.delete('/api/policies/:id', async (c) => {
     const db = getDb();
     const policyId = c.req.param('id');
-    await db.query(
-      'UPDATE decision_policies SET active = ?, updated_at = ? WHERE id = ?',
-      [false, new Date().toISOString(), policyId],
+    const projectId = c.req.query('project_id');
+    if (!projectId) {
+      return c.json({ error: 'project_id query parameter is required' }, 400);
+    }
+
+    const result = await db.query(
+      'UPDATE decision_policies SET active = ?, updated_at = ? WHERE id = ? AND project_id = ? RETURNING id',
+      [false, new Date().toISOString(), policyId, projectId],
     );
+    if (result.rows.length === 0) return c.json({ error: 'Policy not found' }, 404);
     return c.json({ ok: true });
   });
 
@@ -190,6 +199,7 @@ export function registerPolicyRoutes(app: Hono): void {
     const db = getDb();
     const violationId = c.req.param('id');
     const body = await c.req.json<{
+      project_id?: string;
       status?: string;
       resolved_by?: string;
       resolution_notes?: string;
@@ -197,6 +207,8 @@ export function registerPolicyRoutes(app: Hono): void {
 
     const sets: string[] = [];
     const params: unknown[] = [];
+
+    const projectId = requireString(body.project_id, 'project_id');
 
     if (body.status) { sets.push('status = ?'); params.push(body.status); }
     if (body.resolved_by) { sets.push('resolved_by = ?'); params.push(body.resolved_by); }
@@ -208,9 +220,10 @@ export function registerPolicyRoutes(app: Hono): void {
 
     if (sets.length === 0) return c.json({ error: 'No fields to update' }, 400);
     params.push(violationId);
+    params.push(projectId);
 
-    await db.query(`UPDATE policy_violations SET ${sets.join(', ')} WHERE id = ?`, params);
-    const result = await db.query('SELECT * FROM policy_violations WHERE id = ?', [violationId]);
+    await db.query(`UPDATE policy_violations SET ${sets.join(', ')} WHERE id = ? AND project_id = ?`, params);
+    const result = await db.query('SELECT * FROM policy_violations WHERE id = ? AND project_id = ?', [violationId, projectId]);
     if (result.rows.length === 0) return c.json({ error: 'Violation not found' }, 404);
     return c.json(result.rows[0]);
   });
