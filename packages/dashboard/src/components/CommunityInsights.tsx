@@ -64,7 +64,7 @@ export function CommunityInsights() {
                   {isRecommended && (
                     <span
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
-                      style={{ background: '#FEF3C7', color: '#92400E' }}
+                      style={{ background: '#eff6ff', color: '#1e40af' }}
                     >
                       <Star size={10} />
                       Recommended

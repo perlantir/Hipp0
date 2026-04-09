@@ -67,7 +67,7 @@ async function demoFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 /* ── Category colors for tag pills ───────────────────────────────── */
 
 const TAG_COLORS: Record<string, { bg: string; text: string }> = {
-  architecture: { bg: '#FEF3C7', text: '#92400E' },
+  architecture: { bg: '#eff6ff', text: '#1e40af' },
   scalability: { bg: '#DBEAFE', text: '#1E40AF' },
   infrastructure: { bg: '#E0E7FF', text: '#3730A3' },
   security: { bg: '#FEE2E2', text: '#991B1B' },
@@ -79,7 +79,7 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
   devops: { bg: '#E0E7FF', text: '#3730A3' },
   deployment: { bg: '#E0E7FF', text: '#3730A3' },
   marketing: { bg: '#FCE7F3', text: '#9D174D' },
-  pricing: { bg: '#FDE68A', text: '#92400E' },
+  pricing: { bg: '#dbeafe', text: '#1e40af' },
   testing: { bg: '#CFFAFE', text: '#155E75' },
   performance: { bg: '#CFFAFE', text: '#155E75' },
 };
@@ -162,8 +162,8 @@ function DecisionCard({
     <div
       className="flex items-start gap-3 px-4 py-3 rounded-lg transition-all"
       style={{
-        background: isUnique ? 'rgba(217, 119, 6, 0.06)' : 'var(--bg-card)',
-        border: `1px solid ${isUnique ? 'rgba(217, 119, 6, 0.15)' : 'var(--border-light)'}`,
+        background: isUnique ? 'rgba(6, 63, 249, 0.06)' : 'var(--bg-card)',
+        border: `1px solid ${isUnique ? 'rgba(6, 63, 249, 0.15)' : 'var(--border-light)'}`,
         animationDelay: `${index * 40}ms`,
       }}
     >
