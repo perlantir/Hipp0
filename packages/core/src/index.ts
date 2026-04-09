@@ -177,6 +177,14 @@ export type {
   ProposalRecord,
 } from './intelligence/evolution-handlers.js';
 
+// --- Trust Scorer (Provenance & Trust Phase 2) ---
+export {
+  computeTrust,
+  trustMultiplier,
+  defaultProvenance,
+  validationProvenance,
+} from './intelligence/trust-scorer.js';
+
 // --- Pattern Recommendations ---
 export {
   getPatternRecommendations,

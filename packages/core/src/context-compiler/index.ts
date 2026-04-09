@@ -471,6 +471,7 @@ export function scoreDecision(
     exclude_penalty: excludePenalty,
     domain_boost: domainBoost,
     wing_affinity_boost: wingAffinityBoost,
+    trust_multiplier: trustMult,
     explanation,
   } as ScoringBreakdown;
 
