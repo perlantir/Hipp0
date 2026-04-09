@@ -73,11 +73,15 @@ export function registerEvolutionRoutes(app: Hono): void {
     // GET /api/evolution/proposals
   app.get('/api/evolution/proposals', async (c) => {
     const db = getDb();
+    const projectId = c.req.query('project_id');
+    if (!projectId) {
+      throw new ValidationError('project_id query parameter is required');
+    }
     const urgencyFilter = c.req.query('urgency');
     const statusFilter = c.req.query('status') || 'pending';
 
-    let sql = `SELECT * FROM evolution_proposals WHERE status = ?`;
-    const params: unknown[] = [statusFilter];
+    let sql = `SELECT * FROM evolution_proposals WHERE status = ? AND project_id = ?`;
+    const params: unknown[] = [statusFilter, projectId];
 
     if (urgencyFilter) {
       const urgencies = urgencyFilter.split(',').map((u) => u.trim());
@@ -109,7 +113,11 @@ export function registerEvolutionRoutes(app: Hono): void {
   app.get('/api/evolution/proposals/:id', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
-    const result = await db.query(`SELECT * FROM evolution_proposals WHERE id = ?`, [id]);
+    const projectId = c.req.query('project_id');
+    if (!projectId) {
+      throw new ValidationError('project_id query parameter is required');
+    }
+    const result = await db.query(`SELECT * FROM evolution_proposals WHERE id = ? AND project_id = ?`, [id, projectId]);
     if (result.rows.length === 0) {
       throw new NotFoundError('EvolutionProposal', id);
     }
@@ -126,12 +134,17 @@ export function registerEvolutionRoutes(app: Hono): void {
   app.post('/api/evolution/proposals/:id/accept', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
-    const body = await c.req.json<{ resolved_by?: string; notes?: string }>().catch(() => ({} as { resolved_by?: string; notes?: string }));
+    const body = await c.req.json<{ resolved_by?: string; notes?: string; project_id?: string }>().catch(() => ({} as { resolved_by?: string; notes?: string; project_id?: string }));
+
+    const bodyProjectId = body.project_id;
+    if (!bodyProjectId) {
+      throw new ValidationError('project_id is required');
+    }
 
     // Fetch the proposal to get details for the handler
     const proposalResult = await db.query(
-      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending'`,
-      [id],
+      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending' AND project_id = ?`,
+      [id, bodyProjectId],
     );
     if (proposalResult.rows.length === 0) {
       throw new NotFoundError('EvolutionProposal', id);
@@ -145,8 +158,8 @@ export function registerEvolutionRoutes(app: Hono): void {
     await db.query(
       `UPDATE evolution_proposals
        SET status = 'accepted', resolved_by = ?, resolved_at = ?, resolution_notes = ?
-       WHERE id = ?`,
-      [body.resolved_by ?? 'system', new Date().toISOString(), body.notes ?? '', id],
+       WHERE id = ? AND project_id = ?`,
+      [body.resolved_by ?? 'system', new Date().toISOString(), body.notes ?? '', id, bodyProjectId],
     );
 
     // Execute the type-specific handler
@@ -173,14 +186,19 @@ export function registerEvolutionRoutes(app: Hono): void {
   app.post('/api/evolution/proposals/:id/reject', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
-    const body = await c.req.json<{ resolved_by?: string; reason?: string }>().catch(() => ({} as { resolved_by?: string; reason?: string }));
+    const body = await c.req.json<{ resolved_by?: string; reason?: string; project_id?: string }>().catch(() => ({} as { resolved_by?: string; reason?: string; project_id?: string }));
+
+    const bodyProjectId = body.project_id;
+    if (!bodyProjectId) {
+      throw new ValidationError('project_id is required');
+    }
 
     const result = await db.query(
       `UPDATE evolution_proposals
        SET status = 'rejected', resolved_by = ?, resolved_at = ?, resolution_notes = ?
-       WHERE id = ? AND status = 'pending'
+       WHERE id = ? AND status = 'pending' AND project_id = ?
        RETURNING id`,
-      [body.resolved_by ?? 'system', new Date().toISOString(), body.reason ?? '', id],
+      [body.resolved_by ?? 'system', new Date().toISOString(), body.reason ?? '', id, bodyProjectId],
     );
 
     if (result.rows.length === 0) {
@@ -194,16 +212,21 @@ export function registerEvolutionRoutes(app: Hono): void {
   app.post('/api/evolution/proposals/:id/override', async (c) => {
     const db = getDb();
     const id = c.req.param('id');
-    const body = await c.req.json<{ override_action: string; notes?: string; resolved_by?: string }>().catch(() => ({} as Record<string, unknown>));
+    const body = await c.req.json<{ override_action: string; notes?: string; resolved_by?: string; project_id?: string }>().catch(() => ({} as Record<string, unknown>));
 
     if (!body.override_action) {
       throw new ValidationError('override_action is required');
     }
 
+    const bodyProjectId = body.project_id as string | undefined;
+    if (!bodyProjectId) {
+      throw new ValidationError('project_id is required');
+    }
+
     // Fetch the proposal to get details for the handler
     const proposalResult = await db.query(
-      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending'`,
-      [id],
+      `SELECT * FROM evolution_proposals WHERE id = ? AND status = 'pending' AND project_id = ?`,
+      [id, bodyProjectId],
     );
     if (proposalResult.rows.length === 0) {
       throw new NotFoundError('EvolutionProposal', id);
@@ -218,13 +241,14 @@ export function registerEvolutionRoutes(app: Hono): void {
       `UPDATE evolution_proposals
        SET status = 'overridden', resolved_by = ?, resolved_at = ?,
            resolution_notes = ?, suggested_action = ?
-       WHERE id = ?`,
+       WHERE id = ? AND project_id = ?`,
       [
         (body.resolved_by ?? 'system') as string,
         new Date().toISOString(),
         (body.notes ?? '') as string,
         body.override_action as string,
         id,
+        bodyProjectId,
       ],
     );
 
@@ -256,16 +280,12 @@ export function registerEvolutionRoutes(app: Hono): void {
   app.get('/api/evolution/history', async (c) => {
     const db = getDb();
     const projectId = c.req.query('project_id');
-
-    let sql = `SELECT * FROM evolution_scans`;
-    const params: unknown[] = [];
-
-    if (projectId) {
-      sql += ` WHERE project_id = ?`;
-      params.push(projectId);
+    if (!projectId) {
+      throw new ValidationError('project_id query parameter is required');
     }
 
-    sql += ` ORDER BY created_at DESC LIMIT 50`;
+    const sql = `SELECT * FROM evolution_scans WHERE project_id = ? ORDER BY created_at DESC LIMIT 50`;
+    const params: unknown[] = [projectId];
 
     const result = await db.query(sql, params);
     return c.json(result.rows);

@@ -101,7 +101,7 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
   // GET /api/projects/:id/decisions/:did/chain — full dependency chain (recursive)
   app.get('/api/projects/:id/decisions/:did/chain', async (c) => {
     const db = getDb();
-    requireUUID(c.req.param('id'), 'projectId');
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
     const decisionId = requireUUID(c.req.param('did'), 'decisionId');
     const maxDepth = Math.min(parseInt(c.req.query('depth') ?? '5', 10), 10);
 
@@ -120,8 +120,8 @@ export function registerPhase2EdgeRoutes(app: Hono): void {
          FROM phase2_decision_edges e
          JOIN decisions df ON df.id = e.from_decision_id
          JOIN decisions dt ON dt.id = e.to_decision_id
-         WHERE e.from_decision_id = ? OR e.to_decision_id = ?`,
-        [item.id, item.id],
+         WHERE (e.from_decision_id = ? OR e.to_decision_id = ?) AND df.project_id = ?`,
+        [item.id, item.id, projectId],
       );
 
       for (const row of edges.rows) {
