@@ -25,6 +25,8 @@ COPY packages/mcp/package.json packages/mcp/
 COPY packages/cli/package.json packages/cli/
 ENV NODE_ENV=development
 RUN pnpm install --frozen-lockfile
+# Ensure vite binary is accessible in dashboard's node_modules
+RUN cd packages/dashboard && pnpm add vite@^6.0.0 --save-dev --no-lockfile 2>/dev/null || true
 ENV NODE_ENV=production
 
 COPY packages/dashboard/ packages/dashboard/
