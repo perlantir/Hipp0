@@ -133,17 +133,17 @@ export function createApp() {
 
     // All other /api/* routes
     if (isAuthRequired()) {
-      await phase3AuthMiddleware(c, next);
+      return phase3AuthMiddleware(c, next);
     } else {
-      // Legacy: optionalAuth attaches user if token present, defaults to default tenant
-      // Then fall through to original authMiddleware for HIPP0_API_KEY compat
-      await optionalAuth(c, async () => {
-        if (process.env.HIPP0_API_KEY) {
-          await authMiddleware(c, next);
-        } else {
-          await next();
-        }
+      // Dev mode without auth: attach default user and continue
+      (c as any).set('user', {
+        id: 'anonymous',
+        email: '',
+        tenant_id: 'a0000000-0000-4000-8000-000000000001',
+        role: 'admin',
+        plan: 'enterprise',
       });
+      await next();
     }
   });
 
