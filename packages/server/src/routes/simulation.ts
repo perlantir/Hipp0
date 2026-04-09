@@ -5,6 +5,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, requireString, validateTags, validateAffects } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import {
   simulateDecisionChange,
   simulateHistoricalImpact,
@@ -17,6 +18,7 @@ export function registerSimulationRoutes(app: Hono): void {
 
     const decisionId = requireUUID(body.decision_id, 'decision_id');
     const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
 
     if (!body.proposed_changes || typeof body.proposed_changes !== 'object') {
       throw new ValidationError('proposed_changes is required and must be an object');
@@ -46,6 +48,7 @@ export function registerSimulationRoutes(app: Hono): void {
 
     const decisionId = requireUUID(body.decision_id, 'decision_id');
     const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
     const lookbackDays = typeof body.lookback_days === 'number' ? body.lookback_days : 30;
 
     if (!body.proposed_changes || typeof body.proposed_changes !== 'object') {
@@ -85,6 +88,7 @@ export function registerSimulationRoutes(app: Hono): void {
 
     const decisionId = requireUUID(body.decision_id, 'decision_id');
     const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
 
     if (!body.proposed_changes || typeof body.proposed_changes !== 'object') {
       throw new ValidationError('proposed_changes is required and must be an object');

@@ -25,6 +25,7 @@ import { isAuthRequired, getTenantId } from '../auth/middleware.js';
 import { notifySupersededDecision } from '../connectors/github.js';
 import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
 import { classifyDecisionWing, maybeRecalculateWings } from '@hipp0/core';
+import { requireProjectAccess } from './_helpers.js';
 
 export function registerDecisionRoutes(app: Hono): void {
   // Decisions — Create & List (project-scoped)
@@ -32,6 +33,7 @@ export function registerDecisionRoutes(app: Hono): void {
   app.post('/api/projects/:id/decisions', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const rawBody = await c.req.json();
 
     // Bulk import: if body is an array, create each decision and return array of results
@@ -243,6 +245,7 @@ export function registerDecisionRoutes(app: Hono): void {
   app.get('/api/projects/:id/decisions', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
     const status = c.req.query('status');
     const tagsParam = c.req.query('tags');
     const madeBy = c.req.query('made_by');

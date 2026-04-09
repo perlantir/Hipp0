@@ -9,6 +9,7 @@
 import type { Hono } from 'hono';
 import { Octokit } from '@octokit/rest';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { extractDecisions } from '@hipp0/core/distillery/extractor.js';
 
@@ -281,6 +282,7 @@ export function registerImportWizardRoutes(app: Hono): void {
 
     try {
       const projectId = typeof body.project_id === 'string' ? body.project_id : null;
+      if (projectId) await requireProjectAccess(c, projectId);
 
       let decisions: ScanDecision[];
       let team: TeamMember[];

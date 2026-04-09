@@ -2,12 +2,14 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { parseDecision, parseEdge, parseAuditEntry } from '@hipp0/core/db/parsers.js';
 import { requireUUID } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { cache, projectStatsKey, CACHE_TTL } from '../cache/redis.js';
 
 export function registerStatsRoutes(app: Hono): void {
   app.get('/api/projects/:id/stats', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     // Check cache first
     const cachedStats = await cache.get(projectStatsKey(projectId));
@@ -203,6 +205,7 @@ export function registerStatsRoutes(app: Hono): void {
   app.get('/api/projects/:id/usage', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const [decisionsDaily, compilesDaily, compileTotalResult] = await Promise.all([
       db.query(
@@ -246,6 +249,7 @@ export function registerStatsRoutes(app: Hono): void {
   app.get('/api/projects/:id/graph', async (c) => {
     const db = getDb();
     const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
 
     const [decisionsResult, edgesResult] = await Promise.all([
       db.query('SELECT * FROM decisions WHERE project_id = ? ORDER BY created_at ASC', [projectId]),

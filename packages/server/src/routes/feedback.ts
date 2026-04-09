@@ -13,6 +13,7 @@ import {
 } from '@hipp0/core/relevance-learner/index.js';
 import { processWingFeedback, processWingFeedbackBatch } from '@hipp0/core';
 import { requireUUID, requireString, optionalString, mapDbError, logAudit } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 import { randomUUID } from 'node:crypto';
 
 const VALID_RATINGS = ['useful', 'irrelevant', 'critical', 'missing'] as const;

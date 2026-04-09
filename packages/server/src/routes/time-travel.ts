@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, requireString } from './validation.js';
+import { requireProjectAccess } from './_helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,6 +83,8 @@ export function registerTimeTravelRoutes(app: Hono): void {
     const idA = requireUUID(body.compile_id_a, 'compile_id_a');
     const idB = requireUUID(body.compile_id_b, 'compile_id_b');
 
+    // Note: compile/diff doesn't take a project_id directly; access is checked via compile_history entries
+
     const resultA = await db.query('SELECT * FROM compile_history WHERE id = ?', [idA]);
     const resultB = await db.query('SELECT * FROM compile_history WHERE id = ?', [idB]);
 
@@ -155,6 +158,7 @@ export function registerTimeTravelRoutes(app: Hono): void {
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, project_id);
     const task_description = requireString(body.task_description, 'task_description', 10000);
     const as_of = requireString(body.as_of, 'as_of', 100);
 
