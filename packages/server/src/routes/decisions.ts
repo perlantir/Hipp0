@@ -24,7 +24,7 @@ import { invalidateDecisionCaches } from '../cache/redis.js';
 import { isAuthRequired, getTenantId } from '../auth/middleware.js';
 import { notifySupersededDecision } from '../connectors/github.js';
 import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
-import { classifyDecisionWing, maybeRecalculateWings } from '@hipp0/core';
+import { classifyDecisionWing, maybeRecalculateWings, defaultProvenance, computeTrust, validationProvenance } from '@hipp0/core';
 import { requireProjectAccess } from './_helpers.js';
 
 export function registerDecisionRoutes(app: Hono): void {
@@ -89,6 +89,7 @@ export function registerDecisionRoutes(app: Hono): void {
       depends_on?: unknown[];
       temporal_scope?: unknown;
       namespace?: unknown;
+      provenance_chain?: unknown;
     };
 
     const title = requireString(body.title, 'title', 500);
@@ -122,19 +123,35 @@ export function registerDecisionRoutes(app: Hono): void {
     try {
       const namespaceVal = body.namespace != null ? optionalString(body.namespace, 'namespace', 100) : null;
 
+      // Provenance & trust scoring
+      const source = (body.source as string) ?? 'manual';
+      const provenance = Array.isArray(body.provenance_chain) && body.provenance_chain.length > 0
+        ? body.provenance_chain
+        : [defaultProvenance(source, made_by)];
+      const { trust_score } = computeTrust({
+        ...({} as Decision),
+        provenance_chain: provenance as Decision['provenance_chain'],
+        source: source as Decision['source'],
+        confidence: ((body.confidence as string) ?? 'high') as Decision['confidence'],
+        validated_at: undefined,
+        created_at: new Date().toISOString(),
+      });
+
       const result = await db.query(
         `INSERT INTO decisions (
            project_id, title, description, reasoning, made_by,
            source, source_session_id, confidence, status, supersedes_id,
            alternatives_considered, affects, tags, assumptions,
            open_questions, dependencies, confidence_decay_rate, metadata, embedding,
-           domain, category, priority_level, temporal_scope, valid_from, namespace
+           domain, category, priority_level, temporal_scope, valid_from, namespace,
+           provenance_chain, trust_score
          ) VALUES (
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
            ?, ?, ?, ?,
            ?, ?, ?, ?, ?,
-           ?, ?, ?, ?, NOW(), ?
+           ?, ?, ?, ?, NOW(), ?,
+           ?, ?
          ) RETURNING *`,
         [
           projectId,
@@ -142,7 +159,7 @@ export function registerDecisionRoutes(app: Hono): void {
           description,
           reasoning,
           made_by,
-          body.source ?? 'manual',
+          source,
           body.source_session_id ?? null,
           body.confidence ?? 'high',
           body.status ?? 'active',
@@ -161,6 +178,8 @@ export function registerDecisionRoutes(app: Hono): void {
           1, // default priority_level
           temporal_scope,
           namespaceVal,
+          JSON.stringify(provenance),
+          trust_score,
         ],
       );
 
@@ -1062,12 +1081,30 @@ export function registerDecisionRoutes(app: Hono): void {
     } catch { /* keep empty */ }
     if (notes) metadataObj.validation_notes = notes;
 
+    // Append validation provenance and recompute trust
+    let existingChain: unknown[] = [];
+    try {
+      existingChain = typeof dec.provenance_chain === 'string'
+        ? JSON.parse(dec.provenance_chain as string)
+        : Array.isArray(dec.provenance_chain) ? (dec.provenance_chain as unknown[]) : [];
+    } catch { /* keep empty */ }
+    const updatedChain = [...existingChain, validationProvenance(validation_source)];
+    const parsedDec = parseDecision(dec);
+    const { trust_score: newTrustScore } = computeTrust({
+      ...parsedDec,
+      provenance_chain: updatedChain as Decision['provenance_chain'],
+      validated_at: new Date().toISOString(),
+    });
+
     const result = await db.query(
-      `UPDATE decisions SET validated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}, validation_source = ?, metadata = ? WHERE id = ? RETURNING *`,
-      [validation_source, JSON.stringify(metadataObj), id],
+      `UPDATE decisions SET validated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}, validation_source = ?, metadata = ?, provenance_chain = ?, trust_score = ? WHERE id = ? RETURNING *`,
+      [validation_source, JSON.stringify(metadataObj), JSON.stringify(updatedChain), newTrustScore, id],
     );
 
     const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    // Invalidate compile caches since trust score changed
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     logAudit('decision_validated', decision.project_id, {
       decision_id: decision.id,
@@ -1109,12 +1146,23 @@ export function registerDecisionRoutes(app: Hono): void {
     } catch { /* keep empty */ }
     if (body.reason) metadataObj.invalidation_reason = String(body.reason).slice(0, 5000);
 
+    // Recompute trust score after invalidation (validation removed, confidence downgraded)
+    const parsedDecForInvalidation = parseDecision(dec);
+    const { trust_score: invalidatedTrustScore } = computeTrust({
+      ...parsedDecForInvalidation,
+      validated_at: undefined,
+      confidence: newConf as Decision['confidence'],
+    });
+
     const result = await db.query(
-      `UPDATE decisions SET validated_at = NULL, validation_source = NULL, confidence = ?, metadata = ? WHERE id = ? RETURNING *`,
-      [newConf, JSON.stringify(metadataObj), id],
+      `UPDATE decisions SET validated_at = NULL, validation_source = NULL, confidence = ?, metadata = ?, trust_score = ? WHERE id = ? RETURNING *`,
+      [newConf, JSON.stringify(metadataObj), invalidatedTrustScore, id],
     );
 
     const decision = parseDecision(result.rows[0] as Record<string, unknown>);
+
+    // Invalidate compile caches since trust score changed
+    invalidateDecisionCaches(decision.project_id).catch(() => {});
 
     logAudit('decision_invalidated', decision.project_id, {
       decision_id: decision.id,
