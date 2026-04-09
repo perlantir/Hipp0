@@ -79,6 +79,36 @@ export interface TrustComponents {
   confidence_weight: number;
 }
 
+// --- Decision Outcomes ---
+export type OutcomeType = 'success' | 'failure' | 'regression' | 'partial' | 'reversed' | 'unknown';
+
+export interface DecisionOutcome {
+  id: string;
+  decision_id: string;
+  project_id: string;
+  agent_id?: string;
+  compile_history_id?: string;
+  task_session_id?: string;
+  outcome_type: OutcomeType;
+  outcome_score: number;
+  reversal: boolean;
+  reversal_reason?: string;
+  notes?: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface OutcomeStats {
+  decision_id: string;
+  total_outcomes: number;
+  success_rate: number;
+  failure_rate: number;
+  regression_rate: number;
+  reversal_rate: number;
+  avg_outcome_score: number;
+  last_outcome_at?: string;
+}
+
 // --- Decisions ---
 export interface Decision {
   id: string;
@@ -117,6 +147,8 @@ export interface Decision {
   provenance_chain?: ProvenanceRecord[];
   trust_score?: number | null;
   trust_components?: TrustComponents | null;
+  outcome_success_rate?: number | null;
+  outcome_count?: number;
 }
 
 export interface CreateDecisionInput {
@@ -200,6 +232,7 @@ export interface ScoringBreakdown {
   combined: number;
   domain_boost?: number;
   trust_multiplier?: number;
+  outcome_multiplier?: number;
 }
 
 // --- Edges ---
