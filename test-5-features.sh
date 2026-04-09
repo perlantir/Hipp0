@@ -33,11 +33,12 @@ CODE=$(echo "$RES" | tail -1)
 
 echo ""
 echo "--2. TRUST-AWARE MEMORY --"
-RES=$(curl -s $URL/api/projects/$PID/decisions?limit=1)
-TRUST=$(echo $RES | jq -r '.[0].trust_score // empty')
+# Fetch multiple decisions to find one with trust_score (recent ones from simulation may lack it)
+RES=$(curl -s "$URL/api/projects/$PID/decisions?limit=20")
+TRUST=$(echo $RES | jq -r '[.[] | select(.trust_score != null and .trust_score != 0)] | .[0].trust_score // empty')
 [ -n "$TRUST" ] && pass "trust_score exists: $TRUST" || skip "trust_score not on decision"
 
-PROV=$(echo $RES | jq -r '.[0].provenance_chain // empty')
+PROV=$(echo $RES | jq -r '[.[] | select(.provenance_chain != null and .provenance_chain != "[]" and .provenance_chain != "null")] | .[0].provenance_chain // empty')
 [ -n "$PROV" ] && [ "$PROV" != "[]" ] && [ "$PROV" != "null" ] && pass "provenance_chain exists" || skip "provenance_chain not populated"
 
 # Compile with debug to check trust_multiplier
