@@ -292,18 +292,18 @@ describe('wing — affinity score influences scoring', () => {
   // Test: Recalculation trigger
 
 describe('wing — recalculation trigger', () => {
-  beforeEach(() => {
-    resetRecalcCounter();
+  beforeEach(async () => {
+    await resetRecalcCounter();
   });
 
-  it('counter starts at 0', () => {
-    expect(getRecalcCounter()).toBe(0);
+  it('counter starts at 0', async () => {
+    expect(await getRecalcCounter()).toBe(0);
   });
 
-  it('resetRecalcCounter resets to 0', () => {
+  it('resetRecalcCounter resets to 0', async () => {
     // Manually increment by accessing internal state through reset
-    resetRecalcCounter();
-    expect(getRecalcCounter()).toBe(0);
+    await resetRecalcCounter();
+    expect(await getRecalcCounter()).toBe(0);
   });
 });
 

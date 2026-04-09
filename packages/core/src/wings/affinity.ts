@@ -75,32 +75,60 @@ export async function getDecisionWing(decisionId: string): Promise<string | null
 
 /**
  * Increase affinity for a wing by a given amount (capped at 1.0).
+ * Uses a transaction to make the read-modify-write atomic.
  */
 export async function increaseWingAffinity(
   agentId: string,
   wing: string,
   amount: number,
 ): Promise<void> {
-  const affinity = await getWingAffinity(agentId);
-  const current = affinity.cross_wing_weights[wing] ?? 0;
-  affinity.cross_wing_weights[wing] = Math.min(1.0, current + amount);
-  affinity.feedback_count += 1;
-  await saveWingAffinity(agentId, affinity);
+  const db = getDb();
+  await db.transaction(async (txQuery) => {
+    const result = await txQuery('SELECT wing_affinity FROM agents WHERE id = ?', [agentId]);
+    if (result.rows.length === 0) return;
+    const raw = (result.rows[0] as Record<string, unknown>).wing_affinity;
+    let parsed: Record<string, unknown> = {};
+    if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch { /* skip */ } }
+    else if (raw && typeof raw === 'object') { parsed = raw as Record<string, unknown>; }
+
+    const weights = (parsed.cross_wing_weights ?? {}) as Record<string, number>;
+    weights[wing] = Math.min(1.0, (weights[wing] ?? 0) + amount);
+    const updated = {
+      cross_wing_weights: weights,
+      feedback_count: ((parsed.feedback_count as number) ?? 0) + 1,
+      last_recalculated: new Date().toISOString(),
+    };
+    await txQuery('UPDATE agents SET wing_affinity = ? WHERE id = ?', [JSON.stringify(updated), agentId]);
+  });
 }
 
 /**
  * Decrease affinity for a wing by a given amount (floored at 0.0).
+ * Uses a transaction to make the read-modify-write atomic.
  */
 export async function decreaseWingAffinity(
   agentId: string,
   wing: string,
   amount: number,
 ): Promise<void> {
-  const affinity = await getWingAffinity(agentId);
-  const current = affinity.cross_wing_weights[wing] ?? 0;
-  affinity.cross_wing_weights[wing] = Math.max(0.0, current - amount);
-  affinity.feedback_count += 1;
-  await saveWingAffinity(agentId, affinity);
+  const db = getDb();
+  await db.transaction(async (txQuery) => {
+    const result = await txQuery('SELECT wing_affinity FROM agents WHERE id = ?', [agentId]);
+    if (result.rows.length === 0) return;
+    const raw = (result.rows[0] as Record<string, unknown>).wing_affinity;
+    let parsed: Record<string, unknown> = {};
+    if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch { /* skip */ } }
+    else if (raw && typeof raw === 'object') { parsed = raw as Record<string, unknown>; }
+
+    const weights = (parsed.cross_wing_weights ?? {}) as Record<string, number>;
+    weights[wing] = Math.max(0.0, (weights[wing] ?? 0) - amount);
+    const updated = {
+      cross_wing_weights: weights,
+      feedback_count: ((parsed.feedback_count as number) ?? 0) + 1,
+      last_recalculated: new Date().toISOString(),
+    };
+    await txQuery('UPDATE agents SET wing_affinity = ? WHERE id = ?', [JSON.stringify(updated), agentId]);
+  });
 }
 
 /**
@@ -341,19 +369,42 @@ export function classifyDecisionWing(
 
 /*  Wing recalculation trigger  */
 
-// In-memory counter for tracking decisions since last wing recalculation
-let _decisionsSinceLastCalc = 0;
 const RECALC_THRESHOLD = 50;
 
 /**
- * Increment decision counter and check if wing recalculation is due.
+ * Check if wing recalculation is due based on DB-derived decision count.
+ * Compares the current active decision count against the last recorded
+ * recalculation count stored in project metadata. Survives server restarts.
  * Returns true if recalculation was triggered.
  */
 export async function maybeRecalculateWings(projectId: string): Promise<boolean> {
-  _decisionsSinceLastCalc++;
-  if (_decisionsSinceLastCalc < RECALC_THRESHOLD) return false;
+  const db = getDb();
 
-  _decisionsSinceLastCalc = 0;
+  // Get current active decision count for this project
+  const countResult = await db.query<Record<string, unknown>>(
+    `SELECT COUNT(*) as cnt FROM decisions WHERE project_id = ? AND status = 'active'`,
+    [projectId],
+  );
+  const currentCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
+
+  // Get last recalculation count from project metadata
+  const projResult = await db.query<Record<string, unknown>>(
+    'SELECT metadata FROM projects WHERE id = ?',
+    [projectId],
+  );
+  let lastCalcCount = 0;
+  if (projResult.rows.length > 0) {
+    const raw = projResult.rows[0].metadata;
+    let metadata: Record<string, unknown> = {};
+    if (typeof raw === 'string') {
+      try { metadata = JSON.parse(raw); } catch { /* skip */ }
+    } else if (raw && typeof raw === 'object') {
+      metadata = raw as Record<string, unknown>;
+    }
+    lastCalcCount = (metadata.last_wing_calc_decision_count as number) ?? 0;
+  }
+
+  if (currentCount - lastCalcCount < RECALC_THRESHOLD) return false;
 
   // Trigger async recalculation for all agents in the project
   recalculateProjectWings(projectId).catch((err) =>
@@ -364,16 +415,55 @@ export async function maybeRecalculateWings(projectId: string): Promise<boolean>
 
 /**
  * Reset the recalculation counter (for testing).
+ * Sets the last_wing_calc_decision_count in project metadata to the current count.
  */
-export function resetRecalcCounter(): void {
-  _decisionsSinceLastCalc = 0;
+export async function resetRecalcCounter(projectId?: string): Promise<void> {
+  if (!projectId) return;
+  const db = getDb();
+  try {
+    const countResult = await db.query<Record<string, unknown>>(
+      `SELECT COUNT(*) as cnt FROM decisions WHERE project_id = ? AND status = 'active'`,
+      [projectId],
+    );
+    const currentCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
+    await db.query(
+      db.dialect === 'sqlite'
+        ? `UPDATE projects SET metadata = json_set(COALESCE(metadata, '{}'), '$.last_wing_calc_decision_count', ?) WHERE id = ?`
+        : `UPDATE projects SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{last_wing_calc_decision_count}', to_jsonb(?::int))::text WHERE id = ?`,
+      [currentCount, projectId],
+    );
+  } catch { /* skip silently */ }
 }
 
 /**
- * Get current recalc counter (for testing).
+ * Get current recalc counter value (for testing).
+ * Returns the difference between current active decisions and last recalc count.
  */
-export function getRecalcCounter(): number {
-  return _decisionsSinceLastCalc;
+export async function getRecalcCounter(projectId?: string): Promise<number> {
+  if (!projectId) return 0;
+  const db = getDb();
+  const countResult = await db.query<Record<string, unknown>>(
+    `SELECT COUNT(*) as cnt FROM decisions WHERE project_id = ? AND status = 'active'`,
+    [projectId],
+  );
+  const currentCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
+
+  const projResult = await db.query<Record<string, unknown>>(
+    'SELECT metadata FROM projects WHERE id = ?',
+    [projectId],
+  );
+  let lastCalcCount = 0;
+  if (projResult.rows.length > 0) {
+    const raw = projResult.rows[0].metadata;
+    let metadata: Record<string, unknown> = {};
+    if (typeof raw === 'string') {
+      try { metadata = JSON.parse(raw); } catch { /* skip */ }
+    } else if (raw && typeof raw === 'object') {
+      metadata = raw as Record<string, unknown>;
+    }
+    lastCalcCount = (metadata.last_wing_calc_decision_count as number) ?? 0;
+  }
+  return currentCount - lastCalcCount;
 }
 
 /**
