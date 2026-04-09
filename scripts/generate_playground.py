@@ -79,8 +79,9 @@ decisions = [
 ]
 
 # Write out the decisions as a JSON file for the seed script to import
-os.makedirs('/home/user/workspace/Hipp0/packages/server/src', exist_ok=True)
-with open('/home/user/workspace/Hipp0/packages/server/src/demo-decisions.json', 'w') as f:
+output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'packages', 'server', 'src')
+os.makedirs(output_dir, exist_ok=True)
+with open(os.path.join(output_dir, 'demo-decisions.json'), 'w') as f:
     json.dump({"agents": agents, "decisions": decisions}, f, indent=2)
 
 print(f"Generated {len(decisions)} decisions and {len(agents)} agents")

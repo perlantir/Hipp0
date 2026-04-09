@@ -12,6 +12,7 @@ import {
 } from '@hipp0/core';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { invalidateDecisionCaches } from '../cache/redis.js';
 
 export function registerWingRoutes(app: Hono): void {
     // GET /api/agents/:name/wing — Wing stats for an agent
@@ -248,6 +249,8 @@ export function registerWingRoutes(app: Hono): void {
     await requireProjectAccess(c, projectId);
 
     const result = await recalculateProjectWings(projectId);
+
+    invalidateDecisionCaches(projectId).catch(() => {});
 
     logAudit('wings_recalculated', projectId, {
       agents_updated: result.agents_updated,
