@@ -185,6 +185,15 @@ export {
   validationProvenance,
 } from './intelligence/trust-scorer.js';
 
+// --- Capture Dedup (Passive Ingestion Phase 4) ---
+export {
+  computeCaptureHash,
+  checkExactDuplicate,
+  checkSemanticDuplicates,
+  runCaptureDedup,
+} from './intelligence/capture-dedup.js';
+export type { DedupResult } from './intelligence/capture-dedup.js';
+
 // --- Outcome Memory ---
 export { recordDecisionOutcome, getDecisionOutcomes, getOutcomeStats, outcomeMultiplier, attributeOutcomeToDecisions } from './intelligence/outcome-memory.js';
 

@@ -11,6 +11,8 @@ import { requireUUID, requireString, optionalString, logAudit, mapDbError } from
 import { getDb } from '@hipp0/core/db/index.js';
 import { distill } from '@hipp0/core/distillery/index.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
+import { runCaptureDedup } from '@hipp0/core/intelligence/capture-dedup.js';
+import { defaultProvenance, computeTrust } from '@hipp0/core/intelligence/trust-scorer.js';
 
 export function registerCaptureRoutes(app: Hono): void {
     // POST /api/capture — Submit conversation for background extraction
@@ -21,6 +23,8 @@ export function registerCaptureRoutes(app: Hono): void {
       conversation?: unknown;
       session_id?: unknown;
       source?: unknown;
+      source_event_id?: unknown;
+      source_channel?: unknown;
     }>();
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
@@ -29,7 +33,10 @@ export function registerCaptureRoutes(app: Hono): void {
     const session_id = body.session_id ? requireUUID(body.session_id, 'session_id') : null;
     const source = optionalString(body.source, 'source', 50) ?? 'api';
 
-    const validSources = ['openclaw', 'telegram', 'slack', 'api'];
+    const source_event_id = optionalString(body.source_event_id, 'source_event_id', 500) ?? null;
+    const source_channel = optionalString(body.source_channel, 'source_channel', 200) ?? null;
+
+    const validSources = ['openclaw', 'telegram', 'slack', 'discord', 'github', 'api'];
     if (!validSources.includes(source)) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: `source must be one of: ${validSources.join(', ')}` } }, 400);
     }
@@ -56,14 +63,25 @@ export function registerCaptureRoutes(app: Hono): void {
       console.warn(`[hipp0:capture] auto_capture is disabled for project ${project_id}, processing anyway (explicit API call)`);
     }
 
+    // Dedup check — block exact duplicates
+    const dedupResult = await runCaptureDedup(project_id, conversation);
+    if (dedupResult.dedup_action === 'blocked_exact_dup') {
+      return c.json({
+        capture_id: dedupResult.exact_duplicate_id,
+        status: 'duplicate',
+        dedup_hash: dedupResult.dedup_hash,
+        message: 'Exact duplicate capture detected within 24h window',
+      }, 200);
+    }
+
     // Insert capture record
     let captureId: string;
     try {
       const insertResult = await db.query(
-        `INSERT INTO captures (project_id, agent_name, session_id, source, conversation_text, status)
-         VALUES (?, ?, ?, ?, ?, 'processing')
+        `INSERT INTO captures (project_id, agent_name, session_id, source, conversation_text, status, dedup_hash, dedup_result, source_event_id, source_channel)
+         VALUES (?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?)
          RETURNING id`,
-        [project_id, agent_name, session_id, source, conversation],
+        [project_id, agent_name, session_id, source, conversation, dedupResult.dedup_hash, JSON.stringify(dedupResult), source_event_id, source_channel],
       );
 
       captureId = (insertResult.rows[0] as Record<string, unknown>).id as string;
@@ -83,7 +101,7 @@ export function registerCaptureRoutes(app: Hono): void {
     const response = c.json({ capture_id: captureId, status: 'processing' }, 202);
 
     // Fire-and-forget background extraction
-    void runCaptureExtraction(captureId, project_id, conversation, agent_name, session_id);
+    void runCaptureExtraction(captureId, project_id, conversation, agent_name, session_id, source);
 
     return response;
   });
@@ -181,6 +199,7 @@ async function runCaptureExtraction(
   conversation: string,
   agentName: string,
   sessionId: string | null,
+  source: string,
 ): Promise<void> {
   const db = getDb();
 
@@ -199,6 +218,22 @@ async function runCaptureExtraction(
         // If CHECK constraint prevents 'auto_capture', leave as auto_distilled
         console.warn(`[hipp0:capture] Could not update source for decision ${id}:`, (err as Error).message);
       });
+    }
+
+    // Assign provenance chain from Phase 2 for passive captures
+    for (const id of decisionIds) {
+      const provenance = [defaultProvenance('auto_capture', agentName)];
+      provenance[0].source_label = `Captured from ${agentName} via ${source}`;
+      const { trust_score } = computeTrust({
+        source: 'auto_capture',
+        confidence: 'low',
+        created_at: new Date().toISOString(),
+        provenance_chain: provenance,
+      } as Parameters<typeof computeTrust>[0]);
+      await db.query(
+        `UPDATE decisions SET provenance_chain = ?, trust_score = ? WHERE id = ? AND (provenance_chain IS NULL OR provenance_chain = '[]')`,
+        [JSON.stringify(provenance), trust_score, id],
+      ).catch(() => {});
     }
 
     // Update capture record

@@ -13,6 +13,7 @@
  */
 import { getDb } from '@hipp0/core/db/index.js';
 import { generateEmbedding } from '@hipp0/core/decision-graph/embeddings.js';
+import { computeTrust } from '@hipp0/core/intelligence/trust-scorer.js';
 import crypto from 'node:crypto';
 import type { IngestionJobData, NotificationJobData } from './index.js';
 import { addNotificationJob } from './index.js';
@@ -117,7 +118,26 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
   const decisionStatus = autoApproved ? 'active' : 'pending';
   const reviewStatus = autoApproved ? 'approved' : 'pending_review';
 
-  console.warn(`[hipp0/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus}`);
+  // Generate provenance from source metadata
+  const sourceType = (data.source === 'openclaw' || data.source === 'telegram')
+    ? 'connector' : 'auto_distilled';
+  const verificationStatus: 'validated' | 'pending_review' = reviewStatus === 'approved' ? 'validated' : 'pending_review';
+  const provenanceChain = [{
+    source_type: sourceType,
+    actor_type: 'system' as const,
+    method: 'llm_extraction' as const,
+    timestamp: new Date().toISOString(),
+    verification_status: verificationStatus,
+    source_label: `Ingested from ${data.source} — ref: ${data.source_session_id ?? 'unknown'}`,
+  }];
+  const { trust_score: computedTrustScore } = computeTrust({
+    source: dbSource,
+    confidence: data.confidence,
+    created_at: new Date().toISOString(),
+    provenance_chain: provenanceChain,
+  } as Parameters<typeof computeTrust>[0]);
+
+  console.warn(`[hipp0/ingestion] Inserting decision: "${data.title}" project=${data.project_id.slice(0, 8)}.. source=${dbSource} status=${decisionStatus} trust=${computedTrustScore.toFixed(3)}`);
 
   try {
     const result = await db.query(
@@ -125,8 +145,8 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
          (project_id, title, description, reasoning, made_by, source,
           source_session_id, confidence, status,
           alternatives_considered, affects, tags,
-          review_status, embedding)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          review_status, embedding, provenance_chain, trust_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id, title`,
       [
         data.project_id,
@@ -143,6 +163,8 @@ export async function handleIngestionJob(data: IngestionJobData): Promise<void> 
         db.arrayParam(data.tags),
         reviewStatus,
         vectorLiteral,
+        JSON.stringify(provenanceChain),
+        computedTrustScore,
       ],
     );
 
