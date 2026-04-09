@@ -197,6 +197,9 @@ export type { DedupResult } from './intelligence/capture-dedup.js';
 // --- Outcome Memory ---
 export { recordDecisionOutcome, getDecisionOutcomes, getOutcomeStats, outcomeMultiplier, attributeOutcomeToDecisions } from './intelligence/outcome-memory.js';
 
+// --- Cross-Agent Learning ---
+export { computeAgentPerformance, computeCrossAgentTransfer, computeDomainStrengths, applyCrossAgentLearning, getCrossAgentSummary } from './intelligence/cross-agent-learner.js';
+
 // --- Pattern Recommendations ---
 export {
   getPatternRecommendations,

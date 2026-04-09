@@ -103,6 +103,18 @@
       "import": "./dist/intelligence/outcome-memory.js",
       "types": "./dist/intelligence/outcome-memory.d.ts"
     },
+    "./intelligence/trust-scorer.js": {
+      "import": "./dist/intelligence/trust-scorer.js",
+      "types": "./dist/intelligence/trust-scorer.d.ts"
+    },
+    "./intelligence/capture-dedup.js": {
+      "import": "./dist/intelligence/capture-dedup.js",
+      "types": "./dist/intelligence/capture-dedup.d.ts"
+    },
+    "./intelligence/cross-agent-learner.js": {
+      "import": "./dist/intelligence/cross-agent-learner.js",
+      "types": "./dist/intelligence/cross-agent-learner.d.ts"
+    },
     "./intelligence/pattern-extractor.js": {
       "import": "./dist/intelligence/pattern-extractor.js",
       "types": "./dist/intelligence/pattern-extractor.d.ts"

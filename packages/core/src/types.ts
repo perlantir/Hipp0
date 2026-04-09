@@ -109,6 +109,32 @@ export interface OutcomeStats {
   last_outcome_at?: string;
 }
 
+// --- Cross-Agent Learning ---
+export interface AgentPerformanceStats {
+  agent_id: string;
+  agent_name: string;
+  total_decisions: number;
+  total_linked_outcomes: number;
+  success_rate: number;
+  failure_rate: number;
+  regression_rate: number;
+  reversal_rate: number;
+  avg_outcome_score: number;
+  trust_weighted_score: number;
+  top_domains: string[];
+  last_updated_at: string;
+}
+
+export interface CrossAgentSignal {
+  source_agent: string;
+  target_agent: string;
+  signal_type: 'positive_transfer' | 'negative_transfer' | 'contradiction_risk' | 'domain_strength';
+  sample_size: number;
+  score: number;
+  confidence: number;
+  last_updated_at: string;
+}
+
 // --- Decisions ---
 export interface Decision {
   id: string;
