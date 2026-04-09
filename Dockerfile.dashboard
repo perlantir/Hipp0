@@ -23,7 +23,9 @@ COPY packages/server/package.json packages/server/
 COPY packages/sdk/package.json packages/sdk/
 COPY packages/mcp/package.json packages/mcp/
 COPY packages/cli/package.json packages/cli/
+ENV NODE_ENV=development
 RUN pnpm install --frozen-lockfile
+ENV NODE_ENV=production
 
 COPY packages/dashboard/ packages/dashboard/
 
