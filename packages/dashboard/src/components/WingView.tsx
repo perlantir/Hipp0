@@ -90,7 +90,7 @@ function AffinityBar({ value, label, showTrend }: { value: number; label: string
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
       <WingBadge name={label} />
-      <div style={{ flex: 1, height: 8, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 8, backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
         <div style={{
           width: `${pct}%`, height: '100%', backgroundColor: barColor, borderRadius: 4,
           transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -269,35 +269,35 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
     .sort(([, a], [, b]) => b - a);
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary, #e5e7eb)' }}>
+    <div style={{ padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h3 style={{ margin: 0, color: 'var(--text-primary, #e5e7eb)', fontSize: 18, fontWeight: 700 }}>
           Wing: <WingBadge name={stats.agent_name} size="md" />
         </h3>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 18 }}>x</button>
+        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: '6px 12px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>x</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
-        <div style={{ padding: 12, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 8 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.decision_count}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Decisions</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
+        <div style={{ padding: 16, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.decision_count}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>Decisions</div>
         </div>
-        <div style={{ padding: 12, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 8 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>{sortedWeights.length}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Cross-wing links</div>
+        <div style={{ padding: 16, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{sortedWeights.length}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>Cross-wing links</div>
         </div>
-        <div style={{ padding: 12, backgroundColor: 'var(--bg-tertiary, #1f2937)', borderRadius: 8 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.wing_affinity.feedback_count}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Feedback events</div>
+        <div style={{ padding: 16, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.wing_affinity.feedback_count}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>Feedback events</div>
         </div>
       </div>
 
       {stats.top_domains.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>TOP DOMAINS</h4>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ marginBottom: 20 }}>
+          <h4 style={{ color: 'var(--text-tertiary)', fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>Specialization</h4>
+          <div style={{ display: 'flex', gap: 8 }}>
             {stats.top_domains.map((d) => (
-              <span key={d} style={{ padding: '2px 8px', borderRadius: 4, backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 12 }}>{d}</span>
+              <span key={d} style={{ padding: '4px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.5)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 500, border: '1px solid rgba(255,255,255,0.3)' }}>{d}</span>
             ))}
           </div>
         </div>
@@ -305,14 +305,15 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
 
       {/* Cross-wing relationship display */}
       {stats.cross_wing_connections.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>CROSS-WING RELATIONSHIPS</h4>
+        <div style={{ marginBottom: 20 }}>
+          <h4 style={{ color: 'var(--text-tertiary)', fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>Cross-Wing Relationships</h4>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {stats.cross_wing_connections.map((conn) => (
               <span key={conn.wing} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11,
-                backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                padding: '5px 12px', borderRadius: 8, fontSize: 12,
+                background: 'rgba(255,255,255,0.5)', color: 'var(--text-primary)',
                 border: `1px solid ${wingColor(conn.wing)}44`,
+                fontWeight: 500,
               }}>
                 {stats.agent_name} ↔ {conn.wing}
               </span>
@@ -321,17 +322,18 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
         </div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h4 style={{ color: 'var(--text-secondary)', fontSize: 12, margin: 0 }}>CROSS-WING AFFINITY</h4>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h4 style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: 0, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>Cross-Wing Affinity</h4>
           <button
             onClick={handleRebalance}
             disabled={rebalancing}
             style={{
-              padding: '4px 10px', borderRadius: 4, fontSize: 11, cursor: 'pointer',
-              backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-              border: '1px solid var(--border-primary, #374151)',
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.5)', color: 'var(--text-primary)',
+              border: '1px solid rgba(255,255,255,0.4)',
               opacity: rebalancing ? 0.5 : 1,
+              fontWeight: 600,
             }}
           >
             {rebalancing ? 'Rebalancing...' : 'Rebalance'}
@@ -347,7 +349,7 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
       </div>
 
       {/* Agent Affinity Chart */}
-      <div style={{ marginTop: 16, backgroundColor: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-primary, #1f2937)' }}>
+      <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(12px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
         <AgentAffinityChart agentName={stats.agent_name} />
       </div>
 
@@ -396,23 +398,25 @@ export function WingView() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <h2 style={{ color: 'var(--text-primary, #e5e7eb)', margin: 0, fontSize: 20 }}>Agent Wings</h2>
+    <div style={{ padding: 32, maxWidth: 1100 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <h2 style={{ color: 'var(--text-primary, #e5e7eb)', margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>Agent Wings</h2>
         <button
           onClick={handleRecalculate}
           disabled={recalculating}
           style={{
-            padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-            backgroundColor: '#3b82f6', color: '#fff', fontWeight: 600,
+            padding: '10px 20px', borderRadius: 12, fontSize: 13, cursor: 'pointer',
+            backgroundColor: 'var(--accent-primary)', color: '#fff', fontWeight: 700,
             border: 'none', opacity: recalculating ? 0.6 : 1,
+            boxShadow: '0 0 20px rgba(6,63,249,0.4)',
+            transition: 'all 0.2s',
           }}
         >
           {recalculating ? 'Recalculating...' : 'Recalculate Wings'}
         </button>
       </div>
-      <p style={{ color: 'var(--text-secondary, #9ca3af)', fontSize: 13, marginBottom: 20 }}>
-        Each agent operates in its own wing — a dedicated context space. Cross-wing affinity is learned from feedback.
+      <p style={{ color: 'var(--text-secondary, #9ca3af)', fontSize: 14, marginBottom: 24, fontWeight: 500 }}>
+        Orchestrating specialized intelligence clusters and affinity pathways.
       </p>
 
       {selectedAgent ? (
@@ -420,25 +424,27 @@ export function WingView() {
       ) : (
         <>
           {/* Wing Relationship Graph */}
-          <div style={{ backgroundColor: 'var(--bg-secondary, #111827)', borderRadius: 8, padding: 16, marginBottom: 24, border: '1px solid var(--border-primary, #1f2937)' }}>
-            <h3 style={{ color: 'var(--text-primary)', fontSize: 14, marginBottom: 12 }}>Wing Relationship Graph</h3>
+          <div style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', borderRadius: 20, padding: 24, marginBottom: 28, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ color: 'var(--text-primary)', fontSize: 15, marginBottom: 16, fontWeight: 700 }}>Wing Relationship Graph</h3>
             <WingRelationshipGraph wings={wings} />
           </div>
 
           {/* Wing List */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
             {wings.map((w) => (
               <div
                 key={w.wing}
                 onClick={() => setSelectedAgent(w.wing)}
                 style={{
-                  padding: 16, borderRadius: 8, cursor: 'pointer',
-                  backgroundColor: 'var(--bg-secondary, #111827)',
-                  border: '1px solid var(--border-primary, #1f2937)',
-                  transition: 'border-color 0.2s',
+                  padding: 20, borderRadius: 16, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.6)',
+                  backdropFilter: 'blur(24px)',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+                  transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = wingColor(w.wing))}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary, #1f2937)')}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = wingColor(w.wing); e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 25px 50px rgba(0,0,0,0.08)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.05)'; }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <WingBadge name={w.wing} size="md" />
@@ -447,7 +453,7 @@ export function WingView() {
                 {w.top_domains.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
                     {w.top_domains.map((d) => (
-                      <span key={d} style={{ padding: '1px 6px', borderRadius: 3, backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 10 }}>{d}</span>
+                      <span key={d} style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.5)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 500, border: '1px solid rgba(255,255,255,0.3)' }}>{d}</span>
                     ))}
                   </div>
                 )}

@@ -75,14 +75,15 @@ const URGENCY_LABELS: Record<string, string> = {
 };
 
 function UrgencyBadge({ urgency }: { urgency: string }) {
+  const bgColors: Record<string, string> = {
+    critical: 'bg-red-100 text-red-700',
+    high: 'bg-amber-100 text-amber-700',
+    medium: 'bg-blue-100 text-blue-700',
+    low: 'bg-slate-100 text-slate-600',
+  };
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-      style={{
-        backgroundColor: `${URGENCY_COLORS[urgency] ?? '#6b7280'}20`,
-        color: URGENCY_COLORS[urgency] ?? '#6b7280',
-        border: `1px solid ${URGENCY_COLORS[urgency] ?? '#6b7280'}40`,
-      }}
+      className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase ${bgColors[urgency] ?? 'bg-slate-100 text-slate-600'}`}
     >
       {URGENCY_LABELS[urgency] ?? urgency}
     </span>
@@ -91,13 +92,7 @@ function UrgencyBadge({ urgency }: { urgency: string }) {
 
 function TriggerBadge({ trigger }: { trigger: string }) {
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-      style={{
-        backgroundColor: 'var(--bg-tertiary, #374151)',
-        color: 'var(--text-secondary, #9ca3af)',
-      }}
-    >
+    <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
       {trigger.replace(/_/g, ' ')}
     </span>
   );
@@ -123,81 +118,91 @@ function ProposalCard({
 
   return (
     <div
-      className="rounded-lg p-4 mb-3"
+      className="card rounded-3xl p-6 mb-4 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
       style={{
-        backgroundColor: 'var(--bg-secondary, #1f2937)',
-        borderLeft: `4px solid ${borderColor}`,
+        borderLeft: `6px solid ${borderColor}`,
       }}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <TriggerBadge trigger={proposal.trigger_type} />
-            <UrgencyBadge urgency={proposal.urgency} />
-            <span className="text-xs" style={{ color: 'var(--text-muted, #6b7280)' }}>
-              {(proposal.confidence * 100).toFixed(0)}% confidence
-            </span>
-            <span className="text-xs" style={{ color: 'var(--text-muted, #6b7280)' }}>
-              Impact: {(proposal.impact_score * 100).toFixed(0)}%
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Metadata */}
+        <div className="lg:w-1/4">
+          <div className="flex items-center gap-2 mb-3" style={{ color: borderColor }}>
+            <AlertTriangle size={16} />
+            <span className="text-xs font-bold tracking-widest uppercase">
+              {URGENCY_LABELS[proposal.urgency] ?? proposal.urgency}
             </span>
           </div>
-          <p className="text-sm mb-2" style={{ color: 'var(--text-primary, #e5e7eb)' }}>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <TriggerBadge trigger={proposal.trigger_type} />
+            <UrgencyBadge urgency={proposal.urgency} />
+          </div>
+          <div className="space-y-2 text-xs text-[var(--text-secondary)]">
+            <p>{(proposal.confidence * 100).toFixed(0)}% confidence</p>
+            <p>Impact: {(proposal.impact_score * 100).toFixed(0)}%</p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="lg:w-2/4">
+          <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--text-primary)' }}>
             {proposal.reasoning}
           </p>
           {proposal.suggested_action && (
-            <p className="text-xs" style={{ color: 'var(--text-secondary, #9ca3af)' }}>
-              Suggested: <span className="font-medium">{proposal.suggested_action.replace(/_/g, ' ')}</span>
-            </p>
+            <div className="bg-white/40 rounded-2xl p-4 border border-white/60">
+              <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Suggested Action</p>
+              <code className="text-xs text-blue-700 font-mono block">
+                {proposal.suggested_action.replace(/_/g, ' ')}
+              </code>
+            </div>
+          )}
+          {expanded && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-[var(--text-secondary)]">
+                Affected decisions: {proposal.affected_decision_ids.length > 0 ? proposal.affected_decision_ids.map((id) => id.slice(0, 8)).join(', ') : 'None'}
+              </p>
+              {proposal.llm_explanation && (
+                <p className="text-xs text-[var(--text-secondary)]">
+                  LLM: {proposal.llm_explanation}
+                </p>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mt-3 text-primary text-xs font-bold hover:underline transition-all"
+          >
+            {expanded ? 'Collapse' : 'View Details'}
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="lg:w-1/4 flex flex-col justify-center gap-3">
+          {proposal.status === 'pending' && (
+            <>
+              <button
+                onClick={() => onAccept(proposal.id)}
+                className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-[0_0_20px_rgba(6,63,249,0.3)]"
+              >
+                <Check size={14} /> Accept
+              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => onReject(proposal.id)}
+                  className="bg-rose-50 text-rose-600 py-2.5 rounded-xl font-bold text-[11px] hover:bg-rose-100 transition-all uppercase tracking-tight flex items-center justify-center gap-1"
+                >
+                  <X size={12} /> Reject
+                </button>
+                <button
+                  onClick={() => onOverride(proposal.id)}
+                  className="bg-slate-100 text-slate-600 py-2.5 rounded-xl font-bold text-[11px] hover:bg-slate-200 transition-all uppercase tracking-tight flex items-center justify-center gap-1"
+                >
+                  <Edit3 size={12} /> Override
+                </button>
+              </div>
+            </>
           )}
         </div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="ml-2 p-1 rounded hover:bg-gray-700"
-          style={{ color: 'var(--text-muted, #6b7280)' }}
-        >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
       </div>
-
-      {expanded && (
-        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border, #374151)' }}>
-          <p className="text-xs mb-2" style={{ color: 'var(--text-muted, #6b7280)' }}>
-            Affected decisions: {proposal.affected_decision_ids.length > 0 ? proposal.affected_decision_ids.map((id) => id.slice(0, 8)).join(', ') : 'None'}
-          </p>
-          {proposal.llm_explanation && (
-            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary, #9ca3af)' }}>
-              LLM: {proposal.llm_explanation}
-            </p>
-          )}
-        </div>
-      )}
-
-      {proposal.status === 'pending' && (
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => onAccept(proposal.id)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700"
-          >
-            <Check size={14} /> Accept
-          </button>
-          <button
-            onClick={() => onReject(proposal.id)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700"
-          >
-            <X size={14} /> Reject
-          </button>
-          <button
-            onClick={() => onOverride(proposal.id)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium"
-            style={{
-              backgroundColor: 'var(--bg-tertiary, #374151)',
-              color: 'var(--text-secondary, #9ca3af)',
-            }}
-          >
-            <Edit3 size={14} /> Override
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -284,29 +289,29 @@ export function EvolutionProposals() {
   const highCount = proposals.filter((p) => p.urgency === 'high').length;
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-7xl mx-auto px-8 py-8 space-y-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary, #f3f4f6)' }}>
+          <h1 className="text-4xl font-bold tracking-tight mb-2">
             Evolution Engine
-          </h2>
-          <p className="text-xs" style={{ color: 'var(--text-muted, #6b7280)' }}>
+          </h1>
+          <p className="text-lg text-[var(--text-secondary)]">
             Autonomous rule-based decision evolution
           </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Mode toggle */}
-          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border, #374151)' }}>
+          <div className="flex gap-2 p-1 card rounded-2xl">
             {(['rule', 'llm', 'hybrid'] as EvolutionMode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className="px-3 py-1.5 text-xs font-medium capitalize"
-                style={{
-                  backgroundColor: mode === m ? 'var(--accent, #d97706)' : 'transparent',
-                  color: mode === m ? '#fff' : 'var(--text-secondary, #9ca3af)',
-                }}
+                className={`px-6 py-2 rounded-xl font-bold text-sm transition-all capitalize ${
+                  mode === m
+                    ? 'bg-primary text-white shadow-lg'
+                    : 'text-[var(--text-secondary)] hover:bg-white/50'
+                }`}
               >
                 {m}
               </button>
@@ -316,7 +321,7 @@ export function EvolutionProposals() {
           <button
             onClick={handleScan}
             disabled={scanning || !projectId}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#063ff9] text-white hover:bg-[#0534d4] disabled:opacity-50"
+            className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:-translate-y-1 transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {scanning ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
             Scan Now
@@ -326,36 +331,45 @@ export function EvolutionProposals() {
 
       {/* Last scan stats */}
       {lastScan && (
-        <div
-          className="flex items-center gap-4 p-3 rounded-lg text-xs"
-          style={{ backgroundColor: 'var(--bg-secondary, #1f2937)', color: 'var(--text-secondary, #9ca3af)' }}
-        >
-          <span>{lastScan.proposals_generated} proposals</span>
-          <span>{criticalCount} critical</span>
-          <span>{highCount} high</span>
-          <span>{lastScan.scan_duration_ms}ms</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="card p-6 rounded-3xl">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Proposals</p>
+            <p className="text-3xl font-bold">{lastScan.proposals_generated}</p>
+          </div>
+          <div className="card p-6 rounded-3xl">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Critical</p>
+            <p className="text-3xl font-bold text-red-600">{criticalCount}</p>
+          </div>
+          <div className="card p-6 rounded-3xl">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">High Priority</p>
+            <p className="text-3xl font-bold text-amber-600">{highCount}</p>
+          </div>
+          <div className="card p-6 rounded-3xl bg-primary/5" style={{ borderColor: 'rgba(6,63,249,0.2)' }}>
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Scan Time</p>
+            <p className="text-3xl font-bold text-primary">{lastScan.scan_duration_ms}ms</p>
+          </div>
         </div>
       )}
 
       {/* Tab switcher */}
-      <div className="flex gap-4" style={{ borderBottom: '1px solid var(--border, #374151)' }}>
+      <div className="flex gap-6 border-b border-[var(--border-light)]">
         <button
           onClick={() => setTab('proposals')}
-          className="flex items-center gap-1.5 pb-2 text-sm font-medium"
-          style={{
-            color: tab === 'proposals' ? 'var(--accent, #d97706)' : 'var(--text-muted, #6b7280)',
-            borderBottom: tab === 'proposals' ? '2px solid var(--accent, #d97706)' : '2px solid transparent',
-          }}
+          className={`flex items-center gap-1.5 pb-3 text-sm font-bold transition-all ${
+            tab === 'proposals'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-[var(--text-secondary)] border-b-2 border-transparent'
+          }`}
         >
           <AlertTriangle size={14} /> Proposals ({proposals.length})
         </button>
         <button
           onClick={() => setTab('history')}
-          className="flex items-center gap-1.5 pb-2 text-sm font-medium"
-          style={{
-            color: tab === 'history' ? 'var(--accent, #d97706)' : 'var(--text-muted, #6b7280)',
-            borderBottom: tab === 'history' ? '2px solid var(--accent, #d97706)' : '2px solid transparent',
-          }}
+          className={`flex items-center gap-1.5 pb-3 text-sm font-bold transition-all ${
+            tab === 'history'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-[var(--text-secondary)] border-b-2 border-transparent'
+          }`}
         >
           <History size={14} /> History
         </button>
@@ -366,10 +380,10 @@ export function EvolutionProposals() {
         <div>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="animate-spin" size={24} style={{ color: 'var(--text-muted, #6b7280)' }} />
+              <Loader2 className="animate-spin text-primary" size={24} />
             </div>
           ) : proposals.length === 0 ? (
-            <div className="text-center py-12" style={{ color: 'var(--text-muted, #6b7280)' }}>
+            <div className="text-center py-12 text-[var(--text-secondary)]">
               <RefreshCw size={32} className="mx-auto mb-2 opacity-50" />
               <p className="text-sm">No pending proposals. Run a scan to detect evolution opportunities.</p>
             </div>
@@ -390,33 +404,36 @@ export function EvolutionProposals() {
       {tab === 'history' && (
         <div>
           {history.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted, #6b7280)' }}>
+            <p className="text-sm text-center py-8 text-[var(--text-secondary)]">
               No scan history yet.
             </p>
           ) : (
-            <table className="w-full text-sm" style={{ color: 'var(--text-secondary, #9ca3af)' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border, #374151)' }}>
-                  <th className="text-left py-2 font-medium">Date</th>
-                  <th className="text-left py-2 font-medium">Mode</th>
-                  <th className="text-right py-2 font-medium">Proposals</th>
-                  <th className="text-right py-2 font-medium">Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((scan) => (
-                  <tr key={scan.id} style={{ borderBottom: '1px solid var(--border, #374151)20' }}>
-                    <td className="py-2 flex items-center gap-1.5">
-                      <Clock size={12} />
-                      {new Date(scan.created_at).toLocaleString()}
-                    </td>
-                    <td className="py-2 capitalize">{scan.mode}</td>
-                    <td className="py-2 text-right">{scan.proposals_generated}</td>
-                    <td className="py-2 text-right">{scan.scan_duration_ms}ms</td>
+            <div className="card rounded-[2rem] p-8 overflow-hidden">
+              <h4 className="text-xl font-bold mb-8">Scan History</h4>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-widest font-bold border-b border-[var(--border-light)] text-[var(--text-secondary)]">
+                    <th className="pb-4 px-4">Date</th>
+                    <th className="pb-4 px-4">Mode</th>
+                    <th className="pb-4 px-4 text-right">Proposals</th>
+                    <th className="pb-4 px-4 text-right">Duration</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-light)]">
+                  {history.map((scan) => (
+                    <tr key={scan.id} className="hover:bg-white/40 transition-colors">
+                      <td className="py-6 px-4 flex items-center gap-1.5 text-sm">
+                        <Clock size={12} />
+                        {new Date(scan.created_at).toLocaleString()}
+                      </td>
+                      <td className="py-6 px-4 capitalize text-sm">{scan.mode}</td>
+                      <td className="py-6 px-4 text-right text-sm font-bold">{scan.proposals_generated}</td>
+                      <td className="py-6 px-4 text-right text-sm text-[var(--text-secondary)]">{scan.scan_duration_ms}ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

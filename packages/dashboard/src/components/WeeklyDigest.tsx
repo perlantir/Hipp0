@@ -58,35 +58,38 @@ function FindingCard({ finding }: { finding: Finding }) {
 
   return (
     <div
-      className="rounded-lg p-4"
+      className="card rounded-3xl p-6 hover:shadow-xl transition-all"
       style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-light)',
         borderLeft: `4px solid ${SEVERITY_BORDER[finding.severity]}`,
       }}
     >
       <div
-        className="flex items-start gap-2 cursor-pointer"
+        className="flex items-start gap-3 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="mt-0.5 shrink-0">{SEVERITY_ICON[finding.severity]}</span>
+        <div className="flex items-center gap-3 mb-3">
+          <span className="mt-0.5 shrink-0">{SEVERITY_ICON[finding.severity]}</span>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: SEVERITY_BORDER[finding.severity] }}>
+            {finding.severity}
+          </span>
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-bold text-lg mb-1" style={{ color: 'var(--text-primary)' }}>
             {finding.title}
           </p>
         </div>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </div>
       {expanded && (
-        <div className="mt-3 ml-5 space-y-2">
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-[var(--text-secondary)] mb-4 leading-relaxed">
             {finding.description}
           </p>
-          <div
-            className="text-xs px-3 py-2 rounded"
-            style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            {finding.recommendation}
+          <div className="bg-white/40 rounded-2xl p-4 border border-white/60">
+            <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Recommendation</p>
+            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>
+              {finding.recommendation}
+            </p>
           </div>
         </div>
       )}
@@ -123,13 +126,13 @@ export function WeeklyDigest() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        <h2 className="text-4xl font-bold tracking-tight mb-4" style={{ color: 'var(--text-primary)' }}>
           Weekly Digest
         </h2>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: 'var(--bg-hover)' }} />
+            <div key={i} className="h-20 rounded-3xl animate-pulse" style={{ background: 'var(--bg-hover)' }} />
           ))}
         </div>
       </div>
@@ -137,21 +140,49 @@ export function WeeklyDigest() {
   }
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          Weekly Digest
-        </h2>
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white transition-all"
-          style={{ background: generating ? '#92400E' : '#D97706', opacity: generating ? 0.7 : 1 }}
-        >
-          <RefreshCw size={12} className={generating ? 'animate-spin' : ''} />
-          {generating ? 'Generating...' : 'Generate Now'}
-        </button>
-      </div>
+    <div className="max-w-7xl mx-auto px-8 py-8">
+      {/* Hero Section: Editorial Header */}
+      <section className="mb-16">
+        <div className="flex justify-between items-end mb-8">
+          <div>
+            <h2 className="text-sm font-bold text-primary tracking-widest uppercase mb-4">Monitoring Intelligence</h2>
+            <h1 className="text-6xl font-bold tracking-tight mb-4">Weekly Digest</h1>
+            <p className="text-xl text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+              A synthesized analysis of architectural shifts, logic conflicts, and autonomous reasoning cycles.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {digest && (
+              <div className="card p-6 rounded-3xl flex flex-col items-end">
+                <span className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">System Health</span>
+                {(() => {
+                  const h = HEALTH_CONFIG[digest.summary.overall_health] || HEALTH_CONFIG.good;
+                  return (
+                    <span className="text-3xl font-bold" style={{ color: h.color }}>
+                      {h.label}
+                    </span>
+                  );
+                })()}
+                <div className="flex gap-1 mt-2">
+                  <div className="w-1 h-3 bg-primary rounded-full" />
+                  <div className="w-1 h-3 bg-primary rounded-full" />
+                  <div className="w-1 h-3 bg-primary rounded-full" />
+                  <div className="w-1 h-3 bg-primary/20 rounded-full" />
+                </div>
+              </div>
+            )}
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="bg-primary text-white px-6 py-3 rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:-translate-y-1 transition-all flex items-center gap-2"
+              style={{ opacity: generating ? 0.7 : 1 }}
+            >
+              <RefreshCw size={14} className={generating ? 'animate-spin' : ''} />
+              {generating ? 'Generating...' : 'Generate Now'}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {!digest ? (
         <div className="text-center py-12" style={{ color: 'var(--text-secondary)' }}>
@@ -162,58 +193,69 @@ export function WeeklyDigest() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Summary card */}
-          <div
-            className="rounded-xl p-5"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <BarChart3 size={18} style={{ color: 'var(--accent-primary)' }} />
-                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {digest.summary.period}
-                </span>
+        <div className="space-y-12">
+          {/* Summary Stats Bento Grid */}
+          <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                <BarChart3 size={20} />
               </div>
-              {(() => {
-                const h = HEALTH_CONFIG[digest.summary.overall_health] || HEALTH_CONFIG.good;
-                return (
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                    style={{ background: h.bg, color: h.color }}
-                  >
-                    {h.label}
-                  </span>
-                );
-              })()}
+              <div className="text-4xl font-bold mb-1">{digest.summary.findings_count}</div>
+              <div className="text-[var(--text-secondary)] font-medium">total findings</div>
             </div>
+            <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center mb-6 text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors">
+                <AlertOctagon size={20} />
+              </div>
+              <div className="text-4xl font-bold mb-1">{digest.summary.critical}</div>
+              <div className="text-[var(--text-secondary)] font-medium">critical</div>
+            </div>
+            <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="text-4xl font-bold mb-1">{digest.summary.warnings}</div>
+              <div className="text-[var(--text-secondary)] font-medium">warnings</div>
+            </div>
+            <div className="card p-8 rounded-3xl hover:translate-y-[-4px] transition-all cursor-default group">
+              <div className="w-12 h-12 rounded-2xl bg-slate-200 flex items-center justify-center mb-6 text-slate-600 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <Info size={20} />
+              </div>
+              <div className="text-4xl font-bold mb-1">{digest.summary.period}</div>
+              <div className="text-[var(--text-secondary)] font-medium">period</div>
+            </div>
+          </section>
 
-            <div className="flex gap-6 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {digest.summary.critical > 0 && (
-                <span style={{ color: '#DC2626' }}>
-                  {digest.summary.critical} critical
-                </span>
-              )}
-              {digest.summary.warnings > 0 && (
-                <span style={{ color: '#D97706' }}>
-                  {digest.summary.warnings} warning{digest.summary.warnings !== 1 ? 's' : ''}
-                </span>
-              )}
-              <span>{digest.summary.findings_count} total findings</span>
-              <span>Generated {timeAgo(digest.generated_at)}</span>
+          {/* Summary card */}
+          <div className="card rounded-3xl p-6 bg-primary text-white">
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-xs font-bold uppercase tracking-widest opacity-80">Generated</span>
+              <span className="text-2xl font-bold">{timeAgo(digest.generated_at)}</span>
             </div>
+            <div className="h-1 w-full bg-white/20 rounded-full mb-4">
+              <div className="h-full bg-white rounded-full" style={{ width: `${digest.summary.overall_health === 'good' ? 90 : digest.summary.overall_health === 'fair' ? 60 : 30}%` }} />
+            </div>
+            <p className="text-xs opacity-80 italic">
+              {digest.summary.findings_count} findings analyzed across the reporting period.
+            </p>
           </div>
 
           {/* Findings */}
           {digest.findings.length === 0 ? (
             <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>
-              <p className="text-sm">No findings — your project is in good shape.</p>
+              <p className="text-sm">No findings -- your project is in good shape.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {digest.findings.map((f, i) => (
-                <FindingCard key={`${f.type}-${i}`} finding={f} />
-              ))}
+            <div>
+              <h3 className="text-2xl font-bold flex items-center gap-3 mb-8">
+                <span className="w-2 h-8 bg-primary rounded-full" />
+                Findings
+              </h3>
+              <div className="space-y-4">
+                {digest.findings.map((f, i) => (
+                  <FindingCard key={`${f.type}-${i}`} finding={f} />
+                ))}
+              </div>
             </div>
           )}
         </div>
