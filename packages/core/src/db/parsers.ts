@@ -16,6 +16,7 @@ import type {
   ApiKey,
   RelevanceProfile,
   WingAffinity,
+  DecisionOutcome,
 } from '../types.js';
 
 /**
@@ -134,6 +135,26 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     provenance_chain: parseJsonb(row.provenance_chain, []),
     trust_score: row.trust_score != null ? Number(row.trust_score) : null,
     trust_components: parseJsonb(row.trust_components, null),
+    outcome_success_rate: row.outcome_success_rate != null ? Number(row.outcome_success_rate) : null,
+    outcome_count: Number(row.outcome_count ?? 0),
+  };
+}
+
+export function parseDecisionOutcome(row: Record<string, unknown>): DecisionOutcome {
+  return {
+    id: row.id as string,
+    decision_id: row.decision_id as string,
+    project_id: row.project_id as string,
+    agent_id: row.agent_id as string | undefined,
+    compile_history_id: row.compile_history_id as string | undefined,
+    task_session_id: row.task_session_id as string | undefined,
+    outcome_type: row.outcome_type as DecisionOutcome['outcome_type'],
+    outcome_score: Number(row.outcome_score ?? 0.5),
+    reversal: Boolean(row.reversal),
+    reversal_reason: row.reversal_reason as string | undefined,
+    notes: row.notes as string | undefined,
+    created_at: (row.created_at as Date).toISOString(),
+    metadata: parseJsonb(row.metadata, {}),
   };
 }
 
