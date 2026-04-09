@@ -265,6 +265,13 @@ export function registerOutcomeRoutes(app: Hono): void {
       processOutcomeSignals(agentId).catch(() => {});
     }
 
+    // Trigger cross-agent learning every 20 outcomes
+    if (count % 20 === 0 && count > 0) {
+      import('@hipp0/core/intelligence/cross-agent-learner.js')
+        .then(({ applyCrossAgentLearning }) => applyCrossAgentLearning(projectId))
+        .catch(() => {});
+    }
+
     return c.json({
       id: outcomeId,
       compile_request_id: compileRequestId,
@@ -416,5 +423,21 @@ export function registerOutcomeRoutes(app: Hono): void {
     const { getOutcomeStats } = await import('@hipp0/core/intelligence/outcome-memory.js');
     const stats = await getOutcomeStats(decisionId);
     return c.json(stats);
+  });
+
+  // GET /api/projects/:id/agent-performance — Cross-agent learning summary
+  app.get('/api/projects/:id/agent-performance', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+    const { getCrossAgentSummary } = await import('@hipp0/core/intelligence/cross-agent-learner.js');
+    const summary = await getCrossAgentSummary(projectId);
+    return c.json(summary);
+  });
+
+  // POST /api/projects/:id/apply-learning — Trigger cross-agent learning update
+  app.post('/api/projects/:id/apply-learning', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+    const { applyCrossAgentLearning } = await import('@hipp0/core/intelligence/cross-agent-learner.js');
+    const result = await applyCrossAgentLearning(projectId);
+    return c.json(result);
   });
 }
