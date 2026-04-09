@@ -37,11 +37,13 @@ export function registerNotificationRoutes(app: Hono): void {
   // Mark notification as read (project-level path)
   app.patch('/api/projects/:pid/notifications/:id', async (c) => {
     const db = getDb();
+    const projectId = requireUUID(c.req.param('pid'), 'projectId');
     const id = requireUUID(c.req.param('id'), 'id');
 
     const result = await db.query(
-      `UPDATE notifications SET read_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'} WHERE id = ? RETURNING *`,
-      [id],
+      `UPDATE notifications SET read_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
+       WHERE id = ? AND agent_id IN (SELECT a.id FROM agents a WHERE a.project_id = ?) RETURNING *`,
+      [id, projectId],
     );
     if (result.rows.length === 0) throw new NotFoundError('Notification', id);
     return c.json(parseNotification(result.rows[0] as Record<string, unknown>));
