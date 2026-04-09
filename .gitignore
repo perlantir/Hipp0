@@ -28,3 +28,4 @@ e2e-test.sh
 benchmarks/results/*.json
 HiPp0-DeSigN/
 website/
+.next/
