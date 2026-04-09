@@ -344,6 +344,22 @@ export function registerPolicyRoutes(app: Hono): void {
         }
       }
 
+      // Also check for proper noun / technology name matches (case-insensitive, 3+ chars)
+      if (!violationFound) {
+        const techTerms = title.match(/[A-Z][a-z]+(?:\s[A-Z][a-z]+)*/g) ?? [];
+        for (const term of techTerms) {
+          if (term.length >= 3 && actionLower.includes(term.toLowerCase())) {
+            // Check for negation
+            const idx = actionLower.indexOf(term.toLowerCase());
+            const surrounding = actionLower.slice(Math.max(0, idx - 60), idx + term.length + 60);
+            if (negationPatterns.some((neg) => surrounding.includes(neg))) {
+              violationFound = true;
+              break;
+            }
+          }
+        }
+      }
+
       if (violationFound) {
         violations.push({
           policy_decision: title,

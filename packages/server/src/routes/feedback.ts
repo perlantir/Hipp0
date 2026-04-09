@@ -187,40 +187,41 @@ export function registerFeedbackRoutes(app: Hono): void {
 // Auto-apply check
 // ---------------------------------------------------------------------------
 
-const feedbackCounters = new Map<string, number>();
-
 async function checkAutoApply(agentId: string): Promise<void> {
-  const count = (feedbackCounters.get(agentId) ?? 0) + 1;
-  feedbackCounters.set(agentId, count);
+  try {
+    const db = getDb();
 
-  if (count >= 10) {
-    feedbackCounters.set(agentId, 0);
-    try {
-      // Check if project is in auto mode (default)
-      const db = getDb();
-      const agentResult = await db.query<{ project_id: string }>(
-        'SELECT project_id FROM agents WHERE id = ?',
-        [agentId],
-      );
-      if (agentResult.rows.length === 0) return;
+    // Check if learning should trigger based on DB count
+    const countResult = await db.query<Record<string, unknown>>(
+      `SELECT COUNT(*) as cnt FROM relevance_feedback WHERE agent_id = ? AND created_at >= ${db.dialect === 'sqlite' ? "datetime('now', '-1 hour')" : "NOW() - INTERVAL '1 hour'"}`,
+      [agentId],
+    );
+    const recentCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
+    if (recentCount <= 0 || recentCount % 10 !== 0) return;
 
-      const projResult = await db.query<{ metadata: unknown }>(
-        'SELECT metadata FROM projects WHERE id = ?',
-        [agentResult.rows[0].project_id],
-      );
-      if (projResult.rows.length === 0) return;
+    // Check if project is in auto mode (default)
+    const agentResult = await db.query<{ project_id: string }>(
+      'SELECT project_id FROM agents WHERE id = ?',
+      [agentId],
+    );
+    if (agentResult.rows.length === 0) return;
 
-      let metadata: Record<string, unknown> = {};
-      const raw = projResult.rows[0].metadata;
-      if (typeof raw === 'string') try { metadata = JSON.parse(raw); } catch {}
-      else if (raw && typeof raw === 'object') metadata = raw as Record<string, unknown>;
+    const projResult = await db.query<{ metadata: unknown }>(
+      'SELECT metadata FROM projects WHERE id = ?',
+      [agentResult.rows[0].project_id],
+    );
+    if (projResult.rows.length === 0) return;
 
-      const mode = (metadata.learning_mode as string) ?? 'auto';
-      if (mode === 'auto') {
-        await computeAndApplyWeightUpdates(agentId);
-      }
-    } catch (err) {
-      console.warn('[hipp0:learner] Auto-apply failed:', (err as Error).message);
+    let metadata: Record<string, unknown> = {};
+    const raw = projResult.rows[0].metadata;
+    if (typeof raw === 'string') try { metadata = JSON.parse(raw); } catch {}
+    else if (raw && typeof raw === 'object') metadata = raw as Record<string, unknown>;
+
+    const mode = (metadata.learning_mode as string) ?? 'auto';
+    if (mode === 'auto') {
+      await computeAndApplyWeightUpdates(agentId);
     }
+  } catch (err) {
+    console.warn('[hipp0:learner] Auto-apply failed:', (err as Error).message);
   }
 }
