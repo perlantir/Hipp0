@@ -169,7 +169,8 @@ export const authMiddleware: MiddlewareHandler = createMiddleware(async (c, next
 
   const fail = async (message: string) => {
     // Audit auth failure with IP — never log the key value
-    getDb().query(`INSERT INTO audit_log (event_type, details) VALUES (?, ?)`, [
+    getDb().query(`INSERT INTO audit_log (id, event_type, details) VALUES (?, ?, ?)`, [
+      crypto.randomUUID(),
       'auth_failure',
       JSON.stringify({ ip, path, reason: message }),
     ]).catch((e: Error) => console.error('[hipp0] audit_log write error:', e.message));
@@ -250,7 +251,8 @@ export const auditMiddleware: MiddlewareHandler = createMiddleware(async (c, nex
     }
   }
 
-  getDb().query(`INSERT INTO audit_log (event_type, project_id, details) VALUES (?, ?, ?)`, [
+  getDb().query(`INSERT INTO audit_log (id, event_type, project_id, details) VALUES (?, ?, ?, ?)`, [
+    crypto.randomUUID(),
     'api_request',
     projectId ?? null,
     JSON.stringify({ method, path, status, ...extra }),

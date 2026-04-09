@@ -162,7 +162,7 @@ export async function updateDecision(
     values.push(embeddingStr);
   }
 
-  setClauses.push(`updated_at = NOW()`);
+  setClauses.push(`updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}`);
 
   if (setClauses.length === 1) {
     return fetchDecisionById(id);
@@ -463,7 +463,7 @@ export async function supersedeDecision(
     const newDecision = parseDecision(insertResult.rows[0]);
 
     const updateResult = await txQuery(
-      `UPDATE decisions SET status = 'superseded', updated_at = NOW()
+      `UPDATE decisions SET status = 'superseded', updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
        WHERE id = ? RETURNING *`,
       [oldId],
     );

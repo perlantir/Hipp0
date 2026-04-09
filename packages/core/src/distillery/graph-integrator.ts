@@ -123,7 +123,7 @@ export async function integrateDecisions(
 
         if (supersedes_id) {
           await txQuery(
-            `UPDATE decisions SET status = 'superseded', updated_at = NOW()
+            `UPDATE decisions SET status = 'superseded', updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
              WHERE id = ?`,
             [supersedes_id],
           );

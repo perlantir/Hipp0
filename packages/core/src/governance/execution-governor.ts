@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getDb } from '../db/index.js';
 import type {
   ExecutionProposal,
@@ -283,9 +284,10 @@ export async function recordOverride(
   const db = getDb();
   try {
     await db.query(
-      `INSERT INTO audit_log (event_type, project_id, details)
-       VALUES (?, ?, ?)`,
+      `INSERT INTO audit_log (id, event_type, project_id, details)
+       VALUES (?, ?, ?, ?)`,
       [
+        crypto.randomUUID(),
         'governor_override',
         projectId,
         JSON.stringify({

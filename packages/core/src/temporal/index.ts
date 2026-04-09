@@ -140,9 +140,9 @@ export async function validateDecision(decisionId: string, source: string): Prom
   const db = getDb();
   const result = await db.query<Record<string, unknown>>(
     `UPDATE decisions
-     SET validated_at = NOW(),
+     SET validated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'},
          validation_source = ?,
-         updated_at = NOW()
+         updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
      WHERE id = ?
      RETURNING *`,
     [source, decisionId],

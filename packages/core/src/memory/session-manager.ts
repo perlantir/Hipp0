@@ -263,7 +263,7 @@ export async function recordStep(input: {
   // Update session: current_step, state_summary
   const stateSummary = `Step ${stepNumber}: ${input.agent_name} — ${outputSummary.slice(0, 200)}`;
   await db.query(
-    `UPDATE task_sessions SET current_step = ?, state_summary = ?, updated_at = NOW() WHERE id = ?`,
+    `UPDATE task_sessions SET current_step = ?, state_summary = ?, updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'} WHERE id = ?`,
     [stepNumber, stateSummary, input.session_id],
   );
 
@@ -507,10 +507,11 @@ export async function updateSessionStatus(
 ): Promise<TaskSession> {
   const db = getDb();
 
-  const completedAt = status === 'completed' ? 'NOW()' : 'NULL';
+  const nowExpr = db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()';
+  const completedAt = status === 'completed' ? nowExpr : 'NULL';
   await db.query(
     `UPDATE task_sessions
-     SET status = ?, updated_at = NOW(), completed_at = ${completedAt}
+     SET status = ?, updated_at = ${nowExpr}, completed_at = ${completedAt}
      WHERE id = ?`,
     [status, sessionId],
   );

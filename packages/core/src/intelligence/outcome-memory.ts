@@ -119,7 +119,7 @@ export async function recomputeOutcomeAggregates(decisionId: string): Promise<vo
     `UPDATE decisions
      SET outcome_success_rate = ?,
          outcome_count = ?,
-         updated_at = NOW()
+         updated_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
      WHERE id = ?`,
     [stats.success_rate, stats.total_outcomes, decisionId],
   );

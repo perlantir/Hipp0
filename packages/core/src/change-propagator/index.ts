@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getDb } from '../db/index.js';
 import { parseSubscription, parseNotification, parseAgent } from '../db/parsers.js';
 import { Hipp0Error, NotFoundError, ValidationError } from '../types.js';
@@ -300,9 +301,10 @@ export async function propagateChange(
 
   try {
     await db.query(
-      `INSERT INTO audit_log (event_type, decision_id, project_id, details)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO audit_log (id, event_type, decision_id, project_id, details)
+       VALUES (?, ?, ?, ?, ?)`,
       [
+        crypto.randomUUID(),
         'change_propagated',
         decision.id,
         decision.project_id,
@@ -376,7 +378,7 @@ export async function getNotifications(
 export async function markNotificationRead(notificationId: string): Promise<void> {
   const db = getDb();
   const result = await db.query(
-    `UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL`,
+    `UPDATE notifications SET read_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'} WHERE id = ? AND read_at IS NULL`,
     [notificationId],
   );
   if ((result.rowCount ?? 0) === 0) {

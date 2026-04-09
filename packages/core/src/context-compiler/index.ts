@@ -513,7 +513,7 @@ async function readCache(agentId: string, taskHash: string): Promise<ContextPack
   const result = await db.query<Record<string, unknown>>(
     `SELECT id, compiled_context, expires_at, decision_ids_included, artifact_ids_included, token_count
        FROM context_cache
-      WHERE agent_id = ? AND task_hash = ? AND expires_at > NOW()
+      WHERE agent_id = ? AND task_hash = ? AND expires_at > ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}
       LIMIT 1`,
     [agentId, taskHash],
   );
@@ -534,8 +534,8 @@ async function writeCache(
   const expiry = db.dialect === 'sqlite' ? "datetime('now', '+1 hour')" : "NOW() + INTERVAL '1 hour'";
   await db.query(
     `INSERT INTO context_cache
-       (agent_id, task_hash, compiled_context, decision_ids_included, artifact_ids_included, token_count, compiled_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ${now}, ${expiry})
+       (id, agent_id, task_hash, compiled_context, decision_ids_included, artifact_ids_included, token_count, compiled_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ${now}, ${expiry})
      ON CONFLICT (agent_id, task_hash) DO UPDATE
        SET compiled_context = EXCLUDED.compiled_context,
            decision_ids_included = EXCLUDED.decision_ids_included,
@@ -543,7 +543,7 @@ async function writeCache(
            token_count = EXCLUDED.token_count,
            compiled_at = ${now},
            expires_at = ${expiry}`,
-    [agentId, taskHash, JSON.stringify(pkg), db.arrayParam(decisionIds), db.arrayParam(artifactIds), pkg.token_count],
+    [crypto.randomUUID(), agentId, taskHash, JSON.stringify(pkg), db.arrayParam(decisionIds), db.arrayParam(artifactIds), pkg.token_count],
   );
 }
 
@@ -745,9 +745,9 @@ async function writeAuditLog(
 ): Promise<void> {
   const db = getDb();
   await db.query(
-    `INSERT INTO audit_log (event_type, agent_id, project_id, details)
-     VALUES (?, ?, ?, ?)`,
-    ['context_compiled', agentId, projectId, JSON.stringify(details)],
+    `INSERT INTO audit_log (id, event_type, agent_id, project_id, details)
+     VALUES (?, ?, ?, ?, ?)`,
+    [crypto.randomUUID(), 'context_compiled', agentId, projectId, JSON.stringify(details)],
   );
 }
 
@@ -837,7 +837,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
   const statusFilter = !includeSuperseded ? ` AND status != 'superseded'` : '';
   // Temporal filter: exclude expired/deprecated decisions unless include_superseded
   const temporalFilter = !includeSuperseded
-    ? ` AND (valid_until IS NULL OR valid_until > NOW()) AND (temporal_scope IS NULL OR temporal_scope != 'deprecated')`
+    ? ` AND (valid_until IS NULL OR valid_until > ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}) AND (temporal_scope IS NULL OR temporal_scope != 'deprecated')`
     : '';
 
   // Namespace filter: when set, include matching namespace + global (NULL) decisions
@@ -1054,7 +1054,7 @@ export async function compileContext(request: CompileRequest): Promise<ContextPa
     const includedIds = packedDecisions.map((d) => d.id);
     try {
       await db.query(
-        `UPDATE decisions SET last_referenced_at = NOW(), reference_count = reference_count + 1 WHERE id = ANY(?)`,
+        `UPDATE decisions SET last_referenced_at = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}, reference_count = reference_count + 1 WHERE id = ANY(?)`,
         [db.arrayParam(includedIds)],
       );
     } catch (err) {

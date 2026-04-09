@@ -46,7 +46,7 @@ export async function markProcessed(
        SET connector_name      = EXCLUDED.connector_name,
            decisions_extracted = EXCLUDED.decisions_extracted,
            metadata            = EXCLUDED.metadata,
-           processed_at        = NOW()`,
+           processed_at        = ${db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()'}`,
     [projectId, sourceId, connectorName, decisionsExtracted, JSON.stringify(metadata)],
   );
 }

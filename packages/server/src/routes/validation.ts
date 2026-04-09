@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getDb } from '@hipp0/core/db/index.js';
 import { ValidationError, ConflictError } from '@hipp0/core/types.js';
 
@@ -88,7 +89,8 @@ export function logAudit(
   projectId: string | null,
   details: Record<string, unknown>,
 ): void {
-  getDb().query(`INSERT INTO audit_log (event_type, project_id, details) VALUES (?, ?, ?)`, [
+  getDb().query(`INSERT INTO audit_log (id, event_type, project_id, details) VALUES (?, ?, ?, ?)`, [
+    crypto.randomUUID(),
     eventType,
     projectId,
     JSON.stringify(details),
