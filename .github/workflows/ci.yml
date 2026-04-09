@@ -51,10 +51,10 @@ jobs:
         run: pnpm build
 
       - name: Lint
-        run: pnpm format:check || true
+        run: pnpm format:check
 
       - name: Type check
-        run: pnpm -r exec tsc --noEmit || true
+        run: pnpm -r exec tsc --noEmit
 
       - name: Run unit tests
         run: pnpm test
