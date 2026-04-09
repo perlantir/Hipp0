@@ -172,9 +172,18 @@ export function registerCompileRoutes(app: Hono): void {
       // Debug info (optional)
     const debugInfo = body.debug === true ? {
       scoring_pipeline: 'core/context-compiler compileContext()',
-      signals: ['direct_affect', 'tag_matching', 'role_relevance', 'semantic_similarity', 'status_penalty'],
+      signals: ['direct_affect', 'tag_matching', 'role_relevance', 'semantic_similarity', 'status_penalty', 'trust_multiplier', 'outcome_multiplier'],
       task_hash: taskHash,
       raw_tasks_stored: storeRawTasks,
+      decisions: result.decisions.map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        combined_score: d.combined_score,
+        trust_score: d.trust_score ?? null,
+        trust_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.trust_multiplier ?? null,
+        outcome_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.outcome_multiplier ?? null,
+        scoring_breakdown: d.scoring_breakdown,
+      })),
     } : undefined;
 
       // Broadcast compile completion

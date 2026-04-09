@@ -122,6 +122,8 @@ export function registerDiscoveryRoutes(app: Hono): void {
 
     const body = await c.req.json<{
       text?: unknown;
+      content?: unknown;
+      conversation?: unknown;
       agent_name?: unknown;
       source_id?: unknown;
       project_id?: unknown;
@@ -133,8 +135,9 @@ export function registerDiscoveryRoutes(app: Hono): void {
     let projectId: string;
 
     try {
-      text = requireString(body.text, 'text', 200000);
-      sourceId = requireString(body.source_id, 'source_id', 500);
+      const rawText = body.text ?? body.content ?? body.conversation;
+      text = requireString(rawText, 'text', 200000);
+      sourceId = typeof body.source_id === 'string' && body.source_id.trim() ? body.source_id.trim() : `webhook-${Date.now()}`;
       projectId = requireUUID(body.project_id, 'project_id');
     } catch (err) {
       return c.json({ error: 'Invalid discovery request' }, 400);
