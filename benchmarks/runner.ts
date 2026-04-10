@@ -13,6 +13,7 @@ import * as path from 'path';
 import { naiveRetrieve, naiveRetrievalBenchmark, naiveDifferentiationBenchmark } from './baselines/naive-rag';
 import type { NaiveDecision } from './baselines/naive-rag';
 import { encodeH0C } from '../packages/core/src/compression/h0c-encoder';
+import { encodeH0CUltra } from '../packages/core/src/compression/h0c-ultra';
 import type { ScoredDecision } from '../packages/core/src/types';
 
 // ─ Config Loading 
@@ -604,6 +605,10 @@ function condenseResponse(decisions: Decision[]): string {
   return encodeH0C(decisions.map(toScoredDecision));
 }
 
+function condenseResponseUltra(decisions: Decision[]): string {
+  return encodeH0CUltra(decisions.map(toScoredDecision));
+}
+
 /**
  * Format decisions as markdown -- mirrors the real compile output format
  * that agents receive in their context window (formatMarkdown in context-compiler).
@@ -836,10 +841,13 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
     // Baseline: formatted markdown (what agents actually receive in context window)
     const fullMarkdown = formatDecisionsAsMarkdown(tc.decisions);
     const condensed = condenseResponse(tc.decisions);
+    const ultraCondensed = condenseResponseUltra(tc.decisions);
 
     const fullTokens = estimateTokens(fullMarkdown);
     const condensedTokens = estimateTokens(condensed);
+    const ultraTokens = estimateTokens(ultraCondensed);
     const ratio = fullTokens / Math.max(condensedTokens, 1);
+    const ultraRatio = fullTokens / Math.max(ultraTokens, 1);
 
     cases.push({
       decisions: tc.decision_count,
@@ -853,22 +861,32 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   const avg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
   const med = median(ratios);
 
+  // Compute ultra ratios
+  const ultraRatios = cases.map(c => {
+    const ultraTokens = estimateTokens(condenseResponseUltra(testCases.find(tc => tc.decision_count === c.decisions)?.decisions.map(toScoredDecision as any) ?? []));
+    return c.full_tokens / Math.max(ultraTokens, 1);
+  });
+  const ultraAvg = ultraRatios.reduce((a, b) => a + b, 0) / ultraRatios.length;
+
   // Group by decision count for display
-  const grouped = new Map<number, { full: number; condensed: number; ratio: number }[]>();
-  for (const c of cases) {
+  const grouped = new Map<number, { full: number; condensed: number; ratio: number; ultraRatio: number }[]>();
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i];
     if (!grouped.has(c.decisions)) grouped.set(c.decisions, []);
-    grouped.get(c.decisions)!.push({ full: c.full_tokens, condensed: c.condensed_tokens, ratio: c.ratio });
+    grouped.get(c.decisions)!.push({ full: c.full_tokens, condensed: c.condensed_tokens, ratio: c.ratio, ultraRatio: ultraRatios[i] });
   }
 
-  console.log(`\n   | Decisions | Markdown | H0C    | Ratio |`);
-  console.log(`   |-----------|-----------|--------|-------|`);
+  console.log(`\n   | Decisions | Markdown | H0C    | Ratio | Ultra  | Ultra Ratio |`);
+  console.log(`   |-----------|----------|--------|-------|--------|-------------|`);
   for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
     const avgFull = Math.round(entries.reduce((a, e) => a + e.full, 0) / entries.length);
     const avgCond = Math.round(entries.reduce((a, e) => a + e.condensed, 0) / entries.length);
     const avgRatio = (entries.reduce((a, e) => a + e.ratio, 0) / entries.length).toFixed(1);
-    console.log(`   | ${String(count).padEnd(9)} | ${String(avgFull).padEnd(9)} | ${String(avgCond).padEnd(6)} | ${avgRatio.padEnd(5)} |`);
+    const avgUltraRatio = (entries.reduce((a, e) => a + e.ultraRatio, 0) / entries.length).toFixed(1);
+    const avgUltraTokens = Math.round(avgFull / parseFloat(avgUltraRatio));
+    console.log(`   | ${String(count).padEnd(9)} | ${String(avgFull).padEnd(8)} | ${String(avgCond).padEnd(6)} | ${avgRatio.padEnd(5)} | ${String(avgUltraTokens).padEnd(6)} | ${avgUltraRatio.padEnd(11)} |`);
   }
-  console.log(`\n   Average: ${avg.toFixed(1)}x | Median: ${med.toFixed(1)}x | Min: ${Math.min(...ratios).toFixed(1)}x | Max: ${Math.max(...ratios).toFixed(1)}x`);
+  console.log(`\n   H0C Average: ${avg.toFixed(1)}x | H0C-Ultra Average: ${ultraAvg.toFixed(1)}x`);
 
   return {
     cases,

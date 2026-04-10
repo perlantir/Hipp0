@@ -63,6 +63,8 @@ export type { CondenseCompileInput } from './context-compiler/compression.js';
 export { encodeH0C, encodeH0CPatterns } from './compression/h0c-encoder.js';
 export type { H0CEncodeOptions, DecodedDecision } from './compression/h0c-encoder.js';
 export { decodeH0C, decodeH0CPatterns } from './compression/h0c-decoder.js';
+export { encodeH0CUltra } from './compression/h0c-ultra.js';
+export type { H0CUltraOptions } from './compression/h0c-ultra.js';
 
 // --- Change Propagator ---
 export {
