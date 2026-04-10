@@ -2,6 +2,7 @@
 
 from hipp0_sdk.client import Hipp0Client
 from .server import Hipp0Server
+from .auto import auto
 
 _server = None
 
