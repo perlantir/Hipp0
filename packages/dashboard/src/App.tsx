@@ -375,19 +375,13 @@ function SidebarContent({
 
   return (
     <>
-      {/* Logo */}
-      <div className="mb-10 flex items-center gap-3 px-4 pt-8">
-        <div className="w-10 h-10 rounded-xl bg-[#063ff9] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(6,63,249,0.5)]">
-          <Zap size={20} className="text-white" />
-        </div>
-        {!collapsed && (
-          <div>
-            <span className="text-2xl font-bold tracking-tighter text-white drop-shadow-[0_0_15px_rgba(6,63,249,0.5)]">
-              <span>HIPP</span><span className="text-[#00C2FF]">0</span>
-            </span>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Multi-Agent Intelligence</p>
-          </div>
-        )}
+      {/* Logo — sourced from public/images/hipp0-logo.png, same asset as marketing site */}
+      <div className="mb-8 flex items-center px-4 pt-6">
+        <img
+          src="/images/hipp0-logo.png"
+          alt="Hipp0"
+          className={collapsed ? 'h-10 w-auto' : 'h-14 w-auto'}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
@@ -530,11 +524,19 @@ export default function App() {
 
   /* ---- Check for first run -------------------------------------- */
   useEffect(() => {
+    // First-ever visit → show the setup wizard even if a demo project exists.
+    // After completing or skipping, set hipp0_wizard_completed so it never
+    // reappears automatically. Users can re-run it from the menu later.
+    const wizardCompleted = typeof window !== 'undefined'
+      && window.localStorage?.getItem('hipp0_wizard_completed') === 'true';
+
     get<Array<{ id: string }>>('/api/projects')
       .then((projects) => {
-        if (Array.isArray(projects) && projects.length === 0) {
+        const noProjects = Array.isArray(projects) && projects.length === 0;
+        if (noProjects || !wizardCompleted) {
           setShowWizard(true);
-        } else if (Array.isArray(projects) && projects.length > 0) {
+        }
+        if (Array.isArray(projects) && projects.length > 0) {
           if (projectId === 'default' && projects[0]?.id) {
             setProjectId(projects[0].id);
           }
@@ -608,9 +610,16 @@ export default function App() {
 
   /* ---- Wizard complete ----------------------------------------- */
   function handleWizardComplete(newProjectId: string) {
+    try { window.localStorage?.setItem('hipp0_wizard_completed', 'true'); } catch { /* non-fatal */ }
     setProjectId(newProjectId);
     setShowWizard(false);
     navigate('graph');
+  }
+
+  /* ---- Wizard skip --------------------------------------------- */
+  function handleWizardSkip() {
+    try { window.localStorage?.setItem('hipp0_wizard_completed', 'true'); } catch { /* non-fatal */ }
+    setShowWizard(false);
   }
 
   /* ---- Playground: public route, bypass login gate --------------- */
@@ -638,16 +647,8 @@ export default function App() {
     return (
       <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
-        <div className="flex items-center justify-center h-screen" style={{ background: '#f5f6f8' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#063ff9] flex items-center justify-center shadow-[0_0_15px_rgba(6,63,249,0.5)]">
-              <Zap size={20} className="text-white" />
-            </div>
-            <span className="text-2xl font-bold tracking-tighter">
-              <span className="text-[#1A1D27]">HIPP</span>
-              <span className="text-[#00C2FF]">0</span>
-            </span>
-          </div>
+        <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-primary)' }}>
+          <img src="/images/hipp0-logo.png" alt="Hipp0" className="h-16 w-auto" />
         </div>
       </ProjectContext.Provider>
       </ThemeContext.Provider>
@@ -659,7 +660,7 @@ export default function App() {
     return (
       <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
-        <Wizard onComplete={handleWizardComplete} />
+        <Wizard onComplete={handleWizardComplete} onSkip={handleWizardSkip} />
       </ProjectContext.Provider>
       </ThemeContext.Provider>
     );

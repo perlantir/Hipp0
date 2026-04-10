@@ -129,9 +129,10 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 
 interface WizardProps {
   onComplete: (projectId: string) => void;
+  onSkip?: () => void;
 }
 
-export function Wizard({ onComplete }: WizardProps) {
+export function Wizard({ onComplete, onSkip }: WizardProps) {
   const { post, get } = useApi();
 
   const [step, setStep] = useState(0);
@@ -350,13 +351,23 @@ export function Wizard({ onComplete }: WizardProps) {
                 team makes — then surfaces the right context to each AI agent at the right time.
                 No more repeated debates. No more lost rationale.
               </p>
-              <button
-                onClick={next}
-                className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-sm"
-              >
-                Set up your first project
-                <ArrowRight size={16} />
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={next}
+                  className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-sm"
+                >
+                  Set up your first project
+                  <ArrowRight size={16} />
+                </button>
+                {onSkip && (
+                  <button
+                    onClick={onSkip}
+                    className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-4 py-2.5"
+                  >
+                    Skip for now
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

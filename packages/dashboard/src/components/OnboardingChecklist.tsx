@@ -340,12 +340,18 @@ export function OnboardingChecklist({ onNavigate, viewKey }: OnboardingChecklist
                   </span>
                   <span
                     className="onboarding-step-body"
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', flex: 1, minWidth: 0 }}
                   >
-                    <span className="onboarding-step-title" style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>
+                    <span
+                      className="onboarding-step-title"
+                      style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, color: 'var(--text-primary)' }}
+                    >
                       {step.title}
                     </span>
-                    <span className="onboarding-step-desc" style={{ fontSize: 12, opacity: 0.7, marginTop: 2, lineHeight: 1.4 }}>
+                    <span
+                      className="onboarding-step-desc"
+                      style={{ fontSize: 12, marginTop: 2, lineHeight: 1.4, color: 'var(--text-secondary)' }}
+                    >
                       {step.description}
                     </span>
                   </span>
