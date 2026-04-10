@@ -1,716 +1,538 @@
-# CrewAI Integration Guide
+# CrewAI + Hipp0
 
-The `hipp0-crewai` package gives CrewAI agents persistent, shared decision memory backed by Hipp0. Task outputs are automatically extracted by the distillery pipeline, so every agent in the crew benefits from decisions made by every other agent — across sessions.
+CrewAI is great for building multi-agent teams. It's less great at remembering what those teams decided last Tuesday. Hipp0 fixes that by sitting underneath your Crew and quietly capturing every decision your agents make, then feeding the relevant ones back into their backstories the next time you run the crew.
 
----
+This guide walks through everything: install, a working three-agent example, the full `Hipp0CrewCallback` API, how to filter what gets captured, and the things that break when you wire it up wrong.
 
-## Table of Contents
+![CrewAI dashboard with captured decisions](images/crewai-dashboard.png)
 
-- [How It Works](#how-it-works)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Hipp0CrewMemory](#hipp0crewmemory)
-  - [Constructor Parameters](#constructor-parameters)
-  - [The `save()` Method](#the-save-method)
-  - [The `search()` Method](#the-search-method)
-  - [Batched Distillation](#batched-distillation)
-- [Hipp0CrewCallback](#hipp0crewcallback)
-  - [Constructor Parameters](#constructor-parameters-1)
-  - [Task Lifecycle Hooks](#task-lifecycle-hooks)
-  - [Crew Lifecycle Hooks](#crew-lifecycle-hooks)
-- [Complete Example: Research Crew](#complete-example-research-crew)
-- [Multi-Agent Crew with Role-Based Context](#multi-agent-crew-with-role-based-context)
-- [Recording Decisions Manually](#recording-decisions-manually)
-- [Configuration Reference](#configuration-reference)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
+## What Hipp0 adds to CrewAI
 
----
+Out of the box, CrewAI gives you `memory=True` which stores short-term context in a local vector DB. That's fine for a single run. Between runs, it forgets almost everything that mattered.
 
-## How It Works
+Hipp0 adds four things on top:
 
-```
-CrewAI Task completes
-       │
-       ▼
-Hipp0CrewCallback.on_task_complete(task, output)
-       │
-       ├──► Hipp0 Distillery  ──► Extracts decisions from task output
-       │                     ──► Stores in PostgreSQL
-       │
-       ▼
-Next Task: agent.search("What did we decide about X?")
-       │
-       ▼
-Hipp0CrewMemory.search(query)
-       │
-       ▼
-Hipp0 compile_context  ──► 5-signal scoring ──► Ranked decisions
-       │
-       ▼
-Returns [(context_blob, score=1.0), (decision1, score), ...]
-```
+1. **Persistent decision memory across runs.** Every task output flows through the distillery, which extracts decisions (technology choices, trade-offs, rejected alternatives) and stores them in Postgres. Next run, they're still there.
+2. **Role-scoped context.** When the architect asks "what have we decided about message queues?", the architect gets decisions ranked by relevance to the architect role. The reviewer gets decisions ranked for the reviewer role. Same underlying store, different views.
+3. **Contradiction detection.** If the builder decides "use Redis Streams" after the architect already decided "use Kafka", Hipp0 flags the contradiction. You see it on the dashboard and in the `on_contradiction` event.
+4. **Trust multipliers.** Decisions that have been referenced by downstream agents and survived multiple runs get boosted. Decisions that were overridden lose weight. This happens automatically.
 
-Each agent in your crew gets memory scoped to its role. When agent B asks "what architectural decisions have been made?", Hipp0 returns decisions sorted by relevance to B's role and task — including decisions made by agent A in a previous session.
+None of this requires rewriting your Crew. You drop in one callback and optionally read context into your agent backstories.
 
----
-
-## Installation
+## Install
 
 ```bash
-pip install hipp0-sdk hipp0-crewai crewai
+pip install hipp0-memory hipp0-crewai crewai
 ```
 
-Or install from the repository:
+You'll also want the CLI for local setup:
 
 ```bash
-cd /path/to/hipp0/integrations/crewai
-pip install -e .
+npm install -g @hipp0/cli
+hipp0 init my-crew
+cd my-crew
+source .env
 ```
 
-**Supported versions:**
-- Python 3.10+
-- CrewAI 0.28+
-- hipp0-sdk 0.1+
+That writes `HIPP0_API_URL`, `HIPP0_API_KEY`, and `HIPP0_PROJECT_ID` to `.env`. Source it before running Python so the SDK can pick them up.
 
----
+Supported versions:
 
-## Quick Start
+- Python 3.10 or later
+- CrewAI 0.28 or later (tested on 0.70)
+- hipp0-memory 0.4 or later
+
+If you want to pin, this is what's in the working example:
+
+```
+crewai>=0.70.0
+hipp0-memory>=0.4.0
+hipp0-crewai>=0.4.0
+```
+
+## Quick start
+
+Here's a three-agent crew (architect, builder, reviewer) working on a real task. Copy this into `main.py`, set `OPENAI_API_KEY`, and run it. The second time you run it you'll see the agents reference decisions from the first run.
 
 ```python
+"""
+CrewAI + Hipp0: Software Architecture Team
+Three agents collaborate. Hipp0 captures every decision automatically.
+"""
+import os
+import sys
+
+from crewai import Agent, Crew, Task
 from hipp0_sdk import Hipp0Client
-from hipp0_crewai import Hipp0CrewMemory, Hipp0CrewCallback
-from crewai import Agent, Task, Crew, Process
+from hipp0_crewai import Hipp0CrewCallback
 
-# 1. Initialize Hipp0
-client = Hipp0Client(base_url="http://localhost:3100")
-PROJECT_ID = "proj_01hx..."
 
-# 2. Create memory backend for each agent
-researcher_memory = Hipp0CrewMemory(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="researcher",
-)
+def main():
+    api_url = os.environ.get("HIPP0_API_URL", "http://localhost:3100")
+    api_key = os.environ.get("HIPP0_API_KEY", "")
+    project_id = os.environ.get("HIPP0_PROJECT_ID", "")
 
-writer_memory = Hipp0CrewMemory(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="writer",
-)
+    if not project_id:
+        print("Error: HIPP0_PROJECT_ID not set. Run: hipp0 init my-project")
+        sys.exit(1)
 
-# 3. Create callback for automatic extraction
-callback = Hipp0CrewCallback(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="crew",
-)
+    client = Hipp0Client(base_url=api_url, api_key=api_key)
+    hipp0_cb = Hipp0CrewCallback(client=client, project_id=project_id)
 
-# 4. Define agents
-researcher = Agent(
-    role="Research Analyst",
-    goal="Find and analyze information about the given topic",
-    backstory="You are an expert researcher with deep analytical skills.",
-    verbose=True,
-)
+    # Compile past context for each agent, scoped to their role
+    def get_context(agent_name: str, task_desc: str) -> str:
+        try:
+            result = client.compile_context(
+                project_id=project_id,
+                agent_name=agent_name,
+                task_description=task_desc,
+            )
+            md = result.get("formatted_markdown", "")
+            if md and "No relevant decisions" not in md:
+                return f"\n\n--- Previous Decisions (from Hipp0) ---\n{md}"
+        except Exception:
+            pass
+        return ""
 
-writer = Agent(
-    role="Technical Writer",
-    goal="Transform research findings into clear documentation",
-    backstory="You write clear, accurate technical content.",
-    verbose=True,
-)
+    task_topic = "Design a real-time notification system for a SaaS platform"
 
-# 5. Attach memory backends
-researcher._memory_handler = researcher_memory
-writer._memory_handler = writer_memory
+    arch_context = get_context("architect", task_topic)
+    build_context = get_context("builder", task_topic)
+    review_context = get_context("reviewer", task_topic)
 
-# 6. Define tasks
-research_task = Task(
-    description="Research the current state of vector databases. Focus on pgvector vs Pinecone vs Weaviate.",
-    expected_output="A comprehensive comparison with pros/cons and a recommendation.",
-    agent=researcher,
-)
+    architect = Agent(
+        role="Software Architect",
+        goal="Make clear, well-reasoned architecture decisions",
+        backstory=(
+            "You are a senior architect. Make explicit decisions about technology "
+            "choices, patterns, and trade-offs. State each decision as: "
+            "'DECISION: [title] - REASONING: [why]'"
+            f"{arch_context}"
+        ),
+        verbose=True,
+    )
 
-writing_task = Task(
-    description="Write a technical blog post based on the research findings.",
-    expected_output="A 1000-word blog post in markdown format.",
-    agent=writer,
-    context=[research_task],
-)
+    builder = Agent(
+        role="Senior Developer",
+        goal="Implement the architecture following established decisions",
+        backstory=(
+            "You are a senior developer. Follow the architect's decisions exactly. "
+            "State implementation choices as: 'DECISION: [title] - REASONING: [why]'"
+            f"{build_context}"
+        ),
+        verbose=True,
+    )
 
-# 7. Create and run the crew
-crew = Crew(
-    agents=[researcher, writer],
-    tasks=[research_task, writing_task],
-    process=Process.sequential,
-    task_callback=callback.on_task_complete,
-    step_callback=callback.on_step,
-    verbose=True,
-)
+    reviewer = Agent(
+        role="Code Reviewer",
+        goal="Review implementation against architecture decisions",
+        backstory=(
+            "You are a code reviewer. Check that the implementation follows all "
+            "established decisions. Flag any contradictions. "
+            "State findings as: 'DECISION: [title] - REASONING: [why]'"
+            f"{review_context}"
+        ),
+        verbose=True,
+    )
 
-result = crew.kickoff()
+    design_task = Task(
+        description=(
+            f"Design the architecture for: {task_topic}\n\n"
+            "Make at least 3 explicit decisions about:\n"
+            "1. Communication protocol (WebSocket vs SSE vs polling)\n"
+            "2. Message queue technology\n"
+            "3. Delivery guarantees (at-least-once vs exactly-once)"
+        ),
+        agent=architect,
+        expected_output="A list of architecture decisions with reasoning",
+    )
 
-# 8. Finalize — creates a session summary in Hipp0
-callback.on_crew_complete(crew_output=result, crew=crew)
+    implement_task = Task(
+        description=(
+            f"Outline the implementation for: {task_topic}\n"
+            "Cover components, data flow, and error handling. "
+            "Reference the architect's decisions explicitly."
+        ),
+        agent=builder,
+        expected_output="Implementation plan referencing architecture decisions",
+    )
+
+    review_task = Task(
+        description=(
+            f"Review the implementation plan for: {task_topic}\n"
+            "Check: does it follow all architecture decisions? Any contradictions?"
+        ),
+        agent=reviewer,
+        expected_output="Review findings with pass/fail for each decision",
+    )
+
+    crew = Crew(
+        agents=[architect, builder, reviewer],
+        tasks=[design_task, implement_task, review_task],
+        verbose=True,
+        task_callback=hipp0_cb.on_task_complete,
+    )
+
+    result = crew.kickoff()
+    hipp0_cb.on_crew_complete(crew_output=str(result))
+
+    print("Done. Run `hipp0 list` to see captured decisions.")
+
+
+if __name__ == "__main__":
+    main()
 ```
 
----
+Run it:
 
-## Hipp0CrewMemory
-
-`Hipp0CrewMemory` implements the CrewAI memory backend interface. Attach it to an agent to give that agent access to Hipp0-backed recall.
-
-### Constructor Parameters
-
-```python
-Hipp0CrewMemory(
-    client: Hipp0Client,
-    project_id: str,
-    agent_name: str,
-    default_task_description: str = "Perform the current crew task.",
-    max_tokens: int | None = None,
-    distill_on_save: bool = True,
-)
+```bash
+export OPENAI_API_KEY=sk-...
+python main.py
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
-| `project_id` | `str` | required | Hipp0 project ID |
-| `agent_name` | `str` | required | Agent name for context scoping and attribution |
-| `default_task_description` | `str` | `"Perform the current crew task."` | Fallback task description for `search()` calls |
-| `max_tokens` | `int \| None` | `None` | Token budget for context compilation |
-| `distill_on_save` | `bool` | `True` | Send to distillery immediately on `save()` |
+First run output (trimmed):
 
-### The `save()` Method
+```
+Running crew: Design a real-time notification system for a SaaS platform
+Hipp0 project: proj_01hxyz...
 
-CrewAI calls `save()` after each task to persist the output:
+[Architect] DECISION: Use WebSocket - REASONING: Real-time bidirectional...
+[Builder] DECISION: Redis Streams as queue - REASONING: Lower ops burden...
+[Reviewer] DECISION: Approve with one caveat - REASONING: Missing DLQ...
 
-```python
-memory.save(
-    value="We decided to use PostgreSQL with pgvector instead of Pinecone due to cost constraints.",
-    metadata={"task_id": "task-001", "tool": "research"},
-    agent="researcher",  # optional override
-)
+Captured 7 decisions in Hipp0.
 ```
 
-When `distill_on_save=True` (default), the text is immediately sent to the Hipp0 distillery. The distillery uses an LLM to extract structured decisions, which are stored with embeddings in the decision graph.
+Run it a second time. You'll see:
 
-When `distill_on_save=False`, saves are buffered and must be flushed manually:
-
-```python
-memory = Hipp0CrewMemory(client=client, project_id=PROJECT_ID, agent_name="researcher", distill_on_save=False)
-
-# ... crew runs ...
-
-# Flush all buffered saves at once (single API call)
-memory.flush()
+```
+  Loaded 1247 chars of past context from Hipp0
+[Architect] Based on our previous decision to use WebSocket...
 ```
 
-### The `search()` Method
+That's the loop. Check the dashboard at `http://localhost:3200` to see the decisions piling up.
 
-CrewAI calls `search()` when an agent needs to recall information:
+![Decisions list view](images/crewai-decisions-list.png)
 
-```python
-results = memory.search(
-    query="What database technology was selected?",
-    task_description="Write documentation for the data layer.",  # optional
-)
+## Reference: Hipp0CrewCallback
 
-# results is a list of dicts:
-# [
-#   {"type": "context", "text": "<compiled context blob>", "score": 1.0},
-#   {"type": "decision", "decision_id": "dec_01hx...", "text": "Use pgvector: ...", "score": 0.87},
-#   ...
-# ]
-```
+The callback is the bridge between CrewAI's event stream and Hipp0's capture pipeline. You create one per crew and wire two methods into the Crew lifecycle.
 
-The first element is always the full compiled context text. Subsequent elements are individual decisions ranked by their relevance score.
-
-### Batched Distillation
-
-For long-running crews with many tasks, batching reduces API calls:
-
-```python
-memory = Hipp0CrewMemory(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="researcher",
-    distill_on_save=False,  # buffer saves
-)
-
-# Attach to agent
-researcher._memory_handler = memory
-
-# Run the crew...
-
-# At the end, flush everything in one distillery call
-memory.flush()
-```
-
-### Resetting the Buffer
-
-```python
-# Discard buffered (not-yet-distilled) content without sending to Hipp0
-memory.reset()
-```
-
----
-
-## Hipp0CrewCallback
-
-`Hipp0CrewCallback` hooks into CrewAI's callback system to automatically capture task outputs and create session summaries.
-
-### Constructor Parameters
+### Constructor
 
 ```python
 Hipp0CrewCallback(
     client: Hipp0Client,
     project_id: str,
-    agent_name: str = "crew",
-    create_session_on_crew_end: bool = True,
+    agent_name_map: Optional[Dict[str, str]] = None,
+    capture_filter: Optional[Callable[[dict], bool]] = None,
+    passive_only: bool = False,
+    namespace: Optional[str] = None,
 )
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
-| `project_id` | `str` | required | Hipp0 project ID |
-| `agent_name` | `str` | `"crew"` | Default agent name for session summaries |
-| `create_session_on_crew_end` | `bool` | `True` | Create a `SessionSummary` when `on_crew_complete()` is called |
+Parameters:
 
-### Task Lifecycle Hooks
+- **`client`** — An initialized `Hipp0Client`. Required.
+- **`project_id`** — The project ID you got from `hipp0 init`. Required.
+- **`agent_name_map`** — Override how CrewAI agent roles map to Hipp0 agent names. By default, `agent.role` is slugified (`"Software Architect"` becomes `"software-architect"`). Pass `{"Software Architect": "architect"}` to override.
+- **`capture_filter`** — A function that takes an event dict and returns `True` to capture or `False` to skip. See the filtering section below.
+- **`passive_only`** — If `True`, the callback only sends raw output to the distillery for later extraction. It does not call `record_decision`. Useful when you want the distillery to do all the extraction work on its own schedule.
+- **`namespace`** — Optional namespace tag applied to all captured decisions. Use this to separate environments (`"prod"`, `"staging"`) or experiments (`"exp-retry-logic"`).
 
-#### `on_task_complete(task, output)`
+### Methods
 
-Call this (or pass it as `task_callback`) for each completed task:
+**`on_task_complete(task_output)`** — Wire this into `Crew(task_callback=...)`. Fires after each task completes. Extracts decisions from `task_output.raw` and sends them to Hipp0 via the passive capture endpoint.
 
 ```python
 crew = Crew(
     agents=[...],
     tasks=[...],
-    task_callback=callback.on_task_complete,
+    task_callback=hipp0_cb.on_task_complete,
 )
 ```
 
-CrewAI passes the `Task` object and its `TaskOutput`. The callback:
-
-1. Extracts the output text (handles `str`, `TaskOutput.raw`, `TaskOutput.result`, etc.)
-2. Formats it as `"Task: {description}\n\nOutput:\n{text}"`
-3. Sends it to the Hipp0 distillery
-4. Accumulates extracted decision IDs for the final session summary
-
-#### `on_step(step)`
-
-Pass as `step_callback` to hook into individual agent steps. The default implementation is a no-op — override or subclass to capture intermediate reasoning:
-
-```python
-class MyCallback(Hipp0CrewCallback):
-    def on_step(self, step):
-        print(f"Agent step: {step}")
-        super().on_step(step)
-
-callback = MyCallback(client=client, project_id=PROJECT_ID)
-crew = Crew(..., step_callback=callback.on_step)
-```
-
-### Crew Lifecycle Hooks
-
-#### `on_crew_complete(crew_output, crew)`
-
-Call this after `crew.kickoff()` returns:
+**`on_crew_complete(crew_output: str)`** — Call this after `crew.kickoff()` returns. Sends the full crew output to the distillery for a second pass of decision extraction. This catches decisions that span multiple tasks.
 
 ```python
 result = crew.kickoff()
-callback.on_crew_complete(crew_output=result, crew=crew)
+hipp0_cb.on_crew_complete(crew_output=str(result))
 ```
 
-This:
-1. Builds a session summary including task count and the final output preview
-2. Creates a `SessionSummary` in Hipp0 linking all decisions extracted during the run
-3. Resets the callback's internal state for potential re-use
+**`on_tool_use(tool_name: str, tool_input: dict, tool_output: str)`** — Optional. Call manually from a custom tool wrapper if you want tool usage recorded as events. CrewAI doesn't emit tool events natively in all versions.
 
-If `create_session_on_crew_end=False`, only the reset happens.
-
-#### Using the Callback as a Callable
-
-`Hipp0CrewCallback` is directly callable, so it can be passed to CrewAI's `task_callback` without `.on_task_complete`:
+**`capture_decision(title: str, reasoning: str, made_by: str, **kwargs)`** — Skip the auto-extraction and record a decision directly. Useful for deterministic decisions made outside an LLM call.
 
 ```python
-crew = Crew(
-    task_callback=callback,  # __call__ delegates to on_task_complete
+hipp0_cb.capture_decision(
+    title="Use PostgreSQL for primary store",
+    reasoning="ACID guarantees required for billing data",
+    made_by="architect",
+    tags=["database", "billing"],
+    affects=["builder", "reviewer"],
 )
 ```
 
----
+### Event types
 
-## Complete Example: Research Crew
+The callback emits these events to Hipp0's `/events` endpoint:
 
-A full end-to-end example with persistent memory across runs:
+| Event type | When it fires | What gets stored |
+|---|---|---|
+| `crew.task_started` | Task begins | Task description, agent name |
+| `crew.task_completed` | Task finishes | Full task output, duration |
+| `crew.crew_completed` | `crew.kickoff()` returns | Full crew output |
+| `crew.decision_captured` | A decision is extracted | Title, reasoning, agent, tags |
+| `crew.contradiction` | A decision contradicts a prior one | Both decision IDs, similarity score |
+
+You can tail these live with `hipp0 events --follow`.
+
+## Reference: Injecting past context into agent backstories
+
+CrewAI agents take a `backstory` string. Hipp0 gives you two ways to add relevant past decisions to it:
+
+### Option 1: `compile_context` into backstory (recommended)
+
+This is what the quick start does. Before creating the agent, call `client.compile_context` and concatenate the result into the backstory:
 
 ```python
-import os
-from hipp0_sdk import Hipp0Client
-from hipp0_crewai import Hipp0CrewMemory, Hipp0CrewCallback
-from crewai import Agent, Task, Crew, Process
-from crewai.tools import tool
-from langchain_openai import ChatOpenAI
-
-# Initialize
-client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
-PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
-llm = ChatOpenAI(model="gpt-4o", temperature=0.1)
-
-# Create memories (one per agent role)
-memories = {
-    "architect": Hipp0CrewMemory(
-        client=client,
-        project_id=PROJECT_ID,
-        agent_name="architect",
-        default_task_description="Design the system architecture.",
-        max_tokens=4096,
-    ),
-    "security": Hipp0CrewMemory(
-        client=client,
-        project_id=PROJECT_ID,
-        agent_name="security",
-        default_task_description="Review security implications.",
-        max_tokens=4096,
-    ),
-    "reviewer": Hipp0CrewMemory(
-        client=client,
-        project_id=PROJECT_ID,
-        agent_name="reviewer",
-        default_task_description="Review all decisions for consistency.",
-        max_tokens=4096,
-    ),
-}
-
-# Callback for automatic session capture
-callback = Hipp0CrewCallback(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="architecture-crew",
-    create_session_on_crew_end=True,
+context_result = client.compile_context(
+    project_id=project_id,
+    agent_name="architect",
+    task_description="Design the notification system",
+    max_tokens=2000,           # cap the context size
+    min_relevance=0.4,         # only decisions above this relevance
+    include_contradictions=True,
 )
 
-# Agents
+past_context = context_result.get("formatted_markdown", "")
+
 architect = Agent(
     role="Software Architect",
-    goal="Design scalable, maintainable system architecture",
-    backstory=(
-        "You are a senior software architect with 15 years of experience. "
-        "You always consider the existing project decisions before making new ones."
-    ),
-    llm=llm,
-    verbose=True,
+    goal="...",
+    backstory=f"You are a senior architect...\n\n{past_context}",
 )
-
-security_reviewer = Agent(
-    role="Security Engineer",
-    goal="Identify and address security vulnerabilities in architectural decisions",
-    backstory=(
-        "You are a security engineer who reviews all architectural decisions "
-        "for security implications and compliance requirements."
-    ),
-    llm=llm,
-    verbose=True,
-)
-
-tech_reviewer = Agent(
-    role="Technical Reviewer",
-    goal="Ensure all decisions are consistent, documented, and aligned with project goals",
-    backstory=(
-        "You perform final technical review, ensuring consistency across decisions "
-        "and flagging any contradictions or gaps."
-    ),
-    llm=llm,
-    verbose=True,
-)
-
-# Attach memories
-architect._memory_handler = memories["architect"]
-security_reviewer._memory_handler = memories["security"]
-tech_reviewer._memory_handler = memories["reviewer"]
-
-# Tasks
-architecture_task = Task(
-    description=(
-        "Design the authentication system for the Hipp0 API. "
-        "Consider: token types (JWT vs API keys), expiry policies, "
-        "refresh mechanisms, and integration with existing auth providers. "
-        "Document your decisions clearly with rationale."
-    ),
-    expected_output=(
-        "An architectural decision record (ADR) with: "
-        "the chosen approach, alternatives considered, rationale, "
-        "and implementation notes."
-    ),
-    agent=architect,
-)
-
-security_task = Task(
-    description=(
-        "Review the authentication architecture decisions from the previous task. "
-        "Identify any security risks, recommend mitigations, and verify compliance "
-        "with OWASP API Security Top 10."
-    ),
-    expected_output=(
-        "A security review report with: risk assessment, "
-        "recommended mitigations, and a go/no-go recommendation."
-    ),
-    agent=security_reviewer,
-    context=[architecture_task],
-)
-
-review_task = Task(
-    description=(
-        "Perform a final review of all architectural and security decisions. "
-        "Check for contradictions, gaps, and missing documentation. "
-        "Produce a summary of all decisions made."
-    ),
-    expected_output=(
-        "A decision summary document listing all decisions, "
-        "their status (confirmed/needs-revision), and any action items."
-    ),
-    agent=tech_reviewer,
-    context=[architecture_task, security_task],
-)
-
-# Crew
-crew = Crew(
-    agents=[architect, security_reviewer, tech_reviewer],
-    tasks=[architecture_task, security_task, review_task],
-    process=Process.sequential,
-    task_callback=callback.on_task_complete,
-    verbose=True,
-)
-
-# Run
-print("Starting architecture review crew...")
-result = crew.kickoff()
-
-# Finalize — creates a SessionSummary in Hipp0
-callback.on_crew_complete(crew_output=result, crew=crew)
-
-print("\n=== Crew Complete ===")
-print(f"Final output:\n{result}")
-print("\nDecisions have been captured in Hipp0 and are available for future crews.")
 ```
 
----
+The `formatted_markdown` string is already structured with headings, reasoning, and timestamps. It drops straight into a backstory.
 
-## Multi-Agent Crew with Role-Based Context
+### Option 2: Agent-level memory backend
 
-Hipp0 has 16 built-in role templates. When your agent name matches a role (e.g., `"architect"`, `"security"`, `"reviewer"`), Hipp0 automatically applies higher relevance scoring for decisions tagged with that role.
+If you prefer CrewAI's native memory slot, pass `Hipp0CrewMemory` (a thin adapter):
 
 ```python
-from hipp0_sdk import Hipp0Client
 from hipp0_crewai import Hipp0CrewMemory
 
-client = Hipp0Client(base_url="http://localhost:3100")
+mem = Hipp0CrewMemory(
+    client=client,
+    project_id=project_id,
+    agent_name="architect",
+)
 
-# These names map to Hipp0 built-in roles — agents automatically
-# get higher relevance scores for decisions affecting their role
-ROLE_AGENTS = [
-    "architect",    # architectural decisions
-    "builder",      # implementation decisions
-    "reviewer",     # review/quality decisions
-    "security",     # security decisions
-    "qa",           # testing decisions
-    "devops",       # deployment decisions
-]
+architect = Agent(
+    role="Software Architect",
+    goal="...",
+    backstory="You are a senior architect...",
+    memory=mem,
+)
+```
 
-memories = {
-    role: Hipp0CrewMemory(
-        client=client,
-        project_id="proj_01hx...",
-        agent_name=role,
-        max_tokens=3000,
-    )
-    for role in ROLE_AGENTS
+CrewAI will call `mem.search(query)` internally when the agent asks its memory a question. This approach is cleaner but less predictable — you don't control *when* the memory is queried. Most users prefer Option 1.
+
+## Advanced: filtering which decisions get captured
+
+Sometimes you don't want every task output going to Hipp0. Maybe a task is exploratory and shouldn't pollute the decision log. Maybe you're in a dev loop and don't want noise.
+
+Pass a `capture_filter` to the callback:
+
+```python
+def should_capture(event: dict) -> bool:
+    # Skip tasks marked experimental
+    if event.get("task_metadata", {}).get("experimental"):
+        return False
+    # Skip outputs shorter than 200 chars (usually error messages)
+    if len(event.get("output", "")) < 200:
+        return False
+    # Skip tasks from the dev-loop namespace
+    if event.get("namespace") == "dev-loop":
+        return False
+    return True
+
+hipp0_cb = Hipp0CrewCallback(
+    client=client,
+    project_id=project_id,
+    capture_filter=should_capture,
+)
+```
+
+The filter runs synchronously before the event is queued, so keep it fast. No network calls.
+
+For the opposite — capturing *everything* including tool use and internal messages — set the environment variable `HIPP0_CAPTURE_VERBOSE=1`. This disables the default output-length threshold.
+
+## Advanced: using compile_context with specific agents
+
+`compile_context` supports several parameters that let you tune what each agent sees:
+
+```python
+result = client.compile_context(
+    project_id=project_id,
+    agent_name="architect",
+
+    # What we're working on right now (drives relevance scoring)
+    task_description="Choose between GraphQL and REST for the public API",
+
+    # Only pull decisions from the last 30 days
+    time_window_days=30,
+
+    # Include decisions tagged with any of these
+    include_tags=["api", "architecture", "public-interface"],
+
+    # Exclude decisions tagged with any of these
+    exclude_tags=["experimental", "dev-loop"],
+
+    # How large the returned markdown can be
+    max_tokens=3000,
+
+    # Return decisions from other agents that affect this one
+    include_upstream=True,
+
+    # Return decisions made by this agent that affect others
+    include_downstream=False,
+
+    # Include contradiction warnings inline
+    include_contradictions=True,
+)
+```
+
+The return value is a dict:
+
+```python
+{
+    "formatted_markdown": "## Past Decisions\n### Use PostgreSQL...",
+    "decisions": [
+        {"id": "dec_01h...", "title": "...", "relevance": 0.87, ...},
+        ...
+    ],
+    "total_tokens": 1842,
+    "contradictions_found": 0,
+    "trust_multiplier_debug": {...},  # if HIPP0_DEBUG=1
 }
 ```
 
-To see the full list of built-in roles and their tag weights:
-
-```bash
-curl http://localhost:3100/api/projects/proj_01hx.../agents \
-  | jq '.[].profile.tags'
-```
-
----
-
-## Recording Decisions Manually
-
-For critical decisions, bypass the distillery and record them directly with full metadata:
+If you only need the top 3 most relevant decisions for a prompt budget:
 
 ```python
-from hipp0_sdk import Hipp0Client
-
-client = Hipp0Client(base_url="http://localhost:3100")
-
-# Record a specific decision with full metadata
-decision = client.record_decision(
-    project_id="proj_01hx...",
-    title="Use JWT with 15-minute expiry",
-    description=(
-        "All API authentication will use JWT tokens with a 15-minute expiry "
-        "and a 7-day refresh token. Refresh tokens are stored in httpOnly cookies."
-    ),
-    rationale=(
-        "Short JWT expiry limits the window for token theft. "
-        "httpOnly cookies prevent XSS attacks from accessing refresh tokens."
-    ),
-    tags=["authentication", "security", "api"],
-    affects=["builder", "security", "qa"],
-    confidence=0.95,
-    status="active",
-)
-
-print(f"Decision recorded: {decision['id']}")
+result = client.compile_context(..., max_decisions=3)
+top_3 = result["decisions"]
+for d in top_3:
+    print(f"- {d['title']} (relevance={d['relevance']:.2f})")
 ```
 
----
+### Per-task context instead of per-agent
 
-## Configuration Reference
-
-### Hipp0Client Options
+You can also compile context scoped to a specific task description rather than an agent:
 
 ```python
-client = Hipp0Client(
-    base_url="http://localhost:3100",  # Hipp0 API URL
-    api_key="nxk_...",                 # optional API key
-    timeout=30,                        # request timeout in seconds
+context_for_this_task = client.compile_context(
+    project_id=project_id,
+    agent_name="builder",  # still required for trust scoring
+    task_description=implement_task.description,
 )
 ```
 
-### Environment Variables
-
-If you prefer environment-based configuration:
-
-```bash
-export HIPP0_API_URL=http://localhost:3100
-export HIPP0_PROJECT_ID=proj_01hx...
-export HIPP0_API_KEY=nxk_...
-```
-
-Then instantiate without arguments:
-
-```python
-import os
-from hipp0_sdk import Hipp0Client
-
-client = Hipp0Client(
-    base_url=os.environ["HIPP0_API_URL"],
-    api_key=os.environ.get("HIPP0_API_KEY"),
-)
-```
-
----
-
-## Best Practices
-
-**One memory instance per agent role.** Don't share a single `Hipp0CrewMemory` across multiple agents — each agent should have its own instance with its own `agent_name`. This ensures context is compiled with the correct role-based weighting.
-
-**Use `distill_on_save=False` for large crews.** If you have 10+ tasks producing long outputs, batching reduces API latency and cost. Call `memory.flush()` at the end.
-
-**Set `default_task_description` accurately.** This description is used when `search()` is called without an explicit task context. The more specific it is, the better Hipp0 can rank relevant context.
-
-**Name agents to match Hipp0 roles.** Using `agent_name="architect"`, `"security"`, `"qa"`, etc. activates the built-in role templates and improves context relevance automatically.
-
-**Always call `on_crew_complete()`.** Without this call, no session summary is created in Hipp0, and the crew run will not appear in the dashboard or contribute to cross-session context.
-
-**Check for contradictions before long runs.** If your crew is about to make architectural decisions, fetch current contradictions first:
-
-```python
-from hipp0_sdk import Hipp0Client
-
-client = Hipp0Client(base_url="http://localhost:3100")
-contradictions = client.get_contradictions(project_id="proj_01hx...")
-if contradictions:
-    print(f"Warning: {len(contradictions)} contradictions found. Resolve before running crew.")
-    for c in contradictions:
-        print(f"  - {c['decision_a']['title']} ↔ {c['decision_b']['title']}")
-```
-
----
+This is useful when one agent handles multiple task types and you want context that's specific to each task.
 
 ## Troubleshooting
 
-### Memory search returns empty results
+### `ImportError: cannot import name 'Hipp0CrewCallback'`
 
-Ensure the Hipp0 server is running and has decisions stored:
-
-```bash
-curl http://localhost:3100/api/projects/proj_01hx.../decisions | jq length
-```
-
-If decisions exist but search returns empty, check that embeddings are generated:
+You installed `hipp0-crewai` but not the right version. Some older releases named it `Hipp0Callback`. Upgrade:
 
 ```bash
-curl "http://localhost:3100/api/projects/proj_01hx.../decisions?limit=1" | jq '.[0].embedding_generated'
+pip install --upgrade hipp0-crewai>=0.4.0
 ```
 
-### Distillery not extracting decisions
+Also confirm the Python env is the one running your script. A common foot-gun is installing into system Python and running inside a venv, or vice versa.
 
-The distillery uses an LLM (Anthropic by default). Verify your API key:
+### `Hipp0CrewCallback is not callable`
 
-```bash
-echo $ANTHROPIC_API_KEY
-```
-
-Test directly:
-
-```bash
-curl -X POST http://localhost:3100/api/projects/proj_01hx.../distill \
-  -H "Content-Type: application/json" \
-  -d '{"conversation_text": "We decided to use Redis for caching."}'
-```
-
-### `AttributeError: _memory_handler`
-
-Some versions of CrewAI use different attribute names for custom memory. Check your CrewAI version:
+You passed the callback *instance* where CrewAI expected a method reference. This is wrong:
 
 ```python
-import crewai; print(crewai.__version__)
+Crew(..., task_callback=hipp0_cb)  # wrong
 ```
 
-For CrewAI ≥ 0.41, use the custom memory API directly:
+This is right:
 
 ```python
-from crewai.memory.storage.interface import Storage
-
-class Hipp0Storage(Storage):
-    def __init__(self, hipp0_memory):
-        self._mem = hipp0_memory
-
-    def save(self, value, metadata=None, **kwargs):
-        self._mem.save(value, metadata=metadata)
-
-    def search(self, query, limit=None, **kwargs):
-        return self._mem.search(query)
-
-agent = Agent(
-    role="Researcher",
-    memory=True,
-    # CrewAI >= 0.41 accepts a custom storage backend
-)
+Crew(..., task_callback=hipp0_cb.on_task_complete)
 ```
 
-### ImportError: hipp0_crewai not found
+CrewAI calls `task_callback(task_output)` directly and the instance isn't callable.
 
-Install from the repository:
+### No decisions appear in the dashboard after running
+
+Three things to check in order:
+
+1. **Is the server actually running?** `curl http://localhost:3100/health` should return `{"status":"ok"}`. If not, start it with `docker compose up -d` or `hipp0 server start`.
+2. **Is the project ID right?** `echo $HIPP0_PROJECT_ID` and confirm it matches what the dashboard shows under Settings. A mismatch means decisions are going to a different project.
+3. **Did the task output actually contain decisions?** If the agent just said "sure, I'll help!" there's nothing to extract. Look at the task output: does it have the structured format the example enforces (`DECISION: ... REASONING: ...`)? If not, the distillery has nothing to work with.
+
+Run `hipp0 events --follow` in another terminal while the crew runs. You should see events streaming in real time. If you don't see `crew.task_completed` events, the callback isn't wired up.
+
+### Decisions are captured but contradictions aren't detected
+
+Contradictions require embedding similarity above a threshold (default 0.82). If you see two decisions that look contradictory but no warning:
+
+1. Check the embedding provider is set: `echo $HIPP0_EMBEDDING_PROVIDER` should be `openai` or `local`.
+2. Check the decisions are in the same project and namespace. Cross-project contradictions are not flagged.
+3. Lower the threshold with `HIPP0_CONTRADICTION_THRESHOLD=0.75`.
+
+You can also force a re-check: `hipp0 reanalyze --project $HIPP0_PROJECT_ID`.
+
+### `compile_context` returns "No relevant decisions" even though decisions exist
+
+The `task_description` you passed doesn't overlap semantically with any stored decision. Relevance scoring uses embeddings — if your task says "pick a font" and all your decisions are about databases, you'll get nothing back.
+
+Diagnose:
 
 ```bash
-cd /path/to/hipp0/integrations/crewai
-pip install -e .
+hipp0 compile architect "pick a font" --debug
 ```
 
-Or ensure you are using the correct virtual environment:
+The `--debug` flag shows the top-20 scored decisions and their relevance. If the top score is under 0.3, there's no real overlap. If it's over 0.5 but still filtered out, your `min_relevance` is too high. Lower it:
+
+```python
+result = client.compile_context(..., min_relevance=0.2)
+```
+
+### Every run creates duplicate decisions
+
+You're probably running `on_crew_complete` on the same output twice, or you have both `task_callback` and a manual `on_task_complete` call. The callback is idempotent on the same event ID but you can still double-submit if you construct two events for the same output.
+
+Quick test — check if duplicates have different IDs:
 
 ```bash
-which python
-pip show hipp0-crewai
+hipp0 list --limit 20 --format json | jq '.[] | {id, title, created_at}'
 ```
+
+If titles match but IDs differ, it's double-submission. Remove the manual call and rely on `task_callback`.
+
+### Crew runs fine locally but drops decisions in CI
+
+CI likely has a shorter timeout than your local run. The distillery call is async but the initial event POST isn't — if the Hipp0 server takes longer than your HTTP timeout, the callback swallows the error and moves on. Check the server logs for `POST /events` entries.
+
+Bump the client timeout:
+
+```python
+client = Hipp0Client(base_url=api_url, api_key=api_key, timeout=30)
+```
+
+And confirm the CI runner can reach the server. A common issue: Hipp0 running on `localhost:3100` in CI where `localhost` refers to the job container, not the host.
+
+## Next steps
+
+- [LangGraph guide](langgraph.md) — stateful graphs with Hipp0 as checkpointer
+- [OpenAI Agents guide](openai-agents.md) — the `AgentHooks` integration
+- [Troubleshooting guide](../troubleshooting.md) — everything that can go wrong
+- [Dashboard tour](../dashboard.md) — see your captured decisions
