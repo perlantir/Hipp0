@@ -182,6 +182,10 @@
     "./intelligence/impact-predictor.js": {
       "import": "./dist/intelligence/impact-predictor.js",
       "types": "./dist/intelligence/impact-predictor.d.ts"
+    },
+    "./intelligence/knowledge-pipeline.js": {
+      "import": "./dist/intelligence/knowledge-pipeline.js",
+      "types": "./dist/intelligence/knowledge-pipeline.d.ts"
     }
   },
   "scripts": {

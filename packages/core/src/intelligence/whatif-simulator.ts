@@ -379,3 +379,422 @@ export async function simulateHistoricalImpact(
     return null;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Expanded simulation: multi-decision, cascade, rollback             */
+/* ------------------------------------------------------------------ */
+
+export interface DecisionChange {
+  decision_id: string;
+  proposed_changes: ProposedChanges;
+}
+
+export interface MultiChangeInteraction {
+  decision_a: string;
+  decision_b: string;
+  kind: 'shared_domain' | 'shared_tags' | 'shared_affects';
+  details: string;
+}
+
+export interface MultiChangeResult {
+  individual: SimulationResult[];
+  combined: {
+    total_agents_affected: number;
+    total_agents_improved: number;
+    total_agents_degraded: number;
+    agents_net_impact: Record<string, number>;
+    warnings: SimulationWarning[];
+  };
+  interactions: MultiChangeInteraction[];
+}
+
+export interface CascadeNode {
+  decision_id: string;
+  title: string;
+  depth: number;
+  estimated_effect: 'high' | 'medium' | 'low';
+  relationship: string;
+}
+
+export interface CascadeResult {
+  direct_impact: {
+    decision_id: string;
+    agent_impacts_count: number;
+    degraded: number;
+    improved: number;
+  };
+  cascade: CascadeNode[];
+  total_affected_decisions: number;
+}
+
+export interface RollbackRisk {
+  decision_id: string;
+  title: string;
+  reason: string;
+  severity: 'info' | 'warning' | 'critical';
+}
+
+export interface RollbackResult {
+  original_decision: Decision;
+  rollback_to: Decision | null;
+  contradiction_risks: RollbackRisk[];
+  agents_affected: string[];
+  estimated_impact: {
+    agents_gaining_context: number;
+    agents_losing_context: number;
+    net_score_delta: number;
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  simulateMultiDecisionChange                                         */
+/* ------------------------------------------------------------------ */
+
+export async function simulateMultiDecisionChange(
+  projectId: string,
+  changes: DecisionChange[],
+): Promise<MultiChangeResult> {
+  if (!changes || changes.length === 0) {
+    return {
+      individual: [],
+      combined: {
+        total_agents_affected: 0,
+        total_agents_improved: 0,
+        total_agents_degraded: 0,
+        agents_net_impact: {},
+        warnings: [],
+      },
+      interactions: [],
+    };
+  }
+
+  // Run all individual simulations in parallel
+  const individual = await Promise.all(
+    changes.map((c) =>
+      simulateDecisionChange(c.decision_id, c.proposed_changes, projectId),
+    ),
+  );
+
+  // Compute combined impact: sum per-agent score deltas across all simulations
+  const agentsNetImpact: Record<string, number> = {};
+  let totalAffected = 0;
+  let totalImproved = 0;
+  let totalDegraded = 0;
+  const combinedWarnings: SimulationWarning[] = [];
+
+  for (const sim of individual) {
+    for (const imp of sim.agent_impacts) {
+      const prev = agentsNetImpact[imp.agent_name] ?? 0;
+      agentsNetImpact[imp.agent_name] = Math.round((prev + imp.score_delta) * 1000) / 1000;
+    }
+    totalAffected += sim.summary.agents_affected;
+    totalImproved += sim.summary.agents_improved;
+    totalDegraded += sim.summary.agents_degraded;
+    combinedWarnings.push(...sim.warnings);
+  }
+
+  // Detect interactions: shared tags / domain / affects between changed decisions
+  const interactions: MultiChangeInteraction[] = [];
+  for (let i = 0; i < individual.length; i++) {
+    for (let j = i + 1; j < individual.length; j++) {
+      const a = individual[i].proposed_decision;
+      const b = individual[j].proposed_decision;
+
+      // Shared tags
+      const aTags = new Set((a.tags ?? []) as string[]);
+      const bTags = (b.tags ?? []) as string[];
+      const sharedTags = bTags.filter((t) => aTags.has(t));
+      if (sharedTags.length > 0) {
+        interactions.push({
+          decision_a: a.id,
+          decision_b: b.id,
+          kind: 'shared_tags',
+          details: `Share ${sharedTags.length} tag(s): ${sharedTags.slice(0, 3).join(', ')}`,
+        });
+      }
+
+      // Shared affects
+      const aAffects = new Set((a.affects ?? []) as string[]);
+      const bAffects = (b.affects ?? []) as string[];
+      const sharedAffects = bAffects.filter((t) => aAffects.has(t));
+      if (sharedAffects.length > 0) {
+        interactions.push({
+          decision_a: a.id,
+          decision_b: b.id,
+          kind: 'shared_affects',
+          details: `Share ${sharedAffects.length} affected area(s): ${sharedAffects.slice(0, 3).join(', ')}`,
+        });
+      }
+
+      // Shared domain (if present)
+      if (a.domain && b.domain && a.domain === b.domain) {
+        interactions.push({
+          decision_a: a.id,
+          decision_b: b.id,
+          kind: 'shared_domain',
+          details: `Both belong to domain "${a.domain}"`,
+        });
+      }
+    }
+  }
+
+  // Raise a cascade_risk warning if many interactions
+  if (interactions.length >= 3) {
+    combinedWarnings.push({
+      type: 'cascade_risk',
+      message: `${interactions.length} interactions detected between changed decisions — combined effect may be non-linear`,
+      severity: 'warning',
+    });
+  }
+
+  return {
+    individual,
+    combined: {
+      total_agents_affected: totalAffected,
+      total_agents_improved: totalImproved,
+      total_agents_degraded: totalDegraded,
+      agents_net_impact: agentsNetImpact,
+      warnings: combinedWarnings,
+    },
+    interactions,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  simulateCascadeImpact                                               */
+/* ------------------------------------------------------------------ */
+
+const CASCADE_MAX_DEPTH = 3;
+
+function classifyRelationshipEffect(
+  relationship: string,
+): 'high' | 'medium' | 'low' {
+  const r = relationship.toLowerCase();
+  if (r === 'supersedes' || r === 'contradicts' || r === 'reverts') return 'high';
+  if (r === 'requires' || r === 'depends_on' || r === 'blocks') return 'high';
+  if (r === 'refines' || r === 'enables') return 'medium';
+  return 'low';
+}
+
+export async function simulateCascadeImpact(
+  projectId: string,
+  decisionId: string,
+  proposedChanges: ProposedChanges,
+): Promise<CascadeResult> {
+  const db = getDb();
+
+  // 1. Compute direct impact
+  const directSim = await simulateDecisionChange(decisionId, proposedChanges, projectId);
+
+  // 2. BFS through decision_edges up to depth 3
+  const cascade: CascadeNode[] = [];
+  const visited = new Set<string>([decisionId]);
+  let frontier: Array<{ id: string; depth: number }> = [{ id: decisionId, depth: 0 }];
+
+  for (let depth = 1; depth <= CASCADE_MAX_DEPTH; depth++) {
+    const nextFrontier: Array<{ id: string; depth: number }> = [];
+
+    for (const node of frontier) {
+      let edges: Array<Record<string, unknown>>;
+      try {
+        const res = await db.query<Record<string, unknown>>(
+          `SELECT source_id, target_id, relationship
+           FROM decision_edges
+           WHERE source_id = ? OR target_id = ?`,
+          [node.id, node.id],
+        );
+        edges = res.rows;
+      } catch {
+        edges = [];
+      }
+
+      for (const edge of edges) {
+        const sourceId = edge.source_id as string;
+        const targetId = edge.target_id as string;
+        const relationship = (edge.relationship as string) ?? '';
+        const neighborId = sourceId === node.id ? targetId : sourceId;
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+
+        // Look up neighbor metadata
+        const neighborRes = await db.query<Record<string, unknown>>(
+          `SELECT id, title FROM decisions
+           WHERE id = ? AND project_id = ?`,
+          [neighborId, projectId],
+        );
+        if (neighborRes.rows.length === 0) continue;
+
+        const row = neighborRes.rows[0];
+        const baseEffect = classifyRelationshipEffect(relationship);
+        // Attenuate by depth: each hop downgrades the effect by one notch
+        let effect: 'high' | 'medium' | 'low' = baseEffect;
+        if (depth >= 2 && effect === 'high') effect = 'medium';
+        if (depth >= 3 && effect === 'medium') effect = 'low';
+
+        cascade.push({
+          decision_id: neighborId,
+          title: (row.title as string) ?? '',
+          depth,
+          estimated_effect: effect,
+          relationship,
+        });
+        nextFrontier.push({ id: neighborId, depth });
+      }
+    }
+
+    frontier = nextFrontier;
+    if (frontier.length === 0) break;
+  }
+
+  return {
+    direct_impact: {
+      decision_id: decisionId,
+      agent_impacts_count: directSim.agent_impacts.length,
+      degraded: directSim.summary.agents_degraded,
+      improved: directSim.summary.agents_improved,
+    },
+    cascade,
+    total_affected_decisions: cascade.length,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  simulateRollback                                                    */
+/* ------------------------------------------------------------------ */
+
+export async function simulateRollback(
+  projectId: string,
+  decisionId: string,
+): Promise<RollbackResult> {
+  const db = getDb();
+
+  // 1. Fetch the decision
+  const decRes = await db.query<Record<string, unknown>>(
+    `SELECT * FROM decisions WHERE id = ? AND project_id = ?`,
+    [decisionId, projectId],
+  );
+  if (decRes.rows.length === 0) {
+    throw new Error(`Decision not found: ${decisionId}`);
+  }
+  const originalRow = decRes.rows[0];
+  const originalDecision = originalRow as unknown as Decision;
+  if (typeof originalDecision.tags === 'string') {
+    originalDecision.tags = JSON.parse(originalDecision.tags as unknown as string);
+  }
+  if (typeof originalDecision.affects === 'string') {
+    originalDecision.affects = JSON.parse(originalDecision.affects as unknown as string);
+  }
+
+  // 2. Find the decision that this one superseded
+  let rollbackTo: Decision | null = null;
+  const supersedesId = (originalRow.supersedes_id as string | null | undefined) ?? null;
+  if (supersedesId) {
+    const prevRes = await db.query<Record<string, unknown>>(
+      `SELECT * FROM decisions WHERE id = ? AND project_id = ?`,
+      [supersedesId, projectId],
+    );
+    if (prevRes.rows.length > 0) {
+      const prevRow = prevRes.rows[0];
+      const prev = prevRow as unknown as Decision;
+      if (typeof prev.tags === 'string') prev.tags = JSON.parse(prev.tags as unknown as string);
+      if (typeof prev.affects === 'string') prev.affects = JSON.parse(prev.affects as unknown as string);
+      rollbackTo = prev;
+    }
+  }
+
+  // 3. Check for contradiction risks that would re-emerge
+  const contradictionRisks: RollbackRisk[] = [];
+  if (rollbackTo) {
+    // Any active decisions that share tags or affects with the rolled-back
+    // decision AND have similar titles (heuristic) could re-collide.
+    const rbTags = (rollbackTo.tags ?? []) as string[];
+    const rbAffects = (rollbackTo.affects ?? []) as string[];
+
+    const activeRes = await db.query<Record<string, unknown>>(
+      `SELECT id, title, tags, affects FROM decisions
+       WHERE project_id = ? AND status = 'active' AND id != ? AND id != ?`,
+      [projectId, rollbackTo.id, decisionId],
+    );
+
+    for (const row of activeRes.rows) {
+      const rowTags = parseTagList(row.tags);
+      const rowAffects = parseTagList(row.affects);
+      const sharedTags = rbTags.filter((t) => rowTags.includes(t));
+      const sharedAffects = rbAffects.filter((a) => rowAffects.includes(a));
+
+      if (sharedTags.length >= 2 || sharedAffects.length >= 2) {
+        contradictionRisks.push({
+          decision_id: row.id as string,
+          title: (row.title as string) ?? '',
+          reason: `Shares ${sharedTags.length} tag(s) and ${sharedAffects.length} affected area(s) with rollback target`,
+          severity: sharedTags.length + sharedAffects.length >= 4 ? 'critical' : 'warning',
+        });
+      }
+    }
+  }
+
+  // 4. Identify agents affected: run a simulation pretending the
+  //    original decision is "gone" (we use the rollback-target's fields
+  //    if available, otherwise a minimal change that removes the title).
+  let agentsAffected: string[] = [];
+  let agentsGaining = 0;
+  let agentsLosing = 0;
+  let netScoreDelta = 0;
+
+  try {
+    const proposedChanges: ProposedChanges = rollbackTo
+      ? {
+          title: rollbackTo.title,
+          description: rollbackTo.description,
+          tags: rollbackTo.tags,
+          affects: rollbackTo.affects,
+        }
+      : {
+          // If there's nothing to roll back to, simulate removal by
+          // clearing the description; score will drop for everyone.
+          description: '',
+          tags: [],
+          affects: [],
+        };
+
+    const sim = await simulateDecisionChange(decisionId, proposedChanges, projectId);
+    for (const imp of sim.agent_impacts) {
+      if (imp.score_delta !== 0) {
+        agentsAffected.push(imp.agent_name);
+        netScoreDelta += imp.score_delta;
+      }
+      if (imp.score_delta > 0) agentsGaining++;
+      if (imp.score_delta < 0) agentsLosing++;
+    }
+  } catch {
+    // Simulation may fail if the decision is missing from active set;
+    // fall back to zero impact — we still return meta info.
+    agentsAffected = [];
+  }
+
+  return {
+    original_decision: originalDecision,
+    rollback_to: rollbackTo,
+    contradiction_risks: contradictionRisks,
+    agents_affected: agentsAffected,
+    estimated_impact: {
+      agents_gaining_context: agentsGaining,
+      agents_losing_context: agentsLosing,
+      net_score_delta: Math.round(netScoreDelta * 1000) / 1000,
+    },
+  };
+}
+
+function parseTagList(val: unknown): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val as string[];
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? (parsed as string[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}

@@ -21,6 +21,8 @@ import type { ActionSignal } from '@hipp0/core/intelligence/role-signals.js';
 import { computeAgentSkillProfile } from '@hipp0/core/intelligence/skill-profiler.js';
 import { generateContrastiveExplanation, generateTopContrastPairs } from '@hipp0/core/intelligence/contrastive-explainer.js';
 import type { ContrastiveExplanation } from '@hipp0/core/intelligence/contrastive-explainer.js';
+import { getInsights } from '@hipp0/core/intelligence/knowledge-pipeline.js';
+import type { KnowledgeInsight } from '@hipp0/core/intelligence/knowledge-pipeline.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -378,9 +380,60 @@ export function registerCompileRoutes(app: Hono): void {
       }
     }
 
+    // Team Insights (Tier 3): fetch distilled team knowledge and filter to
+    // those matching the compiled decisions' domains/tags.
+    let teamInsights: KnowledgeInsight[] = [];
+    try {
+      const allInsights = await getInsights(project_id, {
+        status: 'active',
+        min_confidence: 0.5,
+        limit: 50,
+      });
+
+      if (allInsights.length > 0) {
+        // Build the set of domains and tags present in the compiled decisions
+        const compiledDomains = new Set<string>();
+        const compiledTags = new Set<string>();
+        for (const d of result.decisions) {
+          const domain = (d as { domain?: string | null }).domain;
+          if (domain) compiledDomains.add(domain);
+          const tags = (d as { tags?: string[] }).tags ?? [];
+          for (const t of tags) compiledTags.add(t);
+        }
+
+        // Filter insights that match the compiled context:
+        //   - procedures/policies/anti_patterns with no domain are always relevant
+        //   - insights whose domain matches one compiled domain are relevant
+        //   - insights whose tags intersect the compiled tags are relevant
+        teamInsights = allInsights
+          .filter((ins: KnowledgeInsight) => {
+            if (ins.domain && compiledDomains.has(ins.domain)) return true;
+            if (ins.tags.some((t: string) => compiledTags.has(t))) return true;
+            // Procedures (which rarely have a domain) are always relevant
+            if (ins.insight_type === 'procedure' && !ins.domain) return true;
+            return false;
+          })
+          .slice(0, 10);
+      }
+    } catch (err) {
+      console.warn('[hipp0:compile] Team insights fetch failed:', (err as Error).message);
+    }
+
+    // Build insights markdown section
+    let insightsMarkdown = '';
+    if (teamInsights.length > 0) {
+      const lines = teamInsights.map((ins: KnowledgeInsight) => {
+        const pct = Math.round(ins.confidence * 100);
+        const label = ins.insight_type.replace('_', '-');
+        return `- **[${label}]** ${ins.title} _(${pct}% confidence)_\n  ${ins.description}`;
+      });
+      insightsMarkdown = `## Team Insights (${teamInsights.length})\n${lines.join('\n')}\n\n---\n\n`;
+    }
+
     // Prepend policy markdown to formatted output
     const formattedMarkdown = abstentionMarkdown + checkpointMarkdown + sessionMarkdown
       + (policyMarkdown ? policyMarkdown : '')
+      + insightsMarkdown
       + (result.formatted_markdown ?? '');
 
       // Hint for 0 results
@@ -434,6 +487,7 @@ export function registerCompileRoutes(app: Hono): void {
       })() : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
       ...(contrastiveExplanations ? { contrastive_explanations: contrastiveExplanations } : {}),
+      ...(teamInsights.length > 0 ? { team_insights: teamInsights } : {}),
     };
 
     if (!debugInfo) {

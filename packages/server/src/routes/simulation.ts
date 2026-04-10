@@ -9,6 +9,9 @@ import { requireProjectAccess } from './_helpers.js';
 import {
   simulateDecisionChange,
   simulateHistoricalImpact,
+  simulateMultiDecisionChange,
+  simulateCascadeImpact,
+  simulateRollback,
 } from '@hipp0/core/intelligence/whatif-simulator.js';
 import {
   predictDecisionImpact,
@@ -205,5 +208,78 @@ export function registerSimulationRoutes(app: Hono): void {
     });
 
     return c.json(prediction);
+  });
+
+  // POST /api/simulation/multi-change — simulate multiple decisions at once
+  app.post('/api/simulation/multi-change', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+
+    const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
+
+    if (!Array.isArray(body.changes) || body.changes.length === 0) {
+      throw new ValidationError('changes must be a non-empty array');
+    }
+    if (body.changes.length > 25) {
+      throw new ValidationError('changes: maximum 25 items per request');
+    }
+
+    const changes = (body.changes as Array<Record<string, unknown>>).map((ch, i) => {
+      const decisionId = requireUUID(ch.decision_id, `changes[${i}].decision_id`);
+      if (!ch.proposed_changes || typeof ch.proposed_changes !== 'object') {
+        throw new ValidationError(`changes[${i}].proposed_changes is required and must be an object`);
+      }
+      const pc = ch.proposed_changes as Record<string, unknown>;
+      const proposed: Record<string, unknown> = {};
+      if (pc.title !== undefined) proposed.title = requireString(pc.title, `changes[${i}].proposed_changes.title`, 500);
+      if (pc.description !== undefined) proposed.description = requireString(pc.description, `changes[${i}].proposed_changes.description`, 10000);
+      if (pc.tags !== undefined) proposed.tags = validateTags(pc.tags);
+      if (pc.affects !== undefined) proposed.affects = validateAffects(pc.affects);
+      return { decision_id: decisionId, proposed_changes: proposed };
+    });
+
+    const result = await simulateMultiDecisionChange(projectId, changes);
+    return c.json(result);
+  });
+
+  // POST /api/simulation/cascade — cascade impact analysis via decision_edges
+  app.post('/api/simulation/cascade', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+
+    const decisionId = requireUUID(body.decision_id, 'decision_id');
+    const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
+
+    if (!body.proposed_changes || typeof body.proposed_changes !== 'object') {
+      throw new ValidationError('proposed_changes is required and must be an object');
+    }
+    const pc = body.proposed_changes as Record<string, unknown>;
+    const proposed: Record<string, unknown> = {};
+    if (pc.title !== undefined) proposed.title = requireString(pc.title, 'proposed_changes.title', 500);
+    if (pc.description !== undefined) proposed.description = requireString(pc.description, 'proposed_changes.description', 10000);
+    if (pc.tags !== undefined) proposed.tags = validateTags(pc.tags);
+    if (pc.affects !== undefined) proposed.affects = validateAffects(pc.affects);
+
+    const result = await simulateCascadeImpact(projectId, decisionId, proposed);
+    return c.json(result);
+  });
+
+  // POST /api/simulation/rollback — what happens if we revert a decision
+  app.post('/api/simulation/rollback', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+
+    const decisionId = requireUUID(body.decision_id, 'decision_id');
+    const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
+
+    try {
+      const result = await simulateRollback(projectId, decisionId);
+      return c.json(result);
+    } catch (err) {
+      if ((err as Error).message.includes('not found')) {
+        throw new NotFoundError('Decision', decisionId);
+      }
+      throw err;
+    }
   });
 }

@@ -243,3 +243,21 @@ export type {
   ExperimentGroupResult,
   ExperimentResults,
 } from './intelligence/ab-testing.js';
+
+// --- Three-Tier Knowledge Pipeline ---
+export {
+  promoteToFacts,
+  promoteToInsights,
+  getInsights,
+  updateInsightStatus,
+  runFullPipeline,
+} from './intelligence/knowledge-pipeline.js';
+export type {
+  InsightType,
+  InsightStatus,
+  KnowledgeInsight,
+  PromoteToFactsResult,
+  PromoteToInsightsResult,
+  PipelineSummary,
+  GetInsightsOptions,
+} from './intelligence/knowledge-pipeline.js';
