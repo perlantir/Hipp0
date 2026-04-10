@@ -30,3 +30,4 @@ HiPp0-DeSigN/
 website/
 .next/
 hipp0.db
+sqlite:*
