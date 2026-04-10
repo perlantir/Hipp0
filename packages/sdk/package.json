@@ -1,6 +1,6 @@
 {
   "name": "@hipp0/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK client for Hipp0 API",
   "author": "Perlantir",
   "repository": {"type": "git", "url": "https://github.com/perlantir/hipp0"},
