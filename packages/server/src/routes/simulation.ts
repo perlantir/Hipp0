@@ -10,6 +10,9 @@ import {
   simulateDecisionChange,
   simulateHistoricalImpact,
 } from '@hipp0/core/intelligence/whatif-simulator.js';
+import {
+  predictDecisionImpact,
+} from '@hipp0/core/intelligence/impact-predictor.js';
 
 export function registerSimulationRoutes(app: Hono): void {
     // POST /api/simulation/preview
@@ -174,5 +177,33 @@ export function registerSimulationRoutes(app: Hono): void {
       new_decision_id: newId,
       superseded_decision_id: decisionId,
     });
+  });
+
+    // POST /api/simulation/predict-impact
+  app.post('/api/simulation/predict-impact', async (c) => {
+    const body = await c.req.json();
+
+    const projectId = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, projectId);
+
+    const title = requireString(body.title, 'title', 500);
+    const description = body.description != null ? requireString(body.description, 'description', 10000) : undefined;
+    const tags = body.tags != null ? validateTags(body.tags) : undefined;
+    const affects = body.affects != null ? validateAffects(body.affects) : undefined;
+    const confidence = body.confidence != null ? String(body.confidence) : undefined;
+    const made_by = body.made_by != null ? String(body.made_by) : undefined;
+    const domain = body.domain != null ? String(body.domain) : undefined;
+
+    const prediction = await predictDecisionImpact(projectId, {
+      title,
+      description,
+      tags,
+      confidence,
+      made_by,
+      affects,
+      domain,
+    });
+
+    return c.json(prediction);
   });
 }

@@ -18,6 +18,9 @@ import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@hipp0/core/memory/session-manager.js';
 import { generateRoleSignal, computeRecommendedAction } from '@hipp0/core/intelligence/role-signals.js';
 import type { ActionSignal } from '@hipp0/core/intelligence/role-signals.js';
+import { computeAgentSkillProfile } from '@hipp0/core/intelligence/skill-profiler.js';
+import { generateContrastiveExplanation, generateTopContrastPairs } from '@hipp0/core/intelligence/contrastive-explainer.js';
+import type { ContrastiveExplanation } from '@hipp0/core/intelligence/contrastive-explainer.js';
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
@@ -59,6 +62,10 @@ export function registerCompileRoutes(app: Hono): void {
       // Pattern recommendations: can be suppressed per-request
     const includePatternsParam = c.req.query('include_patterns');
     const includePatterns = includePatternsParam !== 'false';
+
+      // Contrastive explanations: enabled via ?explain=true or debug mode
+    const explainParam = c.req.query('explain');
+    const includeExplanations = explainParam === 'true' || body.debug === true;
 
       // Check prefetch cache first (session-aware)
     if (body.task_session_id && body.debug !== true) {
@@ -170,21 +177,55 @@ export function registerCompileRoutes(app: Hono): void {
     }
 
       // Debug info (optional)
-    const debugInfo = body.debug === true ? {
-      scoring_pipeline: 'core/context-compiler compileContext()',
-      signals: ['direct_affect', 'tag_matching', 'role_relevance', 'semantic_similarity', 'status_penalty', 'trust_multiplier', 'outcome_multiplier'],
-      task_hash: taskHash,
-      raw_tasks_stored: storeRawTasks,
-      decisions: result.decisions.map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        combined_score: d.combined_score,
-        trust_score: d.trust_score ?? null,
-        trust_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.trust_multiplier ?? null,
-        outcome_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.outcome_multiplier ?? null,
-        scoring_breakdown: d.scoring_breakdown,
-      })),
-    } : undefined;
+    let debugInfo: Record<string, unknown> | undefined;
+    if (body.debug === true) {
+      let skillProfile: Record<string, unknown> | undefined;
+      try {
+        skillProfile = await computeAgentSkillProfile(project_id, agent_name) as unknown as Record<string, unknown>;
+      } catch (err) {
+        console.warn('[hipp0:compile] Skill profile failed:', (err as Error).message);
+      }
+
+      debugInfo = {
+        scoring_pipeline: 'core/context-compiler compileContext()',
+        signals: ['direct_affect', 'tag_matching', 'role_relevance', 'semantic_similarity', 'status_penalty', 'trust_multiplier', 'outcome_multiplier'],
+        task_hash: taskHash,
+        raw_tasks_stored: storeRawTasks,
+        decisions: result.decisions.map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          combined_score: d.combined_score,
+          trust_score: d.trust_score ?? null,
+          trust_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.trust_multiplier ?? null,
+          outcome_multiplier: (d.scoring_breakdown as Record<string, unknown>)?.outcome_multiplier ?? null,
+          scoring_breakdown: d.scoring_breakdown,
+        })),
+        ...(skillProfile ? { skill_profile: skillProfile } : {}),
+      };
+    }
+
+      // Contrastive explanations (optional)
+    let contrastiveExplanations: ContrastiveExplanation[] | undefined;
+    if (includeExplanations && result.decisions.length >= 2) {
+      // Decisions are already sorted by combined_score descending
+      const sorted = result.decisions;
+      const explanations: ContrastiveExplanation[] = [];
+
+      // Why #1 beat the lowest-ranked included decision
+      explanations.push(
+        generateContrastiveExplanation(sorted[0], sorted[sorted.length - 1]),
+      );
+
+      // If there are enough decisions, also explain why the last included
+      // beat the next-to-last (boundary insight)
+      if (sorted.length >= 3) {
+        explanations.push(
+          generateContrastiveExplanation(sorted[sorted.length - 2], sorted[sorted.length - 1]),
+        );
+      }
+
+      contrastiveExplanations = explanations;
+    }
 
       // Broadcast compile completion
     broadcast('compile_completed', {
@@ -392,6 +433,7 @@ export function registerCompileRoutes(app: Hono): void {
         } catch { return {}; }
       })() : {}),
       ...(debugInfo ? { debug: debugInfo } : {}),
+      ...(contrastiveExplanations ? { contrastive_explanations: contrastiveExplanations } : {}),
     };
 
     if (!debugInfo) {

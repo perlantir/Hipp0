@@ -166,6 +166,22 @@
     "./governance/execution-governor.js": {
       "import": "./dist/governance/execution-governor.js",
       "types": "./dist/governance/execution-governor.d.ts"
+    },
+    "./intelligence/contrastive-explainer.js": {
+      "import": "./dist/intelligence/contrastive-explainer.js",
+      "types": "./dist/intelligence/contrastive-explainer.d.ts"
+    },
+    "./intelligence/skill-profiler.js": {
+      "import": "./dist/intelligence/skill-profiler.js",
+      "types": "./dist/intelligence/skill-profiler.d.ts"
+    },
+    "./intelligence/ab-testing.js": {
+      "import": "./dist/intelligence/ab-testing.js",
+      "types": "./dist/intelligence/ab-testing.d.ts"
+    },
+    "./intelligence/impact-predictor.js": {
+      "import": "./dist/intelligence/impact-predictor.js",
+      "types": "./dist/intelligence/impact-predictor.d.ts"
     }
   },
   "scripts": {

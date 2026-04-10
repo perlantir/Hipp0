@@ -210,5 +210,36 @@ export {
   MAX_SUGGESTED_PATTERNS,
 } from './intelligence/pattern-extractor.js';
 
+// --- Contrastive Explainer ---
+export {
+  generateContrastiveExplanation,
+  generateTopContrastPairs,
+  generateBoundaryExplanations,
+} from './intelligence/contrastive-explainer.js';
+export type { ContrastiveExplanation } from './intelligence/contrastive-explainer.js';
+
+// --- Agent Skill Profiler ---
+export { computeAgentSkillProfile, getSkillMatrix, suggestBestAgent } from './intelligence/skill-profiler.js';
+export type { SkillEntry, AgentSkillProfile, SkillMatrix, AgentSuggestion } from './intelligence/skill-profiler.js';
+
+// --- Impact Predictor ---
+export { predictDecisionImpact, predictBatchImpact } from './intelligence/impact-predictor.js';
+export type { DecisionInput as ImpactDecisionInput, ImpactPrediction, BatchImpactResult, RiskFactor } from './intelligence/impact-predictor.js';
+
 // --- Execution Governor ---
 export { evaluateProposal, recordOverride } from './governance/execution-governor.js';
+
+// --- A/B Testing ---
+export {
+  createExperiment,
+  getActiveExperiments,
+  getExperiments,
+  getExperimentResults,
+  resolveExperiment,
+  resolveTrafficSplit,
+} from './intelligence/ab-testing.js';
+export type {
+  Experiment,
+  ExperimentGroupResult,
+  ExperimentResults,
+} from './intelligence/ab-testing.js';

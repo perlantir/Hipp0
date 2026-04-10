@@ -25,6 +25,7 @@ import { isAuthRequired, getTenantId } from '../auth/middleware.js';
 import { notifySupersededDecision } from '../connectors/github.js';
 import { classifyDecision as autoClassify } from '@hipp0/core/hierarchy/classifier.js';
 import { classifyDecisionWing, maybeRecalculateWings, defaultProvenance, computeTrust, validationProvenance } from '@hipp0/core';
+import { predictDecisionImpact } from '@hipp0/core/intelligence/impact-predictor.js';
 import { requireProjectAccess } from './_helpers.js';
 
 export function registerDecisionRoutes(app: Hono): void {
@@ -239,6 +240,30 @@ export function registerDecisionRoutes(app: Hono): void {
 
       // Wing recalculation trigger: every 50 decisions
       maybeRecalculateWings(projectId).catch(() => {});
+
+      // Background: compute and store predicted impact in metadata
+      predictDecisionImpact(projectId, {
+        title: decision.title,
+        description: decision.description,
+        tags: decision.tags,
+        confidence: decision.confidence,
+        made_by: decision.made_by,
+        affects: decision.affects,
+        domain: decision.domain ?? undefined,
+      }).then(async (prediction) => {
+        try {
+          const existingMeta = decision.metadata ?? {};
+          const updatedMeta = { ...existingMeta, predicted_impact: prediction };
+          await db.query(
+            'UPDATE decisions SET metadata = ? WHERE id = ?',
+            [JSON.stringify(updatedMeta), decision.id],
+          );
+        } catch (e) {
+          console.error('[hipp0] Impact prediction storage failed:', (e as Error).message);
+        }
+      }).catch((err) =>
+        console.error('[hipp0] Impact prediction failed:', (err as Error).message),
+      );
 
       // Create "requires" edges from depends_on
       if (Array.isArray(body.depends_on)) {
