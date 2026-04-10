@@ -27,7 +27,6 @@ e2e-test.sh
 # Benchmark results (JSON only, keep latest.md)
 benchmarks/results/*.json
 HiPp0-DeSigN/
-website/
 .next/
 hipp0.db
 sqlite:*
