@@ -381,10 +381,11 @@ function SidebarContent({
     <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-sm">N</span>
-        </div>
-        {!collapsed && <span className="font-bold text-lg text-white tracking-tight">Hipp0</span>}
+        <img
+          src="/images/hipp0-logo.png"
+          alt="Hipp0"
+          className="h-10 w-auto shrink-0"
+        />
       </div>
 
       {/* Nav groups */}
@@ -636,9 +637,7 @@ export default function App() {
       <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
         <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-primary)' }}>
-          <div className="w-10 h-10 rounded-xl bg-[#D97706] flex items-center justify-center">
-            <span className="text-white font-bold">N</span>
-          </div>
+          <img src="/images/hipp0-logo.png" alt="Hipp0" className="h-12 w-auto" />
         </div>
       </ProjectContext.Provider>
       </ThemeContext.Provider>
@@ -680,7 +679,7 @@ export default function App() {
         <button onClick={() => setMenuOpen(true)} className="p-2 -ml-2 touch-target">
           <Menu className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
         </button>
-        <span className="ml-3 font-semibold text-lg flex-1" style={{ color: 'var(--text-primary)' }}>Hipp0</span>
+        <img src="/images/hipp0-logo.png" alt="Hipp0" className="ml-3 h-8 w-auto flex-1 object-contain object-left" />
         <ConnectionStatus status={connected} />
         <ThemeToggle />
       </header>

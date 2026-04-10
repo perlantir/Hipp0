@@ -14,6 +14,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { DatabaseAdapter } from './adapter.js';
 import { createAdapter, type DatabaseConfig } from './factory.js';
 
@@ -29,6 +30,27 @@ const __dirname = path.dirname(__filename);
 // ---------------------------------------------------------------------------
 
 let _db: DatabaseAdapter | null = null;
+
+// ---------------------------------------------------------------------------
+// Per-request adapter override (for isolated playground sessions, tests, etc.)
+// ---------------------------------------------------------------------------
+
+const _dbOverrideStorage = new AsyncLocalStorage<DatabaseAdapter>();
+
+/**
+ * Run `fn` with a temporarily overridden DB adapter.  All `getDb()` calls
+ * made inside the async context — including those that happen across awaits —
+ * will receive `adapter` instead of the module-level singleton.
+ *
+ * Uses AsyncLocalStorage so concurrent requests each get their own override
+ * without clobbering one another.
+ */
+export function withDbOverride<T>(
+  adapter: DatabaseAdapter,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return _dbOverrideStorage.run(adapter, fn);
+}
 
 /**
  * Initialise the database adapter singleton.
@@ -58,6 +80,8 @@ export async function initDb(config?: DatabaseConfig): Promise<DatabaseAdapter> 
  * @throws Error if `initDb()` has not been called yet.
  */
 export function getDb(): DatabaseAdapter {
+  const override = _dbOverrideStorage.getStore();
+  if (override) return override;
   if (!_db) {
     throw new Error(
       '[hipp0/db] Database not initialised. Call initDb() before getDb().',
