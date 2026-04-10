@@ -186,15 +186,35 @@ type View =
   | 'team-score'
   | 'import-wizard'
   | 'collab-room'
-  | 'wings';
+  | 'wings'
+  | 'captures'
+  | 'community-insights'
+  | 'agent-skills'
+  | 'insights'
+  | 'procedures'
+  | 'shared-patterns'
+  | 'experiments'
+  | 'impact-prediction'
+  | 'branches'
+  | 'team-health'
+  | 'trends'
+  | 'live-events'
+  | 'traces';
 
+type NavGroup =
+  | 'memory'
+  | 'intelligence'
+  | 'experiments'
+  | 'analytics'
+  | 'governance'
+  | 'integrations';
 
 interface NavItem {
   id: View;
   label: string;
   icon: ReactNode;
   badge?: number | null;
-  group: 'main' | 'integrations' | 'monitoring' | 'settings';
+  group: NavGroup;
 }
 
 function isPlaygroundRoute(): boolean {
@@ -205,10 +225,17 @@ function isPlaygroundRoute(): boolean {
 
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
-  const all: View[] = ['graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes','import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing','playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score','import-wizard','collab-room','wings'];
+  const all: View[] = [
+    'graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes',
+    'import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing',
+    'playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score',
+    'import-wizard','collab-room','wings',
+    'captures','community-insights','agent-skills','insights','procedures','shared-patterns','experiments',
+    'impact-prediction','branches','team-health','trends','live-events','traces',
+  ];
 
   if (all.includes(hash)) return hash;
-  return 'graph';
+  return 'playground';
 }
 
 /* ------------------------------------------------------------------ */
@@ -254,8 +281,21 @@ function ViewContent({ view }: { view: View }) {
     case 'import-wizard': return <ImportWizard />;
     case 'collab-room': return <CollabRoom />;
     case 'wings': return <WingView />;
+    case 'captures': return <CaptureHistory />;
+    case 'community-insights': return <CommunityInsights />;
+    case 'agent-skills': return <AgentSkills />;
+    case 'insights': return <KnowledgeInsights />;
+    case 'procedures': return <TeamProcedures />;
+    case 'shared-patterns': return <SharedPatterns />;
+    case 'experiments': return <Experiments />;
+    case 'impact-prediction': return <ImpactPrediction />;
+    case 'branches': return <KnowledgeBranches />;
+    case 'team-health': return <TeamHealth />;
+    case 'trends': return <Trends />;
+    case 'live-events': return <LiveEvents />;
+    case 'traces': return <Traces />;
 
-    default: return <DecisionGraph />;
+    default: return <PlaygroundWrapper />;
   }
 }
 
@@ -311,6 +351,15 @@ function ThemeToggle() {
 /*  Sidebar Content (shared between mobile menu and desktop sidebar)   */
 /* ------------------------------------------------------------------ */
 
+const GROUP_ORDER: Array<{ key: NavGroup; label: string }> = [
+  { key: 'memory', label: 'Memory' },
+  { key: 'intelligence', label: 'Intelligence' },
+  { key: 'experiments', label: 'Experiments' },
+  { key: 'analytics', label: 'Analytics' },
+  { key: 'governance', label: 'Governance' },
+  { key: 'integrations', label: 'Integrations' },
+];
+
 function SidebarContent({
   navItems,
   view,
@@ -322,12 +371,11 @@ function SidebarContent({
   collapsed?: boolean;
   onNavigate: (v: View) => void;
 }) {
-  const groups: Array<{ key: string; items: NavItem[] }> = [
-    { key: 'main', items: navItems.filter((n) => n.group === 'main') },
-    { key: 'integrations', items: navItems.filter((n) => n.group === 'integrations') },
-    { key: 'monitoring', items: navItems.filter((n) => n.group === 'monitoring') },
-    { key: 'settings', items: navItems.filter((n) => n.group === 'settings') },
-  ];
+  const groups = GROUP_ORDER.map(({ key, label }) => ({
+    key,
+    label,
+    items: navItems.filter((n) => n.group === key),
+  }));
 
   return (
     <>
@@ -341,22 +389,33 @@ function SidebarContent({
 
       {/* Nav groups */}
       <div className="flex-1 overflow-y-auto px-3 pb-4">
-        {groups.map((group, gi) => (
-          <div key={group.key}>
-            {gi > 0 && group.items.length > 0 && <div className="nav-divider" />}
-            <div className="space-y-0.5">
-              {group.items.map((item) => (
-                <NavItemButton
-                  key={item.id}
-                  item={item}
-                  active={view === item.id}
-                  collapsed={collapsed}
-                  onClick={() => onNavigate(item.id)}
-                />
-              ))}
+        {groups.map((group, gi) => {
+          if (group.items.length === 0) return null;
+          return (
+            <div key={group.key}>
+              {gi > 0 && <div className="nav-divider" />}
+              {!collapsed && (
+                <div
+                  className="px-3 pt-3 pb-1.5 text-2xs font-semibold uppercase tracking-wider"
+                  style={{ color: 'var(--text-sidebar)', opacity: 0.6 }}
+                >
+                  {group.label}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavItemButton
+                    key={item.id}
+                    item={item}
+                    active={view === item.id}
+                    collapsed={collapsed}
+                    onClick={() => onNavigate(item.id)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Theme toggle + Version */}
@@ -400,40 +459,62 @@ export default function App() {
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  // Build nav items
+  // Build nav items — 6 clean categories
   const navItems: NavItem[] = [
-    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'main' },
-    { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'main' },
-    { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'main' },
-    { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'main' },
-    { id: 'context', label: 'Context Compare', icon: <Columns2 size={18} />, group: 'main' },
-    { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'main' },
-    { id: 'impact', label: 'Impact Analysis', icon: <Zap size={18} />, group: 'main' },
-    { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'main' },
-    { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'main' },
-    { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'main' },
-    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'main' },
-    { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'main' },
-    { id: 'whatif', label: 'What-If', icon: <Zap size={18} />, group: 'main' },
-    { id: 'live-tasks', label: 'Live Tasks', icon: <Activity size={18} />, group: 'main' },
-    { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'main' },
-    { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'main' },
-    { id: 'wings', label: 'Wings', icon: <Users size={18} />, group: 'main' },
-    { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'monitoring' },
-    { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'integrations' },
-    { id: 'import-wizard', label: 'Import Wizard', icon: <Upload size={18} />, group: 'integrations' },
+    // ---- Memory ----------------------------------------------------
+    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'memory' },
+    { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'memory' },
+    { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'memory' },
+    { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'memory' },
+    { id: 'captures', label: 'Captures', icon: <Camera size={18} />, group: 'memory' },
+    { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'memory' },
+    { id: 'import-wizard', label: 'Import Wizard', icon: <Wand2 size={18} />, group: 'memory' },
+    { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'memory' },
+    { id: 'traces', label: 'Traces', icon: <Waypoints size={18} />, group: 'memory' },
+
+    // ---- Intelligence ----------------------------------------------
+    { id: 'agent-skills', label: 'Agent Skills', icon: <Sparkles size={18} />, group: 'intelligence' },
+    { id: 'insights', label: 'Knowledge Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
+    { id: 'procedures', label: 'Team Procedures', icon: <ClipboardList size={18} />, group: 'intelligence' },
+    { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'intelligence' },
+    { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'intelligence' },
+    { id: 'community-insights', label: 'Community Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
+    { id: 'shared-patterns', label: 'Shared Patterns', icon: <Share2 size={18} />, group: 'intelligence' },
+    { id: 'context', label: 'Context Compare', icon: <Columns2 size={18} />, group: 'intelligence' },
+
+    // ---- Experiments ----------------------------------------------
+    { id: 'experiments', label: 'A/B Experiments', icon: <FlaskConical size={18} />, group: 'experiments' },
+    { id: 'impact-prediction', label: 'Impact Prediction', icon: <Gauge size={18} />, group: 'experiments' },
+    { id: 'whatif', label: 'What-If Simulator', icon: <Zap size={18} />, group: 'experiments' },
+    { id: 'branches', label: 'Knowledge Branches', icon: <GitBranch size={18} />, group: 'experiments' },
+    { id: 'impact', label: 'Impact Analysis', icon: <Zap size={18} />, group: 'experiments' },
+    { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'experiments' },
+
+    // ---- Analytics ------------------------------------------------
+    { id: 'team-health', label: 'Team Health', icon: <HeartPulse size={18} />, group: 'analytics' },
+    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'analytics' },
+    { id: 'trends', label: 'Trends', icon: <TrendingUp size={18} />, group: 'analytics' },
+    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'analytics' },
+    { id: 'live-events', label: 'Live Events', icon: <Radio size={18} />, group: 'analytics' },
+    { id: 'live-tasks', label: 'Live Sessions', icon: <Activity size={18} />, group: 'analytics' },
+    { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'analytics' },
+    { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'analytics' },
+
+    // ---- Governance ------------------------------------------------
+    { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'governance' },
+    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'governance' },
+    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'governance' },
+    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'governance' },
+    { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'governance' },
+
+    // ---- Integrations ---------------------------------------------
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
     { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} />, group: 'integrations' },
-    { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
-    { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
-    { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
-    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
-    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'monitoring' },
-    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
-    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
-
-    { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'settings' },
-    { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'settings' },
+    { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'integrations' },
+    { id: 'wings', label: 'Wings', icon: <Users size={18} />, group: 'integrations' },
+    { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'integrations' },
+    { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'integrations' },
+    { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'integrations' },
   ];
 
   // Command palette items
