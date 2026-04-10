@@ -322,6 +322,42 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 
 **Hosted Playground** -- Interactive demo at hipp0.ai/playground. Visitors get an ephemeral sandboxed SQLite database with 50 pre-seeded decisions across 6 agents. 5 pre-built scenarios showcase role differentiation, contradictions, team procedures, impact prediction, and skill profiling. Zero AI credits needed.
 
+**Cost Tracking & Budget Caps** -- Every LLM call made by the distillery is logged in `llm_usage` with a computed USD cost. `GET /api/projects/:id/cost/usage` returns today/yesterday/week/month totals plus a trend. `GET /api/projects/:id/cost/history?days=30` returns a zero-filled time series. `PUT /api/projects/:id/cost/budget` sets a daily cap; when the cap is hit, extractions are skipped (not failed) so the rest of the pipeline keeps running. A global default lives in `HIPP0_DAILY_BUDGET_USD` and overages can fire `HIPP0_COST_ALERTS_WEBHOOK`.
+
+**Onboarding Checklist** -- New projects land on a dashboard checklist that walks users through registering an agent, recording their first decision, running a compile, configuring a connector, and enabling a framework integration. State persists per-project and auto-updates from real events.
+
+**Live Events in Dashboard** -- The dashboard holds an open `/ws/events` connection and streams decisions, contradictions, outcomes, compiles, comments, approvals, and experiments into a live activity pane with no polling.
+
+**Getting Started Tutorial** -- A soup-to-nuts walkthrough from install to first compile lives at [docs/getting-started.md](docs/getting-started.md).
+
+**Decision Feedback (Thumbs Up/Down)** -- Agents and humans can rate any decision that showed up in a compiled context window. `POST /api/projects/:id/feedback` records positive/negative/neutral feedback, optional usage signal (`used`, `mentioned`, `ignored`, `misleading`), and a free-text comment. Negative signals flow back into the relevance learner and flag decisions for the review queue.
+
+**Project Templates** -- Four pre-built starter templates -- SaaS backend, ML pipeline, documentation site, and mobile app -- each ships with opinionated agents, tags, and seeded decisions. `GET /api/templates` lists them, `GET /api/templates/:id` returns the full spec, and `POST /api/projects/:id/apply-template` seeds an empty project in one call.
+
+**Per-Agent API Keys** -- Mint a dedicated credential for each agent. `POST /api/projects/:id/agents/:agentId/keys` returns `{ key: "h0_agent_<32 hex>", id, ... }` exactly once; only the hash, name, and last-used timestamp are stored after that. Keys scope every request to a single agent so you can rotate, audit, and revoke per-agent without touching the project-level key.
+
+**LLM Explanation Layer** -- The contrastive explainer is still zero-LLM by default, but passing `?pretty=true` on a compile (on top of `?explain=true`) rewrites the deterministic "why A beat B" text into short, plain-English prose. The deterministic version is always preserved so you can show them side-by-side.
+
+**Framework Guides** -- Deep, copy-paste-ready tutorials for every supported framework live under [docs/framework-guides/](docs/framework-guides/): CrewAI, LangGraph, AutoGen, LangChain, and OpenAI Agents.
+
+**Troubleshooting Guide** -- A dedicated page that collects every error users have hit, the real message, the root cause, and the fix. Covers install, CLI, Docker, dashboard, compile, framework integrations, and deployment. See [docs/troubleshooting.md](docs/troubleshooting.md).
+
+**Multi-Tenant Row-Level Security** -- When running on PostgreSQL, Hipp0 uses native RLS policies keyed on `tenant_id` and `project_id` so every row a tenant reads, writes, or deletes is mechanically isolated from every other tenant -- even if an application-level check is bypassed. A per-request hook resets the session project context on every response so context from one request can never leak into the next.
+
+**Distillery Retry & Circuit Breaker** -- The distillery wraps every LLM provider call in `withRetry` (exponential backoff with error classification) and a `CircuitBreaker` (fail fast when a provider is down). State is exposed on `GET /api/health` as `distillery.anthropic_breaker`, `distillery.openai_breaker`, and `distillery.queued_extractions` so you can alert on open breakers before users notice.
+
+**Local Embedding Fallback** -- Offline, air-gapped, or rate-limited? Set `HIPP0_EMBEDDING_PROVIDER=local` (or `auto`, which prefers OpenAI when available) and Hipp0 loads `Xenova/all-MiniLM-L6-v2` via `@xenova/transformers` on first use. Produces 384-dim vectors padded to 1536 for pgvector compatibility. The model is cached under `/tmp/hipp0-models`.
+
+**Migration CLI** -- `hipp0 migrate dump|restore|copy` moves projects, agents, decisions, edges, outcomes, sessions, and captures between Hipp0 instances via an NDJSON format (`hipp0-migrate-ndjson@1`). Conflict strategy is configurable (`skip`, `overwrite`, `fail`). `copy --from X --to Y` runs dump-then-restore in a single command using an intermediate temp file.
+
+**Dashboard Export** -- Any dashboard table (decisions, agents, outcomes, audit log, feedback) exports to CSV or Markdown with a single click.
+
+**Notion Connector** -- `POST /api/projects/:id/connectors/notion/sync` pulls pages from a Notion workspace (or a specific database), runs the distillery over the content, and imports extracted decisions. Tokens are request-scoped, never persisted. Preview via `POST /api/projects/:id/connectors/notion/preview`. List available pages with `GET /api/projects/:id/connectors/notion/pages`.
+
+**Linear Connector** -- `POST /api/projects/:id/connectors/linear/sync` pulls Linear issues (optionally filtered by `team_id` and `state_type`) and extracts decisions from issue descriptions, comments, and resolution notes. List targets with `GET /api/projects/:id/connectors/linear/issues`.
+
+**Slack Connector** -- `POST /api/projects/:id/connectors/slack/sync` backfills a Slack channel, extracts decisions from threaded discussions, and mirrors them into Hipp0. List candidate channels with `GET /api/projects/:id/connectors/slack/channels`. Works with user and bot tokens.
+
 **Import & Sync** -- GitHub PR scanning via Octokit, AI-powered decision extraction from PR diffs, preview before import, permanent webhook-driven sync.
 
 **Governance** -- Review queue for pending decisions, approve/reject workflow with audit trail, policy enforcement with block/warn rules, violation tracking, weekly digest.
@@ -362,9 +398,67 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 | OpenTelemetry observability | Yes | No | No | No |
 | Collaborative comments/approvals | Yes | No | No | No |
 | Hosted interactive playground | Yes | No | No | No |
+| Cost tracking + budget caps | Yes | No | No | No |
+| Decision feedback (thumbs up/down) | Yes | No | No | No |
+| Project templates | Yes (4) | No | No | No |
+| Per-agent API keys | Yes | No | No | No |
+| LLM-rewritten explanations | Yes (`?pretty=true`) | No | No | No |
+| Framework guides | Yes (5) | No | No | No |
+| Troubleshooting guide | Yes | No | No | No |
+| Multi-tenant PostgreSQL RLS | Yes | No | No | No |
+| Distillery retry + circuit breaker | Yes | No | No | No |
+| Local embedding fallback (offline) | Yes (MiniLM) | No | No | No |
+| Migration CLI (dump/restore/copy) | Yes | No | No | No |
+| Dashboard CSV/Markdown export | Yes | No | No | No |
+| Notion connector | Yes | No | No | No |
+| Linear connector | Yes | No | No | No |
+| Slack connector | Yes | No | No | No |
 | MCP server | 21 tools | No | No | No |
 | Self-hosted | Free forever | Cloud only | Yes | Yes |
 | Open source | Apache 2.0 | Apache 2.0 | MIT | MIT |
+
+---
+
+## CLI
+
+```bash
+npm install -g @hipp0/cli
+# or: npx @hipp0/cli <command>
+```
+
+Core commands:
+
+```bash
+hipp0 init <name>                       # Spin up a local project + SQLite + dashboard
+hipp0 start                             # Restart a project in the current directory
+hipp0 status                            # Check server + dashboard + DB health
+hipp0 stop                              # Stop the local project
+hipp0 add <title> --by <agent> --tags t # Record a decision
+hipp0 compile <agent> <task>            # Compile context and print markdown to stdout
+hipp0 import github --repo owner/repo   # Scan PRs and import decisions
+hipp0 benchmark --suite all             # Run the reproducible benchmark suite
+```
+
+### Migration
+
+Move data between Hipp0 instances (e.g. SQLite dev → PostgreSQL staging → production):
+
+```bash
+# Dump everything (or a single project) to NDJSON
+hipp0 migrate dump --output backup.ndjson
+hipp0 migrate dump --output one-project.ndjson --project <id>
+
+# Restore a dump into the current server
+hipp0 migrate restore --input backup.ndjson --conflict skip
+
+# One-step copy between two running servers
+hipp0 migrate copy \
+  --from https://dev.hipp0.local \
+  --to   https://prod.hipp0.example \
+  --conflict overwrite
+```
+
+Conflict strategies: `skip` (default), `overwrite`, or `fail`. Full reference: [docs/cli.md](docs/cli.md).
 
 ---
 
@@ -403,6 +497,17 @@ client = Hipp0Client(base_url="http://localhost:3100", api_key="key")
 | `HIPP0_AUTH_REQUIRED` | No | Set `false` for local dev. Always `true` in production. |
 | `HIPP0_LLM_MODEL` | No | Override the default LLM model |
 | `DATABASE_URL` | No | Custom PostgreSQL connection string |
+| `HIPP0_EMBEDDING_PROVIDER` | No | `openai`, `local`, or `auto`. `local` uses `@xenova/transformers` (MiniLM) |
+| `HIPP0_DAILY_BUDGET_USD` | No | Global default daily LLM spend cap (override per project) |
+| `HIPP0_COST_ALERTS_WEBHOOK` | No | Webhook fired when a project hits its daily budget |
+| `HIPP0_SCHEDULER_ENABLED` | No | `true` to run the background reflection worker |
+| `HIPP0_PLAYGROUND_ENABLED` | No | `true` to expose the `/api/playground/*` routes |
+| `HIPP0_TELEMETRY_ENABLED` | No | `true` to export OTLP traces and metrics |
+| `HIPP0_OTLP_ENDPOINT` | No | OTLP/HTTP endpoint (default `http://localhost:4318`) |
+| `HIPP0_OTEL_SERVICE_NAME` | No | OTel resource name (default `hipp0-server`) |
+| `HIPP0_OTEL_SERVICE_VERSION` | No | OTel resource version |
+| `HIPP0_SMTP_HOST` / `_PORT` / `_USER` / `_PASS` / `_FROM` | No | SMTP for weekly email digests |
+| `HIPP0_SHARE_PATTERNS` | No | `true` to auto-share anonymized patterns with the community |
 
 Full reference: [`.env.example`](.env.example)
 
@@ -410,18 +515,22 @@ Full reference: [`.env.example`](.env.example)
 
 ## Documentation
 
+Full index with one-line descriptions of every page lives at [docs/README.md](docs/README.md). Quick links:
+
 | Document | Description |
 |----------|-------------|
-| [Getting Started](docs/getting-started.md) | Deploy from zero to running |
+| [Getting Started](docs/getting-started.md) | Install, first project, first compile |
 | [Architecture](docs/architecture.md) | System design and component internals |
 | [API Reference](docs/api-reference.md) | Complete REST API documentation |
+| [Self-Hosting](docs/self-hosting.md) | Docker, reverse proxies, TLS, backups |
+| [Troubleshooting](docs/troubleshooting.md) | Real errors and how to fix them |
 | [MCP Setup](docs/mcp-setup.md) | Claude Desktop, Cursor, any MCP client |
 | [TypeScript SDK](docs/sdk.md) | Full SDK method reference |
 | [Python SDK](docs/python-sdk.md) | Python SDK reference |
 | [CLI](docs/cli.md) | CLI commands and flags |
 | [H0C Format](docs/h0c-format.md) | Token compression (8-33x) |
 | [Benchmarks](docs/benchmarks.md) | Running and interpreting benchmarks |
-| [Framework Guides](docs/framework-guides/) | LangGraph, CrewAI, AutoGen, OpenAI Agents |
+| [Framework Guides](docs/framework-guides/) | CrewAI, LangGraph, AutoGen, LangChain, OpenAI Agents |
 
 ---
 

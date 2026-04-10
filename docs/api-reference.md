@@ -982,3 +982,806 @@ Revoke an API key.
 ```json
 {"revoked": true, "id": "key-uuid"}
 ```
+
+---
+
+## Per-Agent API Keys
+
+Per-agent keys scope every request to a single agent inside a project. Raw keys are minted as `h0_agent_<32 hex>` and only the hash is stored after creation.
+
+### POST /api/projects/:id/agents/:agentId/keys
+
+Create a per-agent key. The raw key is returned **exactly once**.
+
+**Request body**
+```json
+{
+  "name": "production-ci-bot",
+  "scopes": ["read", "write"]
+}
+```
+
+**Response 201**
+```json
+{
+  "id": "uuid",
+  "key": "h0_agent_3f2a…",
+  "name": "production-ci-bot",
+  "agent_id": "uuid",
+  "project_id": "uuid",
+  "scopes": ["read", "write"],
+  "warning": "Store this key securely. It will not be shown again."
+}
+```
+
+---
+
+### GET /api/projects/:id/agents/:agentId/keys
+
+List per-agent keys (hash prefix, name, scopes, `last_used_at`, `created_at`).
+
+**Response 200**
+```json
+{
+  "keys": [
+    { "id": "uuid", "name": "production-ci-bot", "prefix": "h0_agent_3f2a", "last_used_at": "2026-04-10T08:15:00Z" }
+  ]
+}
+```
+
+---
+
+### DELETE /api/projects/:id/agents/:agentId/keys/:keyId
+
+Revoke a per-agent key.
+
+**Response 200**
+```json
+{"revoked": true, "id": "key-uuid"}
+```
+
+---
+
+## Decision Feedback (Thumbs Up/Down)
+
+High-signal feedback on whether a specific decision helped when it showed up in a compile. Feeds the relevance learner and, when negative, flags decisions for the review queue.
+
+### POST /api/projects/:id/feedback
+
+Record a rating for a specific decision.
+
+**Request body**
+```json
+{
+  "decision_id": "uuid",
+  "agent_name": "alice",
+  "rating": "positive",
+  "usage_signal": "used",
+  "comment": "Used this as the source of truth for the auth flow.",
+  "compile_request_id": "optional-uuid",
+  "rated_by": "human:alice@team.io"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `decision_id` | UUID | ✓ | Decision being rated |
+| `agent_name` | string | ✓ | Who saw the decision in their compile |
+| `rating` | enum | ✓ | `positive`, `negative`, or `neutral` |
+| `usage_signal` | enum | — | `used`, `mentioned`, `ignored`, `misleading` |
+| `comment` | string | — | Max 5000 chars |
+| `compile_request_id` | UUID | — | Link feedback to a specific compile |
+| `rated_by` | string | — | Free-text rater identifier |
+
+**Response 201**
+```json
+{ "recorded": true }
+```
+
+---
+
+### POST /api/projects/:id/decisions/:decisionId/feedback
+
+Same payload as above with `decision_id` pulled from the URL — convenient for dashboards.
+
+---
+
+### GET /api/projects/:id/decisions/:decisionId/feedback
+
+Aggregate summary for a decision.
+
+**Response 200**
+```json
+{
+  "decision_id": "uuid",
+  "project_id": "uuid",
+  "total": 14,
+  "positive": 11,
+  "negative": 2,
+  "neutral": 1,
+  "net_score": 9,
+  "score_ratio": 0.846,
+  "recent_comments": [
+    { "rating": "positive", "comment": "Saved me 2 hours.", "rated_by": "alice", "created_at": "2026-04-10T08:15:00Z" }
+  ]
+}
+```
+
+---
+
+### GET /api/projects/:id/feedback/top-rated
+
+Top decisions by net positive feedback.
+
+**Query params:** `agent_name` (optional), `limit` (default 20, max 200).
+
+---
+
+### GET /api/projects/:id/feedback/flagged
+
+Decisions with negative feedback ≥ positive feedback — candidates for the review queue.
+
+---
+
+## Project Templates
+
+Four pre-built templates seed agents, tags, and decisions for common project types: SaaS backend, ML pipeline, documentation site, mobile app.
+
+### GET /api/templates
+
+List every template.
+
+**Response 200**
+```json
+{
+  "templates": [
+    { "id": "saas-backend", "name": "SaaS Backend", "description": "…", "tags": ["api","auth"], "agent_count": 5, "decision_count": 12 },
+    { "id": "ml-pipeline",  "name": "ML Pipeline",  "description": "…", "tags": ["ml","data"],  "agent_count": 4, "decision_count": 10 }
+  ]
+}
+```
+
+---
+
+### GET /api/templates/:id
+
+Return a single template's full spec (all agents, decisions, metadata).
+
+---
+
+### POST /api/projects/:id/apply-template
+
+Seed an empty project from a template.
+
+**Request body**
+```json
+{ "template_id": "saas-backend" }
+```
+
+**Response 200**
+```json
+{
+  "success": true,
+  "template": { "id": "saas-backend", "name": "SaaS Backend" },
+  "agents_created": 5,
+  "decisions_created": 12
+}
+```
+
+---
+
+## Cost Tracking & Budgets
+
+Every distillery LLM call is recorded in `llm_usage` with a computed USD cost. Projects can cap daily spend; when hit, further extractions are **skipped**, not failed.
+
+### GET /api/projects/:id/cost/usage
+
+Today's usage plus comparison buckets (yesterday / week / month) and a trend percentage.
+
+**Response 200**
+```json
+{
+  "today":     { "total_cost_usd": 1.23, "total_tokens": 45000, "call_count": 12 },
+  "yesterday": { "total_cost_usd": 0.91, "total_tokens": 32000, "call_count": 9 },
+  "week":      { "total_cost_usd": 6.44 },
+  "month":     { "total_cost_usd": 23.10 },
+  "trend_pct": 35.16
+}
+```
+
+---
+
+### GET /api/projects/:id/cost/history?days=30
+
+Time-series, zero-filled, most recent first. `days` must be 1-365.
+
+**Response 200**
+```json
+{
+  "days": 30,
+  "series": [
+    { "date": "2026-04-10", "cost_usd": 1.23, "tokens": 45000, "call_count": 12 },
+    { "date": "2026-04-09", "cost_usd": 0.91, "tokens": 32000, "call_count": 9 }
+  ],
+  "total_cost_usd": 23.10,
+  "total_calls": 234
+}
+```
+
+---
+
+### GET /api/projects/:id/cost/budget
+
+Current budget status.
+
+**Response 200**
+```json
+{
+  "cap_usd": 5.00,
+  "spent_today_usd": 1.23,
+  "remaining_usd": 3.77,
+  "unlimited": false,
+  "source": "project"
+}
+```
+
+`remaining_usd` is `null` when there is no cap. `source` is `"project"` (set via this endpoint) or `"env"` (inherited from `HIPP0_DAILY_BUDGET_USD`).
+
+---
+
+### PUT /api/projects/:id/cost/budget
+
+Set or clear the daily cap.
+
+**Request body**
+```json
+{ "daily_usd": 10 }
+```
+
+- `{ "daily_usd": null }` or `{ "clear": true }` clears the cap and falls back to `HIPP0_DAILY_BUDGET_USD`.
+- Optional `per_operation` sub-caps can be provided as `{ "per_operation": { "distill": 2.50 } }`.
+
+**Response 200**
+```json
+{
+  "budget": { "daily_usd": 10 },
+  "status": {
+    "cap_usd": 10,
+    "spent_today_usd": 1.23,
+    "remaining_usd": 8.77,
+    "unlimited": false,
+    "source": "project"
+  }
+}
+```
+
+---
+
+## Connectors — Notion / Linear / Slack
+
+Pulls content from an upstream SaaS into the distillery and imports extracted decisions. Tokens are provided per-request (body, `X-Connector-Token` header, or `Authorization: Bearer`) and never persisted.
+
+### Notion
+
+#### GET /api/projects/:id/connectors/notion/pages
+
+List pages that the supplied token can see. Optional `?database_id=…` filters to a specific database.
+
+**Response 200** — `{ "pages": [ { "id": "uuid", "title": "…", "url": "…" } ] }`
+
+#### POST /api/projects/:id/connectors/notion/sync
+
+Fetch pages, run the distillery, and write extracted decisions to the project.
+
+**Request body**
+```json
+{
+  "token": "secret_abc…",
+  "database_id": "optional-uuid",
+  "limit": 50
+}
+```
+
+**Response 200** — `{ "status": "ok", "pages_scanned": 32, "decisions_found": 17, "decisions_imported": 14 }`
+
+#### POST /api/projects/:id/connectors/notion/preview
+
+Same inputs as `/sync` but never writes — returns the extracted decisions for review.
+
+---
+
+### Linear
+
+#### GET /api/projects/:id/connectors/linear/issues
+
+List issues. Optional `?team_id=…&state_type=backlog|started|completed|cancelled`.
+
+#### POST /api/projects/:id/connectors/linear/sync
+
+**Request body**
+```json
+{
+  "token": "lin_api_…",
+  "team_id": "optional-uuid",
+  "state_type": "completed",
+  "limit": 25
+}
+```
+
+**Response 200** — `{ "status": "ok", "issues_scanned": 25, "decisions_found": 9, "decisions_imported": 8 }`
+
+#### POST /api/projects/:id/connectors/linear/preview
+
+Dry run.
+
+---
+
+### Slack
+
+#### GET /api/projects/:id/connectors/slack/channels
+
+List channels the bot/user token can see.
+
+#### POST /api/projects/:id/connectors/slack/sync
+
+**Request body**
+```json
+{
+  "token": "xoxb-…",
+  "channel_id": "C0123456789",
+  "since": "2026-04-01T00:00:00Z",
+  "limit": 500
+}
+```
+
+`channel_id` is required. `since` defaults to 30 days ago.
+
+**Response 200** — `{ "status": "ok", "messages_scanned": 480, "decisions_found": 12, "decisions_imported": 12 }`
+
+#### POST /api/projects/:id/connectors/slack/preview
+
+Dry run.
+
+---
+
+### Unified Preview
+
+#### POST /api/projects/:id/connectors/:source/preview
+
+`source` is `notion`, `linear`, or `slack`. Returns `{ source, preview: [...], stats: {...} }`.
+
+---
+
+## Insights Pipeline
+
+Three-tier knowledge pipeline: raw traces → facts → distilled insights (procedures, policies, anti-patterns, domain rules).
+
+### POST /api/projects/:id/insights/generate
+
+Run the pipeline. Creates insights from the accumulated facts, filtered by confidence threshold.
+
+**Response 200**
+```json
+{
+  "insights_created": 4,
+  "facts_processed": 87,
+  "elapsed_ms": 2310
+}
+```
+
+### GET /api/projects/:id/insights
+
+List insights for a project.
+
+**Query params:** `status` (`active`, `superseded`), `kind` (`procedure`, `policy`, `anti_pattern`, `domain_rule`), `limit`, `offset`.
+
+### PATCH /api/projects/:id/insights/:insightId
+
+Update status, confidence, or metadata of an insight.
+
+---
+
+## Reflection & Traces
+
+Automated self-improvement cycles — dedup, contradiction detection, skill updates, evolution scans, insight generation.
+
+### POST /api/projects/:id/reflect
+
+Run a reflection cycle.
+
+**Request body**
+```json
+{ "type": "hourly" }
+```
+
+Valid types: `hourly`, `daily`, `weekly`. Returns the list of sub-tasks run and their results.
+
+### GET /api/projects/:id/reflections
+
+List prior reflection runs.
+
+### POST /api/projects/:id/traces
+
+Record a raw trace event (tool_call, api_response, error, observation, artifact_created, code_change).
+
+**Request body**
+```json
+{
+  "kind": "tool_call",
+  "actor": "builder-agent",
+  "payload": { "tool": "git", "args": ["log", "--oneline"] },
+  "tags": ["git"]
+}
+```
+
+### GET /api/projects/:id/traces
+
+List traces with optional `kind` filter.
+
+### POST /api/projects/:id/traces/distill
+
+Run `distillTraces` over accumulated traces to mine implicit decisions.
+
+### GET /api/scheduler/status
+
+Return the scheduler state (`enabled`, `next_run_at`, `active_projects`).
+
+### POST /api/scheduler/trigger
+
+Manually trigger a pass over all active projects. Admin-only.
+
+---
+
+## Knowledge Branches
+
+Git-style forks of the decision graph.
+
+### POST /api/projects/:id/branches
+
+Create a new branch from the current graph state.
+
+**Request body** — `{ "name": "experiment-cockroach", "base_branch": "main" }`
+
+### GET /api/projects/:id/branches
+
+List branches.
+
+### GET /api/projects/:id/branches/:branchId/diff
+
+Return the diff between a branch and its base (added, removed, modified decisions and edges).
+
+### POST /api/projects/:id/branches/:branchId/merge
+
+Merge a branch back into its base.
+
+### DELETE /api/projects/:id/branches/:branchId
+
+Delete a branch.
+
+---
+
+## Experiments (Decision A/B Testing)
+
+### POST /api/projects/:id/experiments
+
+Start a head-to-head experiment comparing two decisions.
+
+**Request body**
+```json
+{
+  "decision_a_id": "uuid",
+  "decision_b_id": "uuid",
+  "hypothesis": "B ships faster than A",
+  "metric": "outcome_success_rate",
+  "min_samples": 30
+}
+```
+
+### GET /api/projects/:id/experiments
+
+List experiments.
+
+### GET /api/projects/:id/experiments/:experimentId
+
+Return experiment state, observed metrics, and z-test statistical significance.
+
+### POST /api/projects/:id/experiments/:experimentId/resolve
+
+Declare a winner (`decision_a`, `decision_b`, or `inconclusive`).
+
+---
+
+## Team Procedures
+
+Auto-extracted reusable team workflows from `compile_history`.
+
+### GET /api/projects/:id/procedures
+
+List extracted procedures.
+
+### POST /api/projects/:id/procedures/extract
+
+Re-run the extraction over recent compile history.
+
+### GET /api/projects/:id/procedures/suggest?task=…
+
+Suggest the best-matching procedure for a task description.
+
+### POST /api/projects/:id/procedures/:procedureId/executions
+
+Record that a procedure was executed (feeds into the success-rate signal).
+
+---
+
+## Memory Analytics
+
+### GET /api/projects/:id/analytics/health
+
+Team health metrics: decision velocity, contradiction rate, feedback health, outcome coverage.
+
+### GET /api/projects/:id/analytics/trends?days=30
+
+Trend over time for the headline metrics.
+
+### GET /api/projects/:id/analytics/digest/latest
+
+The most recent weekly digest.
+
+### POST /api/projects/:id/analytics/digest/generate
+
+Generate a new digest (on-demand, outside the schedule).
+
+### GET /api/projects/:id/analytics/digests
+
+List all prior digests.
+
+### POST /api/projects/:id/digest/delivery
+
+Configure delivery channels (email, Slack webhook, generic webhook).
+
+**Request body**
+```json
+{
+  "channel": "email",
+  "target": "team@example.com",
+  "frequency": "weekly"
+}
+```
+
+### GET /api/projects/:id/digest/delivery
+
+List delivery configs for the project.
+
+### DELETE /api/projects/:id/digest/delivery/:configId
+
+Remove a delivery config.
+
+### POST /api/projects/:id/digest/send
+
+Send the latest digest to all configured channels immediately.
+
+---
+
+## Simulation & What-If
+
+### POST /api/simulation/preview
+
+Preview the effect of a single proposed decision on the current graph.
+
+### POST /api/simulation/historical
+
+Run a proposed decision against the historical graph and measure outcome deltas.
+
+### POST /api/simulation/apply
+
+Commit a previewed simulation as real decisions.
+
+### POST /api/simulation/predict-impact
+
+Predict success rate, risk factors, and affected agents for a proposed decision based on similar past decisions.
+
+**Request body**
+```json
+{
+  "project_id": "uuid",
+  "decision": {
+    "title": "Move to Kafka",
+    "tags": ["infrastructure","messaging"],
+    "affects": ["builder","ops"]
+  }
+}
+```
+
+### POST /api/simulation/multi-change
+
+Multi-decision what-if — evaluate a batch of proposed decisions together.
+
+### POST /api/simulation/cascade
+
+Propagate a decision through `decision_edges` up to 3 levels deep and return every downstream decision affected.
+
+### POST /api/simulation/rollback
+
+Given a decision ID, compute which downstream changes would need to be rolled back if the decision itself were reverted.
+
+---
+
+## Shared Patterns (Network Effects)
+
+### GET /api/shared-patterns
+
+List community patterns. Auth-free, read-only.
+
+### GET /api/shared-patterns/community-stats
+
+Aggregate counts (total patterns, projects contributing, patterns per domain).
+
+### GET /api/projects/:id/suggested-patterns
+
+Suggest community patterns relevant to the current project's tag distribution.
+
+### POST /api/projects/:id/patterns/:patternId/adopt
+
+Adopt a community pattern into the project's own memory.
+
+### POST /api/projects/:id/patterns/share
+
+Share a locally discovered pattern back to the community (anonymized).
+
+---
+
+## Collaboration — Comments, Approvals, Annotations
+
+### Comments
+
+#### GET /api/projects/:id/decisions/:decisionId/comments
+
+List threaded comments on a decision.
+
+#### POST /api/projects/:id/decisions/:decisionId/comments
+
+**Request body** — `{ "body": "Looks great.", "author": "alice", "parent_id": "optional-uuid" }`
+
+#### PATCH /api/projects/:id/decisions/:decisionId/comments/:commentId
+
+Edit a comment (author-only).
+
+#### DELETE /api/projects/:id/decisions/:decisionId/comments/:commentId
+
+Delete a comment (soft delete, preserves thread).
+
+#### GET /api/projects/:id/comments/recent
+
+Recent comments across all decisions.
+
+### Approvals
+
+#### POST /api/projects/:id/decisions/:decisionId/approvals
+
+Create an approval request.
+
+**Request body**
+```json
+{
+  "requested_by": "alice",
+  "approvers": ["bob", "carol"],
+  "reason": "Breaking auth flow change"
+}
+```
+
+#### GET /api/projects/:id/decisions/:decisionId/approvals
+
+List approvals for a decision.
+
+#### POST /api/projects/:id/approvals/:approvalId/approve
+
+Approve an approval request.
+
+#### POST /api/projects/:id/approvals/:approvalId/reject
+
+Reject an approval request.
+
+#### GET /api/projects/:id/approvals/pending
+
+All pending approvals across the project.
+
+### Annotations
+
+#### GET /api/projects/:id/decisions/:decisionId/annotations
+
+List inline annotations on a decision.
+
+#### POST /api/projects/:id/decisions/:decisionId/annotations
+
+**Request body** — `{ "field": "reasoning", "start": 42, "end": 128, "note": "Check this.", "author": "alice" }`
+
+#### PATCH /api/projects/:id/annotations/:annotationId
+
+Update an annotation.
+
+#### DELETE /api/projects/:id/annotations/:annotationId
+
+Delete an annotation.
+
+---
+
+## Playground
+
+Routes mounted when `HIPP0_PLAYGROUND_ENABLED=true`. Each session is an ephemeral sandboxed SQLite database with 50 pre-seeded decisions across 6 agents.
+
+### POST /api/playground/sessions
+
+Create a fresh session. Returns `{ session_id, expires_at, agents: [...] }`.
+
+### GET /api/playground/sessions/:sessionId
+
+Session metadata.
+
+### GET /api/playground/scenarios
+
+List the 5 canned scenarios (role differentiation, contradictions, team procedures, impact prediction, skill profiling).
+
+### POST /api/playground/:sessionId/compile
+
+Run a scoped compile against the playground session — same shape as `/api/compile`.
+
+### POST /api/playground/:sessionId/compare
+
+Run two compiles with different parameters and return them side-by-side.
+
+### GET /api/playground/stats
+
+Global aggregate stats across all active playground sessions.
+
+---
+
+## Compile — Query Parameters
+
+On top of the body fields documented above, `/api/compile` accepts these query parameters:
+
+| Param | Value | Description |
+|---|---|---|
+| `format` | `h0c` | Return the H0C 8-10x compressed format |
+| `format` | `ultra` | Return the H0C Ultra 20-33x compressed format |
+| `explain` | `true` | Attach contrastive "why A beat B" explanations (zero LLM cost) |
+| `pretty` | `true` | Requires `explain=true`. Rewrites the deterministic explanations into plain-English prose using the LLM. The deterministic version is always preserved so both can be displayed. |
+| `namespace` | `<name>` | Filter to a single namespace |
+| `include_patterns` | `false` | Suppress community pattern recommendations |
+
+---
+
+## WebSocket — Real-Time Event Stream
+
+### GET /ws/events
+
+Upgrade to a WebSocket that streams memory events for a project.
+
+**Query params**
+
+| Param | Required | Description |
+|---|---|---|
+| `project_id` | ✓ | Project to subscribe to |
+| `api_key` | ✓ | A valid API key with access to the project |
+
+**Initial frame**
+```json
+{ "type": "connected", "project_id": "uuid", "timestamp": "2026-04-10T08:15:00Z" }
+```
+
+**Subsequent frames** — `MemoryEvent` objects:
+
+```json
+{
+  "type": "decision_created",
+  "project_id": "uuid",
+  "decision_id": "uuid",
+  "actor": "alice",
+  "payload": { "title": "…", "tags": ["…"] },
+  "timestamp": "2026-04-10T08:15:00Z"
+}
+```
+
+Event types include: `decision_created`, `decision_updated`, `decision_superseded`, `decision_reverted`, `contradiction_detected`, `contradiction_resolved`, `outcome_recorded`, `context_compiled`, `comment_added`, `approval_requested`, `approval_approved`, `approval_rejected`, `experiment_resolved`, `reflection_completed`.
+
+The `@hipp0/sdk` package exposes `Hipp0EventStream` for typed access from TypeScript.
+

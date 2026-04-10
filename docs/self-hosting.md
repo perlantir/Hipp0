@@ -11,6 +11,8 @@ This guide covers everything you need to run Hipp0 in production: Docker Compose
 - [Manual Installation](#manual-installation)
 - [Environment Configuration](#environment-configuration)
 - [Nginx Reverse Proxy](#nginx-reverse-proxy)
+- [Caddy Reverse Proxy (Cloudflare-Friendly)](#caddy-reverse-proxy-cloudflare-friendly)
+- [Vercel: Playground Environment Variables](#vercel-playground-environment-variables)
 - [TLS / SSL with Let's Encrypt](#tls--ssl-with-lets-encrypt)
 - [Database Management](#database-management)
 - [Backups](#backups)
@@ -27,16 +29,16 @@ A production Hipp0 deployment consists of three services:
 
 ```
 Internet
-   │
-   ▼
+   |
+   v
 nginx (80/443)
-   │
-   ├──── /api/*    ──▶  hipp0-server   (port 3100)
-   │                        │
-   └──── /*         ──▶  hipp0-dashboard (port 3200)
-                            │
-                     PostgreSQL 17 + pgvector
-                          (port 5432)
+   |
+   +--> /api/*  ->  hipp0-server   (port 3100)
+   |                    |
+   +--> /*      ->  hipp0-dashboard (port 3200)
+                        |
+                 PostgreSQL 17 + pgvector
+                      (port 5432)
 ```
 
 All three services can run on a single VM for small deployments. For larger teams, extract PostgreSQL to a managed service (RDS, Supabase, Neon) and scale the server horizontally.
@@ -678,6 +680,132 @@ server {
 ```
 
 Set `VITE_API_URL=https://api.yourdomain.com` so the dashboard browser knows where to call the API.
+
+---
+
+## Caddy Reverse Proxy (Cloudflare-Friendly)
+
+Caddy is the simplest way to put Hipp0 behind TLS when your zone is already on Cloudflare. Cloudflare's proxy terminates TLS at the edge and expects plain HTTP on port 80 at the origin, so we point Caddy at port 80 and let it forward to Hipp0 on port 3100.
+
+### Install
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+### Configure
+
+Create `/etc/caddy/Caddyfile`:
+
+```caddy
+# Port 80 -> Hipp0 server on 3100
+# Cloudflare proxies hipp0.yourdomain.com -> origin:80, so we serve
+# plain HTTP here. Don't add TLS — Cloudflare handles it at the edge.
+:80 {
+    # Health probe bypasses everything
+    handle /api/health* {
+        reverse_proxy 127.0.0.1:3100
+    }
+
+    # API + WebSocket upgrades
+    handle /api/* {
+        reverse_proxy 127.0.0.1:3100 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto https
+            transport http {
+                keepalive 30s
+                read_timeout 60s
+            }
+        }
+    }
+
+    # Real-time event stream (/ws/events) and collab room (/ws/room)
+    handle /ws/* {
+        reverse_proxy 127.0.0.1:3100
+    }
+
+    # Dashboard
+    handle {
+        reverse_proxy 127.0.0.1:3200
+    }
+
+    encode gzip
+    log {
+        output file /var/log/caddy/hipp0.log
+        format json
+    }
+}
+```
+
+Reload Caddy:
+
+```bash
+sudo systemctl reload caddy
+```
+
+### Important: Set `HIPP0_TRUSTED_PROXY=true`
+
+When Hipp0 runs behind Caddy + Cloudflare, you **must** set this in `.env` so rate limiting, audit logs, and per-IP throttling see the real client IP from `X-Forwarded-For` instead of `127.0.0.1`:
+
+```dotenv
+HIPP0_TRUSTED_PROXY=true
+```
+
+### ufw Firewall Rules
+
+Lock down the box so only Caddy (port 80/443) and SSH are reachable from the public internet. Hipp0's internal ports (3100, 3200, 5432) should never be exposed directly:
+
+```bash
+# Deny everything by default
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Allow SSH (adjust the port if you've moved sshd)
+sudo ufw allow 22/tcp
+
+# Caddy handles 80 (Cloudflare origin) and optionally 443 (direct TLS)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Explicitly reject public access to the Hipp0 internal ports
+sudo ufw deny 3100/tcp
+sudo ufw deny 3200/tcp
+sudo ufw deny 5432/tcp
+
+# Enable
+sudo ufw enable
+sudo ufw status verbose
+```
+
+If your server is behind Cloudflare only (no direct access), consider restricting port 80/443 to [Cloudflare's published IP ranges](https://www.cloudflare.com/ips/) instead of allowing from anywhere — the `ufw` syntax is `sudo ufw allow from <cidr> to any port 80`.
+
+---
+
+## Vercel: Playground Environment Variables
+
+The public playground at `hipp0.ai/playground` is a Next.js app on Vercel that talks to a self-hosted Hipp0 server. Wire it up in the Vercel project's **Settings → Environment Variables**:
+
+| Name | Environment | Value | Why |
+|---|---|---|---|
+| `HIPP0_API_URL` | Production, Preview, Development | `https://hipp0.yourdomain.com` | Base URL the playground server-side routes call |
+| `HIPP0_PLAYGROUND_API_KEY` | Production, Preview | `h0_…` | API key minted on the origin with playground-only scope |
+| `NEXT_PUBLIC_HIPP0_WS_URL` | Production, Preview | `wss://hipp0.yourdomain.com/ws/events` | WebSocket endpoint for the live demo panels |
+| `HIPP0_PLAYGROUND_SESSION_TTL` | Production | `3600` | Seconds before an ephemeral session is reaped (default 1h) |
+| `HIPP0_ALLOWED_ORIGINS` | (on the origin) | `https://hipp0.ai,https://*.vercel.app` | CORS for preview deploys |
+
+On the **origin** Hipp0 server, enable playground routes:
+
+```dotenv
+HIPP0_PLAYGROUND_ENABLED=true
+```
+
+After editing env vars in Vercel, redeploy the project so the new values are baked into the build. `NEXT_PUBLIC_*` vars require a redeploy; private vars take effect on next request.
 
 ---
 

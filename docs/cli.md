@@ -198,6 +198,73 @@ Equivalent to `npx tsx benchmarks/runner.ts --suite <suite>`. See [docs/benchmar
 
 ---
 
+### `migrate`
+
+Move projects, agents, decisions, edges, outcomes, sessions, and captures between Hipp0 instances. Used for dev → staging → prod promotions, backups, and SQLite → PostgreSQL migrations.
+
+The export format is NDJSON (`hipp0-migrate-ndjson@1`) with one JSON record per line. Every record has a `kind` (`meta`, `project`, `agent`, `decision`, `edge`, `outcome`, `session`, `capture`) and a `data` payload.
+
+#### `migrate dump`
+
+Dump a running server to a local NDJSON file.
+
+```bash
+hipp0 migrate dump --output backup.ndjson
+hipp0 migrate dump --output one-project.ndjson --project <PROJECT_ID>
+hipp0 migrate dump --from https://dev.hipp0.local --output dev-backup.ndjson
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output <file>` | Output NDJSON file (default `hipp0-backup.ndjson`) |
+| `-p, --project <id>` | Only dump a single project |
+| `--from <url>` | Source server URL (default: `HIPP0_API_URL`) |
+
+#### `migrate restore`
+
+Restore an NDJSON dump into a running server.
+
+```bash
+hipp0 migrate restore --input backup.ndjson
+hipp0 migrate restore --input backup.ndjson --conflict overwrite
+hipp0 migrate restore --input backup.ndjson --to https://staging.hipp0.local
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-i, --input <file>` | Input NDJSON file (default `hipp0-backup.ndjson`) |
+| `--to <url>` | Target server URL (default: `HIPP0_API_URL`) |
+| `--conflict <strategy>` | `skip` (default), `overwrite`, or `fail` |
+
+#### `migrate copy`
+
+Copy data between two running servers in one step. Uses an intermediate NDJSON file.
+
+```bash
+hipp0 migrate copy \
+  --from https://dev.hipp0.local \
+  --to   https://prod.hipp0.example \
+  --conflict skip
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--from <url>` | Source server URL (required) |
+| `--to <url>` | Target server URL (required) |
+| `-p, --project <id>` | Only copy a single project |
+| `--conflict <strategy>` | `skip` (default), `overwrite`, or `fail` |
+| `--tmp <file>` | Intermediate NDJSON file (default `/tmp/hipp0-copy.ndjson`) |
+
+Both endpoints read `HIPP0_API_KEY` from the environment, so set it before running `copy`.
+
+---
+
 ## Environment Variables
 
 The CLI reads from environment variables so you don't have to pass flags every time:
