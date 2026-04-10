@@ -10,6 +10,22 @@ npx tsx benchmarks/runner.ts --suite all
 
 Results are written to `benchmarks/results/latest.md` and `benchmarks/results/latest.json`.
 
+### External benchmarks
+
+In addition to the internal suites below, Hipp0 integrates with public, peer-reviewed memory benchmarks under [`benchmarks/external/`](./external):
+
+- **[LongMemEval](./external/longmemeval/README.md)** — the standard long-term memory benchmark (5 abilities, ~500 cases). Run with:
+
+  ```bash
+  npx tsx benchmarks/external/longmemeval/cli.ts \
+    --data-path ./data/longmemeval_s.json \
+    --output benchmarks/results/external/longmemeval/run.json
+  ```
+
+  Results are written to `benchmarks/results/external/longmemeval/`. See [`docs/benchmarks/longmemeval.md`](../docs/benchmarks/longmemeval.md) for the full setup and target scores.
+
+Additional external benchmarks (BEIR, HotpotQA, RULER, CRAG) are on the roadmap in [`docs/industry-benchmarks.md`](../docs/industry-benchmarks.md).
+
 ## Suites
 
 ### Suite 1: Role-Specific Retrieval Accuracy
