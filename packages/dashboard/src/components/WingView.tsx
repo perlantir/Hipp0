@@ -265,8 +265,8 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
   if (loading) return <div style={{ padding: 20, color: 'var(--text-secondary)' }}>Loading wing data...</div>;
   if (!stats) return <div style={{ padding: 20, color: 'var(--text-secondary)' }}>No wing data found</div>;
 
-  const sortedWeights = Object.entries(stats.wing_affinity.cross_wing_weights)
-    .sort(([, a], [, b]) => b - a);
+  const sortedWeights = Object.entries(stats.wing_affinity?.cross_wing_weights ?? {})
+    .sort(([, a], [, b]) => (b as number) - (a as number));
 
   return (
     <div style={{ padding: 24 }}>
