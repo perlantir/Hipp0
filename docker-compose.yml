@@ -54,10 +54,22 @@ services:
       HIPP0_SMTP_USER: ${HIPP0_SMTP_USER:-}
       HIPP0_SMTP_PASS: ${HIPP0_SMTP_PASS:-}
       HIPP0_SMTP_FROM: ${HIPP0_SMTP_FROM:-noreply@hipp0.ai}
+      # OpenClaw one-shot import — the endpoint at
+      # POST /api/projects/:id/openclaw/import reads from this path.
+      # Inside the container this always resolves to /openclaw; the host
+      # side is controlled by HIPP0_OPENCLAW_HOST_PATH in .env below.
+      HIPP0_OPENCLAW_PATH: /openclaw
     ports:
       - "3100:3100"
     volumes:
       - ./supabase/migrations:/app/supabase/migrations:ro
+      # OpenClaw data mount — read-only. If HIPP0_OPENCLAW_HOST_PATH is
+      # unset, this mounts /tmp as a no-op (the import endpoint will
+      # simply find no workspace-* subdirs and return safely). To enable
+      # import from your real OpenClaw install, set HIPP0_OPENCLAW_HOST_PATH
+      # in .env to the host-side path containing your workspace-* dirs,
+      # e.g. /docker/openclaw-okny/data/.openclaw
+      - ${HIPP0_OPENCLAW_HOST_PATH:-/tmp}:/openclaw:ro
     restart: unless-stopped
     read_only: true
     tmpfs:
