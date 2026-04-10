@@ -45,6 +45,37 @@ hipp0 compile builder "implement the data layer"
 
 Returns decisions ranked for a builder role -- database decisions high, UI decisions deprioritized.
 
+### Zero-config auto-instrumentation
+
+Add memory to any existing agent with one line:
+
+**Python:**
+```python
+import hipp0_memory
+hipp0_memory.auto()
+
+# Your existing OpenAI/Anthropic code now automatically:
+# - Captures conversations for decision extraction
+# - Injects relevant past context before each call
+# - Tracks outcomes and learns agent skills
+from openai import OpenAI
+client = OpenAI()
+response = client.chat.completions.create(model="gpt-4o", messages=[...])
+```
+
+**TypeScript:**
+```typescript
+import { auto } from '@hipp0/sdk/auto';
+auto();
+
+// Same - zero changes to your existing code
+import OpenAI from 'openai';
+const client = new OpenAI();
+const response = await client.chat.completions.create({ model: 'gpt-4o', messages: [...] });
+```
+
+Reads `HIPP0_API_URL`, `HIPP0_API_KEY`, `HIPP0_PROJECT_ID` from env (set by `hipp0 init`). Fire-and-forget capture, never blocks your code.
+
 ### Docker Compose (production)
 
 ```bash
@@ -261,6 +292,26 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 
 **Decision A/B Testing** -- Run experiments comparing two decisions head-to-head. Create via `POST /api/projects/:id/experiments`, get results with z-test statistical significance, declare a winner.
 
+**Three-Tier Knowledge Pipeline** -- Automatically promotes raw traces into facts, then facts into distilled insights (procedures, policies, anti-patterns, domain rules). `POST /api/projects/:id/insights/generate` runs the pipeline. The compile endpoint automatically attaches relevant team insights to every context package.
+
+**Automated Reflection Loops** -- Hourly/daily/weekly self-improvement cycles that run without human intervention. Dedup, contradiction detection, skill updates, evolution scans, and insight generation. `POST /api/projects/:id/reflect` with `{type: 'hourly'|'daily'|'weekly'}`.
+
+**Broader Stigmergy** -- Implicit trace capture beyond explicit decisions. Records tool_call, api_response, error, observation, artifact_created, code_change events. `distillTraces` analyzes breadcrumbs for implicit decisions when evidence is strong (3+ similar traces).
+
+**Knowledge Branching** -- Git-style branches for the decision graph. Fork, experiment on a branch, merge winners back. `POST /api/projects/:id/branches`, `GET /api/projects/:id/branches/:id/diff`, `POST /api/projects/:id/branches/:id/merge`.
+
+**Expanded Simulation** -- Multi-decision what-if (`POST /api/simulation/multi-change`), cascade impact through decision_edges up to 3 levels deep (`POST /api/simulation/cascade`), and rollback analysis (`POST /api/simulation/rollback`).
+
+**Team Procedure Extraction** -- Analyzes compile_history to auto-extract reusable team workflows. "For auth tasks: architect -> security_reviewer -> backend (7 times, 92% success)." `GET /api/projects/:id/procedures/suggest?task=...`.
+
+**Memory Analytics** -- Team health metrics, weekly digests, trends. `GET /api/projects/:id/analytics/health`, `GET /api/projects/:id/analytics/trends?days=30`, `POST /api/projects/:id/analytics/digest/generate`.
+
+**Real-Time Event Streaming** -- WebSocket feed of memory events (decisions, contradictions, outcomes, compiles, experiments). Subscribe via `/ws/events?project_id=...&api_key=...` or use the `Hipp0EventStream` SDK client.
+
+**Cross-Project Pattern Sharing** -- Opt-in network effect. Patterns discovered in one project become available (anonymized) to others. `GET /api/shared-patterns`, `POST /api/projects/:id/patterns/share`.
+
+**Zero-Config Auto-Instrumentation** -- One line setup for Python and TypeScript. `import hipp0; hipp0.auto()` or `import { auto } from '@hipp0/sdk/auto'; auto();`. Monkey-patches OpenAI/Anthropic clients to auto-capture conversations and inject context. Fire-and-forget, never blocks.
+
 **Import & Sync** -- GitHub PR scanning via Octokit, AI-powered decision extraction from PR diffs, preview before import, permanent webhook-driven sync.
 
 **Governance** -- Review queue for pending decisions, approve/reject workflow with audit trail, policy enforcement with block/warn rules, violation tracking, weekly digest.
@@ -288,6 +339,14 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 | Contrastive explanations | Yes | No | No | No |
 | Impact prediction | Yes | No | No | No |
 | Decision A/B testing | Yes | No | No | No |
+| Three-tier knowledge pipeline | Yes | No | No | No |
+| Automated reflection loops | Yes | No | No | No |
+| Knowledge branching (git-style) | Yes | No | No | No |
+| Cascade simulation | Yes | No | No | No |
+| Team procedure extraction | Yes | No | No | No |
+| Cross-project pattern sharing | Yes (opt-in) | No | No | No |
+| Real-time event streaming | Yes (WebSocket) | No | No | No |
+| Zero-config auto-instrumentation | Yes | No | No | No |
 | MCP server | 21 tools | No | No | No |
 | Self-hosted | Free forever | Cloud only | Yes | Yes |
 | Open source | Apache 2.0 | Apache 2.0 | MIT | MIT |
