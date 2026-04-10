@@ -200,7 +200,7 @@ interface DifferentiationResults {
 }
 
 interface EfficiencyResults {
-  cases: Array<{ decisions: number; full_tokens: number; condensed_tokens: number; ratio: number }>;
+  cases: Array<{ decisions: number; full_tokens: number; min_json_tokens: number; condensed_tokens: number; ratio: number }>;
   avg_ratio: number;
   median_ratio: number;
   min_ratio: number;
@@ -840,10 +840,13 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   for (const tc of testCases) {
     // Baseline: formatted markdown (what agents actually receive in context window)
     const fullMarkdown = formatDecisionsAsMarkdown(tc.decisions);
+    // MinJSON baseline: what developers would actually send (essential fields, no pretty printing)
+    const minimalJson = JSON.stringify(tc.decisions.map(d => ({ title: d.title, description: d.description, tags: d.tags, confidence: d.confidence, made_by: d.made_by })));
     const condensed = condenseResponse(tc.decisions);
     const ultraCondensed = condenseResponseUltra(tc.decisions);
 
     const fullTokens = estimateTokens(fullMarkdown);
+    const minJsonTokens = estimateTokens(minimalJson);
     const condensedTokens = estimateTokens(condensed);
     const ultraTokens = estimateTokens(ultraCondensed);
     const ratio = fullTokens / Math.max(condensedTokens, 1);
@@ -852,6 +855,7 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
     cases.push({
       decisions: tc.decision_count,
       full_tokens: fullTokens,
+      min_json_tokens: minJsonTokens,
       condensed_tokens: condensedTokens,
       ratio: Math.round(ratio * 10) / 10,
     });
@@ -869,22 +873,23 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   const ultraAvg = ultraRatios.reduce((a, b) => a + b, 0) / ultraRatios.length;
 
   // Group by decision count for display
-  const grouped = new Map<number, { full: number; condensed: number; ratio: number; ultraRatio: number }[]>();
+  const grouped = new Map<number, { full: number; minJson: number; condensed: number; ratio: number; ultraRatio: number }[]>();
   for (let i = 0; i < cases.length; i++) {
     const c = cases[i];
     if (!grouped.has(c.decisions)) grouped.set(c.decisions, []);
-    grouped.get(c.decisions)!.push({ full: c.full_tokens, condensed: c.condensed_tokens, ratio: c.ratio, ultraRatio: ultraRatios[i] });
+    grouped.get(c.decisions)!.push({ full: c.full_tokens, minJson: c.min_json_tokens, condensed: c.condensed_tokens, ratio: c.ratio, ultraRatio: ultraRatios[i] });
   }
 
-  console.log(`\n   | Decisions | Markdown | H0C    | Ratio | Ultra  | Ultra Ratio |`);
-  console.log(`   |-----------|----------|--------|-------|--------|-------------|`);
+  console.log(`\n   | Decisions | Markdown | MinJSON | H0C    | H0C Ratio | Ultra  | Ultra Ratio |`);
+  console.log(`   |-----------|----------|---------|--------|-----------|--------|-------------|`);
   for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
     const avgFull = Math.round(entries.reduce((a, e) => a + e.full, 0) / entries.length);
+    const avgMinJson = Math.round(entries.reduce((a, e) => a + e.minJson, 0) / entries.length);
     const avgCond = Math.round(entries.reduce((a, e) => a + e.condensed, 0) / entries.length);
     const avgRatio = (entries.reduce((a, e) => a + e.ratio, 0) / entries.length).toFixed(1);
     const avgUltraRatio = (entries.reduce((a, e) => a + e.ultraRatio, 0) / entries.length).toFixed(1);
     const avgUltraTokens = Math.round(avgFull / parseFloat(avgUltraRatio));
-    console.log(`   | ${String(count).padEnd(9)} | ${String(avgFull).padEnd(8)} | ${String(avgCond).padEnd(6)} | ${avgRatio.padEnd(5)} | ${String(avgUltraTokens).padEnd(6)} | ${avgUltraRatio.padEnd(11)} |`);
+    console.log(`   | ${String(count).padEnd(9)} | ${String(avgFull).padEnd(8)} | ${String(avgMinJson).padEnd(7)} | ${String(avgCond).padEnd(6)} | ${avgRatio.padEnd(9)} | ${String(avgUltraTokens).padEnd(6)} | ${avgUltraRatio.padEnd(11)} |`);
   }
   console.log(`\n   H0C Average: ${avg.toFixed(1)}x | H0C-Ultra Average: ${ultraAvg.toFixed(1)}x`);
 

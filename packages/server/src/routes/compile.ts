@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
-import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, encodeH0CPatterns, estimateTokens } from '@hipp0/core';
+import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, encodeH0CPatterns, encodeH0CUltra, estimateTokens } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
@@ -43,13 +43,13 @@ export function registerCompileRoutes(app: Hono): void {
     const rawTaskDescription = body.task_description ?? body.task;
     const task_description = requireString(rawTaskDescription, 'task_description', 100000);
 
-      // Format parameter: h0c (default) | json/full | condensed | both | markdown
+      // Format parameter: h0c (default) | json/full | condensed | both | ultra | markdown
     // ?expanded=true is an alias for ?format=json
     // Accept header: application/json → json, otherwise h0c
     const acceptsJson = c.req.header('Accept')?.includes('application/json');
     const expandedParam = c.req.query('expanded');
     const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? (acceptsJson ? 'json' : 'h0c'));
-    const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'markdown';
+    const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'ultra' | 'markdown';
       // Depth parameter: default | full (loads L2 background decisions)
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
       // Threshold parameter: override the default minimum relevance score (0.5)
@@ -441,6 +441,25 @@ export function registerCompileRoutes(app: Hono): void {
       const patternsH0C = encodeH0CPatterns(result.suggested_patterns ?? []);
       const h0cOutput = patternsH0C ? `${h0cForRatio}\n${patternsH0C}` : h0cForRatio;
       return c.text(h0cOutput);
+    }
+
+      // Ultra format: maximally compressed H0C with tiered detail
+    if (format === 'ultra') {
+      c.header('X-Hipp0-Format', 'ultra');
+      const ultraOutput = encodeH0CUltra(result.decisions);
+      const ultraTokens = estimateTokens(ultraOutput);
+      const ultraRatio = ultraTokens > 0
+        ? Math.round((originalTokens / ultraTokens) * 10) / 10
+        : 0;
+      c.header('X-Hipp0-Compression-Ratio', `${ultraRatio}x`);
+      console.warn('[hipp0/compile-response]', { agent: agent_name, format: 'ultra', ratio: ultraRatio });
+      return c.json({
+        formatted_context: ultraOutput,
+        token_count: ultraTokens,
+        compression_ratio: ultraRatio,
+        decisions_included: result.decisions_included,
+        compile_request_id: compileRequestId,
+      });
     }
 
       // Markdown format
