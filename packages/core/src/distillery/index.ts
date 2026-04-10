@@ -41,10 +41,10 @@ export async function distill(
     };
   }
 
-  // Stage 1: Extract
+  // Stage 1: Extract (pass projectId for cost tracking + budget enforcement)
   let extracted: ExtractedDecision[];
   try {
-    extracted = await extractDecisions(conversationText);
+    extracted = await extractDecisions(conversationText, projectId);
   } catch (err) {
     console.error('[hipp0:distillery] Stage 1 (extraction) failed:', err);
     extracted = [];

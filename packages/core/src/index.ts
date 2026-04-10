@@ -405,6 +405,26 @@ export type {
   AddAnnotationInput,
 } from './intelligence/comments.js';
 
+// --- Cost Tracking & Budget Caps ---
+export {
+  recordLLMCall,
+  getProjectUsage,
+  getDailyUsage,
+  getUsageHistory,
+  checkBudget,
+  setProjectBudget,
+  estimateCostUsd,
+} from './intelligence/cost-tracker.js';
+export type {
+  LLMProvider,
+  RecordLLMCallInput,
+  LLMUsageRecord,
+  UsageSummary,
+  GetProjectUsageOptions,
+  BudgetStatus,
+  ProjectBudgetConfig,
+} from './intelligence/cost-tracker.js';
+
 // --- Digest Delivery (email, Slack, webhook) ---
 export {
   sendDigestEmail,

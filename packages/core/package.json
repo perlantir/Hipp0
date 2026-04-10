@@ -215,6 +215,10 @@
       "import": "./dist/intelligence/comments.js",
       "types": "./dist/intelligence/comments.d.ts"
     },
+    "./intelligence/cost-tracker.js": {
+      "import": "./dist/intelligence/cost-tracker.js",
+      "types": "./dist/intelligence/cost-tracker.d.ts"
+    },
     "./intelligence/digest-delivery.js": {
       "import": "./dist/intelligence/digest-delivery.js",
       "types": "./dist/intelligence/digest-delivery.d.ts"
