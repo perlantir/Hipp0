@@ -1510,4 +1510,54 @@ export function registerDecisionRoutes(app: Hono): void {
 
     return c.json({ updated, total: ids.length, namespace });
   });
+
+  // Backfill embeddings — generate embeddings for any project decisions that
+  // are missing them. Used to recover demo/seeded projects that were created
+  // before embeddings were wired up or without the embeddings provider set.
+  app.post('/api/projects/:id/embeddings/backfill', async (c) => {
+    const db = getDb();
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
+
+    const missing = await db.query<Record<string, unknown>>(
+      `SELECT id, title, description, reasoning
+         FROM decisions
+        WHERE project_id = ?
+          AND embedding IS NULL`,
+      [projectId],
+    );
+
+    const total = missing.rows.length;
+    let succeeded = 0;
+    let failed = 0;
+    const errors: Array<{ id: string; error: string }> = [];
+
+    for (const row of missing.rows) {
+      const id = row.id as string;
+      const text = `${row.title ?? ''}\n${row.description ?? ''}\n${row.reasoning ?? ''}`.trim();
+      if (!text) {
+        failed++;
+        errors.push({ id, error: 'empty title/description/reasoning' });
+        continue;
+      }
+      try {
+        const embedding = await generateEmbedding(text);
+        if (!embedding || embedding.length === 0) {
+          failed++;
+          errors.push({ id, error: 'generateEmbedding returned empty' });
+          continue;
+        }
+        await db.query(
+          'UPDATE decisions SET embedding = ? WHERE id = ?',
+          [`[${embedding.join(',')}]`, id],
+        );
+        succeeded++;
+      } catch (err) {
+        failed++;
+        errors.push({ id, error: (err as Error).message });
+      }
+    }
+
+    return c.json({ total, succeeded, failed, errors: errors.slice(0, 10) });
+  });
 }
