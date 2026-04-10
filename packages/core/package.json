@@ -1,6 +1,6 @@
 {
   "name": "@hipp0/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Core engine: decision graph, context compiler, change propagator, distillery",
   "author": "Perlantir",
   "repository": {
