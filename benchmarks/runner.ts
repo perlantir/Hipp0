@@ -15,7 +15,7 @@ import type { NaiveDecision } from './baselines/naive-rag';
 import { encodeH0C } from '../packages/core/src/compression/h0c-encoder';
 import type { ScoredDecision } from '../packages/core/src/types';
 
-// ─── Config Loading ──────────────────────────────────────
+// ─ Config Loading 
 
 interface SynonymConfig {
   pairs: [string, string][];
@@ -89,7 +89,7 @@ function expandWithSynonyms(words: Set<string>): Set<string> {
   return expanded;
 }
 
-// ─── Types ────────────────────────────────────────────────
+// ─ Types 
 
 interface Decision {
   id: string;
@@ -206,7 +206,7 @@ interface EfficiencyResults {
   max_ratio: number;
 }
 
-// ─── Domain Classification (mirrors @hipp0/core classifier) ──
+// ─ Domain Classification (mirrors @hipp0/core classifier) 
 
 const DOMAIN_KEYWORDS: Record<string, string[]> = {
   authentication: ['auth', 'jwt', 'oauth', 'session', 'login', 'password', 'token', 'refresh', 'bcrypt', 'argon2', 'authentication', 'authenticate', 'credential'],
@@ -245,7 +245,7 @@ function classifyTaskDomain(task: string): string {
   return bestDomain;
 }
 
-// ─── 5-Signal Scoring (mirrors @hipp0/core scoring pipeline) ──
+// ─ 5-Signal Scoring (mirrors @hipp0/core scoring pipeline) 
 
 function score5Signal(
   task: string,
@@ -467,7 +467,7 @@ function hipp0Retrieve(
   return filtered.slice(0, topK);
 }
 
-// ─── Contradiction Detection (keyword-based) ──
+// ─ Contradiction Detection (keyword-based) 
 
 function detectContradiction(a: Decision, b: Decision): 'contradiction' | 'compatible' | 'supersession' {
   // Same domain check
@@ -552,7 +552,7 @@ function detectContradiction(a: Decision, b: Decision): 'contradiction' | 'compa
   return 'compatible';
 }
 
-// ─── Token Estimation ──
+// ─ Token Estimation 
 
 function estimateTokens(text: string): number {
   // Use char/4 approximation (closer to real tokenizer than word-based)
@@ -604,7 +604,47 @@ function condenseResponse(decisions: Decision[]): string {
   return encodeH0C(decisions.map(toScoredDecision));
 }
 
-// ─── Metrics ──
+/**
+ * Format decisions as markdown -- mirrors the real compile output format
+ * that agents receive in their context window (formatMarkdown in context-compiler).
+ */
+function formatDecisionsAsMarkdown(decisions: Decision[]): string {
+  const lines: string[] = [];
+  lines.push(`# Context for agent (role)`);
+  lines.push(`## Task: Complete the current task`);
+  lines.push(`*Compiled at ${new Date().toISOString()} | ${decisions.length} decisions*`);
+  lines.push('');
+  lines.push('## Active Decisions');
+  if (decisions.length === 0) {
+    lines.push('_No relevant decisions found._');
+  } else {
+    for (const d of decisions) {
+      lines.push(`### ${d.title} (score: ${(d.score ?? 0.5).toFixed(2)})`);
+      lines.push(`**Status:** active | **Confidence:** ${d.confidence} | **By:** ${d.made_by}`);
+      lines.push(`**Description:** ${d.description}`);
+      lines.push(`**Reasoning:** ${d.explanation || 'No reasoning provided'}`);
+      if (d.tags.length > 0) {
+        lines.push(`**Tags:** ${d.tags.join(', ')}`);
+      }
+      lines.push('');
+    }
+  }
+  lines.push('## Notifications');
+  lines.push('_No unread notifications._');
+  lines.push('');
+  lines.push('## Artifacts');
+  lines.push('_No relevant artifacts found._');
+  lines.push('');
+  lines.push('## Recent Sessions');
+  lines.push('_No recent sessions found._');
+  lines.push('');
+  lines.push('---');
+  lines.push('*Rate this context: POST /api/feedback/batch*');
+  lines.push('*Report task results: POST /api/outcomes*');
+  return lines.join('\n');
+}
+
+// ─ Metrics 
 
 function recallAtK(retrievedIds: string[], relevantIds: string[], k: number): number {
   const topK = new Set(retrievedIds.slice(0, k));
@@ -649,7 +689,7 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(0)}%`;
 }
 
-// ─── Suite Runners ──
+// ─ Suite Runners 
 
 function runRetrievalSuite(
   candidates: Decision[],
@@ -793,10 +833,11 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   const cases: EfficiencyResults['cases'] = [];
 
   for (const tc of testCases) {
-    const fullJson = JSON.stringify(tc.decisions, null, 2);
+    // Baseline: formatted markdown (what agents actually receive in context window)
+    const fullMarkdown = formatDecisionsAsMarkdown(tc.decisions);
     const condensed = condenseResponse(tc.decisions);
 
-    const fullTokens = estimateTokens(fullJson);
+    const fullTokens = estimateTokens(fullMarkdown);
     const condensedTokens = estimateTokens(condensed);
     const ratio = fullTokens / Math.max(condensedTokens, 1);
 
@@ -819,7 +860,7 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
     grouped.get(c.decisions)!.push({ full: c.full_tokens, condensed: c.condensed_tokens, ratio: c.ratio });
   }
 
-  console.log(`\n   | Decisions | Full JSON | H0C    | Ratio |`);
+  console.log(`\n   | Decisions | Markdown | H0C    | Ratio |`);
   console.log(`   |-----------|-----------|--------|-------|`);
   for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
     const avgFull = Math.round(entries.reduce((a, e) => a + e.full, 0) / entries.length);
@@ -838,7 +879,7 @@ function runEfficiencySuite(testCases: TokenEfficiencyTestCase[]): EfficiencyRes
   };
 }
 
-// ─── Suite 5: Latency ──
+// ─ Suite 5: Latency 
 
 function percentile(sortedArr: number[], p: number): number {
   const idx = Math.ceil((p / 100) * sortedArr.length) - 1;
@@ -931,7 +972,7 @@ function runLatencySuite(testCases: LatencyTestCase[]): LatencyResults {
   };
 }
 
-// ─── Results Generation ──
+// ─ Results Generation 
 
 function generateMarkdown(results: BenchmarkResults): string {
   const lines: string[] = [
@@ -996,7 +1037,7 @@ function generateMarkdown(results: BenchmarkResults): string {
     lines.push(
       '## Token Efficiency',
       '',
-      '| Decisions | Full JSON | H0C | Ratio |',
+      '| Decisions | Markdown | H0C | Ratio |',
       '|-----------|-----------|-----|-------|',
     );
     for (const [count, entries] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
@@ -1043,7 +1084,7 @@ function generateMarkdown(results: BenchmarkResults): string {
   return lines.join('\n');
 }
 
-// ─── Main ──
+// ─ Main 
 
 async function main() {
   const args = process.argv.slice(2);

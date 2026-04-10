@@ -1,14 +1,16 @@
 /**
- * H0C (Hipp0Condensed) Encoder — high-ratio compression for compiled decisions.
+ * H0C (Hipp0Condensed) Encoder -- high-ratio compression for compiled decisions.
  *
  * Produces a compact, one-line-per-decision format with:
  * - Tag deduplication via a header index
- * - Field abbreviation (title→t, tags→g, score→s, etc.)
- * - Confidence shorthand (high→H, medium→M, low→L)
- * - Integer scores (0.92→92)
- * - Compact dates (2026-04-08T01:29:38.121Z→Apr8)
+ * - Agent deduplication via a header index
+ * - Field abbreviation (title->t, tags->g, score->s, etc.)
+ * - Confidence shorthand (high->H, medium->M, low->L)
+ * - Integer scores (0.92->92)
+ * - Compact dates (2026-04-08T01:29:38.121Z->Apr8)
+ * - Tiered detail: top decisions get description, lower ones get title only
  *
- * Target: 12-18x token reduction vs full JSON.
+ * Target: 10-12x token reduction vs full formatted markdown.
  */
 
 import type { ScoredDecision, ConfidenceLevel, SuggestedPattern } from '../types.js';
@@ -20,8 +22,10 @@ import type { ScoredDecision, ConfidenceLevel, SuggestedPattern } from '../types
 export interface H0CEncodeOptions {
   /** Include first-sentence reasoning hint (default: false) */
   includeReasoning?: boolean;
-  /** Max words for description summary (default: 10) */
+  /** Max words for description summary (default: 8) */
   maxDescriptionWords?: number;
+  /** Number of top decisions that get full detail (default: 5) */
+  fullDetailCount?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,7 +95,8 @@ export function encodeH0C(
   if (decisions.length === 0) return '#H0C v2\n---\n(empty)';
 
   const includeReasoning = options?.includeReasoning ?? false;
-  const maxDescWords = options?.maxDescriptionWords ?? 5;
+  const maxDescWords = options?.maxDescriptionWords ?? 8;
+  const fullDetailCount = options?.fullDetailCount ?? 5;
 
   // 1. Build tag index from all decisions
   const tagSet = new Set<string>();
@@ -104,45 +109,65 @@ export function encodeH0C(
   const tagIndex = new Map<string, number>();
   tagList.forEach((tag, i) => tagIndex.set(tag, i));
 
-  // 2. Build header
+  // 2. Build agent index for deduplication
+  const agentSet = new Set<string>();
+  for (const d of decisions) {
+    if (d.made_by) agentSet.add(d.made_by);
+  }
+  const agentList = [...agentSet];
+  const agentIndex = new Map<string, number>();
+  agentList.forEach((a, i) => agentIndex.set(a, i));
+
+  // 3. Build header
   const tagHeader = tagList.map((t, i) => `${i}=${t}`).join(' ');
+  const agentHeader = agentList.map((a, i) => `${i}=${a}`).join(' ');
   const lines: string[] = [];
-  lines.push(`#H0C v2`);
+  lines.push(`#H0C v3`);
   if (tagList.length > 0) {
-    lines.push(`#TAGS: ${tagHeader}`);
+    lines.push(`#T ${tagHeader}`);
+  }
+  if (agentList.length > 1) {
+    lines.push(`#A ${agentHeader}`);
   }
   lines.push('---');
 
-  // 3. One line per decision
-  for (const d of decisions) {
+  // 4. One line per decision - tiered detail
+  const sorted = [...decisions].sort((a, b) => (b.combined_score ?? 0) - (a.combined_score ?? 0));
+
+  for (let i = 0; i < sorted.length; i++) {
+    const d = sorted[i];
+    const isTopTier = i < fullDetailCount;
     const score = Math.round((d.combined_score ?? 0) * 100);
     const conf = confShorthand(d.confidence);
-    const by = safePipe(d.made_by);
-    const date = compactDate(d.created_at);
-    const title = safePipe(truncateWords(d.title, 8));
+    const agentRef = agentList.length > 1 ? String(agentIndex.get(d.made_by) ?? 0) : safePipe(d.made_by);
+    const title = safePipe(truncateWords(d.title, isTopTier ? 10 : 6));
 
     // Tag references by index
-    const tagRefs = d.tags.map((t) => tagIndex.get(t)).filter((i) => i !== undefined);
-    const tagStr = tagRefs.length > 0 ? `g:${tagRefs.join(',')}` : '';
+    const tagRefs = d.tags.map((t) => tagIndex.get(t)).filter((idx) => idx !== undefined);
+    const tagStr = tagRefs.length > 0 ? tagRefs.join(',') : '';
 
-    // Description: first sentence, truncated
-    const desc = safePipe(truncateWords(firstSentence(d.description), maxDescWords));
+    if (isTopTier) {
+      // Full detail: score, confidence, agent, date, title, tags, description
+      const date = compactDate(d.created_at);
+      const desc = safePipe(truncateWords(firstSentence(d.description), maxDescWords));
+      let line = `[${score}|${conf}|${agentRef}|${date}]${title}`;
+      if (tagStr) line += `|${tagStr}`;
+      if (desc) line += `|${desc}`;
 
-    // Namespace indicator
-    const nsStr = d.namespace ? `ns:${safePipe(d.namespace)}` : '';
-
-    // Build line: [score|conf|by:agent|date|ns:namespace] title|tags|description
-    let line = `[${score}|${conf}|${by}|${date}${nsStr ? `|${nsStr}` : ''}]${title}`;
-    if (tagStr) line += `|${tagStr}`;
-    if (desc) line += `|${desc}`;
-
-    // Optional reasoning hint
-    if (includeReasoning && d.reasoning) {
-      const reason = safePipe(truncateWords(firstSentence(d.reasoning), 8));
-      if (reason) line += `|r:${reason}`;
+      if (includeReasoning && d.reasoning) {
+        const reason = safePipe(truncateWords(firstSentence(d.reasoning), 6));
+        if (reason) line += `|r:${reason}`;
+      }
+      lines.push(line);
+    } else if (i < fullDetailCount * 3) {
+      // Mid-tier: score, agent, short title, tags
+      let line = `[${score}|${agentRef}]${title}`;
+      if (tagStr) line += `|${tagStr}`;
+      lines.push(line);
+    } else {
+      // Minimal: score and title only
+      lines.push(`[${score}]${title}`);
     }
-
-    lines.push(line);
   }
 
   return lines.join('\n');
