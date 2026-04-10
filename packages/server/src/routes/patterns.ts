@@ -8,6 +8,7 @@
 import type { Hono } from 'hono';
 import { getProjectPatterns, extractPatterns } from '@hipp0/core/intelligence/pattern-extractor.js';
 import { isAuthRequired } from '../auth/middleware.js';
+import { safeEmit } from '../events/event-stream.js';
 
 export function registerPatternRoutes(app: Hono): void {
   // Get patterns relevant to this project (only surfaced if 5+ tenants)
@@ -15,6 +16,16 @@ export function registerPatternRoutes(app: Hono): void {
     const projectId = c.req.param('id');
     try {
       const patterns = await getProjectPatterns(projectId);
+      if (Array.isArray(patterns) && patterns.length > 0) {
+        safeEmit('pattern.detected', projectId, {
+          pattern_count: patterns.length,
+          patterns: patterns.slice(0, 5).map((p) => ({
+            pattern_type: p.pattern_type,
+            description: p.description,
+            confidence: p.confidence,
+          })),
+        });
+      }
       return c.json(patterns);
     } catch (err) {
       console.warn('[hipp0:patterns] Failed to get patterns:', (err as Error).message);

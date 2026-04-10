@@ -134,6 +134,27 @@ function isoDate(d: Date): string {
 }
 
 /**
+ * Convert a JS Date to a timestamp literal that compares correctly against
+ * both SQLite and PostgreSQL `created_at` columns.
+ *
+ * SQLite `datetime('now')` stores as `'YYYY-MM-DD HH:MM:SS'` (space
+ * separator), so an ISO-8601 string with a `T` separator does NOT compare
+ * correctly against stored rows — ` ` < `T` lexically, which breaks
+ * same-day range queries. We emit the space-separator form;
+ * Postgres TIMESTAMPTZ accepts it as a valid timestamp literal.
+ */
+function toSqlTimestamp(d: Date): string {
+  const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+  const Y = d.getUTCFullYear();
+  const M = pad(d.getUTCMonth() + 1);
+  const D = pad(d.getUTCDate());
+  const h = pad(d.getUTCHours());
+  const m = pad(d.getUTCMinutes());
+  const s = pad(d.getUTCSeconds());
+  return `${Y}-${M}-${D} ${h}:${m}:${s}`;
+}
+
+/**
  * Build a contiguous array of YYYY-MM-DD buckets over the last `days`
  * days, inclusive of today. Used to fill gaps so dashboards never see
  * missing dates.

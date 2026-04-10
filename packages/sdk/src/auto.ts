@@ -319,23 +319,7 @@ const ANTHROPIC_PATCHED = Symbol.for('hipp0.auto.anthropic.patched');
 
 function patchAnthropic(inject: boolean, capture: boolean): void {
   try {
-    let mod: unknown;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      mod = typeof require === 'function' ? require('@anthropic-ai/sdk') : undefined;
-    } catch {
-      mod = undefined;
-    }
-    if (!mod) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { createRequire } = require('node:module') as { createRequire: (f: string) => (m: string) => unknown };
-        const req = createRequire(typeof __filename === 'string' ? __filename : process.cwd() + '/package.json');
-        mod = req('@anthropic-ai/sdk');
-      } catch {
-        mod = undefined;
-      }
-    }
+    const mod = safeRequire('@anthropic-ai/sdk');
     if (!mod) return;
 
     const Anthropic =
