@@ -123,7 +123,7 @@ function WingRelationshipGraph({ wings }: { wings: ProjectWing[] }) {
   // Build edges from cross_references
   const edges: Array<{ from: typeof nodes[0]; to: typeof nodes[0]; strength: number }> = [];
   for (const node of nodes) {
-    for (const ref of node.cross_references) {
+    for (const ref of node.cross_references ?? []) {
       const target = nodes.find((n) => n.wing === ref.agent);
       if (target && ref.strength > 0) {
         edges.push({ from: node, to: target, strength: ref.strength });
@@ -265,7 +265,10 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
   if (loading) return <div style={{ padding: 20, color: 'var(--text-secondary)' }}>Loading wing data...</div>;
   if (!stats) return <div style={{ padding: 20, color: 'var(--text-secondary)' }}>No wing data found</div>;
 
-  const sortedWeights = Object.entries(stats.wing_affinity?.cross_wing_weights ?? {})
+  const wingAffinity = stats.wing_affinity ?? { cross_wing_weights: {}, feedback_count: 0, last_recalculated: '' };
+  const topDomains: string[] = stats.top_domains ?? [];
+  const crossConnections: Array<{ wing: string; strength: number }> = stats.cross_wing_connections ?? [];
+  const sortedWeights = Object.entries(wingAffinity.cross_wing_weights ?? {})
     .sort(([, a], [, b]) => (b as number) - (a as number));
 
   return (
@@ -287,16 +290,16 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>Cross-wing links</div>
         </div>
         <div style={{ padding: 16, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.wing_affinity.feedback_count}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{wingAffinity.feedback_count ?? 0}</div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>Feedback events</div>
         </div>
       </div>
 
-      {stats.top_domains.length > 0 && (
+      {topDomains.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <h4 style={{ color: 'var(--text-tertiary)', fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>Specialization</h4>
           <div style={{ display: 'flex', gap: 8 }}>
-            {stats.top_domains.map((d) => (
+            {topDomains.map((d) => (
               <span key={d} style={{ padding: '4px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.5)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 500, border: '1px solid rgba(255,255,255,0.3)' }}>{d}</span>
             ))}
           </div>
@@ -304,11 +307,11 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
       )}
 
       {/* Cross-wing relationship display */}
-      {stats.cross_wing_connections.length > 0 && (
+      {crossConnections.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <h4 style={{ color: 'var(--text-tertiary)', fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>Cross-Wing Relationships</h4>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {stats.cross_wing_connections.map((conn) => (
+            {crossConnections.map((conn) => (
               <span key={conn.wing} style={{
                 padding: '5px 12px', borderRadius: 8, fontSize: 12,
                 background: 'rgba(255,255,255,0.5)', color: 'var(--text-primary)',
@@ -353,9 +356,9 @@ function AgentWingDetail({ agentName, onClose }: { agentName: string; onClose: (
         <AgentAffinityChart agentName={stats.agent_name} />
       </div>
 
-      {stats.wing_affinity.last_recalculated && (
+      {wingAffinity.last_recalculated && (
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
-          Last recalculated: {new Date(stats.wing_affinity.last_recalculated).toLocaleString()}
+          Last recalculated: {new Date(wingAffinity.last_recalculated).toLocaleString()}
         </p>
       )}
     </div>
@@ -463,9 +466,9 @@ export function WingView() {
                     Top affinity: {w.agent_affinities.slice(0, 2).map((a) => `${a.agent} (${Math.round(a.affinity * 100)}%)`).join(', ')}
                   </div>
                 )}
-                {w.cross_references.length > 0 && (
+                {(w.cross_references?.length ?? 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                    Referenced by: {w.cross_references.slice(0, 3).map((r) => r.agent).join(', ')}
+                    Referenced by: {(w.cross_references ?? []).slice(0, 3).map((r) => r.agent).join(', ')}
                   </div>
                 )}
               </div>
