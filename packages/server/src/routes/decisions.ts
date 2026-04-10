@@ -1683,19 +1683,21 @@ export function registerDecisionRoutes(app: Hono): void {
         }
 
         const relPath = path.relative(rawPath, filePath);
-        try {
-          await submitForExtraction({
-            raw_text: `# ${path.basename(filePath, '.md')}\n\n${content}`,
-            source: 'openclaw',
-            source_session_id: `openclaw:${relPath}`,
-            made_by: agent,
-            project_id: projectId,
-          });
-          submitted++;
-          perAgent[agent] = (perAgent[agent] ?? 0) + 1;
-        } catch {
-          errors++;
-        }
+        // Fire-and-forget so the HTTP response returns immediately even
+        // when the queue is in inline mode (no Redis). Otherwise a 500-file
+        // import would block the curl for 15-25 minutes while each file
+        // runs through the synchronous Claude Haiku distillery call.
+        submitForExtraction({
+          raw_text: `# ${path.basename(filePath, '.md')}\n\n${content}`,
+          source: 'openclaw',
+          source_session_id: `openclaw:${relPath}`,
+          made_by: agent,
+          project_id: projectId,
+        }).catch((err: Error) => {
+          console.warn(`[hipp0/openclaw-import] ${relPath}: ${err.message}`);
+        });
+        submitted++;
+        perAgent[agent] = (perAgent[agent] ?? 0) + 1;
       }
       if (totalFiles >= maxFiles) break;
     }
