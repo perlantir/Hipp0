@@ -5,6 +5,7 @@ import { useProject } from '../App';
 
 const STORAGE_KEY = 'hipp0_onboarding_dismissed';
 const WHATIF_STORAGE_KEY = 'hipp0_onboarding_whatif_tried';
+const ROLE_DIFF_STORAGE_KEY = 'hipp0_onboarding_role_diff_tried';
 
 interface OnboardingChecklistProps {
   onNavigate: (view: string) => void;
@@ -90,13 +91,15 @@ async function runChecks(
   const totalCompiles = usage.total_compiles ?? stats.total_compiles ?? 0;
   const hasCompile = totalCompiles > 0;
 
-  // Role differentiation: user has compiled for at least 2 distinct agents.
-  // No dedicated endpoint — approximate by number of agents that have
-  // received decisions via compile (decisions_per_agent) when compiles exist.
+  // Role differentiation: the user has actually opened the Context Comparison
+  // view and clicked Compare. Flag is set from ContextComparison.tsx on a
+  // successful compare. Fall back to the stats-based heuristic for users who
+  // explored the feature before the flag existed.
+  const roleDiffFlag = localStorage.getItem(ROLE_DIFF_STORAGE_KEY) === 'true';
   const perAgent = Array.isArray(stats.decisions_per_agent)
     ? stats.decisions_per_agent.filter((a) => (a.count ?? 0) > 0).length
     : 0;
-  const hasTwoAgents = hasCompile && perAgent >= 2;
+  const hasTwoAgents = roleDiffFlag || (hasCompile && perAgent >= 2);
 
   // 5. What-If — no persistent server table, use localStorage flag set when
   //    the user clicks the step (fallback) or when the What-If simulator
@@ -335,9 +338,16 @@ export function OnboardingChecklist({ onNavigate, viewKey }: OnboardingChecklist
                       />
                     )}
                   </span>
-                  <span className="onboarding-step-body">
-                    <span className="onboarding-step-title">{step.title}</span>
-                    <span className="onboarding-step-desc">{step.description}</span>
+                  <span
+                    className="onboarding-step-body"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}
+                  >
+                    <span className="onboarding-step-title" style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>
+                      {step.title}
+                    </span>
+                    <span className="onboarding-step-desc" style={{ fontSize: 12, opacity: 0.7, marginTop: 2, lineHeight: 1.4 }}>
+                      {step.description}
+                    </span>
                   </span>
                 </button>
               </li>

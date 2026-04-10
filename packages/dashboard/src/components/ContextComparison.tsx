@@ -204,6 +204,10 @@ export function ContextComparison() {
       ]);
       setResultA(resA);
       setResultB(resB);
+      // Mark the "See role differentiation" onboarding step complete.
+      try {
+        localStorage.setItem('hipp0_onboarding_role_diff_tried', 'true');
+      } catch { /* storage unavailable — non-fatal */ }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch context');
     } finally {
