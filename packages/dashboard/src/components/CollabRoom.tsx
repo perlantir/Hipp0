@@ -24,7 +24,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
-// ── Types ────────────────────────────────────────────────────────────────
+// -- Types ----------------------------------------------------------------
 
 interface Participant {
   id: string;
@@ -81,7 +81,7 @@ interface WsEvent {
   timestamp: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// -- Helpers ---------------------------------------------------------------
 
 function platformBadgeColor(platform: string): string {
   switch (platform) {
@@ -97,7 +97,7 @@ function highlightMentions(text: string): React.ReactNode[] {
   const parts = text.split(/(@\w+)/g);
   return parts.map((part, i) =>
     part.startsWith('@')
-      ? <span key={i} style={{ color: '#D97757', fontWeight: 600 }}>{part}</span>
+      ? <span key={i} style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{part}</span>
       : <React.Fragment key={i}>{part}</React.Fragment>
   );
 }
@@ -139,7 +139,7 @@ function getTokenFromUrl(): string | null {
   return null;
 }
 
-// ── WebSocket hook ───────────────────────────────────────────────────────
+// -- WebSocket hook -------------------------------------------------------
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
@@ -240,7 +240,7 @@ function useCollabSocket(
   return { state, send };
 }
 
-// ── Component ────────────────────────────────────────────────────────────
+// -- Component ------------------------------------------------------------
 
 type Phase = 'landing' | 'join-name' | 'room';
 
@@ -285,7 +285,7 @@ export function CollabRoom() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTypingSent = useRef(0);
 
-  // ── Deep-link: check URL for token on mount ───────────────────────────
+  // -- Deep-link: check URL for token on mount ---------------------------
 
   useEffect(() => {
     const deepToken = getTokenFromUrl();
@@ -305,7 +305,7 @@ export function CollabRoom() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── WebSocket event handler ───────────────────────────────────────────
+  // -- WebSocket event handler -------------------------------------------
 
   const handleWsEvent = useCallback((evt: WsEvent) => {
     switch (evt.event) {
@@ -429,7 +429,7 @@ export function CollabRoom() {
     }
   }, [myName]);
 
-  // ── WebSocket connection ──────────────────────────────────────────────
+  // -- WebSocket connection ----------------------------------------------
 
   const { state: wsState, send: wsSend } = useCollabSocket(
     phase === 'room' && joined ? token : null,
@@ -437,7 +437,7 @@ export function CollabRoom() {
     handleWsEvent,
   );
 
-  // ── Clean up stale typing indicators every 3s ────────────────────────
+  // -- Clean up stale typing indicators every 3s ------------------------
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -457,7 +457,7 @@ export function CollabRoom() {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Polling fallback (only when WS is disconnected) ──────────────────
+  // -- Polling fallback (only when WS is disconnected) ------------------
 
   const fetchRoom = useCallback(async (tok: string) => {
     try {
@@ -493,7 +493,7 @@ export function CollabRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [room?.recent_messages.length]);
 
-  // ── @mention autocomplete ─────────────────────────────────────────────
+  // -- @mention autocomplete ---------------------------------------------
 
   const mentionCandidates = useMemo(() => {
     if (mentionQuery === null || !room) return [];
@@ -514,7 +514,7 @@ export function CollabRoom() {
     chatInputRef.current?.focus();
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────
+  // -- Actions ----------------------------------------------------------
 
   async function createRoom() {
     if (!title.trim()) return;
@@ -709,7 +709,7 @@ export function CollabRoom() {
     setTimeout(() => setCopySuccess(false), 2000);
   }
 
-  // ── Typing indicator text ─────────────────────────────────────────────
+  // -- Typing indicator text ---------------------------------------------
 
   const typingNames = [...typingUsers.keys()];
   const typingText = typingNames.length === 0
@@ -720,62 +720,67 @@ export function CollabRoom() {
         ? `${typingNames[0]} and ${typingNames[1]} are typing...`
         : `${typingNames[0]} and ${typingNames.length - 1} others are typing...`;
 
-  // ── Styles ───────────────────────────────────────────────────────────
+  // -- Styles -----------------------------------------------------------
 
   const card: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border-light)',
-    borderRadius: 12,
+    background: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    borderRadius: 16,
     padding: 20,
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)',
   };
 
   const glassCard: React.CSSProperties = {
-    background: 'linear-gradient(135deg, rgba(217,119,87,0.06) 0%, rgba(217,119,87,0.02) 100%)',
-    border: '1px solid rgba(217,119,87,0.18)',
-    borderRadius: 12,
-    padding: 20,
-    backdropFilter: 'blur(12px)',
+    background: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    borderRadius: 16,
+    padding: 24,
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)',
   };
 
   const accentBtn: React.CSSProperties = {
-    background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+    background: 'var(--accent-primary)',
     color: '#fff',
     border: 'none',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: '12px 24px',
     fontSize: 14,
     fontWeight: 700,
     cursor: 'pointer',
-    boxShadow: '0 4px 14px rgba(217,119,87,0.25)',
+    boxShadow: '0 0 20px rgba(6,63,249,0.4)',
     transition: 'all 0.2s',
   };
 
   const ghostBtn: React.CSSProperties = {
-    background: 'none',
-    border: '1px solid var(--border-light)',
-    borderRadius: 8,
+    background: 'rgba(255, 255, 255, 0.4)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    borderRadius: 10,
     padding: '8px 16px',
     fontSize: 13,
     color: 'var(--text-secondary)',
     cursor: 'pointer',
     transition: 'all 0.15s',
+    fontWeight: 600,
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '11px 14px',
-    borderRadius: 8,
-    border: '1px solid var(--border-light)',
-    background: 'var(--bg-primary)',
+    padding: '12px 16px',
+    borderRadius: 12,
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.5)',
     color: 'var(--text-primary)',
     fontSize: 14,
     fontFamily: 'inherit',
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
   };
 
-  // ── Phase: Landing ────────────────────────────────────────────────────
+  // -- Phase: Landing ----------------------------------------------------
 
   if (phase === 'landing') {
     return (
@@ -784,19 +789,20 @@ export function CollabRoom() {
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
             <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              width: 48, height: 48, borderRadius: 16,
+              background: 'var(--accent-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+              boxShadow: '0 0 20px rgba(6,63,249,0.4)',
             }}>
-              <Radio size={20} color="#fff" />
+              <Radio size={22} color="#fff" />
             </div>
             <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5 }}>
               Collab Room
             </span>
             <span style={{
-              fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-              background: '#05966918', color: '#059669', letterSpacing: 1,
+              fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+              background: 'rgba(16,185,129,0.1)', color: '#059669', letterSpacing: 1.5,
+              border: '1px solid rgba(16,185,129,0.2)',
             }}>LIVE</span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: 15, margin: 0, lineHeight: 1.6 }}>
@@ -818,7 +824,7 @@ export function CollabRoom() {
         {/* Create New Room */}
         <div style={{ ...glassCard, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-            <Plus size={18} color="#D97757" />
+            <Plus size={18} color="var(--accent-primary)" />
             <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16 }}>
               Create New Room
             </span>
@@ -859,7 +865,7 @@ export function CollabRoom() {
         {/* Join Existing Room */}
         <div style={{ ...card, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <LogIn size={18} color="#D97757" />
+            <LogIn size={18} color="var(--accent-primary)" />
             <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16 }}>
               Join Existing Room
             </span>
@@ -896,7 +902,7 @@ export function CollabRoom() {
     );
   }
 
-  // ── Phase: Join Name ──────────────────────────────────────────────────
+  // -- Phase: Join Name --------------------------------------------------
 
   if (phase === 'join-name') {
     return (
@@ -904,10 +910,10 @@ export function CollabRoom() {
         <div style={glassCard}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{
-              width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px',
-              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              width: 52, height: 52, borderRadius: 16, margin: '0 auto 14px',
+              background: 'var(--accent-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 20px rgba(217,119,87,0.3)',
+              boxShadow: '0 0 24px rgba(6,63,249,0.4)',
             }}>
               <Radio size={24} color="#fff" />
             </div>
@@ -963,7 +969,7 @@ export function CollabRoom() {
     );
   }
 
-  // ── Phase: Room (loading) ─────────────────────────────────────────────
+  // -- Phase: Room (loading) ---------------------------------------------
 
   if (!room) {
     return (
@@ -975,7 +981,7 @@ export function CollabRoom() {
     );
   }
 
-  // ── Phase: Room ───────────────────────────────────────────────────────
+  // -- Phase: Room -------------------------------------------------------
 
   const onlineCount = room.participants.filter(p => p.is_online).length;
   const wsBadge = wsState === 'connected'
@@ -986,18 +992,20 @@ export function CollabRoom() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* ── Room Header ──────────────────────────────────────────────── */}
+      {/* -- Room Header ------------------------------------------------ */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px',
-        background: 'var(--bg-card)',
-        borderBottom: '1px solid var(--border-light)',
+        padding: '12px 24px',
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(24px)',
+        borderBottom: '1px solid rgba(255,255,255,0.3)',
         flexShrink: 0,
         flexWrap: 'wrap',
         gap: 8,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <Radio size={18} color="#D97757" />
+          <Radio size={18} color="var(--accent-primary)" />
           <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {room.title}
           </span>
@@ -1096,20 +1104,21 @@ export function CollabRoom() {
         </div>
       )}
 
-      {/* ── Main layout: Timeline | Chat | Participants ─────────────── */}
+      {/* -- Main layout: Timeline | Chat | Participants --------------- */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-        {/* ── Timeline panel (left) ─────────────────────────────────── */}
+        {/* -- Timeline panel (left) ----------------------------------- */}
         <div style={{
           width: 300, flexShrink: 0,
-          borderRight: '1px solid var(--border-light)',
-          background: 'var(--bg-primary)',
+          borderRight: '1px solid rgba(255,255,255,0.2)',
+          background: 'rgba(255,255,255,0.3)',
+          backdropFilter: 'blur(16px)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-light)' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Clock size={14} color="#D97757" />
+              <Clock size={14} color="var(--accent-primary)" />
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>Timeline</span>
             </div>
             {room.task_description && (
@@ -1131,8 +1140,8 @@ export function CollabRoom() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                    background: step.status === 'in_progress' ? '#D97757' : 'var(--bg-card)',
-                    border: `2px solid ${step.status === 'in_progress' ? '#D97757' : 'var(--border-light)'}`,
+                    background: step.status === 'in_progress' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.6)',
+                    border: `2px solid ${step.status === 'in_progress' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.4)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 11, fontWeight: 700,
                     color: step.status === 'in_progress' ? '#fff' : 'var(--text-secondary)',
@@ -1150,7 +1159,7 @@ export function CollabRoom() {
                 <div style={{ flex: 1, paddingBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{
-                      width: 20, height: 20, borderRadius: '50%', background: '#D97757',
+                      width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-primary)',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0,
                     }}>
@@ -1161,8 +1170,8 @@ export function CollabRoom() {
                     </span>
                     <span style={{
                       fontSize: 10, padding: '1px 5px', borderRadius: 3,
-                      background: step.status === 'in_progress' ? '#d9770622' : '#05966922',
-                      color: step.status === 'in_progress' ? '#d97706' : '#059669',
+                      background: step.status === 'in_progress' ? 'rgba(6,63,249,0.1)' : 'rgba(5,150,105,0.1)',
+                      color: step.status === 'in_progress' ? 'var(--accent-primary)' : '#059669',
                       fontWeight: 600,
                     }}>
                       {step.status === 'in_progress' ? 'working' : 'done'}
@@ -1184,13 +1193,15 @@ export function CollabRoom() {
             {/* Brain suggestion card */}
             {suggestion && room.status === 'open' && (
               <div style={{
-                background: 'linear-gradient(135deg, rgba(217,119,87,0.08) 0%, rgba(217,119,87,0.03) 100%)',
-                border: '1px solid rgba(217,119,87,0.3)',
-                borderRadius: 10,
-                padding: 14,
+                background: 'rgba(6,63,249,0.06)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(6,63,249,0.2)',
+                borderRadius: 14,
+                padding: 16,
                 marginTop: 8,
+                boxShadow: '0 4px 16px rgba(6,63,249,0.08)',
               }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#D97757', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' }}>
                   Brain Suggestion
                 </div>
                 <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
@@ -1203,10 +1214,11 @@ export function CollabRoom() {
                   <button
                     onClick={() => handleAction('accept')}
                     style={{
-                      flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none',
-                      background: 'linear-gradient(135deg, #D97757, #c56a4d)', color: '#fff',
+                      flex: 1, padding: '8px 10px', borderRadius: 10, border: 'none',
+                      background: 'var(--accent-primary)', color: '#fff',
                       fontSize: 12, fontWeight: 700, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      boxShadow: '0 0 14px rgba(6,63,249,0.3)',
                     }}
                   >
                     <Check size={13} /> Accept
@@ -1214,10 +1226,11 @@ export function CollabRoom() {
                   <button
                     onClick={() => handleAction('override')}
                     style={{
-                      flex: 1, padding: '8px 10px', borderRadius: 8,
-                      border: '1px solid var(--border-light)',
-                      background: 'none', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
+                      flex: 1, padding: '8px 10px', borderRadius: 10,
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      background: 'rgba(255,255,255,0.4)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      fontWeight: 600,
                     }}
                   >
                     <X size={13} /> Override
@@ -1228,7 +1241,7 @@ export function CollabRoom() {
           </div>
         </div>
 
-        {/* ── Chat panel (center) ───────────────────────────────────── */}
+        {/* -- Chat panel (center) ------------------------------------- */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1250,11 +1263,11 @@ export function CollabRoom() {
                       display: 'inline-block',
                       padding: '5px 14px',
                       borderRadius: 12,
-                      background: isSuggestionMsg ? 'rgba(217,119,87,0.12)' : isAction ? '#05966912' : 'var(--bg-card)',
-                      color: isSuggestionMsg ? '#D97757' : isAction ? '#059669' : 'var(--text-tertiary)',
+                      background: isSuggestionMsg ? 'rgba(6,63,249,0.08)' : isAction ? 'rgba(5,150,105,0.08)' : 'rgba(255,255,255,0.5)',
+                      color: isSuggestionMsg ? 'var(--accent-primary)' : isAction ? '#059669' : 'var(--text-tertiary)',
                       fontSize: 12,
                       fontStyle: 'italic',
-                      border: isSuggestionMsg ? '1px solid rgba(217,119,87,0.25)' : '1px solid var(--border-light)',
+                      border: isSuggestionMsg ? '1px solid rgba(6,63,249,0.2)' : '1px solid rgba(255,255,255,0.4)',
                     }}>
                       {msg.message}
                     </span>
@@ -1272,9 +1285,11 @@ export function CollabRoom() {
                 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                    background: isAgent ? '#7c3aed' : '#D97757',
+                    background: isAgent ? '#7c3aed' : 'var(--accent-primary)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 700, color: '#fff',
+                    boxShadow: isAgent ? '0 0 10px rgba(124,58,237,0.3)' : '0 0 10px rgba(6,63,249,0.3)',
+                    border: isAgent ? '2px solid rgba(124,58,237,0.3)' : 'none',
                   }}>
                     {msg.sender_name[0]?.toUpperCase()}
                   </div>
@@ -1297,14 +1312,16 @@ export function CollabRoom() {
                       </span>
                     </div>
                     <div style={{
-                      padding: '10px 14px',
-                      borderRadius: isMe ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
-                      background: isMe ? 'linear-gradient(135deg, #D97757, #c56a4d)' : 'var(--bg-card)',
-                      border: isMe ? 'none' : isAgent ? '1px solid rgba(217,119,87,0.25)' : '1px solid var(--border-light)',
+                      padding: '12px 16px',
+                      borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+                      background: isMe ? 'var(--accent-primary)' : 'rgba(255,255,255,0.6)',
+                      backdropFilter: isMe ? undefined : 'blur(12px)',
+                      border: isMe ? 'none' : isAgent ? '1px solid rgba(6,63,249,0.15)' : '1px solid rgba(255,255,255,0.4)',
                       color: isMe ? '#fff' : 'var(--text-primary)',
                       fontSize: 13,
                       lineHeight: 1.5,
-                      borderLeft: isAgent && !isMe ? '3px solid #D97757' : undefined,
+                      borderLeft: isAgent && !isMe ? '3px solid var(--accent-primary)' : undefined,
+                      boxShadow: isMe ? '0 4px 14px rgba(6,63,249,0.25)' : '0 2px 8px rgba(0,0,0,0.03)',
                     }}>
                       {highlightMentions(msg.message)}
                     </div>
@@ -1331,8 +1348,9 @@ export function CollabRoom() {
           {/* Chat input */}
           <div style={{
             padding: '12px 16px',
-            borderTop: '1px solid var(--border-light)',
-            background: 'var(--bg-card)',
+            borderTop: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(16px)',
             flexShrink: 0,
             position: 'relative',
           }}>
@@ -1340,10 +1358,11 @@ export function CollabRoom() {
             {mentionQuery !== null && mentionCandidates.length > 0 && (
               <div style={{
                 position: 'absolute', bottom: '100%', left: 16, right: 16,
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-light)',
-                borderRadius: 10,
-                boxShadow: '0 -4px 20px rgba(0,0,0,0.3)',
+                background: 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(24px)',
+                border: '1px solid rgba(255,255,255,0.4)',
+                borderRadius: 14,
+                boxShadow: '0 -4px 24px rgba(0,0,0,0.1)',
                 overflow: 'hidden',
                 marginBottom: 4,
               }}>
@@ -1354,7 +1373,7 @@ export function CollabRoom() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       width: '100%', padding: '10px 14px',
-                      background: i === mentionIndex ? 'rgba(217,119,87,0.1)' : 'transparent',
+                      background: i === mentionIndex ? 'rgba(6,63,249,0.08)' : 'transparent',
                       border: 'none',
                       borderBottom: i < mentionCandidates.length - 1 ? '1px solid var(--border-light)' : 'none',
                       cursor: 'pointer',
@@ -1363,7 +1382,7 @@ export function CollabRoom() {
                   >
                     <div style={{
                       width: 24, height: 24, borderRadius: '50%',
-                      background: p.sender_type === 'agent' ? '#7c3aed' : '#D97757',
+                      background: p.sender_type === 'agent' ? '#7c3aed' : 'var(--accent-primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0,
                     }}>
@@ -1408,22 +1427,23 @@ export function CollabRoom() {
           </div>
         </div>
 
-        {/* ── Participants sidebar (right) ──────────────────────────── */}
+        {/* -- Participants sidebar (right) ---------------------------- */}
         {showParticipants && (
           <div style={{
-            width: 220, flexShrink: 0,
-            borderLeft: '1px solid var(--border-light)',
-            background: 'var(--bg-primary)',
+            width: 240, flexShrink: 0,
+            borderLeft: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(16px)',
             display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
           }}>
             <div style={{
-              padding: '14px 16px',
-              borderBottom: '1px solid var(--border-light)',
+              padding: '16px 18px',
+              borderBottom: '1px solid rgba(255,255,255,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Users size={14} color="#D97757" />
+                <Users size={14} color="var(--accent-primary)" />
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
                   Participants
                 </span>
@@ -1441,7 +1461,7 @@ export function CollabRoom() {
               {[...room.participants]
                 .sort((a, b) => (b.is_online ? 1 : 0) - (a.is_online ? 1 : 0))
                 .map(p => {
-                  const roleColor = p.sender_type === 'agent' ? platformBadgeColor(p.platform) : '#D97757';
+                  const roleColor = p.sender_type === 'agent' ? platformBadgeColor(p.platform) : '#063ff9';
                   return (
                     <div key={p.id} style={{
                       display: 'flex', alignItems: 'center', gap: 10,

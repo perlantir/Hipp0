@@ -76,7 +76,7 @@ const PLANS: PlanDef[] = [
     monthlyPrice: 29,
     annualPrice: 278,
     icon: <Crown size={20} />,
-    color: '#D97706',
+    color: 'var(--accent-primary)',
     features: [
       { label: 'Unlimited projects', included: true },
       { label: '10,000 decisions', included: true },
@@ -219,13 +219,13 @@ export function Pricing() {
   const askLimit = currentPlan === 'free' ? 10 : currentPlan === 'pro' ? 100 : null;
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 md:p-12 max-w-6xl mx-auto space-y-10">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+      <div className="text-center space-y-3">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Plans & Pricing
         </h1>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
           Choose the plan that fits your team. Upgrade or downgrade at any time.
         </p>
       </div>
@@ -241,7 +241,7 @@ export function Pricing() {
         <button
           onClick={() => setAnnual(!annual)}
           className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-          style={{ background: annual ? '#D97706' : 'var(--border-medium)' }}
+          style={{ background: annual ? 'var(--accent-primary)' : 'var(--border-medium)' }}
         >
           <span
             className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform"
@@ -255,14 +255,14 @@ export function Pricing() {
           Annual
         </span>
         {annual && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+          <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(6,63,249,0.1)', color: 'var(--accent-primary)', border: '1px solid rgba(6,63,249,0.2)' }}>
             Save 20%
           </span>
         )}
       </div>
 
       {/* Plan cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
         {PLANS.map((plan) => {
           const isCurrent = plan.id === currentPlan;
           const isPopular = plan.id === 'pro';
@@ -274,14 +274,17 @@ export function Pricing() {
               key={plan.id}
               className="card relative flex flex-col"
               style={{
-                borderColor: isPopular ? '#D97706' : isCurrent ? plan.color : 'var(--border-light)',
+                borderRadius: 20,
+                borderColor: isPopular ? 'var(--accent-primary)' : isCurrent ? plan.color : 'rgba(255,255,255,0.4)',
                 borderWidth: isPopular ? '2px' : '1px',
+                boxShadow: isPopular ? '0 0 30px rgba(6,63,249,0.12), 0 20px 40px rgba(0,0,0,0.05)' : '0 20px 40px rgba(0,0,0,0.05)',
+                transform: isPopular ? 'scale(1.02)' : undefined,
               }}
             >
               {isPopular && (
                 <div
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold px-3 py-0.5 rounded-full text-white"
-                  style={{ background: '#D97706' }}
+                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-xs font-bold px-4 py-1 rounded-full text-white tracking-wide"
+                  style={{ background: 'var(--accent-primary)', boxShadow: '0 0 16px rgba(6,63,249,0.4)' }}
                 >
                   Most Popular
                 </div>
@@ -289,48 +292,48 @@ export function Pricing() {
 
               {isCurrent && (
                 <div
-                  className="absolute -top-3 right-4 text-xs font-semibold px-3 py-0.5 rounded-full"
+                  className="absolute -top-3.5 right-4 text-xs font-bold px-4 py-1 rounded-full"
                   style={{ background: 'var(--accent-success)', color: 'white' }}
                 >
                   Current Plan
                 </div>
               )}
 
-              <div className="p-6 space-y-4 flex-1">
+              <div className="p-7 space-y-5 flex-1">
                 {/* Plan name & icon */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md"
                     style={{ background: plan.color }}
                   >
                     {plan.icon}
                   </div>
-                  <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                     {plan.name}
                   </h3>
                 </div>
 
                 {/* Price */}
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
                     ${plan.id === 'free' ? '0' : perMonth}
                   </span>
-                  <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
                     /mo
                   </span>
                   {annual && plan.id !== 'free' && (
-                    <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-xs ml-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>
                       (${price}/yr)
                     </span>
                   )}
                 </div>
 
                 {/* Features list */}
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {plan.features.map((feat, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
+                    <li key={i} className="flex items-start gap-2.5 text-sm">
                       {feat.included ? (
-                        <Check size={16} className="text-green-500 shrink-0 mt-0.5" />
+                        <Check size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--accent-success)' }} />
                       ) : (
                         <X size={16} className="text-gray-300 shrink-0 mt-0.5" />
                       )}
@@ -348,11 +351,12 @@ export function Pricing() {
               </div>
 
               {/* CTA button */}
-              <div className="p-6 pt-0">
+              <div className="p-7 pt-0">
                 {plan.id === 'free' ? (
                   <button
                     disabled
                     className="btn-secondary w-full opacity-50 cursor-not-allowed"
+                    style={{ borderRadius: 12, padding: '12px 20px' }}
                   >
                     {isCurrent ? 'Current Plan' : 'Free Forever'}
                   </button>
@@ -361,6 +365,12 @@ export function Pricing() {
                     onClick={() => handleUpgrade(plan.id)}
                     disabled={isCurrent || checkoutLoading !== null}
                     className={`w-full ${isCurrent ? 'btn-secondary opacity-50 cursor-not-allowed' : 'btn-primary'}`}
+                    style={{
+                      borderRadius: 12,
+                      padding: '12px 20px',
+                      fontWeight: 700,
+                      boxShadow: !isCurrent ? '0 0 20px rgba(6,63,249,0.4)' : undefined,
+                    }}
                   >
                     {checkoutLoading === plan.id ? (
                       <Loader2 size={16} className="animate-spin mx-auto" />
@@ -380,8 +390,8 @@ export function Pricing() {
       </div>
 
       {/* Usage meters */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+      <div className="card p-8 space-y-5" style={{ borderRadius: 24 }}>
+        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Current Usage
         </h2>
         {loading ? (
@@ -394,7 +404,7 @@ export function Pricing() {
               label="Total Decisions"
               current={usage.totals.decisions}
               max={decisionLimit}
-              color="#D97706"
+              color="var(--accent-primary)"
             />
             <UsageMeter
               label="Compiles Today"

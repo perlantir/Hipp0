@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, Loader2, ArrowRight, BookOpen, Sparkles } from 'lucide-react';
 
-/* ── Types ───────────────────────────────────────────────────────── */
+/* -- Types --------------------------------------------------------- */
 
 interface DemoAgent {
   name: string;
@@ -48,7 +48,7 @@ interface DemoStats {
   contradictions: number;
 }
 
-/* ── API helper ──────────────────────────────────────────────────── */
+/* -- API helper ---------------------------------------------------- */
 
 const BASE = import.meta.env.VITE_API_URL || '';
 
@@ -64,10 +64,10 @@ async function demoFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
-/* ── Category colors for tag pills ───────────────────────────────── */
+/* -- Category colors for tag pills --------------------------------- */
 
 const TAG_COLORS: Record<string, { bg: string; text: string }> = {
-  architecture: { bg: '#FEF3C7', text: '#92400E' },
+  architecture: { bg: '#eff6ff', text: '#1e40af' },
   scalability: { bg: '#DBEAFE', text: '#1E40AF' },
   infrastructure: { bg: '#E0E7FF', text: '#3730A3' },
   security: { bg: '#FEE2E2', text: '#991B1B' },
@@ -79,7 +79,7 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
   devops: { bg: '#E0E7FF', text: '#3730A3' },
   deployment: { bg: '#E0E7FF', text: '#3730A3' },
   marketing: { bg: '#FCE7F3', text: '#9D174D' },
-  pricing: { bg: '#FDE68A', text: '#92400E' },
+  pricing: { bg: '#dbeafe', text: '#1e40af' },
   testing: { bg: '#CFFAFE', text: '#155E75' },
   performance: { bg: '#CFFAFE', text: '#155E75' },
 };
@@ -88,7 +88,7 @@ function tagColor(tag: string): { bg: string; text: string } {
   return TAG_COLORS[tag] || { bg: '#F3F4F6', text: '#374151' };
 }
 
-/* ── Skeleton loader ─────────────────────────────────────────────── */
+/* -- Skeleton loader ----------------------------------------------- */
 
 function Skeleton({ width, height }: { width: string; height: string }) {
   return (
@@ -99,7 +99,7 @@ function Skeleton({ width, height }: { width: string; height: string }) {
   );
 }
 
-/* ── Agent dropdown ──────────────────────────────────────────────── */
+/* -- Agent dropdown ------------------------------------------------ */
 
 function AgentSelect({
   agents,
@@ -147,7 +147,7 @@ function AgentSelect({
   );
 }
 
-/* ── Decision card ───────────────────────────────────────────────── */
+/* -- Decision card ------------------------------------------------- */
 
 function DecisionCard({
   decision,
@@ -162,8 +162,8 @@ function DecisionCard({
     <div
       className="flex items-start gap-3 px-4 py-3 rounded-lg transition-all"
       style={{
-        background: isUnique ? 'rgba(217, 119, 6, 0.06)' : 'var(--bg-card)',
-        border: `1px solid ${isUnique ? 'rgba(217, 119, 6, 0.15)' : 'var(--border-light)'}`,
+        background: isUnique ? 'rgba(6, 63, 249, 0.06)' : 'var(--bg-card)',
+        border: `1px solid ${isUnique ? 'rgba(6, 63, 249, 0.15)' : 'var(--border-light)'}`,
         animationDelay: `${index * 40}ms`,
       }}
     >
@@ -219,7 +219,7 @@ function DecisionCard({
   );
 }
 
-/* ── Result panel (one per agent) ────────────────────────────────── */
+/* -- Result panel (one per agent) ---------------------------------- */
 
 function ResultPanel({
   label,
@@ -288,7 +288,7 @@ function ResultPanel({
   );
 }
 
-/* ── Pre-compile: grouped decision cloud ─────────────────────────── */
+/* -- Pre-compile: grouped decision cloud --------------------------- */
 
 function DecisionCloud({ decisions }: { decisions: DemoDecision[] }) {
   // Group by first tag
@@ -349,7 +349,7 @@ function DecisionCloud({ decisions }: { decisions: DemoDecision[] }) {
   );
 }
 
-/* ── Mobile tab switcher ─────────────────────────────────────────── */
+/* -- Mobile tab switcher ------------------------------------------- */
 
 function TabSwitcher({
   tabs,
@@ -383,7 +383,7 @@ function TabSwitcher({
   );
 }
 
-/* ── Main Playground component ───────────────────────────────────── */
+/* -- Main Playground component ------------------------------------- */
 
 export function Playground() {
   const [agents, setAgents] = useState<DemoAgent[]>([]);
@@ -484,7 +484,7 @@ export function Playground() {
       className="min-h-screen"
       style={{ background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif" }}
     >
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* -- Header --------------------------------------------------- */}
       <header
         className="border-b"
         style={{
@@ -494,7 +494,7 @@ export function Playground() {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#D97706' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-primary)' }}>
               <span className="text-white font-bold text-sm">D</span>
             </div>
             <span className="text-white font-bold text-lg tracking-tight">Hipp0</span>
@@ -516,7 +516,7 @@ export function Playground() {
         </div>
       </header>
 
-      {/* ── Controls ───────────────────────────────────────────────── */}
+      {/* -- Controls ------------------------------------------------- */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         <div
           className="rounded-xl p-4 sm:p-6"
@@ -553,7 +553,7 @@ export function Playground() {
             disabled={loading || !task.trim() || agents.length === 0}
             className="w-full sm:w-auto px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
             style={{
-              background: loading ? '#92400E' : '#D97706',
+              background: loading ? '#0534d4' : 'var(--accent-primary)',
               opacity: (loading || !task.trim()) ? 0.7 : 1,
               cursor: loading ? 'wait' : 'pointer',
             }}
@@ -579,7 +579,7 @@ export function Playground() {
         </div>
       </div>
 
-      {/* ── Results ────────────────────────────────────────────────── */}
+      {/* -- Results -------------------------------------------------- */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8">
         {(resultA || resultB || loading) && (
           <>
@@ -652,7 +652,7 @@ export function Playground() {
         )}
       </div>
 
-      {/* ── CTA section ────────────────────────────────────────────── */}
+      {/* -- CTA section ---------------------------------------------- */}
       <div
         className="border-t"
         style={{ borderColor: 'var(--border-light)' }}
@@ -671,7 +671,7 @@ export function Playground() {
             <a
               href="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-              style={{ background: '#D97706' }}
+              style={{ background: 'var(--accent-primary)' }}
             >
               Get Started Free <ArrowRight size={16} />
             </a>

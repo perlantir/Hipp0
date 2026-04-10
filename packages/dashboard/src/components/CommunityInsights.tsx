@@ -40,7 +40,7 @@ export function CommunityInsights() {
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)' }}
     >
       <div className="flex items-center gap-2 mb-4">
-        <Lightbulb size={16} style={{ color: '#D97706' }} />
+        <Lightbulb size={16} style={{ color: 'var(--accent-primary)' }} />
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
           Community Insights
         </h3>
@@ -64,7 +64,7 @@ export function CommunityInsights() {
                   {isRecommended && (
                     <span
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
-                      style={{ background: '#FEF3C7', color: '#92400E' }}
+                      style={{ background: '#eff6ff', color: '#1e40af' }}
                     >
                       <Star size={10} />
                       Recommended

@@ -29,7 +29,7 @@ export function useApi() {
         let message: string;
         try {
           const parsed = JSON.parse(errorBody);
-          message = parsed.message || parsed.error || errorBody;
+          message = parsed.error?.message || parsed.message || (typeof parsed.error === 'string' ? parsed.error : errorBody);
         } catch {
           message = errorBody || response.statusText;
         }

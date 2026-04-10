@@ -66,7 +66,7 @@ function planIcon(plan: string) {
 function planColor(plan: string) {
   switch (plan) {
     case 'enterprise': return '#7C3AED';
-    case 'pro': return '#D97706';
+    case 'pro': return '#063ff9';
     default: return '#6B7280';
   }
 }
@@ -92,17 +92,18 @@ function formatDate(iso: string) {
 }
 
 function statusBadge(status: string) {
-  const colors: Record<string, { bg: string; text: string }> = {
-    paid: { bg: 'bg-green-50', text: 'text-green-700' },
-    open: { bg: 'bg-amber-50', text: 'text-amber-700' },
-    draft: { bg: 'bg-gray-50', text: 'text-gray-600' },
-    void: { bg: 'bg-red-50', text: 'text-red-700' },
-    uncollectible: { bg: 'bg-red-50', text: 'text-red-700' },
+  const colors: Record<string, { bg: string; text: string; dot: string }> = {
+    paid: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+    open: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+    draft: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+    void: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+    uncollectible: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   };
-  const c = colors[status] ?? { bg: 'bg-gray-50', text: 'text-gray-600' };
+  const c = colors[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-      {status}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 }
@@ -122,10 +123,10 @@ function CancelModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative card p-6 max-w-md w-full space-y-4"
-        style={{ background: 'var(--bg-card)' }}
+        className="relative card p-8 max-w-md w-full space-y-5"
+        style={{ borderRadius: 24 }}
       >
         <button
           onClick={onClose}
@@ -135,7 +136,7 @@ function CancelModal({
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
             <AlertTriangle size={20} className="text-amber-600" />
           </div>
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -266,23 +267,23 @@ export function BillingSettings() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+    <div className="p-6 md:p-12 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
         Billing & Subscription
       </h1>
 
       {/* Current plan card */}
-      <div className="card p-6 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
+      <div className="card p-8 space-y-5" style={{ borderRadius: 24 }}>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg"
               style={{ background: planColor(plan) }}
             >
               {planIcon(plan)}
             </div>
             <div>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 {planLabel(plan)} Plan
               </h2>
               {subscription?.current_period_end && (
@@ -306,7 +307,8 @@ export function BillingSettings() {
                 <button
                   onClick={handleManageSubscription}
                   disabled={portalLoading}
-                  className="btn-primary text-sm"
+                  className="btn-primary text-sm font-bold"
+                  style={{ borderRadius: 12, padding: '10px 20px', boxShadow: '0 0 20px rgba(6,63,249,0.4)' }}
                 >
                   {portalLoading ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -336,26 +338,26 @@ export function BillingSettings() {
 
       {/* Usage this period */}
       {usage && (
-        <div className="card p-6 space-y-4">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="card p-8 space-y-5" style={{ borderRadius: 24 }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Usage This Billing Period
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-lg p-4" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
-              <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Decisions</p>
-              <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="card rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.5)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Decisions</p>
+              <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
                 {usage.totals.decisions.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-lg p-4" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
-              <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Compiles Today</p>
-              <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <div className="card rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.5)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Compiles Today</p>
+              <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
                 {usage.today.compiles.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-lg p-4" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
-              <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Ask Anything Today</p>
-              <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <div className="card rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.5)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Ask Anything Today</p>
+              <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
                 {usage.today.asks.toLocaleString()}
               </p>
             </div>
@@ -365,14 +367,14 @@ export function BillingSettings() {
 
       {/* Payment method */}
       {subscription?.payment_method && (
-        <div className="card p-6 space-y-3">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="card p-8 space-y-4" style={{ borderRadius: 24 }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Payment Method
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div
-              className="w-10 h-7 rounded flex items-center justify-center"
-              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}
+              className="w-14 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
               <CreditCard size={16} style={{ color: 'var(--text-tertiary)' }} />
             </div>
@@ -387,7 +389,7 @@ export function BillingSettings() {
             <button
               onClick={handleManageSubscription}
               className="ml-auto text-xs font-medium"
-              style={{ color: '#D97706' }}
+              style={{ color: 'var(--accent-primary)' }}
             >
               Update
             </button>
@@ -396,8 +398,8 @@ export function BillingSettings() {
       )}
 
       {/* Invoice history */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+      <div className="card p-8 space-y-5" style={{ borderRadius: 24, overflow: 'hidden' }}>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
           Invoice History
         </h2>
         {invoices.length === 0 ? (
@@ -408,25 +410,25 @@ export function BillingSettings() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <th className="text-left py-2 font-medium text-xs" style={{ color: 'var(--text-tertiary)' }}>Date</th>
-                  <th className="text-left py-2 font-medium text-xs" style={{ color: 'var(--text-tertiary)' }}>Invoice</th>
-                  <th className="text-left py-2 font-medium text-xs" style={{ color: 'var(--text-tertiary)' }}>Status</th>
-                  <th className="text-right py-2 font-medium text-xs" style={{ color: 'var(--text-tertiary)' }}>Amount</th>
-                  <th className="text-right py-2 font-medium text-xs" style={{ color: 'var(--text-tertiary)' }}></th>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+                  <th className="text-left py-4 font-bold text-xs uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Date</th>
+                  <th className="text-left py-4 font-bold text-xs uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Invoice</th>
+                  <th className="text-left py-4 font-bold text-xs uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Status</th>
+                  <th className="text-right py-4 font-bold text-xs uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Amount</th>
+                  <th className="text-right py-4 font-bold text-xs uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.map((inv) => (
-                  <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td className="py-2.5" style={{ color: 'var(--text-primary)' }}>
-                      {inv.created ? formatDate(inv.created) : '-'}
+                  <tr key={inv.id} className="hover:bg-white/30 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+                    <td className="py-4" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-bold">{inv.created ? formatDate(inv.created) : '-'}</span>
                     </td>
-                    <td className="py-2.5" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="py-4" style={{ color: 'var(--text-secondary)' }}>
                       {inv.number ?? inv.id.slice(0, 12)}
                     </td>
-                    <td className="py-2.5">{statusBadge(inv.status ?? 'draft')}</td>
-                    <td className="py-2.5 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <td className="py-4">{statusBadge(inv.status ?? 'draft')}</td>
+                    <td className="py-4 text-right font-bold" style={{ color: 'var(--text-primary)' }}>
                       {formatCurrency(inv.amount_due, inv.currency)}
                     </td>
                     <td className="py-2.5 text-right">
@@ -437,7 +439,7 @@ export function BillingSettings() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-medium"
-                            style={{ color: '#D97706' }}
+                            style={{ color: 'var(--accent-primary)' }}
                           >
                             View
                           </a>

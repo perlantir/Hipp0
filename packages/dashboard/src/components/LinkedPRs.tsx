@@ -61,8 +61,8 @@ function linkTypeBadge(type: string) {
     implements: 'bg-green-100 text-green-800',
     references: 'bg-blue-100 text-blue-800',
     created_by: 'bg-purple-100 text-purple-800',
-    validates: 'bg-amber-100 text-amber-800',
-    affects: 'bg-orange-100 text-orange-800',
+    validates: 'bg-blue-100 text-blue-800',
+    affects: 'bg-blue-100 text-blue-800',
   };
   return (
     <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${colors[type] ?? 'bg-gray-100 text-gray-700'}`}>

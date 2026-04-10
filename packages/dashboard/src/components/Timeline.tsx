@@ -50,21 +50,21 @@ function ValidationControls({
   };
 
   return (
-    <div className="mt-2 pt-2 border-t border-[var(--border-light)]">
+    <div className="mt-4 pt-4 border-t border-white/20">
       {/* Status display */}
       <div className="flex items-center gap-2 mb-2 text-xs">
         {isValidated ? (
-          <span className="flex items-center gap-1 text-green-400">
+          <span className="flex items-center gap-1 text-green-600">
             <span>✅</span>
             Validated via {(decision.validation_source ?? '').replace(/_/g, ' ')}
             {decision.validated_at && (
-              <span className="text-[var(--text-secondary)] ml-1">
+              <span className="text-[#6B7280] ml-1">
                 on {new Date(decision.validated_at ?? '').toLocaleDateString()}
               </span>
             )}
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+          <span className="flex items-center gap-1 text-[#6B7280]">
             <span>⏳</span> Not yet validated
           </span>
         )}
@@ -97,14 +97,15 @@ function ValidationControls({
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="px-2 py-1 rounded text-2xs bg-[var(--bg-secondary)] border border-[var(--border-light)]"
+                className="px-2 py-1 rounded-lg text-2xs border"
+                style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}
               >
                 {VALIDATION_SOURCES.map((s) => (
                   <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                 ))}
               </select>
               <button onClick={handleValidate} className="px-2 py-1 rounded text-2xs bg-green-500/20 text-green-400">Confirm</button>
-              <button onClick={() => setShowValidate(false)} className="px-2 py-1 rounded text-2xs bg-[var(--bg-hover)]">Cancel</button>
+              <button onClick={() => setShowValidate(false)} className="px-2 py-1 rounded-lg text-2xs" style={{ background: 'rgba(255,255,255,0.5)' }}>Cancel</button>
             </div>
           )}
 
@@ -114,10 +115,11 @@ function ValidationControls({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Reason (optional)"
-                className="px-2 py-1 rounded text-2xs bg-[var(--bg-secondary)] border border-[var(--border-light)] w-48"
+                className="px-2 py-1 rounded-lg text-2xs border w-48"
+                style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}
               />
               <button onClick={handleInvalidate} className="px-2 py-1 rounded text-2xs bg-red-500/20 text-red-400">Confirm</button>
-              <button onClick={() => setShowInvalidate(false)} className="px-2 py-1 rounded text-2xs bg-[var(--bg-hover)]">Cancel</button>
+              <button onClick={() => setShowInvalidate(false)} className="px-2 py-1 rounded-lg text-2xs" style={{ background: 'rgba(255,255,255,0.5)' }}>Cancel</button>
             </div>
           )}
         </div>
@@ -141,7 +143,17 @@ function formatDate(iso: string) {
 }
 
 function statusBadgeClass(status: DecisionStatus) {
-  return `badge badge-${status}`;
+  const base = 'flex items-center gap-1 text-[10px] font-bold uppercase';
+  switch (status) {
+    case 'active':
+      return `${base} text-green-600`;
+    case 'superseded':
+      return `${base} text-slate-500`;
+    case 'reverted':
+      return `${base} text-red-600`;
+    default:
+      return `${base} text-amber-600`;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -256,9 +268,9 @@ export function Timeline() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin text-primary" />
-          <span className="text-sm text-[var(--text-secondary)]">Loading timeline…</span>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={28} className="animate-spin text-[#063ff9]" />
+          <span className="text-base text-[#6B7280] font-medium">Loading timeline…</span>
         </div>
       </div>
     );
@@ -267,8 +279,8 @@ export function Timeline() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="card p-6 max-w-md text-center">
-          <p className="text-sm text-status-reverted">{error}</p>
+        <div className="p-8 max-w-md text-center rounded-3xl shadow-sm" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
+          <p className="text-base text-red-600 font-bold">{error}</p>
         </div>
       </div>
     );
@@ -276,76 +288,84 @@ export function Timeline() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-8 py-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-lg font-semibold mb-1">
-            Timeline
+        <div className="mb-12">
+          <h1 className="text-5xl font-bold tracking-tight mb-4">
+            Decision Timeline
             {totalCount > 0 && <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-tertiary)' }}>({totalCount} decisions)</span>}
           </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Chronological view of all decisions
+          <p className="text-xl text-[#6B7280] max-w-2xl">
+            Audit the trail of autonomous reasoning across your multi-agent architecture.
           </p>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <select
-            value={filterAgent}
-            onChange={(e) => setFilterAgent(e.target.value)}
-            className="input w-auto min-w-[140px] text-xs"
-          >
-            <option value="">All agents</option>
-            {agents.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-4 mb-12 rounded-2xl p-6 shadow-sm" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}>
+            <User size={14} className="text-[#6B7280]" />
+            <select
+              value={filterAgent}
+              onChange={(e) => setFilterAgent(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium text-[#1A1D27] p-0"
+            >
+              <option value="">All Agents</option>
+              {agents.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={filterTag}
-            onChange={(e) => setFilterTag(e.target.value)}
-            className="input w-auto min-w-[140px] text-xs"
-          >
-            <option value="">All tags</option>
-            {allTags.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}>
+            <Tag size={14} className="text-[#6B7280]" />
+            <select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium text-[#1A1D27] p-0"
+            >
+              <option value="">All Tags</option>
+              {allTags.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={filterScope}
-            onChange={(e) => setFilterScope(e.target.value)}
-            className="input w-auto min-w-[140px] text-xs"
-          >
-            <option value="">All scopes</option>
-            <option value="permanent">Permanent</option>
-            <option value="sprint">Sprint</option>
-            <option value="experiment">Experiment</option>
-            <option value="deprecated">Deprecated</option>
-          </select>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}>
+            <select
+              value={filterScope}
+              onChange={(e) => setFilterScope(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium text-[#1A1D27] p-0"
+            >
+              <option value="">All Scopes</option>
+              <option value="permanent">Permanent</option>
+              <option value="sprint">Sprint</option>
+              <option value="experiment">Experiment</option>
+              <option value="deprecated">Deprecated</option>
+            </select>
+          </div>
 
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}>
             <Calendar
               size={14}
-              className="text-[var(--text-secondary)]"
+              className="text-[#6B7280]"
             />
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="input w-auto text-xs"
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium text-[#1A1D27] p-0"
               placeholder="From"
             />
-            <span className="text-[var(--text-secondary)]">to</span>
+            <span className="text-[#6B7280] text-sm">to</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="input w-auto text-xs"
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium text-[#1A1D27] p-0"
               placeholder="To"
             />
           </div>
@@ -357,21 +377,21 @@ export function Timeline() {
 
         {/* Timeline */}
         {filtered.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
             <Clock
-              size={28}
-              className="mx-auto mb-2 text-[var(--text-tertiary)]"
+              size={32}
+              className="mx-auto mb-3 text-[#6B7280]"
             />
-            <p className="text-sm text-[var(--text-secondary)]">
+            <p className="text-base text-[#6B7280]">
               No decisions match the current filters
             </p>
           </div>
         ) : (
           <div className="relative">
             {/* Vertical line */}
-            <div className="absolute left-5 top-0 bottom-0 w-px bg-[var(--border-light)]" />
+            <div className="absolute left-[24px] top-0 bottom-0 w-px" style={{ background: 'linear-gradient(to bottom, transparent, #063ff933, transparent)' }} />
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {filtered.map((decision) => {
                 const chain = getChain(decision);
                 const isContradiction = hasContradiction(decision);
@@ -381,75 +401,78 @@ export function Timeline() {
                   <div key={decision.id} className="relative pl-12">
                     {/* Dot on timeline */}
                     <div
-                      className="absolute left-[14px] top-5 w-3 h-3 rounded-full border-2 border-[var(--border-light)]"
+                      className="absolute left-[18px] top-8 w-3.5 h-3.5 rounded-full border-2 border-white"
                       style={{
                         backgroundColor:
                           decision?.status === 'active'
-                            ? '#01696F'
+                            ? '#10b981'
                             : decision?.status === 'superseded'
-                              ? '#D19900'
+                              ? '#64748b'
                               : decision?.status === 'reverted'
-                                ? '#A13544'
-                                : '#FFC553',
+                                ? '#ef4444'
+                                : '#063ff9',
                       }}
                     />
 
                     {/* Card */}
                     <div
-                      className={`card p-4 transition-shadow hover:shadow-sm ${
-                        isContradiction ? 'ring-1 ring-status-reverted/40' : ''
+                      className={`p-8 rounded-3xl hover:translate-x-2 transition-all duration-300 group shadow-sm ${
+                        isContradiction ? 'ring-1 ring-red-500/40 border-l-4 border-l-red-500' : ''
                       }`}
+                      style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}
                     >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <h3 className="text-sm font-semibold leading-snug flex-1">
-                          {decision.title}
-                        </h3>
-                        {decision.validated_at && (
-                          <span className="text-green-400 text-xs" title={`Validated: ${decision.validation_source}`}>✅</span>
-                        )}
-                        {decision.temporal_scope && decision.temporal_scope !== 'permanent' && (
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-2xs font-medium ${
-                              decision.temporal_scope === 'sprint'
-                                ? 'bg-blue-500/15 text-blue-400'
-                                : decision.temporal_scope === 'experiment'
-                                  ? 'bg-purple-500/15 text-purple-400'
-                                  : 'bg-gray-500/15 text-gray-400'
-                            }`}
-                          >
-                            {decision.temporal_scope}
-                          </span>
-                        )}
-                        <span className={statusBadgeClass(decision.status)}>{decision.status}</span>
-                        {(decision.wing ?? decision.made_by) && (
-                          <WingBadge name={decision.wing ?? decision.made_by} />
-                        )}
-                        {decision.namespace && (
-                          <span style={{
-                            display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                            backgroundColor: '#6366f122', color: '#6366f1', border: '1px solid #6366f144',
-                          }}>
-                            ns:{decision.namespace}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] mb-2">
-                        <span className="flex items-center gap-1">
-                          <User size={12} />
-                          {decision.made_by}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} />
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            {(decision.wing ?? decision.made_by) && (
+                              <span className="px-2 py-0.5 bg-[#063ff9]/10 text-[#063ff9] text-[10px] font-bold rounded uppercase tracking-tighter">
+                                {decision.wing ?? decision.made_by}
+                              </span>
+                            )}
+                            <span className={statusBadgeClass(decision.status)}>{decision.status}</span>
+                            {decision.validated_at && (
+                              <span className="text-green-400 text-xs" title={`Validated: ${decision.validation_source}`}>✅</span>
+                            )}
+                            {decision.temporal_scope && decision.temporal_scope !== 'permanent' && (
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  decision.temporal_scope === 'sprint'
+                                    ? 'bg-[#063ff9]/10 text-[#063ff9]'
+                                    : decision.temporal_scope === 'experiment'
+                                      ? 'bg-purple-500/15 text-purple-400'
+                                      : 'bg-gray-500/15 text-gray-400'
+                                }`}
+                              >
+                                {decision.temporal_scope}
+                              </span>
+                            )}
+                            {decision.namespace && (
+                              <span style={{
+                                display: 'inline-block', padding: '1px 6px', borderRadius: 9999, fontSize: 10, fontWeight: 700,
+                                backgroundColor: '#063ff915', color: '#063ff9', border: '1px solid #063ff930',
+                                textTransform: 'uppercase',
+                              }}>
+                                ns:{decision.namespace}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-2xl font-bold leading-tight">
+                            {decision.title}
+                          </h2>
+                        </div>
+                        <span className="text-[#6B7280] text-sm font-medium whitespace-nowrap">
                           {formatDate(decision.created_at)}
                         </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280] mb-2">
                         {decision.valid_until && (
-                          <span className="text-status-reverted">
+                          <span className="text-red-600 font-bold">
                             Expired {formatDate(decision.valid_until)}
                           </span>
                         )}
                         {decision.superseded_by && (
-                          <span className="text-yellow-400">
+                          <span className="text-slate-500">
                             Superseded
                           </span>
                         )}
@@ -457,14 +480,14 @@ export function Timeline() {
 
                       {/* Tags */}
                       {decision.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
+                        <div className="flex flex-wrap gap-2 mb-6">
                           {decision.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="flex items-center gap-1 px-2 py-0.5 text-2xs rounded-full bg-primary/10 text-primary"
+                              className="px-3 py-1 rounded-full text-xs font-medium text-[#6B7280] border"
+                              style={{ background: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.2)' }}
                             >
-                              <Tag size={10} />
-                              {tag}
+                              #{tag}
                             </span>
                           ))}
                         </div>
@@ -472,43 +495,54 @@ export function Timeline() {
 
                       {/* Contradiction warning */}
                       {isContradiction && (
-                        <p className="text-xs text-status-reverted mt-1">
+                        <p className="text-xs text-red-600 font-bold mb-4">
                           ⚠ This decision has conflicts
                         </p>
                       )}
 
-                      {/* Supersession chain */}
-                      {chain.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-[var(--border-light)]">
-                          <button
-                            onClick={() => toggleChain(decision.id)}
-                            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary-hover transition-colors"
-                          >
-                            <ArrowRight size={12} />
-                            Supersedes {chain.length} decision{chain.length > 1 ? 's' : ''}
-                            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                          </button>
-
-                          {isExpanded && (
-                            <div className="mt-2 ml-4 space-y-2 animate-fade-in">
-                              {chain.map((prev) => (
-                                <div
-                                  key={prev.id}
-                                  className="p-3 rounded-md bg-[var(--bg-secondary)] text-xs"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-medium">{prev.title}</span>
-                                    <span className={statusBadgeClass(prev.status)}>
-                                      {prev.status}
-                                    </span>
-                                  </div>
-                                  <span className="text-[var(--text-secondary)] mt-1 block">
-                                    {formatDate(prev.created_at)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                      {/* Supersession chain & card footer */}
+                      <div className="flex items-center justify-between pt-6 border-t border-white/20">
+                        <div className="flex gap-6">
+                          {chain.length > 0 && (
+                            <button
+                              onClick={() => toggleChain(decision.id)}
+                              className="flex items-center gap-2 text-[#6B7280] text-sm font-bold"
+                            >
+                              <ArrowRight size={18} />
+                              {chain.length} related decision{chain.length > 1 ? 's' : ''}
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
                           )}
+                          {isContradiction && (
+                            <span className="flex items-center gap-2 text-red-600 text-sm font-bold">
+                              ⚠ contradictions
+                            </span>
+                          )}
+                        </div>
+                        <button className="flex items-center gap-2 text-[#063ff9] font-bold text-sm group-hover:gap-3 transition-all">
+                          Audit Logs <ArrowRight size={16} />
+                        </button>
+                      </div>
+
+                      {chain.length > 0 && isExpanded && (
+                        <div className="mt-4 ml-4 space-y-2 animate-fade-in">
+                          {chain.map((prev) => (
+                            <div
+                              key={prev.id}
+                              className="p-3 rounded-xl text-xs"
+                              style={{ background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.3)' }}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium">{prev.title}</span>
+                                <span className={statusBadgeClass(prev.status)}>
+                                  {prev.status}
+                                </span>
+                              </div>
+                              <span className="text-[#6B7280] mt-1 block">
+                                {formatDate(prev.created_at)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -524,26 +558,28 @@ export function Timeline() {
 
         {/* Pagination */}
         {totalCount > PAGE_SIZE && (
-          <div className="flex items-center justify-between mt-6 pt-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
-            <button
-              onClick={() => { setPage((p) => Math.max(0, p - 1)); }}
-              disabled={page === 0}
-              className="px-3 py-1.5 rounded text-sm disabled:opacity-30"
-              style={{ background: 'var(--bg-hover)' }}
-            >
-              Previous
-            </button>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE)}
-            </span>
-            <button
-              onClick={() => { setPage((p) => p + 1); }}
-              disabled={(page + 1) * PAGE_SIZE >= totalCount}
-              className="px-3 py-1.5 rounded text-sm disabled:opacity-30"
-              style={{ background: 'var(--bg-hover)' }}
-            >
-              Next
-            </button>
+          <div className="flex justify-center py-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => { setPage((p) => Math.max(0, p - 1)); }}
+                disabled={page === 0}
+                className="px-8 py-4 rounded-2xl font-bold disabled:opacity-30 hover:bg-white transition-all shadow-sm"
+                style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                Previous
+              </button>
+              <span className="text-sm font-medium text-[#6B7280]">
+                Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE)}
+              </span>
+              <button
+                onClick={() => { setPage((p) => p + 1); }}
+                disabled={(page + 1) * PAGE_SIZE >= totalCount}
+                className="px-8 py-4 rounded-2xl font-bold disabled:opacity-30 hover:bg-white transition-all shadow-sm"
+                style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

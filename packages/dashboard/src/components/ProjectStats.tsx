@@ -122,27 +122,27 @@ function StatCard({
 }) {
   return (
     <div
-      className={`card p-4 flex items-start gap-3 ${warn ? 'ring-1 ring-status-reverted/40' : ''}`}
+      className={`card p-6 rounded-2xl flex flex-col justify-between hover:shadow-xl transition-all ${warn ? 'ring-1 ring-status-reverted/40' : ''}`}
     >
-      <div
-        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-          warn ? 'bg-status-reverted/10' : 'bg-primary/10'
-        }`}
-      >
-        <span className={warn ? 'text-status-reverted' : 'text-primary'}>{icon}</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-2xs text-[var(--text-secondary)] uppercase tracking-wide mb-0.5">
+      <div className="flex justify-between items-start">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">
           {label}
-        </p>
-        <p
-          className={`text-xl font-semibold tabular-nums leading-tight ${
+        </span>
+        {warn ? (
+          <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.6)]" />
+        ) : (
+          <div className="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)]" />
+        )}
+      </div>
+      <div className="mt-4">
+        <span
+          className={`text-4xl font-bold ${
             warn && typeof value === 'number' && value > 0 ? 'text-status-reverted' : ''
           }`}
         >
           {value}
-        </p>
-        {sub && <p className="text-2xs text-[var(--text-tertiary)] mt-0.5">{sub}</p>}
+        </span>
+        {sub && <p className="text-xs font-bold mt-1 text-[var(--text-tertiary)] uppercase tracking-tighter">{sub}</p>}
       </div>
     </div>
   );
@@ -242,38 +242,46 @@ export function ProjectStats() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-8 py-8 space-y-10">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-lg font-semibold mb-1">Project Stats</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Overview of decisions, agents, and activity
+            <h1 className="text-4xl font-bold tracking-tight mb-2">System Health</h1>
+            <p className="text-lg text-[var(--text-secondary)]">
+              Monitoring core orchestration nodes and cognitive latency.
             </p>
           </div>
-          <button
-            onClick={async () => {
-              try {
-                const data = await get(`/api/projects/${projectId}/export`);
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `hipp0-export-${new Date().toISOString().slice(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch {
-                alert('Export failed');
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
-          >
-            <Download size={14} /> Export Project
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  const data = await get(`/api/projects/${projectId}/export`);
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `hipp0-export-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Export failed');
+                }
+              }}
+              className="card px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-white/80 transition-all"
+            >
+              <Download size={14} /> Export Project
+            </button>
+            <button
+              className="bg-primary text-white px-6 py-2 rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:-translate-y-1 transition-all"
+              onClick={() => {/* placeholder for deep diagnostic */}}
+            >
+              Deep Diagnostic
+            </button>
+          </div>
         </div>
 
-        {/* Top stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Bento Grid - Stat Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             label="Total Decisions"
             value={stats.total_decisions}
@@ -291,36 +299,44 @@ export function ProjectStats() {
         </div>
 
         {/* Decisions by status */}
-        <div className="card p-5">
-          <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+        <div className="card p-8 rounded-[2rem]">
+          <h2 className="text-xl font-bold mb-8 flex items-center gap-2">
             <BarChart3 size={16} className="text-primary" />
-            Decisions by Status
+            Node Vitality
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-6">
             {(['active', 'superseded', 'reverted', 'pending'] as const).map((status) => {
               const colors = STATUS_COLORS[status];
               const count = stats.by_status[status] ?? 0;
               const pct =
                 stats.total_decisions > 0 ? Math.round((count / stats.total_decisions) * 100) : 0;
               return (
-                <div key={status} className={`rounded-lg p-3 ${colors.bg}`}>
-                  <p className={`text-xs font-medium capitalize mb-1 ${colors.text}`}>{status}</p>
-                  <p className="text-2xl font-semibold tabular-nums">{count}</p>
-                  <p className="text-2xs text-[var(--text-tertiary)]">{pct}% of total</p>
+                <div key={status} className="flex items-center justify-between p-4 rounded-2xl bg-white/40">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-3 h-3 rounded-full ${colors.bar}`} />
+                    <div>
+                      <p className="text-sm font-bold capitalize">{status}</p>
+                      <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">{pct}% of total</p>
+                    </div>
+                  </div>
+                  <span className={`font-bold text-sm ${colors.text}`}>{count}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Two-column: Agent chart + Artifacts/Sessions */}
-        <div className="grid md:grid-cols-2 gap-5">
+        {/* Second Tier Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Decisions per agent */}
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+          <div className="lg:col-span-2 card p-8 rounded-[2rem] relative overflow-hidden">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h2 className="text-xl font-bold">Decisions per Agent</h2>
+                <p className="text-[var(--text-secondary)] text-sm">Agent activity distribution</p>
+              </div>
               <Users size={16} className="text-primary" />
-              Decisions per Agent
-            </h2>
+            </div>
             {agentData.length === 0 ? (
               <p className="text-sm text-[var(--text-secondary)] py-4 text-center">No agent data</p>
             ) : (
@@ -353,44 +369,45 @@ export function ProjectStats() {
             )}
           </div>
 
-          {/* Artifacts + extra metrics */}
-          <div className="flex flex-col gap-3">
-            <div className="card p-4 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10">
-                <FileText size={18} className="text-primary" />
-              </div>
-              <div>
-                <p className="text-2xs text-[var(--text-secondary)] uppercase tracking-wide mb-0.5">
-                  Artifacts
-                </p>
-                <p className="text-xl font-semibold tabular-nums">{stats.total_artifacts}</p>
+          {/* Artifacts + extra metrics (sidebar) */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="card p-8 rounded-[2rem]">
+              <h3 className="text-xl font-bold mb-8">Infrastructure</h3>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/40">
+                  <div className="flex items-center gap-4">
+                    <FileText size={18} className="text-green-500" />
+                    <div>
+                      <p className="text-sm font-bold">Artifacts</p>
+                      <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">Total stored</p>
+                    </div>
+                  </div>
+                  <span className="text-primary font-bold text-sm">{stats.total_artifacts}</span>
+                </div>
+
+                {stats.unresolved_contradictions > 0 && (
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border-t-2 border-red-500/10 pt-6">
+                    <div className="flex items-center gap-4">
+                      <AlertTriangle size={18} className="text-red-500" />
+                      <div>
+                        <p className="text-sm font-bold">Contradictions</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">Needs attention</p>
+                      </div>
+                    </div>
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-[10px] font-extrabold">
+                      {stats.unresolved_contradictions}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Unresolved contradictions callout */}
-            {stats.unresolved_contradictions > 0 && (
-              <div className="card p-4 ring-1 ring-status-reverted/40 flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-status-reverted/10">
-                  <AlertTriangle size={18} className="text-status-reverted" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-status-reverted mb-0.5">
-                    {stats.unresolved_contradictions} Unresolved Contradiction
-                    {stats.unresolved_contradictions !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-2xs text-[var(--text-secondary)]">
-                    Review contradictions to maintain decision consistency
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Domain distribution */}
         {domainData.length > 0 && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+          <div className="card p-8 rounded-[2rem]">
+            <h2 className="text-xl font-bold mb-8 flex items-center gap-2">
               <BarChart3 size={16} className="text-primary" />
               Decisions by Domain
             </h2>
@@ -428,81 +445,103 @@ export function ProjectStats() {
           </div>
         )}
 
-        {/* Decision trend */}
+        {/* Decision trend - Response Time Chart */}
         {trendData.length > 0 && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp size={16} className="text-primary" />
-              Decision Trend
-            </h2>
-            <div className="flex items-end gap-1.5 h-24">
-              {trendData.map((point) => {
+          <div className="card p-8 rounded-[2rem] relative overflow-hidden">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h2 className="text-xl font-bold">Decision Trend</h2>
+                <p className="text-[var(--text-secondary)] text-sm">Activity over time</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest">
+                  <span className="w-2 h-2 rounded-full bg-primary" /> Live
+                </span>
+              </div>
+            </div>
+            <div className="h-64 flex items-end gap-1 px-2 relative">
+              {/* Horizontal Grid Lines */}
+              <div className="absolute inset-0 flex flex-col justify-between opacity-10">
+                <div className="border-t border-[var(--text-primary)] w-full" />
+                <div className="border-t border-[var(--text-primary)] w-full" />
+                <div className="border-t border-[var(--text-primary)] w-full" />
+                <div className="border-t border-[var(--text-primary)] w-full" />
+              </div>
+              {trendData.map((point, idx) => {
                 const heightPct = trendMax > 0 ? Math.round((point.count / trendMax) * 100) : 0;
+                const isHighest = point.count === trendMax;
                 return (
                   <div
                     key={point.date}
-                    className="flex-1 flex flex-col items-center gap-1 group"
+                    className={`w-full rounded-t-lg group relative ${isHighest ? 'bg-primary shadow-[0_0_20px_rgba(6,63,249,0.4)]' : 'bg-primary/20'}`}
+                    style={{ height: `${Math.max(heightPct, 4)}%` }}
                     title={`${formatDate(point.date)}: ${point.count}`}
                   >
-                    <div
-                      className="w-full rounded-t bg-primary/70 hover:bg-primary transition-colors duration-150"
-                      style={{ height: `${Math.max(heightPct, 4)}%` }}
-                    />
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[var(--text-primary)] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      {point.count}
+                    </div>
                   </div>
                 );
               })}
             </div>
-            {/* X-axis labels — show first, middle, last */}
+            {/* X-axis labels */}
             {trendData.length >= 2 && (
-              <div className="flex justify-between mt-2">
-                <span className="text-2xs text-[var(--text-tertiary)]">
-                  {formatDate(trendData[0].date)}
-                </span>
-                <span className="text-2xs text-[var(--text-tertiary)]">
+              <div className="flex justify-between mt-4 text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-widest px-2">
+                <span>{formatDate(trendData[0].date)}</span>
+                <span>
                   {formatDate(
                     trendData[Math.floor(trendData.length / 2)].date,
                   )}
                 </span>
-                <span className="text-2xs text-[var(--text-tertiary)]">
-                  {formatDate(trendData[trendData.length - 1].date)}
-                </span>
+                <span>{formatDate(trendData[trendData.length - 1].date)}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Recent activity */}
+        {/* Recent activity - Deep Infrastructure Inventory */}
         {stats.recent_activity && stats.recent_activity.length > 0 && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Activity size={16} className="text-primary" />
-              Recent Activity
-            </h2>
-            <div className="space-y-2">
-              {stats.recent_activity.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
-                >
-                  <div className="w-2 h-2 rounded-full bg-primary/60 mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-snug">{item.description}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {item.agent && (
-                        <span className="text-2xs text-[var(--text-secondary)]">{item.agent}</span>
-                      )}
-                      <span className="text-2xs text-[var(--text-tertiary)]">
-                        {formatTime(item.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-2xs text-[var(--text-tertiary)] capitalize whitespace-nowrap">
-                    {(item.type ?? "").replace(/_/g, ' ')}
-                  </span>
-                </div>
-              ))}
+          <section className="card rounded-[2.5rem] overflow-hidden shadow-2xl">
+            <div className="bg-[var(--text-primary)] text-white p-8">
+              <h3 className="text-2xl font-bold">Deep Infrastructure Inventory</h3>
+              <p className="text-slate-400 text-sm mt-1">Recent activity and status updates.</p>
             </div>
-          </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-[var(--border-light)]">
+                    <th className="px-8 py-6 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Activity</th>
+                    <th className="px-8 py-6 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Type</th>
+                    <th className="px-8 py-6 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Agent</th>
+                    <th className="px-8 py-6 text-right text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-light)]">
+                  {stats.recent_activity.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/40 transition-colors">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/5 rounded-lg text-primary">
+                            <Activity size={14} />
+                          </div>
+                          <span className="font-bold text-sm">{item.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className="bg-green-100 text-green-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
+                          {(item.type ?? "").replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-sm font-medium">{item.agent || '-'}</td>
+                      <td className="px-8 py-6 text-right">
+                        <span className="text-sm text-[var(--text-secondary)]">{formatTime(item.timestamp)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </div>
     </div>

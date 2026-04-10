@@ -209,7 +209,7 @@ export function LiveSessions() {
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 rounded-md text-sm font-medium text-white flex items-center gap-2"
-          style={{ background: '#D97706' }}
+          style={{ background: 'var(--accent-primary)' }}
         >
           <Plus className="w-4 h-4" />
           New Session

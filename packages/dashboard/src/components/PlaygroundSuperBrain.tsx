@@ -2,28 +2,28 @@
  * Super Brain Playground — interactive step-by-step agent simulation.
  *
  * 100% client-side, zero API/LLM calls. Uses hardcoded demo scenarios.
- * Copper #D97757 accents, glassmorphism cards, smooth animations.
+ * Cyanic Swarm #063ff9 accents, glassmorphism cards, smooth animations.
  *
  * Flow: Hero → Task Input → Team Plan → Step Simulation → Completion
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { findScenario, type DemoScenario, type DemoStep } from '../data/demo-scenarios';
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// -- Constants --------------------------------------------------------------
 
 type Phase = 'input' | 'planning' | 'simulation' | 'complete';
 type Speed = 'normal' | 'fast' | 'skip';
 
-const COPPER = '#D97757';
-const COPPER_BG = 'rgba(217, 119, 87, 0.08)';
-const COPPER_BORDER = 'rgba(217, 119, 87, 0.25)';
-const GREEN = '#10B981';
-const GREEN_BG = 'rgba(16, 185, 129, 0.08)';
-const GREEN_BORDER = 'rgba(16, 185, 129, 0.3)';
-const SURFACE = 'rgba(255, 255, 255, 0.03)';
-const SURFACE_BORDER = 'rgba(255, 255, 255, 0.08)';
-const GLASS = 'rgba(255, 255, 255, 0.04)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.1)';
+const ACCENT = '#063ff9';
+const ACCENT_BG = 'rgba(6, 63, 249, 0.08)';
+const ACCENT_BORDER = 'rgba(6, 63, 249, 0.25)';
+const GREEN = '#16A34A';
+const GREEN_BG = 'rgba(22, 163, 74, 0.08)';
+const GREEN_BORDER = 'rgba(22, 163, 74, 0.3)';
+const SURFACE = 'rgba(6, 63, 249, 0.03)';
+const SURFACE_BORDER = 'rgba(6, 63, 249, 0.08)';
+const GLASS = 'rgba(255, 255, 255, 0.6)';
+const GLASS_BORDER = 'rgba(255, 255, 255, 0.4)';
 
 const STEP_MS: Record<Speed, number> = { normal: 3000, fast: 1500, skip: 0 };
 
@@ -34,13 +34,13 @@ const QUICK_TASKS = [
   { label: 'Product Launch', icon: '📣', task: 'Plan the product launch strategy' },
 ];
 
-// ── Styles ─────────────────────────────────────────────────────────────────
+// -- Styles -----------------------------------------------------------------
 
 const glassCard = (active = false): React.CSSProperties => ({
   padding: '20px 24px',
   borderRadius: 12,
-  border: `1px solid ${active ? COPPER_BORDER : GLASS_BORDER}`,
-  backgroundColor: active ? COPPER_BG : GLASS,
+  border: `1px solid ${active ? ACCENT_BORDER : GLASS_BORDER}`,
+  backgroundColor: active ? ACCENT_BG : GLASS,
   backdropFilter: 'blur(12px)',
   transition: 'all 0.35s ease',
 });
@@ -57,7 +57,7 @@ const badge = (color: string): React.CSSProperties => ({
   border: `1px solid ${color}33`,
 });
 
-// ── Component ──────────────────────────────────────────────────────────────
+// -- Component --------------------------------------------------------------
 
 export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => void }) {
   const [phase, setPhase] = useState<Phase>('input');
@@ -81,7 +81,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
   useEffect(() => () => clearTimers(), [clearTimers]);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
 
-  // ── Start simulation ──────────────────────────────────────────────────
+  // -- Start simulation --------------------------------------------------
 
   const startSimulation = (task: string) => {
     const s = findScenario(task);
@@ -100,7 +100,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     }
   };
 
-  // ── Run steps ─────────────────────────────────────────────────────────
+  // -- Run steps ---------------------------------------------------------
 
   const runSteps = useCallback(() => {
     if (!scenario) return;
@@ -151,11 +151,11 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     playStep();
   }, [scenario, speed]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────
+  // -- Helpers -----------------------------------------------------------
 
   const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-  // ── Step card renderer ────────────────────────────────────────────────
+  // -- Step card renderer ------------------------------------------------
 
   const renderStepCard = (step: DemoStep) => {
     const status = stepProgress[step.step_number] || 'pending';
@@ -174,13 +174,13 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={badge(isDone ? GREEN : isActive ? COPPER : '#6b7280')}>
+            <span style={badge(isDone ? GREEN : isActive ? ACCENT : '#6b7280')}>
               STEP {step.step_number}
             </span>
-            <span style={{ fontWeight: 600, color: '#e5e7eb', fontSize: 15 }}>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15 }}>
               {step.agent_name}
             </span>
-            <span style={{ color: '#9ca3af', fontSize: 13 }}>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>
               {step.role_suggestion}
             </span>
           </div>
@@ -197,7 +197,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         }}>
           {step.top_decisions.map((d, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 13 }}>
-              <span style={{ color: '#d1d5db' }}>• {d.title}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>• {d.title}</span>
               <span style={{ fontFamily: 'monospace', color: '#6b7280', marginLeft: 12, whiteSpace: 'nowrap' }}>{d.score.toFixed(2)}</span>
             </div>
           ))}
@@ -212,7 +212,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
             <div style={{ color: GREEN, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', marginBottom: 4 }}>
               NEW FROM PREVIOUS STEP
             </div>
-            <div style={{ color: '#d1d5db', fontSize: 13, lineHeight: 1.5 }}>{step.new_from_previous}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>{step.new_from_previous}</div>
           </div>
         )}
 
@@ -220,8 +220,10 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         {showOutput && (
           <div style={{
             padding: '12px 16px', borderRadius: 8,
-            backgroundColor: 'rgba(0,0,0,0.2)',
-            fontFamily: 'monospace', fontSize: 13, color: '#e5e7eb', lineHeight: 1.7,
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            fontFamily: 'monospace', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7,
           }}>
             <div style={{ color: '#6b7280', fontSize: 11, marginBottom: 6, letterSpacing: '0.5px' }}>OUTPUT</div>
             {isDone ? step.output : step.output.slice(0, typedChars)}
@@ -231,7 +233,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
 
         {/* Handoff arrow */}
         {isDone && step.step_number < (scenario?.plan.length ?? 0) && (
-          <div style={{ textAlign: 'center', color: COPPER, padding: '10px 0', fontSize: 13, fontWeight: 500 }}>
+          <div style={{ textAlign: 'center', color: ACCENT, padding: '10px 0', fontSize: 13, fontWeight: 500 }}>
             ↓ passing context to {scenario?.plan[step.step_number]?.agent_name}...
           </div>
         )}
@@ -239,20 +241,21 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     );
   };
 
-  // ── SCREEN 1: Hero + Task Input ───────────────────────────────────────
+  // -- SCREEN 1: Hero + Task Input ---------------------------------------
 
   if (phase === 'input') {
     return (
       <div style={{ maxWidth: 680, margin: '40px auto', padding: '20px' }}>
         {/* Blink cursor animation */}
-        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${COPPER}; }`}</style>
+        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${ACCENT}; }`}</style>
 
         {/* Hero */}
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div style={{ fontSize: 42, fontWeight: 800, color: '#f9fafb', lineHeight: 1.2, marginBottom: 12 }}>
-            Watch the Brain<br />Run Your Team
+          <div style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.2, marginBottom: 12 }}>
+            <span style={{ color: 'var(--text-primary)' }}>Watch the Brain</span><br />
+            <span style={{ color: '#063ff9' }}>Run Your Team</span>
           </div>
-          <div style={{ color: '#9ca3af', fontSize: 17, maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 17, maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
             Type a task. The Super Brain builds a plan, picks the right agents, and coordinates them step by step.
           </div>
         </div>
@@ -270,7 +273,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
             }}>
               <span style={{ fontSize: 28 }}>{qt.icon}</span>
               <div>
-                <div style={{ fontWeight: 600, color: '#e5e7eb', fontSize: 14 }}>{qt.label}</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>{qt.label}</div>
                 <div style={{ color: '#6b7280', fontSize: 12, marginTop: 2 }}>{qt.task}</div>
               </div>
             </button>
@@ -282,7 +285,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           disabled={false}
           style={{
             width: '100%', padding: '14px 24px', fontSize: 16, fontWeight: 700,
-            backgroundColor: COPPER, color: '#fff', border: 'none', borderRadius: 10,
+            backgroundColor: ACCENT, color: '#fff', border: 'none', borderRadius: 10,
             cursor: 'pointer', letterSpacing: '0.3px',
             transition: 'all 0.2s ease',
           }}
@@ -302,7 +305,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     );
   }
 
-  // ── SCREEN 2: Team Plan ───────────────────────────────────────────────
+  // -- SCREEN 2: Team Plan -----------------------------------------------
 
   if (phase === 'planning' && scenario) {
     const allAgents = [
@@ -319,15 +322,15 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
 
     return (
       <div style={{ maxWidth: 680, margin: '40px auto', padding: 20 }}>
-        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${COPPER}; }`}</style>
+        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${ACCENT}; }`}</style>
 
         <div style={{ marginBottom: 8 }}>
-          <span style={badge(COPPER)}>TEAM PLAN</span>
+          <span style={badge(ACCENT)}>TEAM PLAN</span>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#f9fafb', marginBottom: 4 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
           {scenario.plan.length} agents selected
         </div>
-        <div style={{ color: '#9ca3af', fontSize: 14, marginBottom: 24 }}>"{taskInput}"</div>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 14, marginBottom: 24 }}>"{taskInput}"</div>
 
         {/* Agent list */}
         <div style={{ marginBottom: 28 }}>
@@ -348,7 +351,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
                   <div style={{ width: 48, textAlign: 'right' }}>
                     <span style={{
                       fontFamily: 'monospace', fontSize: 14, fontWeight: 700,
-                      color: isSkipped ? '#4b5563' : a.relevance_score >= 0.6 ? GREEN : a.relevance_score >= 0.3 ? COPPER : '#6b7280',
+                      color: isSkipped ? '#4b5563' : a.relevance_score >= 0.6 ? GREEN : a.relevance_score >= 0.3 ? ACCENT : '#6b7280',
                     }}>
                       {pct(a.relevance_score)}
                     </span>
@@ -357,7 +360,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
                   <div style={{ width: 60, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                     <div style={{
                       width: `${a.relevance_score * 100}%`, height: '100%', borderRadius: 3,
-                      backgroundColor: isSkipped ? '#4b5563' : a.relevance_score >= 0.6 ? GREEN : a.relevance_score >= 0.3 ? COPPER : '#6b7280',
+                      backgroundColor: isSkipped ? '#4b5563' : a.relevance_score >= 0.6 ? GREEN : a.relevance_score >= 0.3 ? ACCENT : '#6b7280',
                       transition: 'width 0.6s ease',
                     }} />
                   </div>
@@ -367,7 +370,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
                       {a.agent_name}
                     </span>
                     {!isSkipped && 'role_suggestion' in a && (
-                      <span style={{ color: '#9ca3af', marginLeft: 8, fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-tertiary)', marginLeft: 8, fontSize: 13 }}>
                         {(a as unknown as DemoStep).role_suggestion}
                       </span>
                     )}
@@ -378,7 +381,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
                   </span>
                 </div>
                 {!isSkipped && 'task_suggestion' in a && (
-                  <div style={{ color: '#9ca3af', fontSize: 13, marginTop: 6, paddingLeft: 132 }}>
+                  <div style={{ color: 'var(--text-tertiary)', fontSize: 13, marginTop: 6, paddingLeft: 132 }}>
                     → {(a as unknown as DemoStep).task_suggestion}
                   </div>
                 )}
@@ -391,14 +394,14 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={runSteps} style={{
             flex: 1, padding: 14, fontSize: 15, fontWeight: 700,
-            backgroundColor: COPPER, color: '#fff', border: 'none', borderRadius: 10,
+            backgroundColor: ACCENT, color: '#fff', border: 'none', borderRadius: 10,
             cursor: 'pointer', transition: 'all 0.2s',
           }}>
             ▶ Run Simulation
           </button>
           <button onClick={() => { setSpeed('skip'); setTimeout(runSteps, 0); }} style={{
             padding: '14px 20px', fontSize: 14,
-            backgroundColor: SURFACE, color: '#9ca3af', border: `1px solid ${SURFACE_BORDER}`,
+            backgroundColor: SURFACE, color: 'var(--text-tertiary)', border: `1px solid ${SURFACE_BORDER}`,
             borderRadius: 10, cursor: 'pointer',
           }}>
             ⏭ Skip
@@ -408,7 +411,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     );
   }
 
-  // ── SCREEN 3: Step-by-Step Simulation ─────────────────────────────────
+  // -- SCREEN 3: Step-by-Step Simulation ---------------------------------
 
   if (phase === 'simulation' && scenario) {
     const doneCount = Object.values(stepProgress).filter(s => s === 'done').length;
@@ -416,14 +419,14 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
 
     return (
       <div style={{ maxWidth: 740, margin: '20px auto', padding: 20 }}>
-        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${COPPER}; }`}</style>
+        <style>{`@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } } .blink-cursor { animation: blink 1s infinite; color: ${ACCENT}; }`}</style>
 
         {/* Progress bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ width: `${progress * 100}%`, height: '100%', backgroundColor: COPPER, borderRadius: 2, transition: 'width 0.5s ease' }} />
+            <div style={{ width: `${progress * 100}%`, height: '100%', backgroundColor: ACCENT, borderRadius: 2, transition: 'width 0.5s ease' }} />
           </div>
-          <span style={{ color: '#9ca3af', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
             {doneCount}/{scenario.plan.length}
           </span>
         </div>
@@ -433,7 +436,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           {(['normal', 'fast'] as Speed[]).map(s => (
             <button key={s} onClick={() => setSpeed(s)} style={{
               padding: '5px 14px', fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-              backgroundColor: speed === s ? COPPER : SURFACE,
+              backgroundColor: speed === s ? ACCENT : SURFACE,
               color: speed === s ? '#fff' : '#9ca3af',
               fontWeight: speed === s ? 700 : 400,
               transition: 'all 0.2s',
@@ -443,13 +446,13 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
           ))}
           <button onClick={() => setPaused(p => !p)} style={{
             padding: '5px 14px', fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-            backgroundColor: paused ? COPPER : SURFACE, color: paused ? '#fff' : '#9ca3af',
+            backgroundColor: paused ? ACCENT : SURFACE, color: paused ? '#fff' : '#9ca3af',
           }}>
             {paused ? '▶ Resume' : '⏸ Pause'}
           </button>
           <button onClick={() => { setSpeed('skip'); clearTimers(); const prog: Record<number, 'done'> = {}; scenario.plan.forEach(s => { prog[s.step_number] = 'done'; }); setStepProgress(prog); setCurrentStep(scenario.plan.length); setTimeout(() => setPhase('complete'), 300); }} style={{
             padding: '5px 14px', fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-            backgroundColor: SURFACE, color: '#9ca3af',
+            backgroundColor: SURFACE, color: 'var(--text-tertiary)',
           }}>
             ⏭ Skip
           </button>
@@ -461,7 +464,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
     );
   }
 
-  // ── SCREEN 4: Completion ──────────────────────────────────────────────
+  // -- SCREEN 4: Completion ----------------------------------------------
 
   if (phase === 'complete' && scenario) {
     return (
@@ -470,23 +473,23 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         <div style={{ height: 4, backgroundColor: GREEN, borderRadius: 2, marginBottom: 32 }} />
 
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#f9fafb', marginBottom: 8 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
             Task Complete
           </div>
-          <div style={{ color: '#9ca3af', fontSize: 15 }}>
+          <div style={{ color: 'var(--text-tertiary)', fontSize: 15 }}>
             {scenario.plan.length} agents coordinated • {scenario.plan.reduce((s, st) => s + st.decisions_compiled, 0)} decisions compiled • 0 conflicts
           </div>
         </div>
 
         {/* Efficiency bars */}
         <div style={{ ...glassCard(), marginBottom: 24 }}>
-          <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: 16, fontSize: 14, letterSpacing: '0.3px' }}>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, fontSize: 14, letterSpacing: '0.3px' }}>
             Context Efficiency
           </div>
           {scenario.plan.map((step, i) => (
             <div key={i} style={{ marginBottom: i < scenario.plan.length - 1 ? 16 : 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                <span style={{ color: '#e5e7eb', fontWeight: 500, fontSize: 14 }}>{step.agent_name}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 14 }}>{step.agent_name}</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#6b7280' }}>
                   {step.decisions_compiled}/{scenario.totalDecisions} decisions ({Math.round(step.decisions_compiled / scenario.totalDecisions * 100)}%)
                 </span>
@@ -494,7 +497,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
               <div style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{
                   width: `${step.decisions_compiled / scenario.totalDecisions * 100}%`,
-                  height: '100%', backgroundColor: COPPER, borderRadius: 3,
+                  height: '100%', backgroundColor: ACCENT, borderRadius: 3,
                   transition: 'width 1.2s ease',
                 }} />
               </div>
@@ -511,13 +514,13 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <div style={{ ...glassCard(), opacity: 0.7 }}>
             <div style={{ fontWeight: 700, color: '#6b7280', marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITHOUT HIPP0</div>
-            <div style={{ color: '#9ca3af', fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.6 }}>
               Every agent sees all {scenario.totalDecisions} decisions or none. No agent knows what the previous one decided. Wasted tokens, repeated work, missed context.
             </div>
           </div>
           <div style={{ padding: '20px 24px', borderRadius: 12, border: `1px solid ${GREEN_BORDER}`, backgroundColor: GREEN_BG }}>
             <div style={{ fontWeight: 700, color: GREEN, marginBottom: 10, fontSize: 12, letterSpacing: '0.5px' }}>WITH HIPP0</div>
-            <div style={{ color: '#d1d5db', fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
               Each agent sees only what matters to them. Every step builds on the last. The brain coordinates the whole team automatically.
             </div>
           </div>
@@ -525,13 +528,13 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
 
         {/* CTA */}
         <div style={{ ...glassCard(), textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontWeight: 700, color: '#f9fafb', marginBottom: 16, fontSize: 18 }}>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, fontSize: 18 }}>
             Give your agents a shared brain
           </div>
           <a href="https://github.com/perlantir/Hipp0" target="_blank" rel="noopener"
             style={{
               display: 'inline-block', padding: '12px 28px',
-              backgroundColor: COPPER, color: '#fff', borderRadius: 10,
+              backgroundColor: ACCENT, color: '#fff', borderRadius: 10,
               fontWeight: 700, textDecoration: 'none', fontSize: 15,
               transition: 'all 0.2s',
             }}>
@@ -543,8 +546,8 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
               'docker compose up -d',
             ].map((cmd, i) => (
               <button key={i} onClick={() => navigator.clipboard?.writeText(cmd)} style={{
-                padding: '8px 14px', backgroundColor: 'rgba(0,0,0,0.3)',
-                color: '#9ca3af', border: `1px solid ${SURFACE_BORDER}`, borderRadius: 8,
+                padding: '8px 14px', background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(24px)',
+                color: 'var(--text-tertiary)', border: `1px solid ${SURFACE_BORDER}`, borderRadius: 8,
                 fontSize: 12, fontFamily: 'monospace', cursor: 'pointer',
                 transition: 'all 0.2s',
               }}>
@@ -557,7 +560,7 @@ export function PlaygroundSuperBrain({ onClassicMode }: { onClassicMode?: () => 
         {/* Bottom actions */}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <button onClick={() => { setPhase('input'); setScenario(null); setTaskInput(''); }} style={{
-            padding: '10px 24px', backgroundColor: SURFACE, color: '#e5e7eb',
+            padding: '10px 24px', backgroundColor: SURFACE, color: 'var(--text-primary)',
             border: `1px solid ${SURFACE_BORDER}`, borderRadius: 10, cursor: 'pointer', fontWeight: 500,
           }}>
             Try Another Task

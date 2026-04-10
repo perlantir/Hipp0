@@ -47,11 +47,26 @@ function relativeTime(iso: string) {
 
 function confidenceBadge(confidence: string) {
   const colors: Record<string, string> = {
-    high: 'bg-green-500/15 text-green-600',
-    medium: 'bg-amber-500/15 text-amber-600',
-    low: 'bg-red-500/15 text-red-600',
+    high: 'bg-green-100 text-green-700',
+    medium: 'bg-amber-100 text-amber-700',
+    low: 'bg-red-100 text-red-700',
   };
-  return colors[confidence] ?? 'bg-[var(--border-light)] text-[var(--text-secondary)]';
+  return colors[confidence] ?? 'bg-slate-100 text-slate-600';
+}
+
+function confidenceBorderColor(confidence: string) {
+  const colors: Record<string, string> = {
+    high: 'border-green-500',
+    medium: 'border-amber-400',
+    low: 'border-rose-500',
+  };
+  return colors[confidence] ?? 'border-blue-500';
+}
+
+function confidenceIcon(confidence: string) {
+  if (confidence === 'low') return 'text-amber-600';
+  if (confidence === 'medium') return 'text-blue-600';
+  return 'text-green-600';
 }
 
 /* ------------------------------------------------------------------ */
@@ -98,106 +113,130 @@ function ReviewItem({
   }
 
   return (
-    <div className="card p-4 animate-slide-up">
-      <div className="flex items-start gap-3">
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="input w-full text-sm font-semibold mb-1"
-            />
-          ) : (
-            <h3 className="text-sm font-semibold mb-1 leading-snug">{decision.title}</h3>
-          )}
-
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className={`text-2xs px-1.5 py-0.5 rounded-full capitalize ${confidenceBadge(decision.confidence)}`}>
-              {decision.confidence}
+    <div className={`card rounded-3xl p-6 border-l-[6px] ${confidenceBorderColor(decision.confidence)} hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 animate-slide-up`}>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Metadata Column */}
+        <div className="lg:w-1/4">
+          <div className={`flex items-center gap-2 ${confidenceIcon(decision.confidence)} mb-3`}>
+            <AlertTriangle size={16} />
+            <span className="text-xs font-bold tracking-widest uppercase">
+              {decision.confidence} confidence
             </span>
-            <span className="text-2xs text-[var(--text-tertiary)] flex items-center gap-1">
-              <User size={10} /> {decision.made_by}
-            </span>
-            <span className="text-2xs text-[var(--text-tertiary)]">
-              {relativeTime(decision.created_at)}
-            </span>
-            <span className="text-2xs text-[var(--text-tertiary)] capitalize">{decision.source}</span>
           </div>
-
-          {/* Tags */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+              <User size={16} className="text-slate-600" />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Agent Origin</p>
+              <p className="text-sm font-bold">{decision.made_by}</p>
+            </div>
+          </div>
           {decision.tags.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mb-2">
-              <Tag size={10} className="text-[var(--text-tertiary)]" />
+            <div className="flex flex-wrap gap-2">
               {decision.tags.map((tag) => (
-                <span key={tag} className="tag-pill text-2xs">{tag}</span>
+                <span key={tag} className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">{tag}</span>
               ))}
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => setEditing((e) => !e)}
-            className="btn-ghost p-1.5"
-            title="Edit before approving"
-          >
-            <Edit3 size={14} />
-          </button>
-          <button
-            onClick={handleApprove}
-            disabled={!!actionLoading}
-            className="btn-ghost p-1.5 text-green-600 hover:bg-green-500/10"
-            title="Approve"
-          >
-            {actionLoading === 'approve' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-          </button>
-          <button
-            onClick={() => setShowReject((v) => !v)}
-            className="btn-ghost p-1.5 text-red-500 hover:bg-red-500/10"
-            title="Reject"
-          >
-            <XCircle size={14} />
-          </button>
-          <button
-            onClick={() => setExpanded((e) => !e)}
-            className="btn-ghost p-1"
-          >
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded: reasoning + description */}
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-[var(--border-light)] space-y-2">
+        {/* Content Column */}
+        <div className="lg:w-2/4">
           {editing ? (
-            <textarea
-              value={editDesc}
-              onChange={(e) => setEditDesc(e.target.value)}
-              className="input w-full text-sm h-20 resize-y"
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="input w-full text-xl font-bold mb-3"
             />
+          ) : (
+            <h3 className="text-xl font-bold mb-3">{decision.title}</h3>
+          )}
+
+          {expanded ? (
+            <div className="space-y-3">
+              {editing ? (
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="input w-full text-sm h-20 resize-y"
+                />
+              ) : (
+                <>
+                  {decision.description && (
+                    <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-4">{decision.description}</p>
+                  )}
+                  {decision.reasoning && (
+                    <div className="bg-white/40 rounded-2xl p-4 border border-white/60">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Reasoning</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{decision.reasoning}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           ) : (
             <>
               {decision.description && (
-                <p className="text-sm text-[var(--text-secondary)]">{decision.description}</p>
-              )}
-              {decision.reasoning && (
-                <div>
-                  <p className="text-xs font-medium text-[var(--text-secondary)] mb-0.5">Reasoning</p>
-                  <p className="text-sm text-[var(--text-secondary)]">{decision.reasoning}</p>
-                </div>
+                <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-4 line-clamp-2">{decision.description}</p>
               )}
             </>
           )}
+          <div className="flex items-center gap-3 mt-3">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase ${confidenceBadge(decision.confidence)}`}>
+              {decision.confidence}
+            </span>
+            <span className="text-xs text-[var(--text-tertiary)]">
+              {relativeTime(decision.created_at)}
+            </span>
+            <span className="text-xs text-[var(--text-tertiary)] capitalize">{decision.source}</span>
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              className="ml-auto text-primary text-xs font-bold hover:underline"
+            >
+              {expanded ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Actions Column */}
+        <div className="lg:w-1/4 flex flex-col justify-center gap-3">
+          <button
+            onClick={handleApprove}
+            disabled={!!actionLoading}
+            className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          >
+            {actionLoading === 'approve' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Approve
+          </button>
+          <button
+            onClick={() => setEditing((e) => !e)}
+            className="w-full bg-white/80 border border-slate-200 py-2.5 rounded-xl font-bold text-sm hover:bg-white transition-all flex items-center justify-center gap-1.5"
+          >
+            <Edit3 size={14} />
+            Edit & Approve
+          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setShowReject((v) => !v)}
+              className="bg-rose-50 text-rose-600 py-2.5 rounded-xl font-bold text-[11px] hover:bg-rose-100 transition-all uppercase tracking-tight"
+            >
+              Reject
+            </button>
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              className="bg-slate-100 text-slate-600 py-2.5 rounded-xl font-bold text-[11px] hover:bg-slate-200 transition-all uppercase tracking-tight"
+            >
+              Revision
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Reject reason */}
       {showReject && (
-        <div className="mt-3 pt-3 border-t border-[var(--border-light)] space-y-2">
+        <div className="mt-4 pt-4 border-t border-[var(--border-light)] space-y-3">
           <input
             type="text"
             value={rejectReason}
@@ -207,11 +246,11 @@ function ReviewItem({
             onKeyDown={(e) => e.key === 'Enter' && handleReject()}
           />
           <div className="flex items-center gap-2 justify-end">
-            <button onClick={() => setShowReject(false)} className="btn-secondary text-xs">Cancel</button>
+            <button onClick={() => setShowReject(false)} className="bg-white/80 border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-white transition-all">Cancel</button>
             <button
               onClick={handleReject}
               disabled={!!actionLoading}
-              className="btn-primary text-xs bg-red-600 hover:bg-red-700 flex items-center gap-1.5"
+              className="bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-rose-700 transition-all flex items-center gap-1.5"
             >
               {actionLoading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
               Reject
@@ -290,13 +329,13 @@ export function ReviewQueue() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <h1 className="text-lg font-semibold mb-1">Review Queue</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {decisions.length} decision{decisions.length !== 1 ? 's' : ''} pending review
+            <h1 className="text-4xl font-bold tracking-tight mb-2">Review Queue</h1>
+            <p className="text-[var(--text-secondary)] text-lg">
+              {decisions.length} critical decision{decisions.length !== 1 ? 's' : ''} require human oversight
             </p>
           </div>
         </div>
@@ -304,7 +343,7 @@ export function ReviewQueue() {
         {/* Queue */}
         {decisions.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-14 h-14 rounded-xl bg-[var(--border-light)]/30 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-xl bg-white/40 flex items-center justify-center mx-auto mb-4">
               <Inbox size={22} className="text-[var(--text-secondary)]" />
             </div>
             <p className="text-sm font-medium mb-1">No decisions pending review.</p>
@@ -313,7 +352,7 @@ export function ReviewQueue() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-6">
             {decisions.map((d) => (
               <ReviewItem
                 key={d.id}

@@ -12,10 +12,10 @@ import { wingColor } from './WingView';
 /* ------------------------------------------------------------------ */
 
 const STATUS_COLORS: Record<DecisionStatus, string> = {
-  active: '#01696F',
-  superseded: '#D19900',
-  reverted: '#A13544',
-  pending: '#FFC553',
+  active: '#10B981',
+  superseded: '#94A3B8',
+  reverted: '#BA1A1A',
+  pending: '#F59E0B',
 };
 
 const EDGE_PATTERNS: Record<string, string> = {
@@ -411,89 +411,94 @@ export function DecisionGraph() {
   return (
     <div className="flex flex-col md:flex-row h-full">
       {/* Graph area */}
-      <div className={`flex-1 relative min-h-[400px] ${isExpanded ? 'fixed inset-0 z-50 bg-[var(--bg-primary)]' : ''}`} ref={containerRef}>
-        {/* Filter bar */}
-        <div className="absolute top-4 left-4 right-16 z-10 flex items-center gap-2 flex-wrap">
-          <h1 className="text-lg font-semibold mr-1 shrink-0">Decision Graph</h1>
-          <div className="relative flex-1 min-w-[140px] max-w-[260px]">
-            <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search decisions…"
-              className="input text-xs w-full pl-8 py-1.5"
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={filterAgent}
-              onChange={(e) => setFilterAgent(e.target.value)}
-              className="input text-xs appearance-none pr-7 py-1.5"
+      <div className={`flex-1 relative min-h-[400px] ${isExpanded ? 'fixed inset-0 z-50 bg-[var(--bg-primary)]' : ''}`} ref={containerRef} style={{ background: 'rgba(245,246,248,0.5)' }}>
+        {/* Filter bar — full-width header */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderColor: 'rgba(255,255,255,0.2)' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[140px] max-w-[260px]">
+              <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search decisions…"
+                className="text-xs w-full pl-8 py-1.5 px-3 rounded-lg outline-none"
+                style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={filterAgent}
+                onChange={(e) => setFilterAgent(e.target.value)}
+                className="text-xs appearance-none pr-7 py-1.5 px-3 rounded-lg font-bold cursor-pointer outline-none"
+                style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                <option value="">All agents</option>
+                {allAgents.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+            </div>
+            <div className="relative">
+              <select
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                className="text-xs appearance-none pr-7 py-1.5 px-3 rounded-lg font-bold cursor-pointer outline-none"
+                style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                <option value="">All domains</option>
+                {allDomains.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+            </div>
+            <div className="relative">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="text-xs appearance-none pr-7 py-1.5 px-3 rounded-lg font-bold cursor-pointer outline-none"
+                style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                <option value="">All categories</option>
+                {allCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+            </div>
+            <div className="relative">
+              <select
+                value={filterWing}
+                onChange={(e) => setFilterWing(e.target.value)}
+                className="text-xs appearance-none pr-7 py-1.5 px-3 rounded-lg font-bold cursor-pointer outline-none"
+                style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}
+              >
+                <option value="">All wings</option>
+                {allWings.map((w) => <option key={w} value={w}>{w}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="btn-secondary text-xs gap-1.5 rounded-lg"
             >
-              <option value="">All agents</option>
-              {allAgents.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+              <Filter size={14} />
+              Filters
+            </button>
           </div>
-          <div className="relative">
-            <select
-              value={filterDomain}
-              onChange={(e) => setFilterDomain(e.target.value)}
-              className="input text-xs appearance-none pr-7 py-1.5"
-            >
-              <option value="">All domains</option>
-              {allDomains.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
+          {/* Zoom controls — grouped in header */}
+          <div className="flex items-center gap-0 rounded-lg overflow-hidden ml-3 shrink-0" style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.4)' }}>
+            <button onClick={() => handleZoom(1.3)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(1.3); }} className="p-2 transition-colors touch-target" style={{ borderRight: '1px solid rgba(255,255,255,0.2)' }} title="Zoom in">
+              <ZoomIn size={16} />
+            </button>
+            <button onClick={() => handleZoom(0.7)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(0.7); }} className="p-2 transition-colors touch-target" style={{ borderRight: '1px solid rgba(255,255,255,0.2)' }} title="Zoom out">
+              <ZoomOut size={16} />
+            </button>
+            <button onClick={handleExpand} onTouchEnd={(e) => { e.preventDefault(); handleExpand(); }} className="p-2 transition-colors touch-target" title={isExpanded ? 'Exit fullscreen' : 'Expand'}>
+              {isExpanded ? <X size={16} /> : <Maximize2 size={16} />}
+            </button>
           </div>
-          <div className="relative">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="input text-xs appearance-none pr-7 py-1.5"
-            >
-              <option value="">All categories</option>
-              {allCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
-          </div>
-          <div className="relative">
-            <select
-              value={filterWing}
-              onChange={(e) => setFilterWing(e.target.value)}
-              className="input text-xs appearance-none pr-7 py-1.5"
-            >
-              <option value="">All wings</option>
-              {allWings.map((w) => <option key={w} value={w}>{w}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-tertiary)]" />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="btn-secondary text-xs gap-1.5"
-          >
-            <Filter size={14} />
-            Filters
-          </button>
-        </div>
-
-        {/* Zoom controls */}
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-          <button onClick={() => handleZoom(1.3)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(1.3); }} className="btn-ghost p-2 touch-target" title="Zoom in">
-            <ZoomIn size={16} />
-          </button>
-          <button onClick={() => handleZoom(0.7)} onTouchEnd={(e) => { e.preventDefault(); handleZoom(0.7); }} className="btn-ghost p-2 touch-target" title="Zoom out">
-            <ZoomOut size={16} />
-          </button>
-          <button onClick={handleExpand} onTouchEnd={(e) => { e.preventDefault(); handleExpand(); }} className="btn-ghost p-2 touch-target" title={isExpanded ? 'Exit fullscreen' : 'Expand'}>
-            {isExpanded ? <X size={16} /> : <Maximize2 size={16} />}
-          </button>
         </div>
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="absolute top-14 left-4 z-10 card p-4 w-72 animate-fade-in">
+          <div className="absolute top-[56px] left-4 z-10 p-4 w-72 animate-fade-in rounded-xl shadow-lg" style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">Filters</span>
               <button onClick={() => setShowFilters(false)} className="btn-ghost p-1">
@@ -575,7 +580,7 @@ export function DecisionGraph() {
         )}
 
         {/* Legend — dynamic based on color mode */}
-        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)' }}>
           {colorByWing ? (
             allWings.slice(0, 8).map((w) => (
               <div key={w} className="flex items-center gap-1.5">
@@ -614,48 +619,47 @@ export function DecisionGraph() {
 
       {/* Detail panel — renders below graph on mobile, beside on desktop */}
       {selectedNode && (
-        <aside className="w-full md:w-96 shrink-0 border-t md:border-t-0 md:border-l border-[var(--border-light)] overflow-y-auto max-h-[50vh] md:max-h-none animate-slide-in" style={{ backgroundColor: 'var(--bg-primary)', zIndex: 20 }}>
-          <div className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1 min-w-0 pr-3">
-                <span className={`badge badge-${selectedNode.status} mb-2`}>
-                  {selectedNode.status}
-                </span>
-                <h2 className="text-base font-semibold leading-snug">{selectedNode.title}</h2>
-              </div>
-              <button onClick={() => setSelectedNode(null)} className="btn-ghost p-1.5 shrink-0">
-                <X size={16} />
+        <aside className="w-full md:w-96 shrink-0 border-t md:border-t-0 md:border-l overflow-hidden max-h-[50vh] md:max-h-none animate-slide-in shadow-2xl flex flex-col" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', zIndex: 20, borderColor: 'rgba(255,255,255,0.3)' }}>
+          <div className="p-6 overflow-y-auto flex-1">
+            <div className="flex items-center justify-between mb-6">
+              <button onClick={() => setSelectedNode(null)} className="p-1 rounded-full transition-colors" style={{ background: 'transparent' }}>
+                <X size={18} />
               </button>
+              <span className={`badge badge-${selectedNode.status} rounded-full text-[10px] font-bold uppercase flex items-center gap-1`}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[selectedNode.status] }} />
+                {selectedNode.status} Decision
+              </span>
             </div>
+            <h2 className="text-2xl font-bold leading-tight mb-2">{selectedNode.title}</h2>
 
             <div className="space-y-4 text-sm">
               {/* Made by + Confidence */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Made by</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Made by</label>
                   <p className="font-medium">{selectedNode.made_by}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Confidence</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Confidence</label>
                   <p className="font-medium">{(selectedNode as any).confidence ?? 'medium'}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Date</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Date</label>
                   <p>{new Date(selectedNode.created_at).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Validation</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Validation</label>
                   <p>{(selectedNode as any).validated_at ? '✅ Validated' : '⏳ Unvalidated'}</p>
                 </div>
                 {selectedNode.domain && (
                   <div>
-                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Domain</label>
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Domain</label>
                     <p className="capitalize">{selectedNode.domain}</p>
                   </div>
                 )}
                 {selectedNode.category && (
                   <div>
-                    <label className="text-xs text-[var(--text-secondary)] block mb-1">Category</label>
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Category</label>
                     <p className="capitalize">{selectedNode.category}</p>
                   </div>
                 )}
@@ -664,10 +668,10 @@ export function DecisionGraph() {
               {/* Affects */}
               {((selectedNode as any).affects ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Affects</label>
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Affects</label>
                   <div className="flex flex-wrap gap-1.5">
                     {((selectedNode as any).affects ?? []).map((a: string) => (
-                      <span key={a} className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">{a}</span>
+                      <span key={a} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">{a}</span>
                     ))}
                   </div>
                 </div>
@@ -675,7 +679,7 @@ export function DecisionGraph() {
 
               {/* Description */}
               <div>
-                <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                   Description
                 </label>
                 <p className="leading-relaxed">{selectedNode.description}</p>
@@ -683,25 +687,25 @@ export function DecisionGraph() {
 
               {/* Reasoning */}
               {selectedNode.reasoning && (
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                <div className="rounded-xl p-4 border border-primary/10" style={{ background: 'rgba(6,63,249,0.05)' }}>
+                  <label className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-2">
                     Reasoning
                   </label>
-                  <p className="leading-relaxed">{selectedNode.reasoning}</p>
+                  <p className="leading-relaxed italic text-slate-600">{selectedNode.reasoning}</p>
                 </div>
               )}
 
               {/* Tags */}
               {(selectedNode.tags ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Tags
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {(selectedNode.tags ?? []).map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary"
                       >
                         {tag}
                       </span>
@@ -713,7 +717,7 @@ export function DecisionGraph() {
               {/* Alternatives */}
               {(selectedNode.alternatives ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Alternatives Considered
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
@@ -727,7 +731,7 @@ export function DecisionGraph() {
               {/* Assumptions */}
               {(selectedNode.assumptions ?? []).length > 0 && (
                 <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
                     Assumptions
                   </label>
                   <ul className="list-disc pl-4 space-y-1">
@@ -757,7 +761,7 @@ function AlertTriangleIcon() {
         height="20"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#A13544"
+        stroke="#DC2626"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

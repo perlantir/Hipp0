@@ -6,44 +6,44 @@ export default {
       colors: {
         hipp0: {
           bg: {
-            light: '#FAFAF8',
-            dark: '#171614',
+            light: '#f5f6f8',
+            dark: '#0c0f1a',
           },
           surface: {
             light: '#FFFFFF',
-            dark: '#1C1B19',
+            dark: '#141827',
           },
           'surface-alt': {
-            light: '#F5F5F0',
-            dark: '#201F1D',
+            light: '#eef0f4',
+            dark: '#1e2235',
           },
           border: {
-            light: '#E5E4DF',
-            dark: '#393836',
+            light: '#e2e8f0',
+            dark: '#334155',
           },
           text: {
-            light: '#1A1A1A',
-            dark: '#CDCCCA',
+            light: '#1A1D27',
+            dark: '#e2e8f0',
           },
           'text-muted': {
-            light: '#6B6B6B',
-            dark: '#797876',
+            light: '#6B7280',
+            dark: '#94a3b8',
           },
           'text-faint': {
-            light: '#9B9B9B',
-            dark: '#5A5957',
+            light: '#94a3b8',
+            dark: '#64748b',
           },
         },
         primary: {
-          DEFAULT: '#D97706',
-          hover: '#B45309',
-          light: '#F59E0B',
+          DEFAULT: '#063ff9',
+          hover: '#0534d4',
+          light: '#4b6fff',
         },
         status: {
           active: '#16A34A',
           superseded: '#9B9B9B',
           reverted: '#DC2626',
-          pending: '#D97706',
+          pending: '#063ff9',
         },
         urgency: {
           critical: '#DC2626',
@@ -63,22 +63,23 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['DM Sans', '-apple-system', 'system-ui', 'sans-serif'],
+        sans: ['Space Grotesk', '-apple-system', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
       },
       borderRadius: {
-        sm: '6px',
-        md: '10px',
-        lg: '14px',
-        xl: '20px',
+        sm: '8px',
+        md: '12px',
+        lg: '16px',
+        xl: '24px',
       },
       boxShadow: {
-        sm: '0 1px 2px rgba(0,0,0,0.04)',
-        md: '0 2px 8px rgba(0,0,0,0.06)',
-        lg: '0 4px 16px rgba(0,0,0,0.08)',
+        sm: '0 1px 3px rgba(0,0,0,0.04)',
+        md: '0 4px 12px rgba(0,0,0,0.05)',
+        lg: '0 20px 40px rgba(0,0,0,0.05)',
+        glow: '0 0 20px rgba(6, 63, 249, 0.4)',
       },
       animation: {
         'fade-in': 'fadeIn 200ms ease-out',

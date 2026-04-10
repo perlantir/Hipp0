@@ -59,7 +59,7 @@ export function AskAnything() {
     <div className="flex flex-col h-full max-h-[calc(100vh-3.5rem)] md:max-h-screen">
       {/* Header */}
       <div className="px-6 py-4 border-b border-[var(--border-light)]">
-        <h1 className="text-xl font-semibold">Ask Anything</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Ask Anything</h1>
         <p className="text-xs text-[var(--text-secondary)] mt-1">Ask questions about your project's decisions and context</p>
       </div>
 
@@ -76,11 +76,12 @@ export function AskAnything() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+              className={`max-w-[80%] px-4 py-2.5 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-[#B87333] text-white'
-                  : 'card'
+                  ? 'rounded-xl bg-[#063ff9] text-white shadow-[0_0_20px_rgba(6,63,249,0.4)]'
+                  : 'rounded-2xl'
               }`}
+              style={msg.role === 'assistant' ? { background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' } : undefined}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
@@ -89,7 +90,7 @@ export function AskAnything() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="card px-4 py-3">
+            <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
               <Loader2 size={16} className="animate-spin text-[var(--text-secondary)]" />
             </div>
           </div>
@@ -99,8 +100,8 @@ export function AskAnything() {
       </div>
 
       {/* Input bar */}
-      <div className="px-6 py-4 border-t border-[var(--border-light)]">
-        <div className="flex items-end gap-3">
+      <div className="px-6 py-4">
+        <div className="flex items-end gap-3 p-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -113,7 +114,7 @@ export function AskAnything() {
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            className="btn-primary p-2.5 shrink-0"
+            className="p-2.5 shrink-0 bg-[#063ff9] text-white rounded-xl shadow-[0_0_20px_rgba(6,63,249,0.4)] hover:bg-[#063ff9]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={16} />
           </button>

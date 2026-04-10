@@ -177,12 +177,12 @@ export function OrchestrationPanel({ sessionId, sessionStatus, onRefresh }: Orch
   if (!isActive) return null;
 
   return (
-    <div className="mt-4 rounded-lg p-4" style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.3)' }}>
+    <div className="mt-4 rounded-lg p-4" style={{ background: 'rgba(6,63,249,0.08)', border: '1px solid rgba(6,63,249,0.3)' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4" style={{ color: '#D97706' }} />
-          <span className="text-sm font-semibold" style={{ color: '#D97706' }}>Smart Orchestrator</span>
+          <Zap className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Smart Orchestrator</span>
         </div>
         <div className="flex gap-2">
           <button
@@ -223,7 +223,7 @@ export function OrchestrationPanel({ sessionId, sessionStatus, onRefresh }: Orch
           <div className="w-full rounded-full h-1.5" style={{ background: 'var(--bg-secondary)' }}>
             <div
               className="h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${suggestion.session_progress}%`, background: '#D97706' }}
+              style={{ width: `${suggestion.session_progress}%`, background: 'var(--accent-primary)' }}
             />
           </div>
         </div>
@@ -324,7 +324,7 @@ export function OrchestrationPanel({ sessionId, sessionStatus, onRefresh }: Orch
                 onClick={() => handleAccept(overrideAgent, true)}
                 disabled={accepting || !overrideAgent.trim()}
                 className="px-3 py-1.5 rounded text-xs font-medium text-white"
-                style={{ background: '#D97706' }}
+                style={{ background: 'var(--accent-primary)' }}
               >
                 Confirm Override
               </button>

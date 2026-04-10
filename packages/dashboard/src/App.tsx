@@ -29,7 +29,7 @@ class ErrorBoundary extends React.Component<
           <p className="text-sm mb-4">{this.state.error?.message}</p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700"
+            className="px-4 py-2 bg-[#063ff9] text-white rounded-lg text-sm hover:bg-[#0534d4]"
           >
             Try Again
           </button>
@@ -207,7 +207,8 @@ type NavGroup =
   | 'experiments'
   | 'analytics'
   | 'governance'
-  | 'integrations';
+  | 'integrations'
+  | 'monitoring';
 
 interface NavItem {
   id: View;
@@ -358,6 +359,7 @@ const GROUP_ORDER: Array<{ key: NavGroup; label: string }> = [
   { key: 'analytics', label: 'Analytics' },
   { key: 'governance', label: 'Governance' },
   { key: 'integrations', label: 'Integrations' },
+  { key: 'monitoring', label: 'Monitoring' },
 ];
 
 function SidebarContent({
@@ -380,15 +382,20 @@ function SidebarContent({
   return (
     <>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5">
-        <img
-          src="/images/hipp0-logo.png"
-          alt="Hipp0"
-          className="h-10 w-auto shrink-0"
-        />
+      <div className="mb-10 flex items-center gap-3 px-4 pt-8">
+        <div className="w-10 h-10 rounded-xl bg-[#063ff9] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(6,63,249,0.5)]">
+          <Zap size={20} className="text-white" />
+        </div>
+        {!collapsed && (
+          <div>
+            <span className="text-2xl font-bold tracking-tighter text-white drop-shadow-[0_0_15px_rgba(6,63,249,0.5)]">
+              <span>HIPP</span><span className="text-[#00C2FF]">0</span>
+            </span>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Multi-Agent Intelligence</p>
+          </div>
+        )}
       </div>
 
-      {/* Nav groups */}
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         {groups.map((group, gi) => {
           if (group.items.length === 0) return null;
@@ -419,15 +426,11 @@ function SidebarContent({
         })}
       </div>
 
-      {/* Theme toggle + Version */}
       {!collapsed && (
-        <div className="px-5 py-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-2xs" style={{ color: 'var(--text-sidebar)' }}>v0.1.0</span>
+        <div className="mt-auto pt-6 border-t border-white/5 px-3 pb-4 space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] text-slate-500 font-mono">v0.3.2</span>
             <ThemeToggle />
-          </div>
-          <div className="text-2xs opacity-60 font-mono" style={{ color: 'var(--text-sidebar)' }} title="Build version">
-            {typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'dev'}
           </div>
         </div>
       )}
@@ -514,8 +517,17 @@ export default function App() {
     { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'integrations' },
     { id: 'wings', label: 'Wings', icon: <Users size={18} />, group: 'integrations' },
     { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'integrations' },
-    { id: 'pricing', label: 'Pricing', icon: <Crown size={18} />, group: 'integrations' },
-    { id: 'billing', label: 'Billing', icon: <CreditCard size={18} />, group: 'integrations' },
+    { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
+
+    // ---- Monitoring ------------------------------------------------
+    { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
+    { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
+    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
+    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'monitoring' },
+    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
+    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
+
+    // Pricing and Billing removed — not needed for open source
   ];
 
   // Command palette items
@@ -636,8 +648,16 @@ export default function App() {
     return (
       <ThemeContext.Provider value={themeCtx}>
       <ProjectContext.Provider value={{ projectId, setProjectId }}>
-        <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-primary)' }}>
-          <img src="/images/hipp0-logo.png" alt="Hipp0" className="h-12 w-auto" />
+        <div className="flex items-center justify-center h-screen" style={{ background: '#f5f6f8' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#063ff9] flex items-center justify-center shadow-[0_0_15px_rgba(6,63,249,0.5)]">
+              <Zap size={20} className="text-white" />
+            </div>
+            <span className="text-2xl font-bold tracking-tighter">
+              <span className="text-[#1A1D27]">HIPP</span>
+              <span className="text-[#00C2FF]">0</span>
+            </span>
+          </div>
         </div>
       </ProjectContext.Provider>
       </ThemeContext.Provider>
@@ -703,6 +723,11 @@ export default function App() {
       </nav>
 
       <div className="flex h-screen overflow-hidden">
+        {/* Swarm Background Orbs */}
+        <div className="swarm-bg-orb swarm-bg-orb-1" />
+        <div className="swarm-bg-orb swarm-bg-orb-2" />
+        <div className="swarm-bg-orb swarm-bg-orb-3" />
+
         {/* Desktop/Tablet sidebar */}
         <aside className="hidden md:flex md:flex-col shrink-0 sidebar">
           <SidebarContent navItems={navItems} view={view} onNavigate={navigate} />
@@ -710,13 +735,13 @@ export default function App() {
 
         {/* Main content */}
         <main
-          className="flex-1 overflow-y-auto md:ml-[260px]"
+          className="flex-1 overflow-y-auto md:ml-[256px]"
           style={{ background: 'var(--bg-primary)' }}
         >
-          {/* Desktop connection status + shortcuts hint */}
+          {/* Desktop top bar */}
           <div
-            className="hidden md:flex items-center justify-end gap-4 px-6 py-2 text-xs"
-            style={{ color: 'var(--text-tertiary)' }}
+            className="hidden md:flex items-center justify-end gap-4 px-8 h-14 sticky top-0 z-30"
+            style={{ background: 'rgba(245,246,248,0.6)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
           >
             <ConnectionStatus status={connected} />
             <button

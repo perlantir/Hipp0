@@ -8,7 +8,7 @@
  *  - Glassmorphic stat cards with better labels and icons
  *  - Decision list shows description, tag pills, and colour-coded confidence
  *  - Team section shows contribution bars and styled role badges
- *  - Prominent copper CTA with decision count
+ *  - Prominent blue CTA with decision count
  *  - Animated progress bar + step checklist during import
  *  - Polished completion screen with import metrics
  *  - Post-import "Enable Permanent GitHub Sync" guided 3-step wizard
@@ -23,7 +23,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 
-// ── Types ────────────────────────────────────────────────────────────────
+// -- Types ----------------------------------------------------------------
 
 type Source = 'github' | 'slack' | 'linear' | 'files';
 type Phase = 'welcome' | 'scan' | 'preview' | 'importing' | 'complete' | 'sync-setup';
@@ -58,7 +58,7 @@ interface ImportResult {
   edges_created: number;
 }
 
-// ── Source config ────────────────────────────────────────────────────────
+// -- Source config --------------------------------------------------------
 
 const SOURCES: Array<{
   id: Source;
@@ -111,18 +111,18 @@ const IMPORT_STEPS = [
   'Finalizing import...',
 ];
 
-// ── Confidence styles ───────────────────────────────────────────────────
+// -- Confidence styles ---------------------------------------------------
 
 const CONFIDENCE: Record<string, { bg: string; fg: string; label: string }> = {
   high:   { bg: '#05966922', fg: '#059669', label: 'High' },
-  medium: { bg: '#d9770722', fg: '#D97757', label: 'Medium' },
+  medium: { bg: '#063ff922', fg: '#063ff9', label: 'Medium' },
   low:    { bg: '#ef444422', fg: '#ef4444', label: 'Low' },
 };
 
-// ── Role badge colours ──────────────────────────────────────────────────
+// -- Role badge colours --------------------------------------------------
 
 const ROLE_COLORS: Record<string, string> = {
-  architect:   '#D97757',
+  architect:   '#063ff9',
   backend:     '#059669',
   frontend:    '#7c3aed',
   devops:      '#0891b2',
@@ -131,7 +131,7 @@ const ROLE_COLORS: Record<string, string> = {
   contributor: '#6b7280',
 };
 
-// ── Stat card labels ────────────────────────────────────────────────────
+// -- Stat card labels ----------------------------------------------------
 
 const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   prs_found:             { label: 'PRs Found',           icon: <GitPullRequest size={15} /> },
@@ -148,7 +148,7 @@ const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   files_found:           { label: 'Files Found',         icon: <FileText size={15} /> },
 };
 
-// ── Component ────────────────────────────────────────────────────────────
+// -- Component ------------------------------------------------------------
 
 export function ImportWizard() {
   const { post } = useApi();
@@ -179,7 +179,7 @@ export function ImportWizard() {
     };
   }, []);
 
-  // ── Actions ──────────────────────────────────────────────────────────
+  // -- Actions ----------------------------------------------------------
 
   function selectSource(src: Source) {
     setSelectedSource(src);
@@ -277,7 +277,7 @@ export function ImportWizard() {
     setError(null);
   }
 
-  // ── Styles ───────────────────────────────────────────────────────────
+  // -- Styles -----------------------------------------------------------
 
   const card: React.CSSProperties = {
     background: 'var(--bg-card)',
@@ -288,8 +288,8 @@ export function ImportWizard() {
 
   /* Glassmorphic stat card */
   const glassCard: React.CSSProperties = {
-    background: 'linear-gradient(135deg, rgba(217,119,87,0.08) 0%, rgba(217,119,87,0.03) 100%)',
-    border: '1px solid rgba(217,119,87,0.18)',
+    background: 'linear-gradient(135deg, rgba(6,63,249,0.08) 0%, rgba(6,63,249,0.03) 100%)',
+    border: '1px solid rgba(6,63,249,0.18)',
     borderRadius: 14,
     padding: '18px 16px',
     backdropFilter: 'blur(12px)',
@@ -297,7 +297,7 @@ export function ImportWizard() {
   };
 
   const accentBtn: React.CSSProperties = {
-    background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+    background: 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
     color: '#fff',
     border: 'none',
     borderRadius: 10,
@@ -306,7 +306,7 @@ export function ImportWizard() {
     fontWeight: 700,
     cursor: 'pointer',
     transition: 'all 0.2s',
-    boxShadow: '0 4px 14px rgba(217,119,87,0.25)',
+    boxShadow: '0 4px 14px rgba(6,63,249,0.25)',
   };
 
   const ghostBtn: React.CSSProperties = {
@@ -333,7 +333,7 @@ export function ImportWizard() {
     transition: 'border-color 0.15s',
   };
 
-  // ── Phase: Welcome ───────────────────────────────────────────────────
+  // -- Phase: Welcome ---------------------------------------------------
 
   if (phase === 'welcome') {
     return (
@@ -342,9 +342,9 @@ export function ImportWizard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
             <div style={{
               width: 42, height: 42, borderRadius: 12,
-              background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+              background: 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+              boxShadow: '0 4px 12px rgba(6,63,249,0.3)',
             }}>
               <Upload size={20} color="#fff" />
             </div>
@@ -376,8 +376,8 @@ export function ImportWizard() {
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = '#D97757';
-                el.style.boxShadow = '0 0 0 1px #D9775733';
+                el.style.borderColor = '#063ff9';
+                el.style.boxShadow = '0 0 0 1px #063ff933';
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement;
@@ -385,7 +385,7 @@ export function ImportWizard() {
                 el.style.boxShadow = 'none';
               }}
             >
-              <span style={{ color: '#D97757', marginTop: 2, flexShrink: 0 }}>{src.icon}</span>
+              <span style={{ color: '#063ff9', marginTop: 2, flexShrink: 0 }}>{src.icon}</span>
               <div>
                 <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15, marginBottom: 4 }}>
                   {src.label}
@@ -402,7 +402,7 @@ export function ImportWizard() {
     );
   }
 
-  // ── Phase: Scan ──────────────────────────────────────────────────────
+  // -- Phase: Scan ------------------------------------------------------
 
   if (phase === 'scan' && selectedSource) {
     const srcConfig = SOURCES.find(s => s.id === selectedSource)!;
@@ -424,7 +424,7 @@ export function ImportWizard() {
 
         <div style={{ ...card, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <span style={{ color: '#D97757' }}>{srcConfig.icon}</span>
+            <span style={{ color: '#063ff9' }}>{srcConfig.icon}</span>
             <div>
               <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }}>
                 {srcConfig.label}
@@ -501,7 +501,7 @@ export function ImportWizard() {
     );
   }
 
-  // ── Phase: Preview ───────────────────────────────────────────────────
+  // -- Phase: Preview ---------------------------------------------------
 
   if (phase === 'preview' && scanResult) {
     // Filter out fallback flag and 0-value stats
@@ -535,13 +535,13 @@ export function ImportWizard() {
           </button>
         </div>
 
-        {/* ── Stats cards ───────────────────────────────────────────── */}
+        {/* -- Stats cards --------------------------------------------- */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(statEntries.length, 4)}, 1fr)`, gap: 12, marginBottom: 24 }}>
           {statEntries.slice(0, 6).map(([key, val]) => {
             const meta = STAT_LABELS[key] || { label: key.replace(/_/g, ' '), icon: <Zap size={15} /> };
             return (
               <div key={key} style={glassCard}>
-                <div style={{ color: '#D97757', marginBottom: 6, opacity: 0.8 }}>{meta.icon}</div>
+                <div style={{ color: '#063ff9', marginBottom: 6, opacity: 0.8 }}>{meta.icon}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{val}</div>
                 <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {meta.label}
@@ -551,11 +551,11 @@ export function ImportWizard() {
           })}
         </div>
 
-        {/* ── Decisions list ─────────────────────────────────────────── */}
+        {/* -- Decisions list ------------------------------------------- */}
         <div style={{ ...card, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Zap size={16} color="#D97757" />
+              <Zap size={16} color="#063ff9" />
               <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
                 Decisions ({scanResult.preview_decisions.length})
               </span>
@@ -563,7 +563,7 @@ export function ImportWizard() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={selectAllDecisions}
-                style={{ background: 'none', border: 'none', color: '#D97757', fontSize: 12, cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}
+                style={{ background: 'none', border: 'none', color: '#063ff9', fontSize: 12, cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}
               >
                 Select All
               </button>
@@ -576,7 +576,7 @@ export function ImportWizard() {
               </button>
               <span style={{
                 padding: '2px 10px', borderRadius: 12,
-                background: '#D9775718', color: '#D97757',
+                background: '#063ff918', color: '#063ff9',
                 fontSize: 12, fontWeight: 700,
               }}>
                 {selectedDecisions.size} selected
@@ -597,8 +597,8 @@ export function ImportWizard() {
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: 12,
-                    background: selected ? 'rgba(217,119,87,0.06)' : 'transparent',
-                    border: `1px solid ${selected ? 'rgba(217,119,87,0.3)' : 'var(--border-light)'}`,
+                    background: selected ? 'rgba(6,63,249,0.06)' : 'transparent',
+                    border: `1px solid ${selected ? 'rgba(6,63,249,0.3)' : 'var(--border-light)'}`,
                     borderRadius: 10,
                     padding: '12px 14px',
                     cursor: 'pointer',
@@ -610,7 +610,7 @@ export function ImportWizard() {
                   {/* Checkbox */}
                   <div style={{ marginTop: 1, flexShrink: 0 }}>
                     {selected
-                      ? <CheckCircle size={18} color="#D97757" />
+                      ? <CheckCircle size={18} color="#063ff9" />
                       : <Circle size={18} color="var(--text-tertiary)" />
                     }
                   </div>
@@ -674,11 +674,11 @@ export function ImportWizard() {
           </div>
         </div>
 
-        {/* ── Detected team ──────────────────────────────────────────── */}
+        {/* -- Detected team -------------------------------------------- */}
         {scanResult.detected_team.length > 0 && (
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Users size={16} color="#D97757" />
+              <Users size={16} color="#063ff9" />
               <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
                 Detected Team ({scanResult.detected_team.length})
               </span>
@@ -734,7 +734,7 @@ export function ImportWizard() {
           </div>
         )}
 
-        {/* ── Project name + Import CTA ──────────────────────────────── */}
+        {/* -- Project name + Import CTA -------------------------------- */}
         <div style={{ ...card }}>
           <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
             Project name
@@ -779,7 +779,7 @@ export function ImportWizard() {
     );
   }
 
-  // ── Phase: Importing ─────────────────────────────────────────────────
+  // -- Phase: Importing -------------------------------------------------
 
   if (phase === 'importing') {
     const progress = Math.round((importStep / IMPORT_STEPS.length) * 100);
@@ -789,9 +789,9 @@ export function ImportWizard() {
         {/* Animated icon */}
         <div style={{
           width: 64, height: 64, borderRadius: 16, margin: '0 auto 24px',
-          background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+          background: 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(217,119,87,0.3)',
+          boxShadow: '0 8px 24px rgba(6,63,249,0.3)',
           animation: 'pulse 2s ease-in-out infinite',
         }}>
           <Upload size={28} color="#fff" />
@@ -814,11 +814,11 @@ export function ImportWizard() {
         }}>
           <div style={{
             height: '100%',
-            background: 'linear-gradient(90deg, #D97757, #c56a4d)',
+            background: 'linear-gradient(90deg, #063ff9, #0534d4)',
             borderRadius: 10,
             width: `${progress}%`,
             transition: 'width 0.5s ease',
-            boxShadow: '0 0 12px rgba(217,119,87,0.4)',
+            boxShadow: '0 0 12px rgba(6,63,249,0.4)',
           }} />
         </div>
 
@@ -835,7 +835,7 @@ export function ImportWizard() {
                 : i === importStep
                   ? <div style={{
                       width: 18, height: 18, borderRadius: '50%',
-                      border: '2px solid #D97757',
+                      border: '2px solid #063ff9',
                       borderTopColor: 'transparent',
                       animation: 'spin 0.7s linear infinite',
                     }} />
@@ -860,11 +860,11 @@ export function ImportWizard() {
     );
   }
 
-  // ── Phase: Complete ──────────────────────────────────────────────────
+  // -- Phase: Complete --------------------------------------------------
 
   if (phase === 'complete' && importResult) {
     const resultStats = [
-      { label: 'Decisions Imported', value: importResult.decisions_imported, color: '#D97757', icon: <Zap size={18} /> },
+      { label: 'Decisions Imported', value: importResult.decisions_imported, color: '#063ff9', icon: <Zap size={18} /> },
       { label: 'Agents Created',     value: importResult.agents_created,     color: '#059669', icon: <Users size={18} /> },
       { label: 'Contradictions',     value: importResult.contradictions_found, color: '#d97706', icon: <AlertTriangle size={18} /> },
       { label: 'Edges Created',      value: importResult.edges_created,      color: '#7c3aed', icon: <GitPullRequest size={18} /> },
@@ -905,20 +905,20 @@ export function ImportWizard() {
           ))}
         </div>
 
-        {/* ── Enable Permanent Sync CTA ─────────────────────────── */}
+        {/* -- Enable Permanent Sync CTA --------------------------- */}
         {selectedSource === 'github' && (
           <div style={{
             ...card,
             marginBottom: 20,
-            background: 'linear-gradient(135deg, rgba(217,119,87,0.06) 0%, rgba(217,119,87,0.02) 100%)',
-            border: '1px solid rgba(217,119,87,0.2)',
+            background: 'linear-gradient(135deg, rgba(6,63,249,0.06) 0%, rgba(6,63,249,0.02) 100%)',
+            border: '1px solid rgba(6,63,249,0.2)',
           }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+                background: 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(217,119,87,0.25)',
+                boxShadow: '0 4px 12px rgba(6,63,249,0.25)',
               }}>
                 <RefreshCw size={18} color="#fff" />
               </div>
@@ -972,7 +972,7 @@ export function ImportWizard() {
     );
   }
 
-  // ── Phase: Sync Setup ─────────────────────────────────────────────────
+  // -- Phase: Sync Setup -------------------------------------------------
   // Guided 3-step wizard: explain → install GitHub App → configure webhook
 
   if (phase === 'sync-setup' && importResult) {
@@ -1028,9 +1028,9 @@ export function ImportWizard() {
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14, margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+            background: 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 6px 20px rgba(217,119,87,0.3)',
+            boxShadow: '0 6px 20px rgba(6,63,249,0.3)',
           }}>
             <RefreshCw size={24} color="#fff" />
           </div>
@@ -1042,7 +1042,7 @@ export function ImportWizard() {
           </div>
         </div>
 
-        {/* ── Step progress indicator ──────────────────────────────────── */}
+        {/* -- Step progress indicator ------------------------------------ */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 32 }}>
           {SYNC_STEPS.map((s, i) => (
             <React.Fragment key={s.num}>
@@ -1052,10 +1052,10 @@ export function ImportWizard() {
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '8px 16px', borderRadius: 20,
                   background: syncStep === s.num
-                    ? 'linear-gradient(135deg, rgba(217,119,87,0.15) 0%, rgba(217,119,87,0.06) 100%)'
+                    ? 'linear-gradient(135deg, rgba(6,63,249,0.15) 0%, rgba(6,63,249,0.06) 100%)'
                     : syncStep > s.num ? '#05966912' : 'transparent',
                   border: `1px solid ${
-                    syncStep === s.num ? 'rgba(217,119,87,0.35)'
+                    syncStep === s.num ? 'rgba(6,63,249,0.35)'
                     : syncStep > s.num ? '#05966930'
                     : 'var(--border-light)'
                   }`,
@@ -1065,11 +1065,11 @@ export function ImportWizard() {
               >
                 {syncStep > s.num
                   ? <CheckCircle size={16} color="#059669" />
-                  : <span style={{ color: syncStep === s.num ? '#D97757' : 'var(--text-tertiary)' }}>{s.icon}</span>
+                  : <span style={{ color: syncStep === s.num ? '#063ff9' : 'var(--text-tertiary)' }}>{s.icon}</span>
                 }
                 <span style={{
                   fontSize: 12, fontWeight: 600,
-                  color: syncStep === s.num ? '#D97757' : syncStep > s.num ? '#059669' : 'var(--text-tertiary)',
+                  color: syncStep === s.num ? '#063ff9' : syncStep > s.num ? '#059669' : 'var(--text-tertiary)',
                 }}>
                   {s.title}
                 </span>
@@ -1085,11 +1085,11 @@ export function ImportWizard() {
           ))}
         </div>
 
-        {/* ── Step 1: Explanation ──────────────────────────────────────── */}
+        {/* -- Step 1: Explanation ---------------------------------------- */}
         {syncStep === 1 && (
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <RefreshCw size={20} color="#D97757" />
+              <RefreshCw size={20} color="#063ff9" />
               <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
                 How Permanent Sync Works
               </span>
@@ -1116,9 +1116,9 @@ export function ImportWizard() {
                 <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                    background: 'rgba(217,119,87,0.08)', border: '1px solid rgba(217,119,87,0.15)',
+                    background: 'rgba(6,63,249,0.08)', border: '1px solid rgba(6,63,249,0.15)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#D97757',
+                    color: '#063ff9',
                   }}>
                     {item.icon}
                   </div>
@@ -1144,11 +1144,11 @@ export function ImportWizard() {
           </div>
         )}
 
-        {/* ── Step 2: Install GitHub App ───────────────────────────────── */}
+        {/* -- Step 2: Install GitHub App --------------------------------- */}
         {syncStep === 2 && (
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <Github size={20} color="#D97757" />
+              <Github size={20} color="#063ff9" />
               <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
                 Install the Hipp0 GitHub App
               </span>
@@ -1156,8 +1156,8 @@ export function ImportWizard() {
 
             <div style={{
               padding: 20, borderRadius: 10,
-              background: 'linear-gradient(135deg, rgba(217,119,87,0.05) 0%, rgba(217,119,87,0.02) 100%)',
-              border: '1px solid rgba(217,119,87,0.12)',
+              background: 'linear-gradient(135deg, rgba(6,63,249,0.05) 0%, rgba(6,63,249,0.02) 100%)',
+              border: '1px solid rgba(6,63,249,0.12)',
               marginBottom: 20,
             }}>
               <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
@@ -1209,11 +1209,11 @@ export function ImportWizard() {
           </div>
         )}
 
-        {/* ── Step 3: Configure Webhook ────────────────────────────────── */}
+        {/* -- Step 3: Configure Webhook ---------------------------------- */}
         {syncStep === 3 && (
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <Link size={20} color="#D97757" />
+              <Link size={20} color="#063ff9" />
               <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--text-primary)' }}>
                 Configure Webhook
               </span>
@@ -1230,12 +1230,12 @@ export function ImportWizard() {
               </label>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 0,
-                border: '1px solid rgba(217,119,87,0.3)', borderRadius: 8, overflow: 'hidden',
+                border: '1px solid rgba(6,63,249,0.3)', borderRadius: 8, overflow: 'hidden',
               }}>
                 <div style={{
                   flex: 1, padding: '11px 14px',
                   background: 'var(--bg-primary)',
-                  color: '#D97757', fontSize: 13, fontWeight: 600, fontFamily: 'monospace',
+                  color: '#063ff9', fontSize: 13, fontWeight: 600, fontFamily: 'monospace',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {webhookUrl}
@@ -1246,7 +1246,7 @@ export function ImportWizard() {
                     padding: '11px 16px', border: 'none', cursor: 'pointer',
                     background: webhookCopied
                       ? '#059669'
-                      : 'linear-gradient(135deg, #D97757 0%, #c56a4d 100%)',
+                      : 'linear-gradient(135deg, #063ff9 0%, #0534d4 100%)',
                     color: '#fff', display: 'flex', alignItems: 'center', gap: 6,
                     fontSize: 12, fontWeight: 600, transition: 'background 0.2s',
                   }}
@@ -1276,9 +1276,9 @@ export function ImportWizard() {
                   <div key={item.step} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <div style={{
                       width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                      background: 'rgba(217,119,87,0.1)', border: '1px solid rgba(217,119,87,0.2)',
+                      background: 'rgba(6,63,249,0.1)', border: '1px solid rgba(6,63,249,0.2)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700, color: '#D97757',
+                      fontSize: 11, fontWeight: 700, color: '#063ff9',
                     }}>
                       {item.step}
                     </div>
@@ -1297,7 +1297,7 @@ export function ImportWizard() {
                 rel="noopener noreferrer"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
-                  color: '#D97757', fontSize: 13, fontWeight: 600,
+                  color: '#063ff9', fontSize: 13, fontWeight: 600,
                   textDecoration: 'none', marginBottom: 20,
                 }}
               >
