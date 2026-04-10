@@ -1,725 +1,463 @@
-# OpenAI Agents SDK Integration Guide
+# OpenAI Agents + Hipp0
 
-The `hipp0-openai-agents` package integrates Hipp0 decision memory into the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) via the `AgentHooks` protocol. It provides `Hipp0AgentHooks`, which automatically injects compiled Hipp0 context into agent instructions at run start, captures all tool outputs and LLM responses for decision extraction, handles handoffs between agents, and creates session summaries when each run finishes.
+The OpenAI Agents SDK gives you a clean, minimal way to build agents around GPT-4o and friends. It has tools, handoffs, guardrails, and a tight `AgentHooks` protocol that lets you observe every lifecycle event. What it doesn't have is long-term memory — each run is a clean slate.
 
----
+Hipp0 fills that gap. The `hipp0-openai-agents` package provides `Hipp0AgentHooks`, a drop-in lifecycle hook that captures decisions, injects past context into instructions, and logs every tool call as an artifact.
 
-## Table of Contents
+![OpenAI Agent decisions showing up in the dashboard](images/openai-agents-dashboard.png)
 
-- [How It Works](#how-it-works)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Hipp0AgentHooks Reference](#hipp0agenthooks-reference)
-  - [Constructor Parameters](#constructor-parameters)
-  - [`on_start`](#on_start)
-  - [`on_end`](#on_end)
-  - [`on_tool_call`](#on_tool_call)
-  - [`on_tool_output`](#on_tool_output)
-  - [`on_handoff`](#on_handoff)
-  - [`flush()`](#flush)
-- [Complete Example: Single Agent](#complete-example-single-agent)
-- [Complete Example: Multi-Agent Handoffs](#complete-example-multi-agent-handoffs)
-- [Complete Example: Agent with Tools](#complete-example-agent-with-tools)
-- [Complete Example: Long-Running Agent Loop](#complete-example-long-running-agent-loop)
-- [Accessing Compiled Context Directly](#accessing-compiled-context-directly)
-- [Recording Decisions Manually](#recording-decisions-manually)
-- [Configuration Reference](#configuration-reference)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
+## What Hipp0 adds
 
----
+OpenAI Agents lets you pass `hooks=` to any `Agent` or `Runner`. The hooks get called at `on_start`, `on_end`, `on_tool_call`, `on_tool_output`, and handoff events. Hipp0 uses these to:
 
-## How It Works
+1. **Inject past decisions as additional instructions.** Before the LLM runs, `on_start` calls `compile_context` and prepends the result to the agent's instructions. The agent sees "Previous Decisions" as part of its system prompt.
+2. **Capture every completed run.** `on_end` ships the final output through the distillery. Decisions get extracted, scored, and stored.
+3. **Log tool calls as artifacts.** `on_tool_call` and `on_tool_output` record every tool invocation. You can view these in the dashboard under Artifacts, or reference them from decisions.
+4. **Track handoffs between agents.** When one agent hands off to another, Hipp0 records the handoff as a provenance edge so you can trace which agent made which decision.
 
-```
-Runner.run(agent, "Help me design the API.")
-    │
-    ▼
-Hipp0AgentHooks.on_start(context, agent)
-    ├── compile_context(agent_name, task_description + input)
-    ├── Prepend [Hipp0 Context] to run_context.run_instructions
-    └── Add user input to _run_buffer
+All of this is automatic. You write your agent the same way you would without Hipp0 and add one parameter.
 
-    (Agent runs, calls tools)
-    │
-    ▼
-Hipp0AgentHooks.on_tool_output(context, agent, tool, result)
-    └── Append "[Tool: {name}]\n{result}" to _run_buffer
-
-    (Agent generates final response)
-    │
-    ▼
-Hipp0AgentHooks.on_end(context, agent, output)
-    ├── Append "Assistant: {output}" to _run_buffer
-    ├── _flush_buffer() → distillery → extracts decisions
-    └── _create_session_summary() → links decisions
-```
-
-The hooks inject context into `run_context.run_instructions` — the SDK's mechanism for dynamic instructions that override or augment the agent's static `instructions` field. The context injection is non-destructive: it prepends the Hipp0 block, leaving the agent's existing instructions intact.
-
----
-
-## Installation
+## Install
 
 ```bash
-pip install hipp0-sdk hipp0-openai-agents openai-agents
+pip install hipp0-memory hipp0-openai-agents openai-agents
 ```
 
-Or install from the repository:
+Bootstrap a project:
 
 ```bash
-cd /path/to/hipp0/integrations/openai-agents
-pip install -e .
+npm install -g @hipp0/cli
+hipp0 init my-agent
+cd my-agent
+source .env
+export OPENAI_API_KEY=sk-...
 ```
 
-**Supported versions:**
+Version requirements:
+
 - Python 3.10+
-- openai-agents ≥ 0.0.3
-- hipp0-sdk 0.1+
+- openai-agents 0.0.12 or later
+- hipp0-memory 0.4 or later
 
----
+## Quick start
 
-## Quick Start
+Here's an agent with tools, hooks, and a real task. It researches a topic, makes a decision, and the decision persists.
 
 ```python
-import asyncio
+"""
+OpenAI Agents + Hipp0: Stateful Research Agent
+"""
 import os
-from agents import Agent, Runner
+import sys
+import asyncio
+
+from agents import Agent, Runner, function_tool
 from hipp0_sdk import Hipp0Client
 from hipp0_openai_agents import Hipp0AgentHooks
 
-# Initialize
-client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
 
-# Create hooks — attach these to any Agent
-hooks = Hipp0AgentHooks(
-    client=client,
-    project_id=os.environ["HIPP0_PROJECT_ID"],
-    agent_name="assistant",
-    task_description="Help design and implement the payments service.",
-)
+@function_tool
+def search_web(query: str) -> str:
+    """Search the web for information about a topic."""
+    # In a real app this would call a real search API
+    return f"[fake search results for: {query}]"
 
-# Create an agent with Hipp0 hooks
-agent = Agent(
-    name="assistant",
-    instructions="You are a helpful software engineer specializing in payment systems.",
-    hooks=hooks,
-)
+
+@function_tool
+def check_pricing(service: str) -> str:
+    """Check the monthly pricing for a cloud service."""
+    prices = {
+        "postgres": "$50/mo for 10GB",
+        "clickhouse": "$150/mo for 100GB",
+        "snowflake": "$300/mo minimum",
+    }
+    return prices.get(service.lower(), "Unknown service")
+
 
 async def main():
-    result = await Runner.run(
-        agent,
-        "What approach should we use for handling payment idempotency?",
-    )
-    print(result.final_output)
+    api_url = os.environ.get("HIPP0_API_URL", "http://localhost:3100")
+    api_key = os.environ.get("HIPP0_API_KEY", "")
+    project_id = os.environ.get("HIPP0_PROJECT_ID", "")
 
-asyncio.run(main())
+    if not project_id:
+        print("Error: HIPP0_PROJECT_ID not set")
+        sys.exit(1)
+
+    client = Hipp0Client(base_url=api_url, api_key=api_key)
+
+    hooks = Hipp0AgentHooks(
+        client=client,
+        project_id=project_id,
+        agent_name="analyst",
+        inject_context=True,
+        capture_decisions=True,
+        log_tool_calls=True,
+    )
+
+    agent = Agent(
+        name="Data Infrastructure Analyst",
+        instructions=(
+            "You are a data infrastructure analyst. Given a question about "
+            "databases or analytics, use your tools to research, then make a "
+            "clear DECISION with REASONING and TRADE-OFFS. Always state "
+            "decisions in that format."
+        ),
+        tools=[search_web, check_pricing],
+        hooks=hooks,
+    )
+
+    task = " ".join(sys.argv[1:]) or "What database should we use for analytics?"
+
+    print(f"Task: {task}\n")
+    result = await Runner.run(agent, task)
+
+    print("=" * 60)
+    print(result.final_output)
+    print("=" * 60)
+    print("Decisions captured. Run `hipp0 list` to view.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-On `on_start`, Hipp0 compiles all relevant decisions for `"assistant"` and the given task. The compiled context is prepended to `run_instructions` so the agent sees it alongside its static instructions. On `on_end`, the conversation is sent to the distillery for decision extraction.
+Run it:
 
----
+```bash
+python main.py "Should we use Snowflake or ClickHouse for analytics?"
+```
 
-## Hipp0AgentHooks Reference
+First run output (trimmed):
 
-### Constructor Parameters
+```
+Task: Should we use Snowflake or ClickHouse for analytics?
+
+[Hipp0] No past decisions found
+[tool] check_pricing(service="snowflake") -> "$300/mo minimum"
+[tool] check_pricing(service="clickhouse") -> "$150/mo for 100GB"
+
+DECISION: Use ClickHouse
+REASONING: Lower cost at our data volume and stronger columnar performance.
+TRADE-OFFS: Higher ops burden than managed Snowflake.
+
+[Hipp0] Captured 1 decision
+```
+
+Second run:
+
+```bash
+python main.py "Should we self-host ClickHouse or use ClickHouse Cloud?"
+```
+
+```
+[Hipp0] Loaded 412 chars of past context
+[tool] check_pricing(service="clickhouse") -> "$150/mo for 100GB"
+
+DECISION: Use ClickHouse Cloud
+REASONING: We already decided on ClickHouse (see prior decision). Cloud
+version removes the ops burden we flagged as the main trade-off.
+```
+
+The second decision directly references the first. The dashboard shows the provenance edge.
+
+## Reference: Hipp0AgentHooks API
+
+`Hipp0AgentHooks` implements the full `AgentHooks` protocol from the OpenAI Agents SDK. You pass it to `Agent(hooks=...)` or to `Runner(hooks=...)` — the latter lets one hook instance cover multiple agents in a handoff chain.
+
+### Constructor
 
 ```python
 Hipp0AgentHooks(
     client: Hipp0Client,
     project_id: str,
     agent_name: str,
-    task_description: str = "Perform the current task.",
-    max_tokens: int | None = None,
-    inject_context_into_instructions: bool = True,
-    capture_tool_outputs: bool = True,
-    create_session_on_end: bool = True,
+    inject_context: bool = True,
+    capture_decisions: bool = True,
+    log_tool_calls: bool = True,
+    context_max_tokens: int = 2000,
+    context_min_relevance: float = 0.4,
+    namespace: Optional[str] = None,
+    on_decision_captured: Optional[Callable] = None,
 )
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `client` | `Hipp0Client` | required | Initialized Hipp0 client |
-| `project_id` | `str` | required | Hipp0 project ID |
-| `agent_name` | `str` | required | Agent name for context scoping and attribution |
-| `task_description` | `str` | `"Perform the current task."` | Baseline task description; appended with run input |
-| `max_tokens` | `int \| None` | `None` | Token budget for context compilation |
-| `inject_context_into_instructions` | `bool` | `True` | Prepend Hipp0 context to `run_context.run_instructions` on start |
-| `capture_tool_outputs` | `bool` | `True` | Include tool call results in the distillery buffer |
-| `create_session_on_end` | `bool` | `True` | Create a `SessionSummary` in Hipp0 on run end |
+Parameters:
 
-### `on_start`
+- **`client`** — An initialized `Hipp0Client`. Required.
+- **`project_id`** — Hipp0 project ID. Required.
+- **`agent_name`** — The agent's role for scoping decisions. Doesn't have to match `Agent.name` but usually does.
+- **`inject_context`** — If `True`, prepend compiled context to the agent's instructions at run start. Default `True`.
+- **`capture_decisions`** — If `True`, send the final output through the distillery at run end. Default `True`.
+- **`log_tool_calls`** — If `True`, record every tool call and tool output as an event in Hipp0. Default `True`.
+- **`context_max_tokens`** — Budget for the injected context. Default 2000. Larger values give the agent more history but eat your token budget.
+- **`context_min_relevance`** — Decisions scored below this are excluded from injection. Default 0.4.
+- **`namespace`** — Optional sub-scope for separating experiments.
+- **`on_decision_captured`** — A callback fired whenever a decision is extracted. Signature: `(decision: dict) -> None`. Useful for wiring your own logging or Slack notifications.
 
-Called by the SDK when a new agent run begins.
+### `async on_start(context, agent)`
 
-Behavior:
-1. Resets the run buffer and session start time
-2. Extracts the run input and adds it to the buffer
-3. Calls `compile_context` with `task_description + "\n\nCurrent input: " + input`
-4. If `inject_context_into_instructions=True`, prepends `[Hipp0 Context]\n{text}\n\n` to `run_context.run_instructions`
-5. If context injection is disabled, logs a debug message instead
+Fires when a run begins, before the first LLM call. Default behavior:
 
-The injection is idempotent — if the Hipp0 block is already in `run_instructions`, it is not duplicated.
+1. Call `compile_context(agent_name, task_description=context.input)`.
+2. If decisions come back, prepend them to `agent.instructions` on a *copy* of the agent (the original is untouched).
+3. Record an `agent.run_started` event in Hipp0.
 
-### `on_end`
-
-Called by the SDK when the agent run finishes.
-
-Behavior:
-1. Extracts `output` text and appends `"Assistant: {text}"` to the buffer
-2. Calls `_flush_buffer()` → sends the accumulated buffer to the distillery
-3. If `create_session_on_end=True`, calls `_create_session_summary()` → creates a Hipp0 `SessionSummary` linking all extracted decisions
-4. Resets internal state for the next run
-
-### `on_tool_call`
-
-Called before a tool is invoked. Currently a no-op — subclass to add pre-call logging:
+If you override this, call `super().on_start(context, agent)` first to keep context injection.
 
 ```python
-class MyHooks(Hipp0AgentHooks):
-    async def on_tool_call(self, context, agent, tool):
-        tool_name = getattr(tool, "name", str(tool))
-        print(f"[{agent.name}] Calling tool: {tool_name}")
-        await super().on_tool_call(context, agent, tool)
+class CustomHooks(Hipp0AgentHooks):
+    async def on_start(self, context, agent):
+        agent = await super().on_start(context, agent)
+        print(f"Starting with {len(agent.instructions)} chars of instructions")
+        return agent
 ```
 
-### `on_tool_output`
+### `async on_end(context, agent, output)`
 
-Called after a tool returns a result. When `capture_tool_outputs=True`:
-- Extracts the result as text
-- Appends `"[Tool: {name}]\n{result}"` to the run buffer
-- This output will be distilled alongside the LLM conversation on `on_end`
+Fires when the run completes successfully. Default behavior:
 
-### `on_handoff`
+1. Send `output.final_output` to the distillery for decision extraction.
+2. Record an `agent.run_completed` event with the output, duration, and token usage.
+3. Call `on_decision_captured` for each extracted decision.
 
-Called when control is handed off to this agent from another. Logs the handoff source at DEBUG level. Override to refresh context on handoff:
+Returns nothing. The output is not modified.
+
+### `async on_tool_call(context, agent, tool, tool_input)`
+
+Fires right before a tool is invoked. Records `agent.tool_called` with the tool name and input.
+
+If you want to filter or redact tool inputs before they hit Hipp0, override this:
 
 ```python
-class MyHooks(Hipp0AgentHooks):
-    async def on_handoff(self, context, agent, source):
-        source_name = getattr(source, "name", str(source))
-        print(f"Handoff: {source_name} → {agent.name}")
-        # Re-compile context for the new role
-        await super().on_handoff(context, agent, source)
+class RedactingHooks(Hipp0AgentHooks):
+    async def on_tool_call(self, context, agent, tool, tool_input):
+        safe_input = {**tool_input}
+        if "api_key" in safe_input:
+            safe_input["api_key"] = "[REDACTED]"
+        await super()._record_tool_call(agent, tool, safe_input)
 ```
 
-### `flush()`
+### `async on_tool_output(context, agent, tool, output)`
 
-Manually flush the current run buffer to the distillery. Useful for long-running agents where you want intermediate checkpoints:
+Fires after a tool returns. Records `agent.tool_output` with the output payload.
 
-```python
-# In a loop
-for iteration in range(10):
-    result = await Runner.run(agent, f"Step {iteration}: ...")
-    if iteration % 3 == 0:
-        await hooks.flush()  # intermediate checkpoint
+Tool outputs are stored as artifacts in Hipp0. You can reference them from decisions by artifact ID, which lets you trace "this decision was based on these tool results".
+
+### `async on_handoff(context, source_agent, target_agent)`
+
+Fires when one agent hands off to another. Records a provenance edge in Hipp0 linking decisions made before the handoff to decisions made after. This is how Hipp0 builds the multi-agent decision graph.
+
+### `async on_error(context, agent, error)`
+
+Fires on any exception during the run. Records an `agent.run_errored` event with the exception type and message. Does *not* re-raise — the SDK handles that.
+
+### Event types produced
+
+| Event | Fires on | Payload |
+|---|---|---|
+| `agent.run_started` | Run begins | agent_name, input, instructions_length |
+| `agent.run_completed` | Run ends ok | output, duration_ms, tokens |
+| `agent.run_errored` | Exception | error_type, error_message |
+| `agent.tool_called` | Before tool invoke | tool_name, tool_input |
+| `agent.tool_output` | After tool returns | tool_name, output |
+| `agent.handoff` | Handoff between agents | source, target, reason |
+
+Watch them stream with `hipp0 events --follow`.
+
+## Reference: Context injection as additional instructions
+
+The way Hipp0 injects past decisions into an OpenAI Agent is by modifying the `instructions` the LLM sees. It doesn't touch your agent's original `instructions` field — it constructs a new, extended instructions string for that run only.
+
+What the LLM ends up seeing is roughly:
+
+```
+<Your original instructions>
+
+--- Relevant Previous Decisions (from Hipp0) ---
+
+## Use ClickHouse for analytics store
+**Agent:** analyst
+**When:** 2025-03-14
+**Reasoning:** Columnar storage handles our workload best...
+**Tags:** database, analytics
+
+## Use managed cloud for infra
+**Agent:** architect
+**When:** 2025-03-10
+**Reasoning:** We don't have the ops capacity to self-host...
+**Tags:** infra, ops
+
+--- End of Previous Decisions ---
 ```
 
----
-
-## Complete Example: Single Agent
+You can customize the injection format by passing a `context_formatter`:
 
 ```python
-import asyncio
-import os
-from agents import Agent, Runner
-from hipp0_sdk import Hipp0Client
-from hipp0_openai_agents import Hipp0AgentHooks
-
-client = Hipp0Client(
-    base_url=os.environ["HIPP0_API_URL"],
-    api_key=os.environ.get("HIPP0_API_KEY"),
-)
-PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
+def my_formatter(decisions: list) -> str:
+    lines = ["Past decisions you should respect:"]
+    for d in decisions:
+        lines.append(f"- {d['title']}")
+    return "\n".join(lines)
 
 hooks = Hipp0AgentHooks(
     client=client,
-    project_id=PROJECT_ID,
-    agent_name="architect",
-    task_description="Design the authentication system for the Hipp0 API.",
-    max_tokens=6000,
-    inject_context_into_instructions=True,
-    capture_tool_outputs=True,
-    create_session_on_end=True,
+    project_id=project_id,
+    agent_name="analyst",
+    context_formatter=my_formatter,
 )
-
-agent = Agent(
-    name="architect",
-    instructions=(
-        "You are a software architect. When proposing design decisions, "
-        "always include:\n"
-        "1. What you decided\n"
-        "2. Why (rationale)\n"
-        "3. Alternatives rejected\n"
-        "4. Affected components\n\n"
-        "State conclusions clearly so they can be extracted as decisions."
-    ),
-    hooks=hooks,
-    model="gpt-4o",
-)
-
-async def run_architecture_session():
-    questions = [
-        "Should we use JWT or API keys for authentication? Consider mobile and server-to-server clients.",
-        "What should the token expiry policy be?",
-        "How should refresh tokens be stored securely?",
-    ]
-
-    for question in questions:
-        print(f"\n{'='*60}")
-        print(f"Q: {question}")
-        print('='*60)
-        result = await Runner.run(agent, question)
-        print(f"A: {result.final_output}")
-
-    print("\nAll decisions captured in Hipp0.")
-
-asyncio.run(run_architecture_session())
 ```
 
----
+If no decisions match, nothing is injected — the agent runs with its original instructions unchanged.
 
-## Complete Example: Multi-Agent Handoffs
+### Disabling injection per-run
 
-The OpenAI Agents SDK supports agent-to-agent handoffs. `Hipp0AgentHooks.on_handoff` is called when the receiving agent gets control.
+If you want the hooks for capture but *not* for injection on a specific run:
 
 ```python
-import asyncio
-import os
-from agents import Agent, Runner, handoff
-from hipp0_sdk import Hipp0Client
-from hipp0_openai_agents import Hipp0AgentHooks
-
-client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
-PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
-
-def make_hooks(role: str, task: str) -> Hipp0AgentHooks:
-    return Hipp0AgentHooks(
-        client=client,
-        project_id=PROJECT_ID,
-        agent_name=role,
-        task_description=task,
-        max_tokens=4096,
-        create_session_on_end=True,
-    )
-
-# Security specialist — receives handoffs from the architect
-security_agent = Agent(
-    name="security",
-    instructions=(
-        "You are a security engineer. Review architectural proposals for:\n"
-        "1. OWASP API Security Top 10 compliance\n"
-        "2. Data exposure risks\n"
-        "3. Authentication/authorization gaps\n"
-        "4. Rate limiting and DoS prevention\n\n"
-        "Return a structured security review with risk ratings (Critical/High/Medium/Low)."
-    ),
-    hooks=make_hooks("security", "Review architectural decisions for security risks."),
-    model="gpt-4o",
-)
-
-# Architecture agent — can hand off to security for review
-architect_agent = Agent(
-    name="architect",
-    instructions=(
-        "You are a software architect. Design solutions and, when your proposal "
-        "involves security-sensitive components (auth, payments, data access), "
-        "hand off to the security agent for review."
-    ),
-    hooks=make_hooks("architect", "Design system architecture with security review."),
-    model="gpt-4o",
-    handoffs=[handoff(security_agent)],
-)
-
-async def run_design_with_review():
-    result = await Runner.run(
-        architect_agent,
-        (
-            "Design the user authentication flow for our API. "
-            "Include token issuance, validation, and revocation. "
-            "Make sure the security team reviews your proposal."
-        ),
-    )
-    print(result.final_output)
-
-asyncio.run(run_design_with_review())
+hooks = Hipp0AgentHooks(..., inject_context=True)  # default on
+hooks.skip_next_injection = True
+await Runner.run(agent, task)  # runs without context injection
+# Next run will inject again
 ```
 
-When the architect hands off to security, the security agent's `on_start` fires:
-1. Hipp0 compiles context scoped to the `"security"` role (decisions tagged with `security`, high-priority security role tags)
-2. The security context is injected into the security agent's instructions
-3. The security agent's output is buffered and distilled on `on_end`
-4. Two separate `SessionSummary` records are created — one per agent
+Useful for things like "first message of a new thread should ignore history".
 
----
+## Pattern: tool output as artifact
 
-## Complete Example: Agent with Tools
+Tool outputs can be big — a web search might return 50KB of HTML. Stuffing that into every decision is wasteful. Hipp0 stores tool outputs as *artifacts* (first-class objects with their own IDs) and references them from decisions.
 
-```python
-import asyncio
-import os
-from agents import Agent, Runner, function_tool
-from hipp0_sdk import Hipp0Client
-from hipp0_openai_agents import Hipp0AgentHooks
+With `log_tool_calls=True` (the default), every tool output gets an artifact ID automatically. The distillery then links any decision that came from that tool call to the artifact.
 
-client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
-PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
-
-@function_tool
-def search_codebase(query: str) -> str:
-    """Search the codebase for relevant code patterns."""
-    # In production, connect to your actual code search
-    return f"Search results for '{query}': [found 3 matching files]"
-
-@function_tool
-def run_security_scan(component: str) -> str:
-    """Run a security scan on the specified component."""
-    return f"Security scan for '{component}': No critical vulnerabilities found. 2 medium warnings."
-
-@function_tool
-def check_existing_decisions(topic: str) -> str:
-    """Check if decisions related to this topic already exist in Hipp0."""
-    # Call the Hipp0 API directly
-    import requests
-    resp = requests.get(
-        f"{os.environ['HIPP0_API_URL']}/api/projects/{PROJECT_ID}/decisions/search",
-        params={"query": topic, "limit": 5},
-    )
-    if resp.ok:
-        decisions = resp.json()
-        if not decisions:
-            return f"No existing decisions found for '{topic}'."
-        lines = [f"Found {len(decisions)} existing decisions:"]
-        for d in decisions:
-            lines.append(f"  [{d['status']}] {d['title']}")
-        return "\n".join(lines)
-    return "Could not query Hipp0 for existing decisions."
-
-hooks = Hipp0AgentHooks(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="security-reviewer",
-    task_description="Review codebase components for security vulnerabilities and record findings.",
-    max_tokens=8000,
-    capture_tool_outputs=True,
-)
-
-agent = Agent(
-    name="security-reviewer",
-    instructions=(
-        "You are a security engineer. Use your tools to:\n"
-        "1. Check existing security decisions (check_existing_decisions)\n"
-        "2. Search the codebase for relevant patterns (search_codebase)\n"
-        "3. Run security scans on components (run_security_scan)\n\n"
-        "When you identify a security requirement, state it as a clear decision "
-        "with title, description, and rationale."
-    ),
-    tools=[search_codebase, run_security_scan, check_existing_decisions],
-    hooks=hooks,
-    model="gpt-4o",
-)
-
-async def run_security_review():
-    result = await Runner.run(
-        agent,
-        "Perform a security review of the authentication and session management components.",
-    )
-    print(result.final_output)
-    print("\nSecurity decisions extracted and stored in Hipp0.")
-
-asyncio.run(run_security_review())
-```
-
----
-
-## Complete Example: Long-Running Agent Loop
-
-For scenarios where the same agent runs many times in a loop, use `flush()` for intermediate checkpoints:
-
-```python
-import asyncio
-import os
-from agents import Agent, Runner
-from hipp0_sdk import Hipp0Client
-from hipp0_openai_agents import Hipp0AgentHooks
-
-client = Hipp0Client(base_url=os.environ["HIPP0_API_URL"])
-PROJECT_ID = os.environ["HIPP0_PROJECT_ID"]
-
-hooks = Hipp0AgentHooks(
-    client=client,
-    project_id=PROJECT_ID,
-    agent_name="code-reviewer",
-    task_description="Review pull requests and record architectural decisions.",
-    capture_tool_outputs=True,
-    create_session_on_end=False,  # We manage sessions manually
-)
-
-agent = Agent(
-    name="code-reviewer",
-    instructions="You are a code reviewer. Review the provided code and identify key decisions.",
-    hooks=hooks,
-    model="gpt-4o-mini",
-)
-
-# Simulate a queue of pull requests
-pull_requests = [
-    ("PR-101", "Add JWT authentication middleware"),
-    ("PR-102", "Refactor database connection pooling"),
-    ("PR-103", "Implement rate limiting"),
-    ("PR-104", "Add Redis cache layer"),
-    ("PR-105", "Update API versioning strategy"),
-]
-
-async def review_all_prs():
-    for pr_id, pr_title in pull_requests:
-        print(f"\nReviewing {pr_id}: {pr_title}")
-
-        result = await Runner.run(
-            agent,
-            f"Review {pr_id}: '{pr_title}'. Identify any architectural decisions made.",
-        )
-        print(f"Review: {result.final_output[:200]}...")
-
-    # Flush all accumulated captures to the distillery in one batch
-    await hooks.flush()
-
-    # Create a single session summary for the entire review batch
-    from hipp0_sdk import Hipp0Client
-    session = client.create_session_summary(
-        project_id=PROJECT_ID,
-        agent_name="code-reviewer",
-        summary=f"Batch PR review session: reviewed {len(pull_requests)} PRs",
-        metadata={"pr_count": len(pull_requests), "framework": "openai-agents"},
-    )
-    print(f"\nSession summary created: {session['id']}")
-
-asyncio.run(review_all_prs())
-```
-
----
-
-## Accessing Compiled Context Directly
-
-If you need the compiled Hipp0 context before creating an agent (e.g., for conditional logic), access the Hipp0 client directly:
-
-```python
-from hipp0_sdk import Hipp0Client
-
-client = Hipp0Client(base_url="http://localhost:3100")
-
-context_package = client.compile_context(
-    project_id="proj_01hx...",
-    agent_name="architect",
-    task_description="Design the new authentication system.",
-    max_tokens=6000,
-)
-
-# Full compiled text (formatted for injection)
-print(context_package["compiled_text"])
-
-# Individual decisions with scores
-for decision in context_package["relevant_decisions"]:
-    print(f"[score={decision['score']:.2f}] {decision['title']}")
-
-# Unread notifications for this agent
-for notif in context_package.get("notifications", []):
-    print(f"[NOTIFICATION] {notif['message']}")
-
-# Active contradictions
-for contra in context_package.get("contradictions", []):
-    print(f"[CONTRADICTION] {contra['decision_a']['title']} ↔ {contra['decision_b']['title']}")
-```
-
-Then inject it manually if needed:
-
-```python
-from agents import Agent
-
-agent = Agent(
-    name="architect",
-    instructions=f"""[Hipp0 Context]
-{context_package['compiled_text']}
-
-You are a software architect...""",
-    model="gpt-4o",
-)
-```
-
----
-
-## Recording Decisions Manually
-
-For high-confidence decisions made outside of conversation, record them directly:
-
-```python
-from hipp0_sdk import Hipp0Client
-
-client = Hipp0Client(base_url="http://localhost:3100")
-
-decision = client.record_decision(
-    project_id="proj_01hx...",
-    title="Use gpt-4o-mini for code review agents",
-    description=(
-        "All code review agents use gpt-4o-mini to optimize cost. "
-        "Architecture and security review agents continue to use gpt-4o."
-    ),
-    rationale=(
-        "Code review tasks are well-structured and do not require frontier reasoning. "
-        "gpt-4o-mini reduces cost by 15× with acceptable quality for this task type."
-    ),
-    tags=["ai", "cost", "agents"],
-    affects=["architect", "devops", "ops"],
-    confidence=0.90,
-)
-
-print(f"Decision: {decision['id']}")
-```
-
----
-
-## Configuration Reference
-
-### Hipp0Client
-
-```python
-Hipp0Client(
-    base_url="http://localhost:3100",
-    api_key="nxk_...",   # optional
-    timeout=30,
-)
-```
-
-### Environment Variables
+Query by artifact:
 
 ```bash
-HIPP0_API_URL=http://localhost:3100
-HIPP0_PROJECT_ID=proj_01hx...
-HIPP0_API_KEY=nxk_...
+hipp0 artifacts list --project $HIPP0_PROJECT_ID
+hipp0 artifacts get art_01h... # see the raw tool output
 ```
 
-### OpenAI Agents SDK Environment Variables
+Or from the dashboard, click any decision and scroll to "Source Artifacts".
 
-```bash
-OPENAI_API_KEY=sk-...
-```
-
----
-
-## Best Practices
-
-**Create one `Hipp0AgentHooks` instance per agent.** Each instance tracks its own run buffer and session start time. Sharing hooks across agents will conflate their decision histories.
-
-**Use `agent_name` values that match Hipp0 role templates.** Names like `"architect"`, `"security"`, `"reviewer"`, `"qa"` activate the built-in role templates and improve context relevance through signal C (role relevance) weighting.
-
-**Set `task_description` to match the agent's actual task.** This is combined with the run input for context compilation. The better it describes the agent's domain, the higher the quality of retrieved context.
-
-**For multi-agent pipelines, give each agent distinct hooks.** Even if multiple agents share the same `project_id`, they should have separate `Hipp0AgentHooks` instances with their own `agent_name` and `task_description`.
-
-**Set `create_session_on_end=False` for tight loops.** If an agent runs hundreds of times (e.g., processing a queue), avoid creating hundreds of session summaries. Instead, set `create_session_on_end=False`, call `flush()` periodically, and create a single summary at the end.
-
-**Subclass for custom behavior.** The `AgentHooks` protocol is designed for subclassing. Override `on_handoff` to refresh context, `on_tool_call` to log pre-call, or `on_end` to post-process output before distillation:
+To attach a custom artifact to a decision manually:
 
 ```python
-class MyProductionHooks(Hipp0AgentHooks):
-    async def on_end(self, context, agent, output):
-        # Custom pre-processing
-        output_text = str(output)
-        if len(output_text) > 50000:
-            # Truncate very long outputs before distillation
-            output_text = output_text[:50000] + "... [truncated]"
-        # Call parent with original output (buffer is populated inside)
-        await super().on_end(context, agent, output)
+artifact = client.create_artifact(
+    project_id=project_id,
+    name="pricing-analysis.csv",
+    content=csv_data,
+    mime_type="text/csv",
+    kind="data",
+)
+
+client.record_decision(
+    project_id=project_id,
+    title="Use tier-2 pricing",
+    reasoning="See analysis",
+    made_by="analyst",
+    artifact_ids=[artifact["id"]],
+)
 ```
 
----
+Artifacts survive forever by default. They're cheap — stored compressed in Postgres.
 
 ## Troubleshooting
 
-### Context not appearing in agent instructions
-
-Verify `inject_context_into_instructions=True` (the default) and that the Hipp0 project has decisions:
-
-```bash
-curl http://localhost:3100/api/projects/proj_01hx.../decisions | jq length
-```
-
-Check if the SDK exposes `run_context.run_instructions` as a mutable attribute — some versions of `openai-agents` use read-only run context:
-
-```python
-# If injection silently fails, use manual injection instead:
-hooks = Hipp0AgentHooks(
-    ...,
-    inject_context_into_instructions=False,  # disable automatic injection
-)
-
-# And manually prepend context:
-context = client.compile_context(project_id=PROJECT_ID, agent_name="agent", task_description="...")
-agent = Agent(
-    instructions=f"[Hipp0 Context]\n{context['compiled_text']}\n\nYou are...",
-    hooks=hooks,  # still captures outputs for distillation
-)
-```
-
-### `on_end` not called / session summary missing
-
-Ensure you use `Runner.run()` and `await` it — the hooks are async and require the async runtime:
-
-```python
-# WRONG — hooks may not fire
-result = Runner.run_sync(agent, "...")
-
-# CORRECT
-result = await Runner.run(agent, "...")
-```
-
 ### `ImportError: cannot import name 'AgentHooks' from 'agents'`
 
-Update the OpenAI Agents SDK:
+You're on an old version of `openai-agents`. `AgentHooks` was added in 0.0.10. Upgrade:
 
 ```bash
-pip install --upgrade openai-agents
+pip install --upgrade "openai-agents>=0.0.12"
 ```
 
-If `Hipp0AgentHooks` is imported but `AgentHooks` is unavailable, the module defines stub classes and will log a warning:
+If you're stuck on an older version, `hipp0-openai-agents==0.3.*` has a compatibility shim that uses the older `on_step` callback protocol.
+
+### `TypeError: Hipp0AgentHooks.on_start() missing 1 required positional argument: 'agent'`
+
+You're mixing sync and async. The OpenAI Agents SDK calls hooks with `await`. Make sure your subclasses use `async def`:
 
 ```python
-from hipp0_openai_agents.hooks import _AGENTS_SDK_AVAILABLE
-print(_AGENTS_SDK_AVAILABLE)  # False if SDK not installed
+class MyHooks(Hipp0AgentHooks):
+    async def on_start(self, context, agent):  # NOT def on_start
+        return await super().on_start(context, agent)
 ```
 
-In this case, install the SDK or use the integration in an environment where it is available.
+### Context isn't being injected
 
-### Tool outputs not captured
+Check these in order:
 
-Ensure `capture_tool_outputs=True` (the default) and that your tools are registered via the SDK's `@function_tool` decorator or `FunctionTool` class — not raw Python callables.
+1. **`inject_context=True`?** If you passed `False`, no injection happens.
+2. **Any decisions in the project?** `hipp0 list --project $HIPP0_PROJECT_ID`. Empty? Nothing to inject.
+3. **`context_min_relevance` too high?** The default 0.4 can be strict. Try 0.2 temporarily.
+4. **Task description length.** `compile_context` uses the run's input as the task description. If your input is one word ("hi"), embeddings have nothing to match against. Longer inputs work better.
 
-Verify the `on_tool_output` hook fires by subclassing:
+Turn on debug mode:
 
 ```python
-class DebugHooks(Hipp0AgentHooks):
-    async def on_tool_output(self, context, agent, tool, result):
-        print(f"[DEBUG] Tool output: {str(result)[:100]}")
-        await super().on_tool_output(context, agent, tool, result)
+import logging
+logging.getLogger("hipp0_openai_agents").setLevel(logging.DEBUG)
 ```
 
-### High latency on first run
+You'll see exactly what the hook is doing at every step.
 
-The first `compile_context` call for a new agent involves:
-1. Generating an embedding for the task description (OpenAI API call)
-2. HNSW nearest-neighbor search in PostgreSQL
-3. BFS graph expansion
-4. Token budget allocation
+### Decisions captured but tool calls aren't logged
 
-Subsequent calls for the same `(agent_name, task_description)` are cached for 1 hour. If the first call is consistently slow (> 2s), check the HNSW index:
+`log_tool_calls=True`? And are you actually using tools? Only `function_tool`-decorated functions and built-in tools trigger hooks. Raw function calls bypass the hooks entirely.
+
+Also check if you're using `Runner.run_sync` instead of `Runner.run`. Some versions of the SDK don't fully fire hooks in sync mode. Prefer `await Runner.run(agent, task)`.
+
+### Handoffs aren't creating provenance edges
+
+Handoffs need both agents to share the same `Hipp0AgentHooks` instance. If each agent has its own hooks, the edge isn't recorded because the target hook doesn't know about the source hook's run.
+
+Correct:
+
+```python
+hooks = Hipp0AgentHooks(client=client, project_id=project_id, agent_name="router")
+
+agent_a = Agent(name="A", ..., hooks=hooks)
+agent_b = Agent(name="B", ..., hooks=hooks)
+# Or pass hooks once to the Runner
+await Runner.run(agent_a, task, hooks=hooks)
+```
+
+Wrong:
+
+```python
+hooks_a = Hipp0AgentHooks(..., agent_name="a")
+hooks_b = Hipp0AgentHooks(..., agent_name="b")
+agent_a = Agent(..., hooks=hooks_a)
+agent_b = Agent(..., hooks=hooks_b)
+# Handoff from A to B won't link
+```
+
+### Agent runs fine but nothing shows up in the dashboard
+
+Same checks as the other guides:
+
+1. **Server running?** `curl http://localhost:3100/health`.
+2. **`project_id` correct?** `echo $HIPP0_PROJECT_ID` vs dashboard Settings.
+3. **Events reaching the server?** Tail events: `hipp0 events --follow`. Run the agent. You should see `agent.run_started`, tool calls, `agent.run_completed`. If you see *nothing*, the hook isn't wired — double-check you passed `hooks=hooks` to `Agent(...)` or `Runner.run(...)`.
+
+### `on_end` raises but the run output says success
+
+By default, exceptions inside hook methods are swallowed by the SDK — you get a warning in the logs but the run continues. If you want hook failures to fail the run:
+
+```python
+hooks = Hipp0AgentHooks(..., fail_on_error=True)
+```
+
+Debug mode also helps here:
 
 ```bash
-docker compose exec postgres psql -U hipp0 -d hipp0 -c "\d decisions"
-# Look for: "embedding_hnsw_cosine_idx" btree (embedding vector_cosine_ops)
+export HIPP0_DEBUG=1
+python main.py
 ```
 
-If the index is missing, run migrations:
+You'll see the full stack trace from any hook exception.
 
-```bash
-docker compose exec server pnpm db:migrate
-```
+## Next steps
+
+- [CrewAI guide](crewai.md) — multi-agent crews
+- [LangGraph guide](langgraph.md) — stateful graphs
+- [Troubleshooting](../troubleshooting.md) — everything else
+- [Artifacts and provenance](../h0c-format.md) — how decisions reference artifacts
