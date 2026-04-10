@@ -2,6 +2,13 @@ import type { ExtractedDecision, Alternative, ConfidenceLevel } from '../types.j
 import { resolveLLMConfig, createLLMClient } from '../config/llm.js';
 import type { LLMEndpoint } from '../config/llm.js';
 import { recordLLMCall, checkBudget } from '../intelligence/cost-tracker.js';
+import {
+  withRetry,
+  distilleryBreakerAnthropic,
+  distilleryBreakerOpenAI,
+  distilleryQueue,
+  CircuitOpenError,
+} from '../intelligence/resilience.js';
 
 const LLM_TIMEOUT_MS = 30_000;
 
@@ -87,69 +94,115 @@ export async function callLLMWithUsage(
     };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  // Pick the right breaker for this endpoint. Anthropic via direct SDK is
+  // always routed through the Anthropic breaker; OpenAI-compatible paths
+  // (OpenRouter, OpenAI, Groq, Ollama, ...) share the OpenAI breaker.
+  const isAnthropic = endpoint.url === '__anthropic_sdk__';
+  const breaker = isAnthropic ? distilleryBreakerAnthropic : distilleryBreakerOpenAI;
 
-  try {
-    // Anthropic SDK path (backward compat for direct Anthropic keys)
-    if (endpoint.url === '__anthropic_sdk__') {
-      const Anthropic = (await import('@anthropic-ai/sdk')).default;
-      const client = new Anthropic({ apiKey: endpoint.key });
+  const doCall = async (): Promise<LLMCallResult> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
-      const response = await client.messages.create(
+    try {
+      // Anthropic SDK path (backward compat for direct Anthropic keys)
+      if (isAnthropic) {
+        const Anthropic = (await import('@anthropic-ai/sdk')).default;
+        const client = new Anthropic({ apiKey: endpoint.key });
+
+        const response = await client.messages.create(
+          {
+            model: endpoint.model,
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }],
+          },
+          { signal: controller.signal },
+        );
+
+        const block = response.content[0];
+        const text = block?.type === 'text' ? block.text : '[]';
+        const usage = response.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+        return {
+          text,
+          input_tokens: usage?.input_tokens ?? estimateTokens(systemPrompt + userMessage),
+          output_tokens: usage?.output_tokens ?? estimateTokens(text),
+          provider: 'anthropic',
+          model: endpoint.model,
+        };
+      }
+
+      // OpenAI-compatible path (OpenRouter, OpenAI, Groq, Ollama, etc.)
+      const client = createLLMClient(endpoint);
+      const response = await client.chat.completions.create(
         {
           model: endpoint.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
           max_tokens: 4096,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userMessage }],
         },
         { signal: controller.signal },
       );
 
-      const block = response.content[0];
-      const text = block?.type === 'text' ? block.text : '[]';
-      const usage = response.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+      const text = response.choices[0]?.message?.content ?? '[]';
+      const usage = response.usage as
+        | { prompt_tokens?: number; completion_tokens?: number }
+        | undefined;
+      const normalizedProvider = endpoint.url.includes('openrouter.ai')
+        ? 'openrouter'
+        : endpoint.url.includes('openai.com')
+          ? 'openai'
+          : endpoint.provider;
       return {
         text,
-        input_tokens: usage?.input_tokens ?? estimateTokens(systemPrompt + userMessage),
-        output_tokens: usage?.output_tokens ?? estimateTokens(text),
-        provider: 'anthropic',
+        input_tokens: usage?.prompt_tokens ?? estimateTokens(systemPrompt + userMessage),
+        output_tokens: usage?.completion_tokens ?? estimateTokens(text),
+        provider: normalizedProvider,
+        model: endpoint.model,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  try {
+    return await breaker.execute(() => withRetry(doCall, { maxRetries: 3 }));
+  } catch (err) {
+    if (err instanceof CircuitOpenError) {
+      // Queue the request for later processing — never throw upward so the
+      // passive capture pipeline can keep accepting work. The queue is
+      // best-effort: on drain, we re-run `doCall` but ignore its result
+      // (the original request has already been marked as [] empty).
+      try {
+        distilleryQueue.enqueue({
+          provider: isAnthropic ? 'anthropic' : 'openai',
+          run: async () => {
+            try {
+              await breaker.execute(() => withRetry(doCall, { maxRetries: 3 }));
+            } catch {
+              // Ignore — this is a best-effort deferred run.
+            }
+          },
+        });
+      } catch {
+        // never propagate queue errors
+      }
+      console.warn(
+        `[hipp0:distillery] Circuit ${isAnthropic ? 'anthropic' : 'openai'} open; extraction deferred.`,
+      );
+      return {
+        text: '[]',
+        input_tokens: 0,
+        output_tokens: 0,
+        provider: isAnthropic ? 'anthropic' : endpoint.provider,
         model: endpoint.model,
       };
     }
-
-    // OpenAI-compatible path (OpenRouter, OpenAI, Groq, Ollama, etc.)
-    const client = createLLMClient(endpoint);
-    const response = await client.chat.completions.create(
-      {
-        model: endpoint.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-        max_tokens: 4096,
-      },
-      { signal: controller.signal },
-    );
-
-    const text = response.choices[0]?.message?.content ?? '[]';
-    const usage = response.usage as
-      | { prompt_tokens?: number; completion_tokens?: number }
-      | undefined;
-    const normalizedProvider = endpoint.url.includes('openrouter.ai')
-      ? 'openrouter'
-      : endpoint.url.includes('openai.com')
-        ? 'openai'
-        : endpoint.provider;
-    return {
-      text,
-      input_tokens: usage?.prompt_tokens ?? estimateTokens(systemPrompt + userMessage),
-      output_tokens: usage?.completion_tokens ?? estimateTokens(text),
-      provider: normalizedProvider,
-      model: endpoint.model,
-    };
-  } finally {
-    clearTimeout(timer);
+    // Non-circuit error — re-throw so existing callers' catch blocks can
+    // log and return empty results like before.
+    throw err;
   }
 }
 

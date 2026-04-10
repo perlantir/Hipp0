@@ -209,9 +209,73 @@ function extractToken(c: Context): string | null {
   return null;
 }
 
+  // Authenticate via a per-agent API key (h0_agent_*).
+// Looks up the key in api_keys, attaches agent_id/agent_name/scopes
+// to the AuthUser, and best-effort updates last_used_at.
+async function authenticateAgentKey(token: string, c: Context): Promise<AuthUser | null> {
+  if (!token.startsWith(AGENT_KEY_PREFIX)) return null;
+
+  const validated = await validateAgentKey(token);
+  if (!validated) return null;
+
+  // Rate limit agent keys the same way as tenant keys — keyed by hash of
+  // the token so different keys don't share quotas.
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  const rateCheck = checkApiKeyRateLimit(hash, 1_000);
+  if (!rateCheck.allowed) {
+    c.header('Retry-After', String(Math.ceil(rateCheck.resetMs / 1000)));
+    c.header('X-RateLimit-Limit', '1000');
+    c.header('X-RateLimit-Remaining', '0');
+    return null;
+  }
+
+  // Look up the owning tenant via the project row (best-effort).
+  // If the project or tenant lookup fails we still authenticate, but
+  // fall back to the default tenant so downstream code has a value.
+  let tenantId = DEFAULT_TENANT_ID;
+  let plan = 'free';
+  try {
+    const db = getDb();
+    const res = await db.query(
+      `SELECT p.tenant_id, t.plan
+         FROM projects p
+         LEFT JOIN tenants t ON t.id = p.tenant_id
+        WHERE p.id = ?
+        LIMIT 1`,
+      [validated.project_id],
+    );
+    if (res.rows.length > 0) {
+      const row = res.rows[0] as Record<string, unknown>;
+      if (row.tenant_id) tenantId = row.tenant_id as string;
+      if (row.plan) plan = row.plan as string;
+    }
+  } catch {
+    /* ignore — best effort */
+  }
+
+  // Fire-and-forget usage update.
+  recordKeyUsage(validated.key_id).catch(() => {});
+
+  return {
+    id: `agent:${validated.agent_id ?? 'unknown'}`,
+    email: '',
+    tenant_id: tenantId,
+    role: validated.scopes.includes('write') ? 'member' : 'viewer',
+    plan,
+    agent_id: validated.agent_id,
+    agent_name: validated.agent_name,
+    agent_key_project_id: validated.project_id,
+    agent_key_scopes: validated.scopes,
+  };
+}
+
   // Authenticate from token (API key or JWT)
 async function authenticateToken(token: string, c: Context): Promise<AuthUser | null> {
-  // Try API key first
+  // Per-agent key (more specific prefix, check first)
+  if (token.startsWith(AGENT_KEY_PREFIX)) {
+    return authenticateAgentKey(token, c);
+  }
+  // Tenant/project-level API key
   if (token.startsWith('h0_')) {
     return authenticateApiKey(token, c);
   }

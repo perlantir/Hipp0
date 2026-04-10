@@ -23,6 +23,7 @@ import type { ActionSignal } from '@hipp0/core/intelligence/role-signals.js';
 import { computeAgentSkillProfile } from '@hipp0/core/intelligence/skill-profiler.js';
 import { generateContrastiveExplanation, generateTopContrastPairs } from '@hipp0/core/intelligence/contrastive-explainer.js';
 import type { ContrastiveExplanation } from '@hipp0/core/intelligence/contrastive-explainer.js';
+import { rewriteExplanationsBatch } from '@hipp0/core/intelligence/llm-explainer.js';
 import {
   getRelevantSharedPatterns,
   isAutoShareEnabled,
@@ -94,6 +95,10 @@ export function registerCompileRoutes(app: Hono): void {
       // Contrastive explanations: enabled via ?explain=true or debug mode
     const explainParam = c.req.query('explain');
     const includeExplanations = explainParam === 'true' || body.debug === true;
+      // Pretty (LLM-rewritten) explanations: opt-in via ?pretty=true on top of ?explain=true.
+      // LLM is NEVER called in the hot path unless this query param is set.
+    const prettyParam = c.req.query('pretty');
+    const includePrettyExplanations = includeExplanations && prettyParam === 'true';
 
       // Check prefetch cache first (session-aware)
     if (body.task_session_id && body.debug !== true) {
@@ -285,7 +290,9 @@ export function registerCompileRoutes(app: Hono): void {
     }
 
       // Contrastive explanations (optional)
-    let contrastiveExplanations: ContrastiveExplanation[] | undefined;
+    let contrastiveExplanations:
+      | Array<ContrastiveExplanation & { deterministic?: string; pretty?: string }>
+      | undefined;
     if (includeExplanations && result.decisions.length >= 2) {
       // Decisions are already sorted by combined_score descending
       const sorted = result.decisions;
@@ -304,7 +311,45 @@ export function registerCompileRoutes(app: Hono): void {
         );
       }
 
-      contrastiveExplanations = explanations;
+      // When ?pretty=true is opted in, rewrite the deterministic explanations
+      // through the LLM layer. Errors fall back to the deterministic text.
+      let prettyTexts: string[] | null = null;
+      if (includePrettyExplanations) {
+        try {
+          prettyTexts = await rewriteExplanationsBatch(
+            explanations.map((e) => ({
+              text: e.explanation,
+              context: {
+                decisionA: { title: e.higher.title },
+                decisionB: { title: e.lower.title },
+                agentName: agent_name,
+              },
+            })),
+            { projectId: project_id },
+          );
+        } catch (err) {
+          console.warn(
+            '[hipp0:compile] Pretty explanation rewrite failed:',
+            (err as Error).message,
+          );
+          prettyTexts = null;
+        }
+      }
+
+      contrastiveExplanations = explanations.map((e, idx) => {
+        const pretty = prettyTexts?.[idx];
+        // Preserve the deterministic text under a dedicated key so clients
+        // can show both side-by-side when ?pretty=true was requested.
+        const enriched: ContrastiveExplanation & { deterministic?: string; pretty?: string } = {
+          ...e,
+          deterministic: e.explanation,
+        };
+        if (pretty && pretty !== e.explanation) {
+          enriched.pretty = pretty;
+          enriched.explanation = pretty;
+        }
+        return enriched;
+      });
     }
 
       // Broadcast compile completion

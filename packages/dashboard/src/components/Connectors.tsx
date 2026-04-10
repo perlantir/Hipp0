@@ -20,6 +20,9 @@ import {
   GitBranch,
   ExternalLink,
   Link2,
+  FileText,
+  MessageSquare,
+  Download,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
@@ -830,6 +833,339 @@ export function LinkedIssues({ decisionId }: { decisionId: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Import Connectors: Notion / Linear / Slack                          */
+/* ------------------------------------------------------------------ */
+
+type ImportSource = 'notion' | 'linear' | 'slack';
+
+interface ExtractedDecisionPreview {
+  title: string;
+  description: string;
+  made_by: string;
+  tags: string[];
+  source_url?: string;
+  source_ref?: string;
+}
+
+interface PreviewResponse {
+  source: ImportSource;
+  preview: ExtractedDecisionPreview[];
+  stats: Record<string, number>;
+}
+
+interface SyncResponse {
+  status: string;
+  decisions_found: number;
+  decisions_imported: number;
+  errors: string[];
+}
+
+const IMPORT_CARDS: Array<{
+  source: ImportSource;
+  name: string;
+  description: string;
+  iconColor: string;
+  bgColor: string;
+  needsSelector: 'database_id' | 'team_id' | 'channel_id' | null;
+  selectorLabel: string;
+  tokenHint: string;
+  renderIcon: () => React.ReactNode;
+}> = [
+  {
+    source: 'notion',
+    name: 'Notion',
+    description: 'Import decisions from Notion pages and databases.',
+    iconColor: '#000000',
+    bgColor: 'bg-black/10 dark:bg-white/10',
+    needsSelector: 'database_id',
+    selectorLabel: 'Database ID (optional)',
+    tokenHint: 'Integration token (secret_...)',
+    renderIcon: () => <FileText size={16} />,
+  },
+  {
+    source: 'linear',
+    name: 'Linear',
+    description: 'Pull decisions from completed Linear issues and comments.',
+    iconColor: '#5E6AD2',
+    bgColor: 'bg-[#5E6AD2]/10',
+    needsSelector: 'team_id',
+    selectorLabel: 'Team ID (optional)',
+    tokenHint: 'Personal API key (lin_api_...)',
+    renderIcon: () => <GitBranch size={16} />,
+  },
+  {
+    source: 'slack',
+    name: 'Slack',
+    description: 'Extract decisions from Slack channels via emoji and keywords.',
+    iconColor: '#4A154B',
+    bgColor: 'bg-[#4A154B]/10',
+    needsSelector: 'channel_id',
+    selectorLabel: 'Channel ID',
+    tokenHint: 'Bot token (xoxb-...)',
+    renderIcon: () => <MessageSquare size={16} />,
+  },
+];
+
+interface ImportConnectorCardProps {
+  card: (typeof IMPORT_CARDS)[number];
+  projectId: string;
+}
+
+function ImportConnectorCard({ card, projectId }: ImportConnectorCardProps) {
+  const { post } = useApi();
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState('');
+  const [selector, setSelector] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ExtractedDecisionPreview[] | null>(null);
+  const [stats, setStats] = useState<Record<string, number>>({});
+  const [imported, setImported] = useState<number | null>(null);
+
+  function reset() {
+    setToken('');
+    setSelector('');
+    setPreview(null);
+    setStats({});
+    setImported(null);
+    setError(null);
+  }
+
+  async function handlePreview() {
+    if (!token.trim()) {
+      setError('Please enter an API token.');
+      return;
+    }
+    if (card.source === 'slack' && !selector.trim()) {
+      setError('Channel ID is required for Slack.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const body: Record<string, unknown> = { token: token.trim() };
+      if (card.needsSelector && selector.trim()) {
+        body[card.needsSelector] = selector.trim();
+      }
+      const data = await post<PreviewResponse>(
+        `/api/projects/${projectId}/connectors/${card.source}/preview`,
+        body,
+      );
+      setPreview(data.preview ?? []);
+      setStats(data.stats ?? {});
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Preview failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleImport() {
+    if (!token.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const body: Record<string, unknown> = { token: token.trim() };
+      if (card.needsSelector && selector.trim()) {
+        body[card.needsSelector] = selector.trim();
+      }
+      const data = await post<SyncResponse>(
+        `/api/projects/${projectId}/connectors/${card.source}/sync`,
+        body,
+      );
+      setImported(data.decisions_imported ?? 0);
+      if (data.errors && data.errors.length > 0) {
+        setError(`Imported ${data.decisions_imported} with ${data.errors.length} error(s).`);
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Import failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${card.bgColor}`}
+          style={{ color: card.iconColor }}
+        >
+          {card.renderIcon()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold">{card.name}</h3>
+          <p className="text-xs text-[var(--text-secondary)]">{card.description}</p>
+        </div>
+        <button
+          onClick={() => {
+            setOpen((v) => !v);
+            if (open) reset();
+          }}
+          className="btn-primary text-xs flex items-center gap-1.5"
+        >
+          {open ? <X size={13} /> : <Plus size={13} />}
+          {open ? 'Close' : 'Connect'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-4 pt-4 border-t border-[var(--border-light)] space-y-3">
+          {error && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
+              <AlertCircle size={13} className="shrink-0 mt-0.5 text-red-400" />
+              <p className="text-xs text-red-300">{error}</p>
+            </div>
+          )}
+
+          {imported !== null && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+              <CheckCircle2 size={13} className="shrink-0 mt-0.5 text-green-400" />
+              <p className="text-xs text-green-300">
+                Imported {imported} decision{imported === 1 ? '' : 's'} from {card.name}.
+              </p>
+            </div>
+          )}
+
+          {/* Token input */}
+          <div>
+            <label className="block text-xs font-medium mb-1 uppercase tracking-wider text-[var(--text-secondary)]">
+              API Token
+            </label>
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder={card.tokenHint}
+              className="input w-full text-xs"
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Optional selector */}
+          {card.needsSelector && (
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider text-[var(--text-secondary)]">
+                {card.selectorLabel}
+              </label>
+              <input
+                type="text"
+                value={selector}
+                onChange={(e) => setSelector(e.target.value)}
+                placeholder={
+                  card.source === 'slack'
+                    ? 'C01234567'
+                    : card.source === 'linear'
+                    ? 'team uuid (leave blank for all)'
+                    : 'notion database uuid (leave blank for workspace)'
+                }
+                className="input w-full text-xs"
+              />
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePreview}
+              disabled={loading || !token.trim()}
+              className="btn-secondary text-xs flex items-center gap-1.5"
+            >
+              {loading && preview === null ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Search size={12} />
+              )}
+              Preview
+            </button>
+            {preview && preview.length > 0 && imported === null && (
+              <button
+                onClick={handleImport}
+                disabled={loading}
+                className="btn-primary text-xs flex items-center gap-1.5"
+              >
+                {loading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                Import {preview.length}
+              </button>
+            )}
+          </div>
+
+          {/* Stats */}
+          {preview && Object.keys(stats).length > 0 && (
+            <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
+              {Object.entries(stats).map(([k, v]) => (
+                <div key={k}>
+                  <span className="uppercase tracking-wider">{k.replace(/_/g, ' ')}:</span>{' '}
+                  <span className="text-[var(--text-primary)] font-medium">{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Preview list */}
+          {preview && preview.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
+                Preview ({preview.length})
+              </p>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {preview.slice(0, 20).map((d, i) => (
+                  <div
+                    key={i}
+                    className="p-2 rounded-md bg-[var(--border-light)]/20 text-xs"
+                  >
+                    <p className="font-medium truncate">{d.title}</p>
+                    <p className="text-[var(--text-secondary)] line-clamp-2 mt-0.5">
+                      {d.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--text-tertiary)]">
+                      <span>by {d.made_by}</span>
+                      {d.source_url && (
+                        <a
+                          href={d.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline flex items-center gap-0.5"
+                        >
+                          source <ExternalLink size={9} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {preview.length > 20 && (
+                  <p className="text-[10px] text-[var(--text-tertiary)] text-center">
+                    ...and {preview.length - 20} more
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {preview && preview.length === 0 && (
+            <p className="text-xs text-[var(--text-tertiary)]">
+              No decisions detected. Try a different source or check your token.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportConnectorsPanel({ projectId }: { projectId: string }) {
+  return (
+    <div className="space-y-3">
+      {IMPORT_CARDS.map((card) => (
+        <ImportConnectorCard key={card.source} card={card} projectId={projectId} />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 export function Connectors() {
   const { get, post, patch, del } = useApi();
   const { projectId } = useProject();
@@ -1014,6 +1350,17 @@ export function Connectors() {
 
         {/* GitHub integration */}
         <GitHubSettings projectId={projectId} />
+
+        {/* Import from external sources */}
+        <div className="mt-8 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Download size={14} style={{ color: 'var(--text-secondary)' }} />
+            <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+              Import from Knowledge Bases
+            </h2>
+          </div>
+          <ImportConnectorsPanel projectId={projectId} />
+        </div>
 
         {/* Add form */}
         {showForm && (

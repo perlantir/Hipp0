@@ -218,6 +218,15 @@ async function main() {
   // Evolution worker — daily scan at 6 AM UTC
   startEvolutionWorker();
 
+  // Distillery drain loop — drains the in-memory extraction queue once
+  // the circuit breakers return to closed state after an outage.
+  try {
+    const { startDistilleryDrainLoop } = await import('@hipp0/core/intelligence/resilience.js');
+    startDistilleryDrainLoop();
+  } catch (err) {
+    console.warn('[hipp0] Distillery drain loop failed to start:', (err as Error).message);
+  }
+
   const app = createApp();
 
     // Register GitHub PR webhook

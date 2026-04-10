@@ -211,6 +211,26 @@
       "import": "./dist/intelligence/memory-analytics.js",
       "types": "./dist/intelligence/memory-analytics.d.ts"
     },
+    "./intelligence/agent-keys.js": {
+      "import": "./dist/intelligence/agent-keys.js",
+      "types": "./dist/intelligence/agent-keys.d.ts"
+    },
+    "./intelligence/llm-explainer.js": {
+      "import": "./dist/intelligence/llm-explainer.js",
+      "types": "./dist/intelligence/llm-explainer.d.ts"
+    },
+    "./intelligence/resilience.js": {
+      "import": "./dist/intelligence/resilience.js",
+      "types": "./dist/intelligence/resilience.d.ts"
+    },
+    "./intelligence/decision-feedback.js": {
+      "import": "./dist/intelligence/decision-feedback.js",
+      "types": "./dist/intelligence/decision-feedback.d.ts"
+    },
+    "./decision-graph/local-embeddings.js": {
+      "import": "./dist/decision-graph/local-embeddings.js",
+      "types": "./dist/decision-graph/local-embeddings.d.ts"
+    },
     "./intelligence/team-procedures.js": {
       "import": "./dist/intelligence/team-procedures.js",
       "types": "./dist/intelligence/team-procedures.d.ts"
@@ -226,6 +246,10 @@
     "./intelligence/digest-delivery.js": {
       "import": "./dist/intelligence/digest-delivery.js",
       "types": "./dist/intelligence/digest-delivery.d.ts"
+    },
+    "./intelligence/resilience.js": {
+      "import": "./dist/intelligence/resilience.js",
+      "types": "./dist/intelligence/resilience.d.ts"
     },
     "./telemetry.js": {
       "import": "./dist/telemetry.js",

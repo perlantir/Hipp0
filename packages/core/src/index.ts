@@ -447,6 +447,29 @@ export type {
   ProjectBudgetConfig,
 } from './intelligence/cost-tracker.js';
 
+// --- Resilience (retry + circuit breaker) ---
+export {
+  withRetry,
+  defaultIsRetryable,
+  CircuitBreaker,
+  CircuitOpenError,
+  distilleryBreakerAnthropic,
+  distilleryBreakerOpenAI,
+  distilleryQueue,
+  getBreakerForProvider,
+  getDistilleryHealth,
+  startDistilleryDrainLoop,
+  stopDistilleryDrainLoop,
+  DISTILLERY_QUEUE_MAX_SIZE,
+} from './intelligence/resilience.js';
+export type {
+  RetryOptions,
+  CircuitBreakerOptions,
+  CircuitState,
+  CircuitStats,
+  QueuedExtraction,
+} from './intelligence/resilience.js';
+
 // --- Digest Delivery (email, Slack, webhook) ---
 export {
   sendDigestEmail,

@@ -370,6 +370,27 @@ export function AgentSkills() {
                         </td>
                       );
                     })}
+                    <td className="px-3 py-3 text-center">
+                      {agentIdMap[row.agent] ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setKeysAgent({ id: agentIdMap[row.agent], name: row.agent });
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors hover:bg-primary/10"
+                          style={{
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-secondary)',
+                          }}
+                          title="Manage API keys for this agent"
+                        >
+                          <Key size={12} />
+                          Keys
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--text-tertiary)]">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -572,6 +593,16 @@ export function AgentSkills() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ---- Agent API keys modal ---------------------------------- */}
+      {keysAgent && (
+        <AgentKeysModal
+          projectId={projectId}
+          agentId={keysAgent.id}
+          agentName={keysAgent.name}
+          onClose={() => setKeysAgent(null)}
+        />
       )}
     </div>
   );

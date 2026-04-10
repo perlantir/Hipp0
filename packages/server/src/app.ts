@@ -37,8 +37,10 @@ import { registerPhase2EdgeRoutes } from './routes/phase2-edges.js';
 import { registerImpactRoutes } from './routes/impact.js';
 import { registerSlackConnector } from './connectors/slack.js';
 import { registerLinearConnector } from './connectors/linear.js';
+import { registerConnectorRoutes } from './routes/connectors.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
+import { registerAgentKeyRoutes } from './routes/agent-keys.js';
 import { registerTeamRoutes } from './routes/team.js';
 import { registerAuditLogRoutes } from './routes/audit-log.js';
 import { registerBillingRoutes, registerStripeWebhookRoute } from './routes/billing.js';
@@ -158,6 +160,24 @@ export function createApp() {
     }
   });
 
+  // Per-request RLS tenant context reset.
+  // The pg Pool does not bind a client to a request, so `setProjectContext`
+  // lives on the adapter instance. We make sure we wipe it at the end of
+  // every request so a context set by request N never leaks into request
+  // N+1 (which would otherwise see the previous project's rows).
+  app.use('/api/*', async (c, next) => {
+    try {
+      await next();
+    } finally {
+      try {
+        const db = getDb() as { setProjectContext?: (id: string | null) => void };
+        db.setProjectContext?.(null);
+      } catch {
+        // DB may not be initialised during tests — ignore.
+      }
+    }
+  });
+
     // Tier enforcement (after auth, before routes)
   app.use('/api/*', tierEnforcement());
 
@@ -174,6 +194,18 @@ export function createApp() {
       decisionCount = parseInt((countResult.rows[0] as Record<string, unknown>)?.c as string ?? '0', 10);
     } catch { /* db unavailable */ }
 
+    // Distillery resilience state (circuit breakers + in-memory queue). Wrapped
+    // in try/catch so a misconfigured resilience module never breaks health.
+    let distillery: Record<string, unknown> = {
+      anthropic_breaker: 'closed',
+      openai_breaker: 'closed',
+      queued_extractions: 0,
+    };
+    try {
+      const { getDistilleryHealth } = await import('@hipp0/core/intelligence/resilience.js');
+      distillery = getDistilleryHealth();
+    } catch { /* resilience module unavailable */ }
+
     return c.json({
       status: 'ok',
       version: '0.3.0',
@@ -182,6 +214,7 @@ export function createApp() {
       uptime_seconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000),
       node_env: process.env.NODE_ENV ?? 'production',
       decision_count: decisionCount,
+      distillery,
     });
   });
 
@@ -241,6 +274,7 @@ export function createApp() {
     // Auth, Team, API Key, Audit Log routes
   registerAuthRoutes(app);
   registerApiKeyRoutes(app);
+  registerAgentKeyRoutes(app);
   registerTeamRoutes(app);
   registerAuditLogRoutes(app);
 
@@ -270,6 +304,7 @@ export function createApp() {
   registerSlackConnector(app);
   registerLinkRoutes(app);
   registerLinearConnector(app);
+  registerConnectorRoutes(app);
 
     // Governance: policy & violation management
   registerPolicyRoutes(app);

@@ -14,6 +14,13 @@ import crypto from 'node:crypto';
 import { submitForExtraction } from '../queue/index.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { callLLM } from '@hipp0/core/distillery/index.js';
+import { logAudit } from '../routes/validation.js';
+import {
+  insertImportedDecision,
+  type ExtractedDecision,
+  type SyncOptions,
+  type SyncResult,
+} from './notion.js';
 
   // Decision pattern matching
 const DECISION_PATTERNS: RegExp[] = [
@@ -296,4 +303,378 @@ export function registerSlackConnector(app: Hono): void {
   });
 
   console.warn('[hipp0/slack] Webhook connector registered');
+}
+
+/* ================================================================== */
+/*  IMPORT FLOW — scrape decisions from Slack channels                  */
+/* ================================================================== */
+
+const SLACK_API = 'https://slack.com/api';
+
+/* ---- Rate limit (60 req/min sliding window) ---- */
+const _slackRequestTimestamps: number[] = [];
+async function slackRateLimit(): Promise<void> {
+  const now = Date.now();
+  const oneMinuteAgo = now - 60_000;
+  while (_slackRequestTimestamps.length && _slackRequestTimestamps[0] < oneMinuteAgo) {
+    _slackRequestTimestamps.shift();
+  }
+  if (_slackRequestTimestamps.length >= 60) {
+    const waitMs = _slackRequestTimestamps[0] + 60_000 - now + 50;
+    await new Promise((r) => setTimeout(r, waitMs));
+    return slackRateLimit();
+  }
+  _slackRequestTimestamps.push(now);
+}
+
+async function slackFetch<T = Record<string, unknown>>(
+  token: string,
+  path: string,
+  params?: Record<string, string>,
+): Promise<T> {
+  await slackRateLimit();
+  const url = new URL(`${SLACK_API}${path}`);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return slackFetch(token, path, params);
+  }
+  if (!res.ok) {
+    throw new Error(`Slack API ${res.status}: ${res.statusText}`);
+  }
+  const json = (await res.json()) as { ok: boolean; error?: string } & T;
+  if (!json.ok) {
+    if (json.error === 'invalid_auth' || json.error === 'token_expired') {
+      throw new Error('Slack token invalid or expired');
+    }
+    if (json.error === 'ratelimited') {
+      await new Promise((r) => setTimeout(r, 5000));
+      return slackFetch(token, path, params);
+    }
+    throw new Error(`Slack API error: ${json.error ?? 'unknown'}`);
+  }
+  return json;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: List channels                                              */
+/* ------------------------------------------------------------------ */
+
+export interface SlackChannelSummary {
+  id: string;
+  name: string;
+  is_private: boolean;
+  is_member: boolean;
+  num_members?: number;
+  topic?: string;
+}
+
+export async function listSlackChannels(token: string): Promise<SlackChannelSummary[]> {
+  const data = await slackFetch<{ channels: Array<Record<string, unknown>> }>(
+    token,
+    '/conversations.list',
+    { types: 'public_channel,private_channel', limit: '200', exclude_archived: 'true' },
+  );
+
+  return data.channels.map((ch) => ({
+    id: ch.id as string,
+    name: (ch.name as string) ?? '',
+    is_private: Boolean(ch.is_private),
+    is_member: Boolean(ch.is_member),
+    num_members: (ch.num_members as number) ?? undefined,
+    topic: ((ch.topic as Record<string, unknown>)?.value as string) ?? undefined,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Fetch messages                                             */
+/* ------------------------------------------------------------------ */
+
+export interface SlackMessage {
+  ts: string;
+  user?: string;
+  userName?: string;
+  text: string;
+  thread_ts?: string;
+  reactions?: Array<{ name: string; count: number; users?: string[] }>;
+  replies?: SlackMessage[];
+  channel: string;
+  channelName: string;
+}
+
+async function getUserName(
+  token: string,
+  userId: string,
+  cache: Map<string, string>,
+): Promise<string> {
+  if (cache.has(userId)) return cache.get(userId)!;
+  try {
+    const data = await slackFetch<{ user: Record<string, unknown> }>(
+      token,
+      '/users.info',
+      { user: userId },
+    );
+    const profile = data.user.profile as Record<string, unknown> | undefined;
+    const name =
+      (profile?.display_name as string) ||
+      (profile?.real_name as string) ||
+      (data.user.name as string) ||
+      userId;
+    cache.set(userId, name);
+    return name;
+  } catch {
+    cache.set(userId, userId);
+    return userId;
+  }
+}
+
+export async function fetchSlackMessages(
+  token: string,
+  channelId: string,
+  since?: string,
+): Promise<SlackMessage[]> {
+  // Resolve channel name
+  let channelName = channelId;
+  try {
+    const chData = await slackFetch<{ channel: Record<string, unknown> }>(
+      token,
+      '/conversations.info',
+      { channel: channelId },
+    );
+    channelName = (chData.channel.name as string) ?? channelId;
+  } catch { /* non-fatal */ }
+
+  const params: Record<string, string> = { channel: channelId, limit: '100' };
+  if (since) params.oldest = since;
+
+  const data = await slackFetch<{ messages: Array<Record<string, unknown>> }>(
+    token,
+    '/conversations.history',
+    params,
+  );
+
+  const userCache = new Map<string, string>();
+  const messages: SlackMessage[] = [];
+
+  for (const m of data.messages ?? []) {
+    if (m.subtype) continue; // skip join/leave/etc.
+    const userId = (m.user as string) ?? '';
+    const userName = userId ? await getUserName(token, userId, userCache) : 'slack';
+
+    const msg: SlackMessage = {
+      ts: (m.ts as string) ?? '',
+      user: userId,
+      userName,
+      text: (m.text as string) ?? '',
+      thread_ts: (m.thread_ts as string) ?? undefined,
+      reactions: (m.reactions as SlackMessage['reactions']) ?? [],
+      channel: channelId,
+      channelName,
+    };
+
+    // If this message has a thread, fetch replies
+    if ((m.reply_count as number) > 0 && m.thread_ts === m.ts) {
+      try {
+        const repliesData = await slackFetch<{ messages: Array<Record<string, unknown>> }>(
+          token,
+          '/conversations.replies',
+          { channel: channelId, ts: msg.ts, limit: '50' },
+        );
+        msg.replies = [];
+        for (const r of (repliesData.messages ?? []).slice(1)) {
+          const rUserId = (r.user as string) ?? '';
+          const rUserName = rUserId ? await getUserName(token, rUserId, userCache) : 'slack';
+          msg.replies.push({
+            ts: (r.ts as string) ?? '',
+            user: rUserId,
+            userName: rUserName,
+            text: (r.text as string) ?? '',
+            reactions: (r.reactions as SlackMessage['reactions']) ?? [],
+            channel: channelId,
+            channelName,
+          });
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    messages.push(msg);
+  }
+
+  return messages;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Extract decisions from messages                            */
+/* ------------------------------------------------------------------ */
+
+const SLACK_DECIDED_PREFIX = /^(?:DECIDED|DECISION|RESOLVED)\s*:\s*/i;
+const SLACK_PHRASES: RegExp[] = [
+  /\bwe(?:'re| are) going with\b/i,
+  /\bwe decided\b/i,
+  /\bwe chose\b/i,
+  /\blet'?s go with\b/i,
+  /\bagreed to\b/i,
+];
+
+function hasCheckmarkReaction(msg: SlackMessage): boolean {
+  return (msg.reactions ?? []).some(
+    (r) => r.name === 'white_check_mark' || r.name === 'heavy_check_mark',
+  );
+}
+
+function hasThumbsUpReaction(msg: SlackMessage): boolean {
+  return (msg.reactions ?? []).some(
+    (r) => (r.name === '+1' || r.name === 'thumbsup') && r.count > 0,
+  );
+}
+
+export function extractDecisionsFromMessages(
+  messages: SlackMessage[],
+): ExtractedDecision[] {
+  const results: ExtractedDecision[] = [];
+
+  for (const msg of messages) {
+    if (!msg.text || msg.text.length < 10) continue;
+
+    let matched = false;
+    let decisionText = msg.text;
+
+    // 1. Explicit "DECIDED:" prefix
+    if (SLACK_DECIDED_PREFIX.test(msg.text)) {
+      matched = true;
+      decisionText = msg.text.replace(SLACK_DECIDED_PREFIX, '').trim();
+    }
+
+    // 2. :white_check_mark: reaction on parent message
+    if (!matched && hasCheckmarkReaction(msg)) {
+      matched = true;
+    }
+
+    // 3. Decision phrases in text
+    if (!matched && SLACK_PHRASES.some((p) => p.test(msg.text))) {
+      matched = true;
+    }
+
+    // 4. Thread resolution: parent + :thumbsup: on a reply
+    if (!matched && msg.replies && msg.replies.length > 0) {
+      const resolvingReply = msg.replies.find((r) => hasThumbsUpReaction(r));
+      if (resolvingReply) {
+        matched = true;
+        decisionText = `${msg.text}\n\nResolved by @${resolvingReply.userName}: ${resolvingReply.text}`;
+      }
+    }
+
+    if (!matched) continue;
+
+    const firstSentence =
+      decisionText.split(/[.!?\n]/)[0].slice(0, 500) || decisionText.slice(0, 100);
+
+    results.push({
+      title: firstSentence,
+      description: decisionText.slice(0, 10000),
+      reasoning: decisionText.slice(0, 10000),
+      made_by: msg.userName || 'slack',
+      tags: [`slack`, `#${msg.channelName}`],
+      source_url: `https://slack.com/archives/${msg.channel}/p${msg.ts.replace('.', '')}`,
+      source_ref: `slack:${msg.channel}:${msg.ts}`,
+    });
+  }
+
+  // Dedupe by normalized title
+  const seen = new Set<string>();
+  return results.filter((d) => {
+    const key = d.title.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Full sync flow                                             */
+/* ------------------------------------------------------------------ */
+
+export async function syncSlackToHipp0(
+  projectId: string,
+  token: string,
+  channelId: string,
+  options: (SyncOptions & { since?: string }) = {},
+): Promise<SyncResult & { messages_scanned: number }> {
+  const errors: string[] = [];
+  const preview: ExtractedDecision[] = [];
+  let messagesScanned = 0;
+  let decisionsFound = 0;
+  let decisionsImported = 0;
+
+  console.warn(
+    `[hipp0/slack] Sync starting project=${projectId} channel=${channelId} since=${options.since ?? '(none)'}`,
+  );
+
+  let messages: SlackMessage[];
+  try {
+    messages = await fetchSlackMessages(token, channelId, options.since);
+    messagesScanned = messages.length;
+  } catch (err) {
+    const msg = (err as Error).message;
+    console.error(`[hipp0/slack] Failed to fetch messages: ${msg}`);
+    return {
+      pages_scanned: 0,
+      messages_scanned: 0,
+      decisions_found: 0,
+      decisions_imported: 0,
+      errors: [msg],
+    };
+  }
+
+  const extracted = extractDecisionsFromMessages(messages);
+  decisionsFound = extracted.length;
+
+  console.warn(
+    `[hipp0/slack] Scanned ${messagesScanned} messages → ${decisionsFound} decision(s)`,
+  );
+
+  if (options.dryRun) {
+    preview.push(...extracted);
+  } else {
+    for (const d of extracted) {
+      try {
+        await insertImportedDecision(projectId, d);
+        decisionsImported++;
+      } catch (err) {
+        errors.push(`insert "${d.title}": ${(err as Error).message}`);
+      }
+    }
+  }
+
+  logAudit('slack_sync', projectId, {
+    channel_id: channelId,
+    messages_scanned: messagesScanned,
+    decisions_found: decisionsFound,
+    decisions_imported: decisionsImported,
+    dry_run: options.dryRun ?? false,
+  });
+
+  console.warn(
+    `[hipp0/slack] Sync complete: ${messagesScanned} messages, ${decisionsFound} found, ${decisionsImported} imported`,
+  );
+
+  return {
+    pages_scanned: 0,
+    messages_scanned: messagesScanned,
+    decisions_found: decisionsFound,
+    decisions_imported: decisionsImported,
+    errors,
+    preview: options.dryRun ? preview : undefined,
+  };
 }

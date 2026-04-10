@@ -9,6 +9,12 @@ import type { Hono } from 'hono';
 import crypto from 'node:crypto';
 import { getDb } from '@hipp0/core/db/index.js';
 import { logAudit } from '../routes/validation.js';
+import {
+  insertImportedDecision,
+  type ExtractedDecision,
+  type SyncOptions,
+  type SyncResult,
+} from './notion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Config                                                             */
@@ -147,6 +153,369 @@ export async function createLinearIssueForDecision(
   } catch (err) {
     console.error('[hipp0/linear] Failed to create issue:', (err as Error).message);
   }
+}
+
+/* ================================================================== */
+/*  IMPORT FLOW — scrape decisions from existing Linear issues          */
+/* ================================================================== */
+
+/* ---- Rate limit (60 req/min sliding window) ---- */
+const _linearRequestTimestamps: number[] = [];
+async function linearRateLimit(): Promise<void> {
+  const now = Date.now();
+  const oneMinuteAgo = now - 60_000;
+  while (_linearRequestTimestamps.length && _linearRequestTimestamps[0] < oneMinuteAgo) {
+    _linearRequestTimestamps.shift();
+  }
+  if (_linearRequestTimestamps.length >= 60) {
+    const waitMs = _linearRequestTimestamps[0] + 60_000 - now + 50;
+    await new Promise((r) => setTimeout(r, waitMs));
+    return linearRateLimit();
+  }
+  _linearRequestTimestamps.push(now);
+}
+
+async function linearGraphQLSafe(
+  token: string,
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  await linearRateLimit();
+  const res = await fetch(LINEAR_GQL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token.startsWith('lin_') || token.includes(' ') ? token : `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return linearGraphQLSafe(token, query, variables);
+  }
+  if (res.status === 401) {
+    throw new Error('Linear token invalid or expired');
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Linear API ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  const json = (await res.json()) as {
+    data?: Record<string, unknown>;
+    errors?: Array<{ message: string }>;
+  };
+  if (json.errors?.length) {
+    throw new Error(`Linear GraphQL error: ${json.errors[0].message}`);
+  }
+  return json.data ?? {};
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: List issues                                                */
+/* ------------------------------------------------------------------ */
+
+export interface LinearIssueSummary {
+  id: string;
+  identifier: string;
+  title: string;
+  url: string;
+  state: string;
+  stateType: string;
+  updatedAt: string;
+  assignee?: string;
+  labels: string[];
+}
+
+export interface LinearIssueFilter {
+  teamId?: string;
+  stateType?: 'completed' | 'started' | 'unstarted' | 'backlog' | 'cancelled' | 'triage';
+  first?: number;
+}
+
+export async function listLinearIssues(
+  token: string,
+  filter: LinearIssueFilter = {},
+): Promise<LinearIssueSummary[]> {
+  const first = Math.min(filter.first ?? 50, 100);
+  const filterParts: string[] = [];
+  if (filter.teamId) filterParts.push(`team: { id: { eq: "${filter.teamId}" } }`);
+  if (filter.stateType) filterParts.push(`state: { type: { eq: "${filter.stateType}" } }`);
+  const filterArg = filterParts.length > 0 ? `filter: { ${filterParts.join(', ')} },` : '';
+
+  const query = `
+    query ListIssues {
+      issues(${filterArg} first: ${first}, orderBy: updatedAt) {
+        nodes {
+          id
+          identifier
+          title
+          url
+          updatedAt
+          state { name type }
+          assignee { name displayName }
+          labels { nodes { name } }
+        }
+      }
+    }
+  `;
+
+  const data = await linearGraphQLSafe(token, query);
+  const issues = (data.issues as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
+
+  return issues.map((i) => {
+    const state = i.state as { name?: string; type?: string } | undefined;
+    const assignee = i.assignee as { displayName?: string; name?: string } | undefined;
+    const labelsNodes = (i.labels as { nodes: Array<{ name: string }> })?.nodes ?? [];
+    return {
+      id: i.id as string,
+      identifier: i.identifier as string,
+      title: (i.title as string) ?? '',
+      url: (i.url as string) ?? '',
+      state: state?.name ?? '',
+      stateType: state?.type ?? '',
+      updatedAt: (i.updatedAt as string) ?? '',
+      assignee: assignee?.displayName ?? assignee?.name,
+      labels: labelsNodes.map((l) => (l.name ?? '').toLowerCase()).filter(Boolean),
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Fetch a single issue with comments                         */
+/* ------------------------------------------------------------------ */
+
+export interface LinearIssueFull extends LinearIssueSummary {
+  description: string;
+  comments: Array<{ body: string; user?: string; createdAt: string }>;
+}
+
+export async function fetchLinearIssue(
+  token: string,
+  issueId: string,
+): Promise<LinearIssueFull> {
+  const query = `
+    query IssueDetail($id: String!) {
+      issue(id: $id) {
+        id
+        identifier
+        title
+        description
+        url
+        updatedAt
+        state { name type }
+        assignee { name displayName }
+        labels { nodes { name } }
+        comments(first: 50) {
+          nodes {
+            body
+            createdAt
+            user { name displayName }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await linearGraphQLSafe(token, query, { id: issueId });
+  const issue = data.issue as Record<string, unknown> | null;
+  if (!issue) throw new Error(`Linear issue not found: ${issueId}`);
+
+  const state = issue.state as { name?: string; type?: string } | undefined;
+  const assignee = issue.assignee as { displayName?: string; name?: string } | undefined;
+  const labelsNodes = (issue.labels as { nodes: Array<{ name: string }> })?.nodes ?? [];
+  const commentsNodes =
+    (issue.comments as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
+
+  return {
+    id: issue.id as string,
+    identifier: issue.identifier as string,
+    title: (issue.title as string) ?? '',
+    description: (issue.description as string) ?? '',
+    url: (issue.url as string) ?? '',
+    state: state?.name ?? '',
+    stateType: state?.type ?? '',
+    updatedAt: (issue.updatedAt as string) ?? '',
+    assignee: assignee?.displayName ?? assignee?.name,
+    labels: labelsNodes.map((l) => (l.name ?? '').toLowerCase()).filter(Boolean),
+    comments: commentsNodes.map((c) => {
+      const user = c.user as { displayName?: string; name?: string } | undefined;
+      return {
+        body: (c.body as string) ?? '',
+        user: user?.displayName ?? user?.name,
+        createdAt: (c.createdAt as string) ?? '',
+      };
+    }),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Extract decisions from an issue                            */
+/* ------------------------------------------------------------------ */
+
+const LINEAR_COMMENT_PREFIXES =
+  /^(?:DECISION|RESOLVED|RESOLUTION|DECIDED)\s*:\s*/i;
+
+const LINEAR_HEADING_PATTERN = /(?:^|\n)##\s*(?:Decision|Resolution|Outcome)\s*\n([\s\S]*?)(?=\n##|\n#\s|$)/i;
+
+export function extractDecisionsFromIssue(issue: LinearIssueFull): ExtractedDecision[] {
+  const results: ExtractedDecision[] = [];
+
+  // 1. Completed issues are candidate decisions (the issue itself)
+  if (issue.stateType === 'completed') {
+    results.push({
+      title: `${issue.identifier}: ${issue.title}`.slice(0, 500),
+      description: (issue.description || issue.title).slice(0, 10000),
+      reasoning: (issue.description || issue.title).slice(0, 10000),
+      made_by: issue.assignee || 'linear',
+      tags: [...issue.labels, 'linear', 'resolved'],
+      source_url: issue.url,
+      source_ref: `linear:issue:${issue.identifier}`,
+    });
+  }
+
+  // 2. "## Decision" or "## Resolution" heading in description
+  if (issue.description) {
+    const match = issue.description.match(LINEAR_HEADING_PATTERN);
+    if (match && match[1]) {
+      const body = match[1].trim();
+      if (body.length > 10) {
+        results.push({
+          title: `${issue.identifier}: ${issue.title}`.slice(0, 500),
+          description: body.slice(0, 10000),
+          reasoning: body.slice(0, 10000),
+          made_by: issue.assignee || 'linear',
+          tags: [...issue.labels, 'linear'],
+          source_url: issue.url,
+          source_ref: `linear:issue:${issue.identifier}`,
+        });
+      }
+    }
+  }
+
+  // 3. Comments starting with "DECISION:" or "RESOLVED:"
+  for (const comment of issue.comments) {
+    if (!comment.body) continue;
+    if (!LINEAR_COMMENT_PREFIXES.test(comment.body)) continue;
+    const body = comment.body.replace(LINEAR_COMMENT_PREFIXES, '').trim();
+    if (body.length < 10) continue;
+
+    const firstSentence = body.split(/[.!?]\s/)[0].slice(0, 500);
+    results.push({
+      title: firstSentence || `${issue.identifier}: decision`,
+      description: body.slice(0, 10000),
+      reasoning: body.slice(0, 10000),
+      made_by: comment.user || issue.assignee || 'linear',
+      tags: [...issue.labels, 'linear'],
+      source_url: issue.url,
+      source_ref: `linear:issue:${issue.identifier}:comment`,
+    });
+  }
+
+  // Dedupe by normalized title
+  const seen = new Set<string>();
+  return results.filter((d) => {
+    const key = d.title.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public: Full sync flow                                             */
+/* ------------------------------------------------------------------ */
+
+export async function syncLinearToHipp0(
+  projectId: string,
+  token: string,
+  options: (SyncOptions & { teamId?: string; stateType?: LinearIssueFilter['stateType'] }) = {},
+): Promise<SyncResult & { issues_scanned: number }> {
+  const errors: string[] = [];
+  const preview: ExtractedDecision[] = [];
+  let issuesScanned = 0;
+  let decisionsFound = 0;
+  let decisionsImported = 0;
+
+  console.warn(
+    `[hipp0/linear] Sync starting project=${projectId} team=${options.teamId ?? '(all)'}`,
+  );
+
+  let issues: LinearIssueSummary[];
+  try {
+    issues = await listLinearIssues(token, {
+      teamId: options.teamId,
+      stateType: options.stateType,
+      first: options.limit ?? 50,
+    });
+  } catch (err) {
+    const msg = (err as Error).message;
+    console.error(`[hipp0/linear] Failed to list issues: ${msg}`);
+    return {
+      pages_scanned: 0,
+      issues_scanned: 0,
+      decisions_found: 0,
+      decisions_imported: 0,
+      errors: [msg],
+    };
+  }
+
+  const limit = options.limit ?? 50;
+  const target = issues.slice(0, limit);
+
+  for (const summary of target) {
+    issuesScanned++;
+    try {
+      const full = await fetchLinearIssue(token, summary.id);
+      const extracted = extractDecisionsFromIssue(full);
+      decisionsFound += extracted.length;
+
+      if (extracted.length === 0) continue;
+
+      console.warn(
+        `[hipp0/linear] Issue ${full.identifier} → ${extracted.length} decision(s)`,
+      );
+
+      if (options.dryRun) {
+        preview.push(...extracted);
+        continue;
+      }
+
+      for (const d of extracted) {
+        try {
+          await insertImportedDecision(projectId, d);
+          decisionsImported++;
+        } catch (err) {
+          errors.push(`insert "${d.title}": ${(err as Error).message}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`issue ${summary.identifier}: ${(err as Error).message}`);
+    }
+  }
+
+  logAudit('linear_sync', projectId, {
+    team_id: options.teamId ?? null,
+    issues_scanned: issuesScanned,
+    decisions_found: decisionsFound,
+    decisions_imported: decisionsImported,
+    dry_run: options.dryRun ?? false,
+  });
+
+  console.warn(
+    `[hipp0/linear] Sync complete: ${issuesScanned} issues, ${decisionsFound} found, ${decisionsImported} imported`,
+  );
+
+  return {
+    pages_scanned: 0,
+    issues_scanned: issuesScanned,
+    decisions_found: decisionsFound,
+    decisions_imported: decisionsImported,
+    errors,
+    preview: options.dryRun ? preview : undefined,
+  };
 }
 
 /* ------------------------------------------------------------------ */
