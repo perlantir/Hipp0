@@ -63,6 +63,16 @@ import {
   ClipboardList,
   Target,
   Users,
+  Sparkles,
+  Lightbulb,
+  Share2,
+  FlaskConical,
+  Gauge,
+  HeartPulse,
+  TrendingUp,
+  Waypoints,
+  Camera,
+  Wand2,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -104,6 +114,19 @@ import { Policies } from './components/Policies';
 import { Violations } from './components/Violations';
 import { WeeklyDigest } from './components/WeeklyDigest';
 import { WingView } from './components/WingView';
+import { CaptureHistory } from './components/CaptureHistory';
+import { CommunityInsights } from './components/CommunityInsights';
+import { AgentSkills } from './components/AgentSkills';
+import { KnowledgeInsights } from './components/KnowledgeInsights';
+import { TeamProcedures } from './components/TeamProcedures';
+import { SharedPatterns } from './components/SharedPatterns';
+import { Experiments } from './components/Experiments';
+import { ImpactPrediction } from './components/ImpactPrediction';
+import { KnowledgeBranches } from './components/KnowledgeBranches';
+import { TeamHealth } from './components/TeamHealth';
+import { Trends } from './components/Trends';
+import { LiveEvents } from './components/LiveEvents';
+import { Traces } from './components/Traces';
 
 import { useApi } from './hooks/useApi';
 import { useWebSocket } from './hooks/useWebSocket';
