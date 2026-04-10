@@ -269,8 +269,22 @@ async function authenticateAgentKey(token: string, c: Context): Promise<AuthUser
   };
 }
 
-  // Authenticate from token (API key or JWT)
+  // Authenticate from token (root bypass, API key, or JWT)
 async function authenticateToken(token: string, c: Context): Promise<AuthUser | null> {
+  // Root admin bypass — HIPP0_API_KEY from .env is the self-hoster's
+  // "I own this server" master key. Accepts anything non-empty that
+  // exactly matches the env var. Skips all DB lookups so it works
+  // even before multi-tenancy tables exist on fresh installs.
+  const rootKey = process.env.HIPP0_API_KEY;
+  if (rootKey && token === rootKey) {
+    return {
+      id: DEFAULT_USER_ID,
+      email: 'root@hipp0.local',
+      tenant_id: DEFAULT_TENANT_ID,
+      role: 'admin',
+      plan: 'enterprise',
+    } satisfies AuthUser;
+  }
   // Per-agent key (more specific prefix, check first)
   if (token.startsWith(AGENT_KEY_PREFIX)) {
     return authenticateAgentKey(token, c);
