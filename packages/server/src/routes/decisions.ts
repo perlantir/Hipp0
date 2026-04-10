@@ -1,4 +1,6 @@
 import type { Hono } from 'hono';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getDb } from '@hipp0/core/db/index.js';
 import { parseDecision, parseEdge } from '@hipp0/core/db/parsers.js';
 import { withSpan, getMetrics, recordCounter } from '../telemetry.js';
@@ -8,6 +10,7 @@ import { propagateChange } from '@hipp0/core/change-propagator/index.js';
 import { checkForContradictions } from '@hipp0/core/contradiction-detector/index.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { findCascadeImpact, notifyCascade } from '@hipp0/core/dependency-cascade/index.js';
+import { submitForExtraction } from '../queue/index.js';
 import { randomUUID } from 'node:crypto';
 import {
   requireUUID,
@@ -1559,5 +1562,157 @@ export function registerDecisionRoutes(app: Hono): void {
     }
 
     return c.json({ total, succeeded, failed, errors: errors.slice(0, 10) });
+  });
+
+  // OpenClaw one-shot import — walks a directory of workspace-<agent>/ folders,
+  // finds markdown files (audit reports, reviews, specs, etc.), and submits each
+  // one to the Distillery queue for decision extraction. The workspace folder
+  // name becomes the agent name. Skips:
+  //   - repos/ subdirs (cloned third-party code)
+  //   - hidden .openclaw/ config subdirs
+  //   - files smaller than 500 bytes (too short to contain decisions)
+  //   - files larger than 200KB (too long for single-shot distillery call)
+  //
+  // Returns stats without waiting for extraction to complete — jobs run async
+  // in the background queue. Watch progress via Live Events or Timeline.
+  app.post('/api/projects/:id/openclaw/import', async (c) => {
+    const projectId = requireUUID(c.req.param('id'), 'projectId');
+    await requireProjectAccess(c, projectId);
+
+    const body = await c.req.json().catch(() => ({})) as { path?: unknown; max_files?: unknown };
+    const rawPath = typeof body.path === 'string' && body.path.trim()
+      ? body.path.trim()
+      : (process.env.HIPP0_OPENCLAW_PATH ?? '');
+
+    if (!rawPath) {
+      return c.json({
+        error: 'No path provided. Pass { "path": "/openclaw" } in the body or set HIPP0_OPENCLAW_PATH env var.',
+      }, 400);
+    }
+
+    if (!fs.existsSync(rawPath)) {
+      return c.json({ error: `Path does not exist inside container: ${rawPath}` }, 400);
+    }
+
+    const maxFiles = typeof body.max_files === 'number' && body.max_files > 0
+      ? Math.min(body.max_files, 5000)
+      : 2000;
+
+    const MIN_SIZE = 500;
+    const MAX_SIZE = 200_000;
+
+    // Discover all workspace-<agent>/ dirs under the path
+    const workspaceDirs: Array<{ agent: string; dir: string }> = [];
+    try {
+      for (const entry of fs.readdirSync(rawPath, { withFileTypes: true })) {
+        if (entry.isDirectory() && entry.name.startsWith('workspace-')) {
+          workspaceDirs.push({
+            agent: entry.name.replace(/^workspace-/, ''),
+            dir: path.join(rawPath, entry.name),
+          });
+        }
+      }
+    } catch (err) {
+      return c.json({ error: `Cannot read path: ${(err as Error).message}` }, 500);
+    }
+
+    if (workspaceDirs.length === 0) {
+      return c.json({
+        error: `No workspace-* subdirectories found in ${rawPath}`,
+        total_files: 0,
+        submitted: 0,
+        skipped: 0,
+        workspaces: [],
+      }, 404);
+    }
+
+    let totalFiles = 0;
+    let submitted = 0;
+    let skippedTooSmall = 0;
+    let skippedTooLarge = 0;
+    let skippedRepos = 0;
+    let errors = 0;
+    const perAgent: Record<string, number> = {};
+
+    // Recursive walk, skipping repos/ and .openclaw/ subdirs
+    function walk(dir: string, workspaceAgent: string): string[] {
+      const out: string[] = [];
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return out;
+      }
+      for (const e of entries) {
+        if (e.name === 'repos' && e.isDirectory()) { skippedRepos++; continue; }
+        if (e.name === '.openclaw' && e.isDirectory()) continue;
+        if (e.name === 'node_modules' && e.isDirectory()) continue;
+        if (e.name.startsWith('.')) continue;
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          out.push(...walk(full, workspaceAgent));
+        } else if (e.isFile() && e.name.endsWith('.md')) {
+          out.push(full);
+        }
+      }
+      return out;
+    }
+
+    for (const { agent, dir } of workspaceDirs) {
+      const files = walk(dir, agent);
+      for (const filePath of files) {
+        if (totalFiles >= maxFiles) break;
+        totalFiles++;
+
+        let size: number;
+        try {
+          size = fs.statSync(filePath).size;
+        } catch {
+          errors++;
+          continue;
+        }
+        if (size < MIN_SIZE) { skippedTooSmall++; continue; }
+        if (size > MAX_SIZE) { skippedTooLarge++; continue; }
+
+        let content: string;
+        try {
+          content = fs.readFileSync(filePath, 'utf8');
+        } catch {
+          errors++;
+          continue;
+        }
+
+        const relPath = path.relative(rawPath, filePath);
+        try {
+          await submitForExtraction({
+            raw_text: `# ${path.basename(filePath, '.md')}\n\n${content}`,
+            source: 'openclaw',
+            source_session_id: `openclaw:${relPath}`,
+            made_by: agent,
+            project_id: projectId,
+          });
+          submitted++;
+          perAgent[agent] = (perAgent[agent] ?? 0) + 1;
+        } catch {
+          errors++;
+        }
+      }
+      if (totalFiles >= maxFiles) break;
+    }
+
+    return c.json({
+      path: rawPath,
+      workspaces_found: workspaceDirs.length,
+      total_files_scanned: totalFiles,
+      submitted,
+      skipped_too_small: skippedTooSmall,
+      skipped_too_large: skippedTooLarge,
+      skipped_repos_dirs: skippedRepos,
+      errors,
+      per_agent: perAgent,
+      hint: submitted > 0
+        ? 'Decisions are being extracted asynchronously. Watch Live Events or Timeline for progress.'
+        : 'No files were submitted. Check path, permissions, and file sizes.',
+    });
   });
 }
