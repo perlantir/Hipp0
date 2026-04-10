@@ -295,7 +295,7 @@ export const phase3AuthMiddleware: MiddlewareHandler = createMiddleware(async (c
       email: '',
       tenant_id: DEFAULT_TENANT_ID,
       role: 'viewer',
-      plan: 'free',
+      plan: 'enterprise',
     } satisfies AuthUser);
     await next();
     return;
@@ -355,7 +355,7 @@ export const freeTierOrAuth: MiddlewareHandler = createMiddleware(async (c, next
       email: '',
       tenant_id: DEFAULT_TENANT_ID,
       role: 'viewer',
-      plan: 'free',
+      plan: 'enterprise',
     } satisfies AuthUser);
     await next();
     return;
