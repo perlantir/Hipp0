@@ -22,6 +22,7 @@ import { registerDistilleryRoutes } from './routes/distillery.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerContradictionRoutes } from './routes/contradictions.js';
 import { registerFeedbackRoutes } from './routes/feedback.js';
+import { registerTemplateRoutes } from './routes/templates.js';
 import { registerAuditRoutes } from './routes/audit.js';
 import { registerStatsRoutes } from './routes/stats.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
@@ -287,6 +288,7 @@ export function createApp() {
   registerNotificationRoutes(app);
   registerContradictionRoutes(app);
   registerFeedbackRoutes(app);
+  registerTemplateRoutes(app);
   registerAuditRoutes(app);
   registerStatsRoutes(app);
   registerArtifactRoutes(app);

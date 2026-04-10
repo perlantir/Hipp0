@@ -227,9 +227,9 @@
       "import": "./dist/intelligence/decision-feedback.js",
       "types": "./dist/intelligence/decision-feedback.d.ts"
     },
-    "./decision-graph/local-embeddings.js": {
-      "import": "./dist/decision-graph/local-embeddings.js",
-      "types": "./dist/decision-graph/local-embeddings.d.ts"
+    "./intelligence/project-templates.js": {
+      "import": "./dist/intelligence/project-templates.js",
+      "types": "./dist/intelligence/project-templates.d.ts"
     },
     "./intelligence/team-procedures.js": {
       "import": "./dist/intelligence/team-procedures.js",
