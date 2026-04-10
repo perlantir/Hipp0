@@ -186,8 +186,8 @@ export async function computeTeamHealth(
 ): Promise<TeamHealth> {
   const db = getDb();
   const asOf = options.asOf ?? new Date();
-  const weekAgo = new Date(asOf.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const twoWeeksAgo = new Date(asOf.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const weekAgo = toSqlTimestamp(new Date(asOf.getTime() - 7 * 24 * 60 * 60 * 1000));
+  const twoWeeksAgo = toSqlTimestamp(new Date(asOf.getTime() - 14 * 24 * 60 * 60 * 1000));
 
   const empty: TeamHealth = {
     total_decisions: 0,
@@ -397,7 +397,9 @@ export async function getMemoryTrends(
 ): Promise<MemoryTrends> {
   const db = getDb();
   const windowDays = Math.max(1, Math.min(365, Math.floor(days)));
-  const sinceIso = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const sinceIso = toSqlTimestamp(
+    new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000),
+  );
   const buckets = buildDateBuckets(windowDays);
 
   // Decisions per day
@@ -540,9 +542,14 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  // ISO strings for the JSON payload (and for persistence columns);
+  // SQL-safe strings for comparisons against `created_at`-style columns
+  // which in SQLite use the `'YYYY-MM-DD HH:MM:SS'` format.
   const periodStart = weekAgo.toISOString();
   const periodEnd = now.toISOString();
-  const periodStartPrev = twoWeeksAgo.toISOString();
+  const sqlStart = toSqlTimestamp(weekAgo);
+  const sqlEnd = toSqlTimestamp(now);
+  const sqlStartPrev = toSqlTimestamp(twoWeeksAgo);
 
   // --- Highlights: decisions_made --------------------------------------------
   let decisionsMade = 0;
@@ -550,7 +557,7 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
     const r = await db.query<Record<string, unknown>>(
       `SELECT COUNT(*) AS c FROM decisions
        WHERE project_id = ? AND created_at >= ? AND created_at < ?`,
-      [projectId, periodStart, periodEnd],
+      [projectId, sqlStart, sqlEnd],
     );
     decisionsMade = toInt(r.rows[0]?.c);
   } catch {
@@ -564,7 +571,7 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
     const r = await db.query<Record<string, unknown>>(
       `SELECT COUNT(*) AS c FROM contradictions
        WHERE project_id = ? AND detected_at >= ? AND detected_at < ?`,
-      [projectId, periodStart, periodEnd],
+      [projectId, sqlStart, sqlEnd],
     );
     contradictionsFound = toInt(r.rows[0]?.c);
   } catch {
@@ -575,7 +582,7 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
       `SELECT COUNT(*) AS c FROM contradictions
        WHERE project_id = ? AND resolved_at IS NOT NULL
          AND resolved_at >= ? AND resolved_at < ?`,
-      [projectId, periodStart, periodEnd],
+      [projectId, sqlStart, sqlEnd],
     );
     contradictionsResolved = toInt(r.rows[0]?.c);
   } catch {
@@ -588,7 +595,7 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
     const r = await db.query<Record<string, unknown>>(
       `SELECT COUNT(*) AS c FROM decision_outcomes
        WHERE project_id = ? AND created_at >= ? AND created_at < ?`,
-      [projectId, periodStart, periodEnd],
+      [projectId, sqlStart, sqlEnd],
     );
     outcomesRecorded = toInt(r.rows[0]?.c);
   } catch {
@@ -630,12 +637,12 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
          AND do2.created_at >= ?
        GROUP BY d.made_by, d.domain`,
       [
-        periodStart, periodEnd,      // cur_score
-        periodStart, periodEnd,      // cur_total
-        periodStartPrev, periodStart,// prev_score
-        periodStartPrev, periodStart,// prev_total
+        sqlStart, sqlEnd,       // cur_score
+        sqlStart, sqlEnd,       // cur_total
+        sqlStartPrev, sqlStart, // prev_score
+        sqlStartPrev, sqlStart, // prev_total
         projectId,
-        periodStartPrev,             // outer window
+        sqlStartPrev,           // outer window
       ],
     );
     for (const row of r.rows) {
@@ -698,7 +705,7 @@ export async function generateWeeklyDigest(projectId: string): Promise<WeeklyDig
        GROUP BY domain
        ORDER BY c DESC
        LIMIT 5`,
-      [projectId, periodStart, periodEnd],
+      [projectId, sqlStart, sqlEnd],
     );
     for (const row of r.rows) {
       const count = toInt(row.c);

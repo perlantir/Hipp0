@@ -3,6 +3,8 @@ export { Hipp0 } from './facade.js';
 export type { Hipp0Config, CompileOptions, AddDecisionOptions, SearchOptions } from './facade.js';
 export { auto, autoDisable } from './auto.js';
 export type { AutoOptions } from './auto.js';
+export { Hipp0EventStream } from './events.js';
+export type { MemoryEvent, Hipp0EventStreamConfig } from './events.js';
 
 export type {
   // Client options
