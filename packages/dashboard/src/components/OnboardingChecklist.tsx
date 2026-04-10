@@ -1,151 +1,350 @@
-import { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, X, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { CheckCircle2, Circle, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
+import { useProject } from '../App';
 
-const STORAGE_KEY = 'hipp0-onboarding-dismissed';
+const STORAGE_KEY = 'hipp0_onboarding_dismissed';
+const WHATIF_STORAGE_KEY = 'hipp0_onboarding_whatif_tried';
 
 interface OnboardingChecklistProps {
   onNavigate: (view: string) => void;
+  /**
+   * Signal from the parent that the active view changed, so the checklist
+   * can re-run its status checks. Pass the current view id.
+   */
+  viewKey?: string;
 }
 
-interface ChecklistItem {
+interface Step {
   id: string;
-  label: string;
-  checked: boolean;
-  link?: string;
-  progress?: { current: number; target: number };
+  title: string;
+  description: string;
+  completed: boolean;
+  action: () => void;
 }
 
-export function OnboardingChecklist({ onNavigate }: OnboardingChecklistProps) {
-  const { get } = useApi();
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(STORAGE_KEY) === 'true');
-  const [items, setItems] = useState<ChecklistItem[]>([
-    { id: 'project', label: 'Create your first project', checked: true },
-    { id: 'agents', label: 'Add agent personas', checked: false },
-    { id: 'decisions', label: 'Create 5 decisions', checked: false, progress: { current: 0, target: 5 } },
-    { id: 'compile', label: 'Run your first compile', checked: false, link: 'wizard' },
-    { id: 'integration', label: 'Set up an integration', checked: false, link: 'connectors' },
-  ]);
-  const [decisionCount, setDecisionCount] = useState(0);
-  const [visible, setVisible] = useState(false);
+type ApiGet = <T>(path: string) => Promise<T>;
 
-  // Fetch status for checklist items
+async function safeGet<T>(get: ApiGet, path: string, fallback: T): Promise<T> {
+  try {
+    return await get<T>(path);
+  } catch {
+    return fallback;
+  }
+}
+
+async function runChecks(
+  get: ApiGet,
+  projectId: string | null,
+): Promise<{
+  hasProject: boolean;
+  hasDecision: boolean;
+  hasCompile: boolean;
+  hasTwoAgents: boolean;
+  hasWhatIf: boolean;
+}> {
+  // 1. Projects
+  const projects = await safeGet<Array<{ id: string }>>(get, '/api/projects', []);
+  const hasProject = Array.isArray(projects) && projects.length > 0;
+
+  const activeProjectId =
+    projectId && projectId !== 'default'
+      ? projectId
+      : hasProject
+        ? projects[0].id
+        : null;
+
+  if (!activeProjectId) {
+    return {
+      hasProject,
+      hasDecision: false,
+      hasCompile: false,
+      hasTwoAgents: false,
+      hasWhatIf: localStorage.getItem(WHATIF_STORAGE_KEY) === 'true',
+    };
+  }
+
+  // 2. Decisions
+  const decisions = await safeGet<Array<{ id: string }>>(
+    get,
+    `/api/projects/${activeProjectId}/decisions?limit=1`,
+    [],
+  );
+  const hasDecision = Array.isArray(decisions) && decisions.length > 0;
+
+  // 3 & 4. Stats returns compile counts (via feedback.per_compilation) and
+  //       decisions_per_agent (non-empty rows imply compiles exist per agent).
+  const stats = await safeGet<{
+    total_compiles?: number;
+    feedback?: { per_compilation?: number };
+    decisions_per_agent?: Array<{ agent: string; count: number }>;
+  }>(get, `/api/projects/${activeProjectId}/stats`, {});
+
+  // Usage endpoint exposes `total_compiles` directly.
+  const usage = await safeGet<{ total_compiles?: number }>(
+    get,
+    `/api/projects/${activeProjectId}/usage`,
+    {},
+  );
+
+  const totalCompiles = usage.total_compiles ?? stats.total_compiles ?? 0;
+  const hasCompile = totalCompiles > 0;
+
+  // Role differentiation: user has compiled for at least 2 distinct agents.
+  // No dedicated endpoint — approximate by number of agents that have
+  // received decisions via compile (decisions_per_agent) when compiles exist.
+  const perAgent = Array.isArray(stats.decisions_per_agent)
+    ? stats.decisions_per_agent.filter((a) => (a.count ?? 0) > 0).length
+    : 0;
+  const hasTwoAgents = hasCompile && perAgent >= 2;
+
+  // 5. What-If — no persistent server table, use localStorage flag set when
+  //    the user clicks the step (fallback) or when the What-If simulator
+  //    writes the flag on successful run.
+  const hasWhatIf = localStorage.getItem(WHATIF_STORAGE_KEY) === 'true';
+
+  return { hasProject, hasDecision, hasCompile, hasTwoAgents, hasWhatIf };
+}
+
+export function OnboardingChecklist({ onNavigate, viewKey }: OnboardingChecklistProps) {
+  const { get } = useApi();
+  const { projectId } = useProject();
+
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(STORAGE_KEY) === 'true',
+  );
+  const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  const [status, setStatus] = useState({
+    hasProject: false,
+    hasDecision: false,
+    hasCompile: false,
+    hasTwoAgents: false,
+    hasWhatIf: false,
+  });
+
+  // Trigger slide-in animation shortly after mount.
+  useEffect(() => {
+    const t = window.setTimeout(() => setMounted(true), 50);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  // Run checks on mount and after view changes.
   useEffect(() => {
     if (dismissed) return;
-
     let cancelled = false;
 
-    async function check() {
-      try {
-        // Check agents
-        const agents = await get<Array<{ id: string }>>('/api/agents').catch(() => []);
-        const hasAgents = Array.isArray(agents) && agents.length > 0;
-
-        // Check decisions count from any project
-        const projects = await get<Array<{ id: string }>>('/api/projects').catch(() => []);
-        let totalDecisions = 0;
-        if (Array.isArray(projects) && projects.length > 0) {
-          const decisions = await get<Array<{ id: string }>>(
-            `/api/projects/${projects[0].id}/decisions`,
-          ).catch(() => []);
-          totalDecisions = Array.isArray(decisions) ? decisions.length : 0;
-        }
-
-        // Check compile history
-        let hasCompiled = false;
-        if (Array.isArray(projects) && projects.length > 0) {
-          const history = await get<Array<{ id: string }>>(
-            `/api/projects/${projects[0].id}/compile-history`,
-          ).catch(() => []);
-          hasCompiled = Array.isArray(history) && history.length > 0;
-        }
-
-        // Check connectors
-        const connectors = await get<Array<{ id: string }>>('/api/connectors').catch(() => []);
-        const hasConnectors = Array.isArray(connectors) && connectors.length > 0;
-
-        if (cancelled) return;
-
-        setDecisionCount(totalDecisions);
-        setVisible(totalDecisions < 10);
-
-        setItems([
-          { id: 'project', label: 'Create your first project', checked: true },
-          { id: 'agents', label: 'Add agent personas', checked: hasAgents },
-          {
-            id: 'decisions',
-            label: 'Create 5 decisions',
-            checked: totalDecisions >= 5,
-            progress: { current: Math.min(totalDecisions, 5), target: 5 },
-          },
-          { id: 'compile', label: 'Run your first compile', checked: hasCompiled, link: 'wizard' },
-          { id: 'integration', label: 'Set up an integration', checked: hasConnectors, link: 'connectors' },
-        ]);
-      } catch {
-        // Silently fail — onboarding is non-critical
-        if (!cancelled) setVisible(false);
-      }
+    async function run() {
+      const result = await runChecks(get, projectId);
+      if (!cancelled) setStatus(result);
     }
 
-    void check();
-    return () => { cancelled = true; };
-  }, [dismissed, get]);
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [dismissed, get, projectId, viewKey]);
 
-  if (dismissed || !visible) return null;
-
-  const completedCount = items.filter((i) => i.checked).length;
-  const progress = Math.round((completedCount / items.length) * 100);
-
-  function handleDismiss() {
+  const handleDismiss = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, 'true');
     setDismissed(true);
+  }, []);
+
+  const markWhatIfTried = useCallback(() => {
+    localStorage.setItem(WHATIF_STORAGE_KEY, 'true');
+    setStatus((s) => ({ ...s, hasWhatIf: true }));
+  }, []);
+
+  const steps: Step[] = [
+    {
+      id: 'project',
+      title: 'Create your project',
+      description: 'Set up your first Hipp0 project to get started.',
+      completed: status.hasProject,
+      action: () => onNavigate('wizard'),
+    },
+    {
+      id: 'decision',
+      title: 'Record your first decision',
+      description: 'Capture a decision so Hipp0 can reason over it.',
+      completed: status.hasDecision,
+      action: () => {
+        try {
+          sessionStorage.setItem('hipp0_open_new_decision', 'true');
+        } catch {
+          /* ignore */
+        }
+        onNavigate('graph');
+      },
+    },
+    {
+      id: 'compile',
+      title: 'Run your first compile',
+      description: 'Try compiling context for an agent in the Playground.',
+      completed: status.hasCompile,
+      action: () => onNavigate('playground'),
+    },
+    {
+      id: 'roles',
+      title: 'See role differentiation',
+      description: 'Compare how context differs across two agents.',
+      completed: status.hasTwoAgents,
+      action: () => onNavigate('context'),
+    },
+    {
+      id: 'whatif',
+      title: 'Try the What-If simulator',
+      description: 'See how a proposed decision change ripples out.',
+      completed: status.hasWhatIf,
+      action: () => {
+        markWhatIfTried();
+        onNavigate('whatif');
+      },
+    },
+  ];
+
+  const completedCount = steps.filter((s) => s.completed).length;
+  const allComplete = completedCount === steps.length;
+  const firstIncompleteIndex = steps.findIndex((s) => !s.completed);
+
+  // Celebration + auto-dismiss when all steps complete.
+  const autoDismissRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (dismissed) return;
+    if (allComplete && !celebrating) {
+      setCelebrating(true);
+      autoDismissRef.current = window.setTimeout(() => {
+        handleDismiss();
+      }, 5000);
+    }
+    return () => {
+      if (autoDismissRef.current !== null) {
+        window.clearTimeout(autoDismissRef.current);
+        autoDismissRef.current = null;
+      }
+    };
+  }, [allComplete, celebrating, dismissed, handleDismiss]);
+
+  if (dismissed) return null;
+
+  // Collapsed pill view
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        className={`onboarding-pill ${mounted ? 'onboarding-slide-in' : ''}`}
+        onClick={() => setCollapsed(false)}
+        title="Expand onboarding checklist"
+      >
+        <Sparkles size={14} />
+        <span>
+          Onboarding {completedCount}/{steps.length}
+        </span>
+        <ChevronUp size={14} />
+      </button>
+    );
   }
 
   return (
-    <div className="onboarding-card">
+    <div
+      className={`onboarding-float ${mounted ? 'onboarding-slide-in' : ''}`}
+      role="region"
+      aria-label="Onboarding checklist"
+    >
       <div className="onboarding-header">
         <div>
-          <h3 className="onboarding-title">Get started with Hipp0</h3>
+          <h3 className="onboarding-title">
+            {celebrating ? "You're all set!" : 'Get started with Hipp0'}
+          </h3>
           <p className="onboarding-subtitle">
-            {completedCount}/{items.length} steps completed
+            {celebrating
+              ? 'Dismissing in a moment…'
+              : `${completedCount} of ${steps.length} steps complete`}
           </p>
         </div>
-        <button onClick={handleDismiss} className="onboarding-dismiss" title="Dismiss">
-          <X size={16} />
-        </button>
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            className="onboarding-icon-btn"
+            title="Minimize"
+            aria-label="Minimize onboarding checklist"
+          >
+            <ChevronDown size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="onboarding-icon-btn"
+            title="Dismiss"
+            aria-label="Dismiss onboarding checklist"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* Progress bar */}
       <div className="onboarding-progress-track">
-        <div className="onboarding-progress-fill" style={{ width: `${progress}%` }} />
+        <div
+          className="onboarding-progress-fill"
+          style={{ width: `${(completedCount / steps.length) * 100}%` }}
+        />
       </div>
 
-      {/* Checklist */}
-      <ul className="onboarding-list">
-        {items.map((item) => (
-          <li key={item.id} className={`onboarding-item ${item.checked ? 'completed' : ''}`}>
-            {item.checked ? (
-              <CheckCircle2 size={18} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-            ) : (
-              <Circle size={18} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-            )}
-            <span className="onboarding-item-label">{item.label}</span>
-            {item.progress && !item.checked && (
-              <span className="onboarding-item-progress">
-                {item.progress.current}/{item.progress.target}
-              </span>
-            )}
-            {item.link && !item.checked && (
-              <button
-                onClick={() => onNavigate(item.link!)}
-                className="onboarding-item-link"
+      {celebrating ? (
+        <div className="onboarding-celebrate">
+          <Sparkles size={28} style={{ color: 'var(--accent-primary)' }} />
+          <p className="onboarding-celebrate-title">You&apos;re all set! 🎉</p>
+          <p className="onboarding-celebrate-sub">
+            You&apos;ve completed every onboarding step.
+          </p>
+        </div>
+      ) : (
+        <ul className="onboarding-list">
+          {steps.map((step, i) => {
+            const isCurrent = i === firstIncompleteIndex;
+            return (
+              <li
+                key={step.id}
+                className={`onboarding-step ${step.completed ? 'completed' : ''} ${
+                  isCurrent ? 'current' : ''
+                }`}
               >
-                <ExternalLink size={14} />
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+                <button
+                  type="button"
+                  className="onboarding-step-btn"
+                  onClick={step.action}
+                  disabled={step.completed}
+                >
+                  <span className="onboarding-step-icon">
+                    {step.completed ? (
+                      <CheckCircle2
+                        size={18}
+                        style={{ color: 'var(--accent-success)' }}
+                      />
+                    ) : (
+                      <Circle
+                        size={18}
+                        style={{
+                          color: isCurrent
+                            ? 'var(--accent-primary)'
+                            : 'var(--text-tertiary)',
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span className="onboarding-step-body">
+                    <span className="onboarding-step-title">{step.title}</span>
+                    <span className="onboarding-step-desc">{step.description}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

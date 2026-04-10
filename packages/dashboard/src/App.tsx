@@ -741,7 +741,7 @@ export default function App() {
             </button>
           </div>
 
-          <OnboardingChecklist onNavigate={(v) => navigate(v as View)} />
+          <OnboardingChecklist onNavigate={(v) => navigate(v as View)} viewKey={view} />
 
           {view === 'stats' && (
             <div className="max-w-5xl mx-auto px-6 pt-6">
