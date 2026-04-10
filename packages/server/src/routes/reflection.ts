@@ -28,6 +28,10 @@ import type { ReflectionType } from '@hipp0/core/intelligence/reflection-engine.
 import { requireUUID, requireString } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
 import { safeEmit } from '../events/event-stream.js';
+import {
+  getSchedulerStatus,
+  runScheduledReflections,
+} from '../jobs/reflection-scheduler.js';
 
 const VALID_REFLECTION_TYPES: ReflectionType[] = ['hourly', 'daily', 'weekly'];
 const VALID_TRACE_TYPES: TraceType[] = [
@@ -197,5 +201,27 @@ export function registerReflectionRoutes(app: Hono): void {
 
     const candidates = await distillTraces(projectId, since);
     return c.json({ candidates });
+  });
+
+  // ---------------------------------------------------------------------
+  // GET /api/scheduler/status
+  // ---------------------------------------------------------------------
+  app.get('/api/scheduler/status', (c) => {
+    return c.json(getSchedulerStatus());
+  });
+
+  // ---------------------------------------------------------------------
+  // POST /api/scheduler/trigger
+  // ---------------------------------------------------------------------
+  // Manually runs the scheduler loop once. Useful for testing and for
+  // forcing a sweep without waiting for the next tick. Runs synchronously
+  // so the caller gets a summary of what was dispatched.
+  app.post('/api/scheduler/trigger', async (c) => {
+    const summary = await runScheduledReflections();
+    return c.json({
+      triggered: true,
+      ...summary,
+      status: getSchedulerStatus(),
+    });
   });
 }

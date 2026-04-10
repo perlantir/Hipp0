@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 import { initCache, cache } from './cache/redis.js';
 import { startEvolutionWorker, stopEvolutionWorker } from './jobs/evolution-worker.js';
+import { startScheduler, stopScheduler } from './jobs/reflection-scheduler.js';
 import { bootstrapApiKeys } from './bootstrap-keys.js';
 import { seedDemoProject } from './seed-demo-project.js';
 
@@ -241,6 +242,18 @@ async function main() {
       console.warn(`[hipp0] Environment: ${NODE_ENV}`);
       // Log system diagnostics after startup
       logStartupDiagnostics().catch(() => {});
+
+      // Start the reflection scheduler after the HTTP server is listening.
+      // Wrapped in try/catch so scheduler failure never prevents the server
+      // from serving requests.
+      try {
+        startScheduler();
+      } catch (err) {
+        console.warn(
+          '[hipp0] Reflection scheduler failed to start:',
+          (err as Error).message,
+        );
+      }
     },
   );
 
@@ -295,6 +308,11 @@ async function main() {
     console.warn(`\n[hipp0] Received ${signal}. Shutting down gracefully...`);
 
     // Stop connectors and workers first
+    try {
+      stopScheduler();
+    } catch (err) {
+      console.warn('[hipp0] Error stopping scheduler:', (err as Error).message);
+    }
     stopEvolutionWorker();
     stopTelegramBot();
     await stopDiscordBot();
