@@ -14,4 +14,3 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_llm_usage_project_time ON llm_usage(project_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_llm_usage_day ON llm_usage(project_id, date_trunc('day', created_at));
