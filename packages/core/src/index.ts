@@ -218,6 +218,28 @@ export {
 } from './intelligence/contrastive-explainer.js';
 export type { ContrastiveExplanation } from './intelligence/contrastive-explainer.js';
 
+// --- LLM Explainer (optional pretty-prose layer over contrastive-explainer) ---
+export {
+  rewriteExplanation,
+  rewriteExplanationsBatch,
+} from './intelligence/llm-explainer.js';
+export type {
+  LLMExplainerOptions,
+  ExplanationContext,
+} from './intelligence/llm-explainer.js';
+
+// --- Per-Agent API Keys ---
+export {
+  createAgentApiKey,
+  listAgentKeys,
+  revokeAgentKey,
+  validateAgentKey,
+  recordKeyUsage,
+  AGENT_KEY_PREFIX,
+  DEFAULT_AGENT_KEY_SCOPES,
+} from './intelligence/agent-keys.js';
+export type { AgentKey, ValidatedAgentKey } from './intelligence/agent-keys.js';
+
 // --- Agent Skill Profiler ---
 export { computeAgentSkillProfile, getSkillMatrix, suggestBestAgent } from './intelligence/skill-profiler.js';
 export type { SkillEntry, AgentSkillProfile, SkillMatrix, AgentSuggestion } from './intelligence/skill-profiler.js';

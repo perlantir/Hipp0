@@ -11,6 +11,7 @@ import { registerStatusCommands } from './commands/status.js';
 import { registerServerCommands } from './commands/server.js';
 import { registerExportImportCommands } from './commands/export-import.js';
 import { registerShortcutCommands } from './commands/shortcuts.js';
+import { registerMigrateCommand } from './commands/migrate.js';
 
 const program = new Command();
 
@@ -32,6 +33,7 @@ registerNotificationCommands(program);
 registerStatusCommands(program);
 registerServerCommands(program);
 registerExportImportCommands(program);
+registerMigrateCommand(program);
 
 program.parse(process.argv);
 

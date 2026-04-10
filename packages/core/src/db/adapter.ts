@@ -93,6 +93,31 @@ export interface DatabaseAdapter {
   arrayParam(values: unknown[]): unknown;
 
   /**
+   * Set the tenant context for subsequent queries. Postgres uses this to
+   * inject `app.current_project_id` into each transaction so RLS policies
+   * can scope rows to the right project. SQLite is a no-op (does not
+   * support RLS).
+   */
+  setProjectContext?(projectId: string | null): void;
+
+  /**
+   * Enable the admin / cross-tenant bypass (Postgres only). SQLite is a
+   * no-op. Always pair with `disableRlsBypass()` when the elevated section
+   * completes.
+   */
+  enableRlsBypass?(): void;
+
+  /**
+   * Disable the admin / cross-tenant bypass (Postgres only).
+   */
+  disableRlsBypass?(): void;
+
+  /**
+   * Read the current tenant context (Postgres only).
+   */
+  getProjectContext?(): string | null;
+
+  /**
    * The SQL dialect in use.  Useful for dialect-specific code paths in
    * higher-level modules.
    */

@@ -68,12 +68,58 @@ export class PostgresAdapter implements DatabaseAdapter {
   private _pool: pg.Pool | null = null;
   private readonly _config: DatabaseConfig | undefined;
 
+  // Request-scoped tenant context used to drive PostgreSQL RLS policies.
+  // Because pg Pool does not give us a persistent per-request client, we
+  // snapshot these values on the adapter instance right before a query and
+  // inject them via `SET LOCAL` at the top of each transaction. For
+  // stand-alone queries (outside a transaction) we start a short implicit
+  // transaction when a tenant context is active so the SET LOCAL is honored
+  // and auto-released on COMMIT.
+  private _currentProjectId: string | null = null;
+  private _rlsBypass: boolean = false;
+
   constructor(config?: DatabaseConfig) {
     this._config = config ?? {};
     // Ensure connectionString falls back to env
     if (!this._config.connectionString && process.env.DATABASE_URL) {
       this._config.connectionString = process.env.DATABASE_URL;
     }
+  }
+
+  // ---- tenant context (RLS) ----------------------------------------------
+
+  /**
+   * Set the tenant context for subsequent queries on this adapter. The
+   * `projectId` is injected into each transaction as `app.current_project_id`
+   * which tenant RLS policies read via `current_setting()`.
+   *
+   * Passing `null` clears the context — queries that run without a tenant
+   * context will then see an empty result set for all RLS-protected tables
+   * (fail-closed), which is the desired safety posture.
+   */
+  setProjectContext(projectId: string | null): void {
+    this._currentProjectId = projectId;
+  }
+
+  /**
+   * Elevated mode for admin operations (migrations, background workers,
+   * cross-tenant analytics). Sets `app.bypass_rls=true` on subsequent
+   * transactions so RLS policies permit all rows.
+   *
+   * Always pair with a matching `disableRlsBypass()` call once the elevated
+   * section is complete; leaving bypass enabled is equivalent to disabling
+   * the RLS safety net entirely.
+   */
+  enableRlsBypass(): void {
+    this._rlsBypass = true;
+  }
+
+  disableRlsBypass(): void {
+    this._rlsBypass = false;
+  }
+
+  getProjectContext(): string | null {
+    return this._currentProjectId;
   }
 
   // ---- connect / close ----------------------------------------------------
@@ -125,6 +171,38 @@ export class PostgresAdapter implements DatabaseAdapter {
     params?: unknown[],
   ): Promise<QueryResult<T>> {
     const translated = translatePlaceholders(sql);
+
+    // If a tenant context or RLS bypass is active, we must route the query
+    // through a short transaction so that `SET LOCAL` applies and is
+    // auto-released on COMMIT. For plain queries without a context, we can
+    // skip the round trip and use a single pool.query.
+    if (this._currentProjectId !== null || this._rlsBypass) {
+      const pool = this._getPool();
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await this._applyRlsContext(client);
+        const result = await client.query<T & pg.QueryResultRow>(
+          translated,
+          (params ?? []) as unknown[],
+        );
+        await client.query('COMMIT');
+        return {
+          rows: result.rows ?? [],
+          rowCount: result.rowCount ?? (result.rows?.length ?? 0),
+        };
+      } catch (err) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          // ignore
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
     return this._rawQuery<T>(translated, params ?? []);
   }
 
@@ -137,6 +215,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await this._applyRlsContext(client);
 
       const txQuery: TransactionQueryFn = async (sql, params) => {
         const translated = translatePlaceholders(sql);
@@ -158,6 +237,35 @@ export class PostgresAdapter implements DatabaseAdapter {
       throw err;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Inject the current tenant context into an open transaction.  Uses
+   * `SET LOCAL` so the settings revert at COMMIT / ROLLBACK automatically.
+   * Silently swallows errors so that deployments without the RLS migration
+   * still work — RLS is purely additive.
+   */
+  private async _applyRlsContext(client: pg.PoolClient): Promise<void> {
+    try {
+      if (this._currentProjectId) {
+        // Use set_config() which accepts a value parameter safely.
+        await client.query(
+          "SELECT set_config('app.current_project_id', $1, true)",
+          [this._currentProjectId],
+        );
+      }
+      if (this._rlsBypass) {
+        await client.query(
+          "SELECT set_config('app.bypass_rls', 'true', true)",
+        );
+      }
+    } catch (err) {
+      // Never let RLS context errors break queries. Log once per occurrence.
+      console.warn(
+        '[hipp0/postgres] Failed to apply RLS context:',
+        (err as Error).message,
+      );
     }
   }
 
@@ -203,6 +311,20 @@ export class PostgresAdapter implements DatabaseAdapter {
   // ---- runMigrations ------------------------------------------------------
 
   async runMigrations(migrationsDir: string): Promise<void> {
+    // Migrations need cross-tenant access (CREATE TABLE, ALTER TABLE, etc.)
+    // so they always run with the RLS bypass enabled. The bypass is scoped
+    // to the SET LOCAL inside each migration transaction.
+    const previousBypass = this._rlsBypass;
+    this._rlsBypass = true;
+
+    try {
+      await this._runMigrationsInner(migrationsDir);
+    } finally {
+      this._rlsBypass = previousBypass;
+    }
+  }
+
+  private async _runMigrationsInner(migrationsDir: string): Promise<void> {
     // Ensure tracking table exists (PostgreSQL dialect).
     await this.query(`
       CREATE TABLE IF NOT EXISTS _hipp0_migrations (

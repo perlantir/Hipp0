@@ -13,6 +13,7 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { getDb } from '@hipp0/core/db/index.js';
+import { validateAgentKey, recordKeyUsage, AGENT_KEY_PREFIX } from '@hipp0/core/intelligence/agent-keys.js';
 import { getSupabase } from './supabase.js';
 import crypto from 'node:crypto';
 import { DEFAULT_TENANT_ID, DEFAULT_USER_ID } from '../constants.js';
@@ -30,6 +31,14 @@ export interface AuthUser {
   tenant_id: string;
   role: string;
   plan: string;
+  /** Present only when the request authenticated via a per-agent API key. */
+  agent_id?: string;
+  /** Present only when the request authenticated via a per-agent API key. */
+  agent_name?: string;
+  /** Project scope from an agent key; used to restrict writes. */
+  agent_key_project_id?: string;
+  /** Scopes attached to the agent key (e.g. ["read","write"]). */
+  agent_key_scopes?: string[];
 }
 
 function getClientIp(c: Context): string {
