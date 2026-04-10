@@ -253,6 +253,14 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 
 **Token Compression** -- H0C format (8-10x) and H0C Ultra (20-33x) compress compiled context to fit tight token budgets. Request via `?format=h0c` or `?format=ultra`.
 
+**Agent Skill Profiling** -- Empirically measures which agents are good at which domains based on real outcome data. `GET /api/projects/:id/agent-skills` returns success rates per agent per domain. `GET /api/projects/:id/suggest-agent?task=...` recommends the best agent for a task.
+
+**Contrastive Explanations** -- Compile with `?explain=true` to get "why this, not that?" explanations. Signal-by-signal comparison showing exactly why decision A ranked higher than B. Zero LLM calls.
+
+**Decision Impact Prediction** -- `POST /api/simulation/predict-impact` predicts success rate, risk factors, and affected agents before a decision is implemented. Uses statistical analysis of similar past decisions.
+
+**Decision A/B Testing** -- Run experiments comparing two decisions head-to-head. Create via `POST /api/projects/:id/experiments`, get results with z-test statistical significance, declare a winner.
+
 **Import & Sync** -- GitHub PR scanning via Octokit, AI-powered decision extraction from PR diffs, preview before import, permanent webhook-driven sync.
 
 **Governance** -- Review queue for pending decisions, approve/reject workflow with audit trail, policy enforcement with block/warn rules, violation tracking, weekly digest.
@@ -276,6 +284,10 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 | 5-signal scoring | Yes | Embedding only | 2 signals | Embedding only |
 | Contradiction detection | 0.92 F1 | No | No | No |
 | Token compression | 8-33x | No | No | No |
+| Agent skill profiling | Yes | No | No | No |
+| Contrastive explanations | Yes | No | No | No |
+| Impact prediction | Yes | No | No | No |
+| Decision A/B testing | Yes | No | No | No |
 | MCP server | 21 tools | No | No | No |
 | Self-hosted | Free forever | Cloud only | Yes | Yes |
 | Open source | Apache 2.0 | Apache 2.0 | MIT | MIT |
