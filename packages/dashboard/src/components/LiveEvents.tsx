@@ -327,6 +327,7 @@ export function LiveEvents() {
   const [filter, setFilter] = useState<FilterValue>('all');
   const [autoScroll, setAutoScroll] = useState(true);
   const [, setTick] = useState(0);
+  const [showDevHint, setShowDevHint] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
 
@@ -350,6 +351,17 @@ export function LiveEvents() {
     const t = setInterval(() => setTick((x) => x + 1), 5000);
     return () => clearInterval(t);
   }, []);
+
+  // Dev hint: if no events arrive within 10s, show a helper badge.
+  // Reset whenever events arrive.
+  useEffect(() => {
+    if (events.length > 0) {
+      setShowDevHint(false);
+      return;
+    }
+    const t = setTimeout(() => setShowDevHint(true), 10_000);
+    return () => clearTimeout(t);
+  }, [events.length]);
 
   // Auto-scroll to top when new events arrive
   useEffect(() => {
@@ -507,6 +519,30 @@ export function LiveEvents() {
                 >
                   No events match the current filter.
                 </p>
+              )}
+              {showDevHint && events.length === 0 && (
+                <div
+                  className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border"
+                  style={{
+                    background: '#D9770610',
+                    borderColor: '#D9770640',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  <span
+                    className="text-2xs font-bold px-1.5 py-0.5 rounded"
+                    style={{
+                      background: '#D97706',
+                      color: 'white',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    DEV
+                  </span>
+                  <span className="text-xs">
+                    Open a new tab and create a decision to see events flow
+                  </span>
+                </div>
               )}
             </div>
           ) : (
