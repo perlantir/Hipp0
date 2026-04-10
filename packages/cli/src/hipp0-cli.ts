@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('hipp0')
   .description('Hipp0 — AI team memory, decision tracking, and context compilation')
-  .version('0.1.0');
+  .version('0.1.2');
 
 // Top-level shortcut commands (add, ask, search, list)
 registerShortcutCommands(program);

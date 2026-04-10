@@ -176,14 +176,24 @@ export function registerServerCommands(program: Command): void {
           process.exit(1);
         }
 
+        // Write .env if it doesn't exist
+        const envPath = path.join(dir, '.env');
+        if (!fs.existsSync(envPath)) {
+          const envLines = [
+            `HIPP0_API_URL=http://localhost:${port}`,
+            `HIPP0_API_KEY=${apiKey}`,
+          ];
+          fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
+        }
+
         spinner.succeed(chalk.green('Hipp0 server started'));
         console.warn('');
         console.warn(`  ${chalk.bold('API:')}       http://localhost:${port}`);
-        console.warn(`  ${chalk.bold('Dashboard:')} http://localhost:${port}/dashboard`);
         console.warn(`  ${chalk.bold('Database:')}  ./hipp0.db`);
         console.warn(`  ${chalk.bold('API Key:')}   ${chalk.cyan(apiKey)}`);
         console.warn(`  ${chalk.bold('PID:')}       ${pid}`);
         console.warn('');
+        console.warn(chalk.dim(`  Run: source .env`));
         console.warn(chalk.dim(`  To stop: hipp0 stop`));
       } catch (err) {
         spinner.fail('Failed to start server');

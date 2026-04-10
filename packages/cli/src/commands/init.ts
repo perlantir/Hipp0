@@ -157,33 +157,76 @@ export function registerInitCommand(program: Command): void {
         const db = await initDb({ dialect: 'sqlite', sqlitePath });
         // Verify it's reachable.
         await db.query('SELECT 1 AS ok');
-        // Close the handle here — the server process will re-open it.
+        // Close the handle here - the server process will re-open it.
         await closeDb();
 
-        spinner.text = 'Starting server…';
+        spinner.text = 'Starting server...';
 
         // Start the server as a background process.
         await spawnServer(dir, sqlitePath, apiKey, port);
 
-        // Give the server a moment to bind to the port before printing the
-        // success banner.
-        await new Promise((r) => setTimeout(r, 800));
+        // Give the server a moment to bind to the port before creating project.
+        await new Promise((r) => setTimeout(r, 1500));
 
-        spinner.succeed(chalk.green('✓ Hipp0 is running!'));
+        // Auto-create a default project so the user can start immediately
+        spinner.text = 'Creating project...';
+        const projectName = name || path.basename(dir);
+        let projectId: string | null = null;
+        try {
+          const res = await fetch(`http://localhost:${port}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({ name: projectName, description: opts?.description || `Hipp0 project: ${projectName}` }),
+          });
+          if (res.ok) {
+            const project = await res.json() as { id: string };
+            projectId = project.id;
+          }
+        } catch {
+          // Server might not be ready yet, that's ok
+        }
+
+        // Write .env file for easy CLI usage
+        const envLines = [
+          `HIPP0_API_URL=http://localhost:${port}`,
+          `HIPP0_API_KEY=${apiKey}`,
+        ];
+        if (projectId) {
+          envLines.push(`HIPP0_PROJECT_ID=${projectId}`);
+        }
+        fs.writeFileSync(path.join(dir, '.env'), envLines.join('\n') + '\n', 'utf-8');
+
+        // Add .env to .gitignore if a git repo
+        const gitignorePath = path.join(dir, '.gitignore');
+        if (fs.existsSync(path.join(dir, '.git')) || !fs.existsSync(gitignorePath)) {
+          const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf-8') : '';
+          if (!existing.includes('.env')) {
+            fs.appendFileSync(gitignorePath, `${existing.endsWith('\n') || !existing ? '' : '\n'}.env\nhipp0.db\n.hipp0.pid\n`);
+          }
+        }
+
+        spinner.succeed(chalk.green('Hipp0 is running!'));
 
         const relativePath = path.relative(process.cwd(), sqlitePath) || './hipp0.db';
         console.warn('');
         console.warn(`  ${chalk.bold('API:')}       http://localhost:${port}`);
-        console.warn(`  ${chalk.bold('Dashboard:')} http://localhost:${port}/dashboard`);
         console.warn(`  ${chalk.bold('Database:')}  ${relativePath}`);
         console.warn(`  ${chalk.bold('API Key:')}   ${chalk.cyan(apiKey)}`);
-        console.warn('');
-        console.warn(chalk.dim('  Open the dashboard to set up your first project.'));
-        console.warn('');
-        console.warn(chalk.dim(`  To stop the server run: hipp0 stop`));
-        if (name) {
-          console.warn(chalk.dim(`  To use this project, cd into: ${name}`));
+        if (projectId) {
+          console.warn(`  ${chalk.bold('Project:')}   ${chalk.cyan(projectId)}`);
         }
+        console.warn('');
+        if (name) {
+          console.warn(chalk.bold('  Quick start:'));
+          console.warn(chalk.dim(`    cd ${name}`));
+        } else {
+          console.warn(chalk.bold('  Quick start:'));
+        }
+        console.warn(chalk.dim(`    source .env`));
+        console.warn(chalk.dim(`    hipp0 add "Use PostgreSQL for persistence" --by architect --tags database,infrastructure`));
+        console.warn(chalk.dim(`    hipp0 compile builder "implement the data layer"`));
+        console.warn('');
+        console.warn(chalk.dim(`  To stop: hipp0 stop`));
       } catch (err) {
         handleError(err, spinner);
       }
