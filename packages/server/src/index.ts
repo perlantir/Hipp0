@@ -13,6 +13,7 @@ import { registerGitHubWebhook } from './connectors/github.js';
 import { startDiscordBot, stopDiscordBot } from './connectors/discord.js';
 import { initWebSocket, getMainWss } from './websocket.js';
 import { initCollabWebSocket, getCollabWss } from './collab-ws.js';
+import { initEventWebSocket, getEventsWss } from './events/event-ws.js';
 import type { NotificationJobData } from './queue/index.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -246,6 +247,7 @@ async function main() {
   // Initialise WebSocket servers in noServer mode
   initWebSocket();
   initCollabWebSocket();
+  initEventWebSocket();
 
   // Route HTTP upgrade requests to the correct WebSocketServer by path
   server.on('upgrade', (req, socket, head) => {
@@ -256,6 +258,15 @@ async function main() {
       if (collabWss) {
         collabWss.handleUpgrade(req, socket, head, (ws) => {
           collabWss.emit('connection', ws, req);
+        });
+      } else {
+        socket.destroy();
+      }
+    } else if (url.startsWith('/ws/events')) {
+      const eventsWss = getEventsWss();
+      if (eventsWss) {
+        eventsWss.handleUpgrade(req, socket, head, (ws) => {
+          eventsWss.emit('connection', ws, req);
         });
       } else {
         socket.destroy();

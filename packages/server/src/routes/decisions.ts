@@ -20,6 +20,7 @@ import {
   generateEmbedding,
 } from './validation.js';
 import { broadcast } from '../websocket.js';
+import { safeEmit } from '../events/event-stream.js';
 import { invalidateDecisionCaches } from '../cache/redis.js';
 import { isAuthRequired, getTenantId } from '../auth/middleware.js';
 import { notifySupersededDecision } from '../connectors/github.js';
@@ -61,7 +62,15 @@ export function registerDecisionRoutes(app: Hono): void {
             [projectId, title, description, reasoning, made_by, confidence,
              db.arrayParam(affects as string[]), db.arrayParam(tags as string[])],
           );
-          results.push(parseDecision(result.rows[0] as Record<string, unknown>) as unknown as Record<string, unknown>);
+          const created = parseDecision(result.rows[0] as Record<string, unknown>) as unknown as Record<string, unknown>;
+          results.push(created);
+          safeEmit('decision.created', projectId, {
+            decision_id: created.id,
+            title: created.title,
+            made_by: created.made_by,
+            source: 'manual',
+            bulk: true,
+          });
         } catch (err) {
           errors.push({ index: i, error: (err as Error).message });
         }
@@ -233,6 +242,15 @@ export function registerDecisionRoutes(app: Hono): void {
       }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
       broadcast('decision_created', { id: decision.id, title: decision.title, project_id: projectId });
+
+      safeEmit('decision.created', projectId, {
+        decision_id: decision.id,
+        title: decision.title,
+        made_by: decision.made_by,
+        confidence: decision.confidence,
+        status: decision.status,
+        tags: decision.tags,
+      });
 
       checkForContradictions(decision).catch((err) =>
         console.error('[hipp0] Contradiction check failed:', (err as Error).message),
@@ -462,6 +480,12 @@ export function registerDecisionRoutes(app: Hono): void {
 
     broadcast('decision_updated', { id: decision.id, title: decision.title, project_id: decision.project_id });
 
+    safeEmit('decision.updated', decision.project_id, {
+      decision_id: decision.id,
+      title: decision.title,
+      fields_updated: Object.keys(body),
+    });
+
     return c.json(decision);
   });
 
@@ -563,6 +587,13 @@ export function registerDecisionRoutes(app: Hono): void {
       title: (result.newDecision as Decision).title,
       old_decision_id: oldId,
     }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
+
+    safeEmit('decision.superseded', (result.newDecision as Decision).project_id, {
+      old_decision_id: oldId,
+      new_decision_id: (result.newDecision as Decision).id,
+      title: (result.newDecision as Decision).title,
+      made_by,
+    });
 
     // Notify linked open PRs about superseded decision (fire-and-forget)
     notifySupersededDecision(
@@ -685,6 +716,13 @@ export function registerDecisionRoutes(app: Hono): void {
     propagateChange(decision, 'decision_superseded').catch((err) =>
       console.error('[hipp0] Change propagation failed:', (err as Error).message),
     );
+
+    safeEmit('decision.superseded', decision.project_id, {
+      old_decision_id: oldId,
+      new_decision_id: newId,
+      title: decision.title,
+      link_only: true,
+    });
 
     return c.json(decision);
   });

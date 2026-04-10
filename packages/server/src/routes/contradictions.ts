@@ -4,6 +4,7 @@ import { parseContradiction } from '@hipp0/core/db/parsers.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, optionalString } from './validation.js';
 import { broadcast } from '../websocket.js';
+import { safeEmit } from '../events/event-stream.js';
 
 export function registerContradictionRoutes(app: Hono): void {
   app.get('/api/projects/:id/contradictions', async (c) => {
@@ -51,6 +52,20 @@ export function registerContradictionRoutes(app: Hono): void {
     if (result.rows.length === 0) throw new NotFoundError('Contradiction', id);
     const contradiction = parseContradiction(result.rows[0] as Record<string, unknown>);
     broadcast('contradiction_detected', { id: contradiction.id, status: statusVal });
+
+    if (statusVal === 'resolved') {
+      safeEmit('contradiction.resolved', projectId, {
+        contradiction_id: contradiction.id,
+        resolved_by: resolvedByVal,
+        resolution: resolutionVal,
+      });
+    } else {
+      safeEmit('contradiction.detected', projectId, {
+        contradiction_id: contradiction.id,
+        status: statusVal,
+      });
+    }
+
     return c.json(contradiction);
   });
 }

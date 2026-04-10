@@ -261,3 +261,75 @@ export type {
   PipelineSummary,
   GetInsightsOptions,
 } from './intelligence/knowledge-pipeline.js';
+
+// --- Reflection Engine (Automated Reflection Loops) ---
+export {
+  runHourlyReflection,
+  runDailyReflection,
+  runWeeklyReflection,
+  getReflectionHistory,
+} from './intelligence/reflection-engine.js';
+export type {
+  ReflectionType,
+  HourlyReflectionResult,
+  DailyReflectionResult,
+  WeeklyReflectionResult,
+  TeamHealthMetrics,
+  ReflectionRunRecord,
+} from './intelligence/reflection-engine.js';
+
+// --- Trace Collector (Broader Stigmergy) ---
+export {
+  recordTrace,
+  getRecentTraces,
+  distillTraces,
+} from './intelligence/trace-collector.js';
+export type {
+  TraceType,
+  TraceInput,
+  TraceRecord,
+  GetTracesOptions,
+  DistilledCandidate,
+} from './intelligence/trace-collector.js';
+
+// --- Knowledge Branching ("Git for Decisions") ---
+export {
+  createBranch,
+  listBranches,
+  getBranchDiff,
+  mergeBranch,
+  deleteBranch,
+} from './intelligence/knowledge-branches.js';
+export type {
+  DecisionBranch,
+  CreateBranchInput,
+  BranchDiff,
+  MergeOptions,
+  MergeConflict,
+  MergeResult,
+} from './intelligence/knowledge-branches.js';
+
+// --- Expanded What-If Simulation ---
+export {
+  simulateDecisionChange,
+  simulateHistoricalImpact,
+  simulateMultiDecisionChange,
+  simulateCascadeImpact,
+  simulateRollback,
+  checkProposedContradictions,
+  findCascadeImpact,
+} from './intelligence/whatif-simulator.js';
+export type {
+  ProposedChanges,
+  AgentImpact,
+  SimulationWarning,
+  SimulationResult,
+  HistoricalImpact,
+  DecisionChange,
+  MultiChangeInteraction,
+  MultiChangeResult,
+  CascadeNode,
+  CascadeResult,
+  RollbackRisk,
+  RollbackResult,
+} from './intelligence/whatif-simulator.js';

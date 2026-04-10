@@ -186,6 +186,18 @@
     "./intelligence/knowledge-pipeline.js": {
       "import": "./dist/intelligence/knowledge-pipeline.js",
       "types": "./dist/intelligence/knowledge-pipeline.d.ts"
+    },
+    "./intelligence/knowledge-branches.js": {
+      "import": "./dist/intelligence/knowledge-branches.js",
+      "types": "./dist/intelligence/knowledge-branches.d.ts"
+    },
+    "./intelligence/reflection-engine.js": {
+      "import": "./dist/intelligence/reflection-engine.js",
+      "types": "./dist/intelligence/reflection-engine.d.ts"
+    },
+    "./intelligence/trace-collector.js": {
+      "import": "./dist/intelligence/trace-collector.js",
+      "types": "./dist/intelligence/trace-collector.d.ts"
     }
   },
   "scripts": {
