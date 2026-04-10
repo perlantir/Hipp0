@@ -173,18 +173,16 @@ export function ContextComparison() {
 
     try {
       const [resA, resB] = await Promise.all([
-        post<ContextResult>('/api/compile', {
+        post<ContextResult>('/api/compile?format=json', {
           agent_name: agentA,
           project_id: projectId,
           task_description: task,
-          format: 'json',
           ...(namespace ? { namespace } : {}),
         }),
-        post<ContextResult>('/api/compile', {
+        post<ContextResult>('/api/compile?format=json', {
           agent_name: agentB,
           project_id: projectId,
           task_description: task,
-          format: 'json',
           ...(namespace ? { namespace } : {}),
         }),
       ]);
