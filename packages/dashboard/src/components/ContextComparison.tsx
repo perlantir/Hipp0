@@ -145,7 +145,8 @@ export function ContextComparison() {
   const { get } = useApi();
   const [agentA, setAgentA] = useState('');
   const [agentB, setAgentB] = useState('');
-  const [task, setTask] = useState('general context');
+  const [agents, setAgents] = useState<Array<{ name: string }>>([]);
+  const [task, setTask] = useState('design the authentication flow');
   const [namespace, setNamespace] = useState('');
   const [namespaces, setNamespaces] = useState<Array<{ namespace: string; count: number }>>([]);
 
@@ -162,6 +163,21 @@ export function ContextComparison() {
         if (Array.isArray(data)) setNamespaces(data);
       })
       .catch(() => {});
+  }, [get, projectId]);
+
+  // Load project agents so the Agent A/B dropdowns are populated with real names
+  useEffect(() => {
+    get<Array<{ id: string; name: string }>>(`/api/projects/${projectId}/agents`)
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAgents(data);
+          // Default to the first two agents so the form is usable immediately
+          if (data.length > 0 && !agentA) setAgentA(data[0].name);
+          if (data.length > 1 && !agentB) setAgentB(data[1].name);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [get, projectId]);
 
   async function handleCompare() {
@@ -252,26 +268,40 @@ export function ContextComparison() {
               <label className="text-xs font-medium text-[var(--text-secondary)] mb-1.5 block">
                 Agent A
               </label>
-              <input
-                type="text"
-                value={agentA}
-                onChange={(e) => setAgentA(e.target.value)}
-                placeholder="e.g. architect"
-                className="input"
-              />
+              <div className="relative">
+                <select
+                  value={agentA}
+                  onChange={(e) => setAgentA(e.target.value)}
+                  className="input w-full appearance-none pr-8"
+                >
+                  {agents.length === 0 && <option value="">Loading agents...</option>}
+                  {agents.length > 0 && !agentA && <option value="">Select an agent...</option>}
+                  {agents.map((a) => (
+                    <option key={a.name} value={a.name}>{a.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-secondary)]" />
+              </div>
             </div>
 
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)] mb-1.5 block">
                 Agent B
               </label>
-              <input
-                type="text"
-                value={agentB}
-                onChange={(e) => setAgentB(e.target.value)}
-                placeholder="e.g. frontend-dev"
-                className="input"
-              />
+              <div className="relative">
+                <select
+                  value={agentB}
+                  onChange={(e) => setAgentB(e.target.value)}
+                  className="input w-full appearance-none pr-8"
+                >
+                  {agents.length === 0 && <option value="">Loading agents...</option>}
+                  {agents.length > 0 && !agentB && <option value="">Select an agent...</option>}
+                  {agents.map((a) => (
+                    <option key={a.name} value={a.name}>{a.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-secondary)]" />
+              </div>
             </div>
 
             <div>
@@ -282,7 +312,7 @@ export function ContextComparison() {
                 type="text"
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
-                placeholder="Describe the task…"
+                placeholder="e.g. design the authentication flow"
                 className="input"
               />
             </div>
