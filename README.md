@@ -312,6 +312,16 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 
 **Zero-Config Auto-Instrumentation** -- One line setup for Python and TypeScript. `import hipp0; hipp0.auto()` or `import { auto } from '@hipp0/sdk/auto'; auto();`. Monkey-patches OpenAI/Anthropic clients to auto-capture conversations and inject context. Fire-and-forget, never blocks.
 
+**Scheduled Reflection Worker** -- Background worker automatically runs hourly/daily/weekly reflection loops on all active projects. No cron setup needed. Enable with `HIPP0_SCHEDULER_ENABLED=true`.
+
+**Digest Delivery** -- Email, Slack, and webhook delivery for weekly digests. Configure per-project via `POST /api/projects/:id/digest/delivery`. Weekly reflections auto-deliver to configured channels.
+
+**OpenTelemetry Observability** -- Full OTel instrumentation. Spans for compile, distill, reflection. Metrics for compile duration, decisions created, contradictions detected, outcomes recorded. Works with Datadog, Grafana, Honeycomb, New Relic. Enable with `HIPP0_TELEMETRY_ENABLED=true`.
+
+**Collaborative Features** -- Comments (threaded), approvals (with requested_by/approvers), and annotations (inline text-range notes) on decisions. Multiple humans can curate the team's memory together. All events emit via the real-time stream.
+
+**Hosted Playground** -- Interactive demo at hipp0.ai/playground. Visitors get an ephemeral sandboxed SQLite database with 50 pre-seeded decisions across 6 agents. 5 pre-built scenarios showcase role differentiation, contradictions, team procedures, impact prediction, and skill profiling. Zero AI credits needed.
+
 **Import & Sync** -- GitHub PR scanning via Octokit, AI-powered decision extraction from PR diffs, preview before import, permanent webhook-driven sync.
 
 **Governance** -- Review queue for pending decisions, approve/reject workflow with audit trail, policy enforcement with block/warn rules, violation tracking, weekly digest.
@@ -347,6 +357,11 @@ Working examples: [examples/crewai-team](examples/crewai-team) | [examples/langg
 | Cross-project pattern sharing | Yes (opt-in) | No | No | No |
 | Real-time event streaming | Yes (WebSocket) | No | No | No |
 | Zero-config auto-instrumentation | Yes | No | No | No |
+| Scheduled reflection worker | Yes | No | No | No |
+| Email/Slack digest delivery | Yes | No | No | No |
+| OpenTelemetry observability | Yes | No | No | No |
+| Collaborative comments/approvals | Yes | No | No | No |
+| Hosted interactive playground | Yes | No | No | No |
 | MCP server | 21 tools | No | No | No |
 | Self-hosted | Free forever | Cloud only | Yes | Yes |
 | Open source | Apache 2.0 | Apache 2.0 | MIT | MIT |
