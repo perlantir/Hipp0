@@ -177,12 +177,14 @@ export function ContextComparison() {
           agent_name: agentA,
           project_id: projectId,
           task_description: task,
+          format: 'json',
           ...(namespace ? { namespace } : {}),
         }),
         post<ContextResult>('/api/compile', {
           agent_name: agentB,
           project_id: projectId,
           task_description: task,
+          format: 'json',
           ...(namespace ? { namespace } : {}),
         }),
       ]);
