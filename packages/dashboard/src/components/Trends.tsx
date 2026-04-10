@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
+import { ExportButton } from './ExportButton';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -673,6 +674,32 @@ export function Trends() {
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               Refresh
             </button>
+            <ExportButton
+              data={
+                data
+                  ? [
+                      ...(data.decisions_per_day ?? []).map((d) => ({
+                        metric: 'decisions',
+                        ...d,
+                      })),
+                      ...(data.outcomes_per_day ?? []).map((d) => ({
+                        metric: 'outcomes',
+                        ...d,
+                      })),
+                      ...(data.contradictions_per_day ?? []).map((d) => ({
+                        metric: 'contradictions',
+                        ...d,
+                      })),
+                      ...(data.active_agents_per_day ?? []).map((d) => ({
+                        metric: 'active_agents',
+                        ...d,
+                      })),
+                    ]
+                  : []
+              }
+              filename={`hipp0-trends-${range}d`}
+              disabled={loading}
+            />
           </div>
         </div>
 

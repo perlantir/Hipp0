@@ -11,6 +11,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { SearchResult, Decision } from '../types';
+import { ExportButton } from './ExportButton';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -88,7 +89,7 @@ export function Search() {
         </div>
 
         {/* Search bar */}
-        <form onSubmit={handleSearch} className="mb-6">
+        <form onSubmit={handleSearch} className="mb-3">
           <div className="relative">
             <SearchIcon
               size={18}
@@ -110,6 +111,12 @@ export function Search() {
             )}
           </div>
         </form>
+
+        {results.length > 0 && (
+          <div className="flex justify-end mb-4">
+            <ExportButton data={results} filename="hipp0-search" />
+          </div>
+        )}
 
         {/* Error */}
         {error && (

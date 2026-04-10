@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
 import type { Decision, DecisionStatus } from '../types';
 import { WingBadge } from './WingView';
+import { ExportButton } from './ExportButton';
 
 /* ------------------------------------------------------------------ */
 /*  Validation sub-component                                           */
@@ -347,6 +348,10 @@ export function Timeline() {
               className="input w-auto text-xs"
               placeholder="To"
             />
+          </div>
+
+          <div className="ml-auto">
+            <ExportButton data={filtered} filename="hipp0-timeline" />
           </div>
         </div>
 

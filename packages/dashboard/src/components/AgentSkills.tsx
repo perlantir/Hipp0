@@ -6,9 +6,12 @@ import {
   X,
   User,
   Target,
+  Key,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
+import { ExportButton } from './ExportButton';
+import { AgentKeysModal } from './AgentKeysModal';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -87,6 +90,10 @@ export function AgentSkills() {
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
+  // Map of agent name -> agent UUID, used by the Keys modal.
+  const [agentIdMap, setAgentIdMap] = useState<Record<string, string>>({});
+  const [keysAgent, setKeysAgent] = useState<{ id: string; name: string } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -112,6 +119,23 @@ export function AgentSkills() {
           );
           setLoading(false);
         }
+      });
+
+    // Also fetch the full agents list so we can resolve name -> id when the
+    // user clicks the Keys button. Best-effort; an empty map just disables
+    // the button.
+    get<Array<{ id: string; name: string }>>(`/api/projects/${projectId}/agents`)
+      .then((data) => {
+        if (cancelled) return;
+        if (!Array.isArray(data)) return;
+        const map: Record<string, string> = {};
+        for (const a of data) {
+          if (a?.id && a?.name) map[a.name] = a.id;
+        }
+        setAgentIdMap(map);
+      })
+      .catch(() => {
+        /* ignore — keys button just won't resolve */
       });
 
     return () => {
@@ -189,6 +213,22 @@ export function AgentSkills() {
               based on recorded decision outcomes.
             </p>
           </div>
+          <ExportButton
+            data={agents.map((row) => {
+              const flat: Record<string, unknown> = {
+                agent: row.agent,
+                overall_success_rate: row.overall_success_rate ?? null,
+                total_outcomes: row.total_outcomes ?? null,
+              };
+              for (const domain of domains) {
+                const cell = row.domains?.[domain];
+                flat[`${domain}_success_rate`] = cell?.success_rate ?? null;
+                flat[`${domain}_sample_size`] = cell?.sample_size ?? 0;
+              }
+              return flat;
+            })}
+            filename="hipp0-agent-skills"
+          />
         </div>
 
         {/* Legend */}
@@ -258,6 +298,9 @@ export function AgentSkills() {
                       {domain}
                     </th>
                   ))}
+                  <th className="px-3 py-3 font-medium text-center min-w-[90px]">
+                    Keys
+                  </th>
                 </tr>
               </thead>
               <tbody>

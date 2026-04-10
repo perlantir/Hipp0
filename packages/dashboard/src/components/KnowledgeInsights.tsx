@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useProject } from '../App';
+import { ExportButton } from './ExportButton';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -237,18 +238,25 @@ export function KnowledgeInsights() {
               your decision graph.
             </p>
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Zap size={16} />
-            )}
-            Generate Insights
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              data={filtered}
+              filename={`hipp0-insights-${tab}`}
+              disabled={loading}
+            />
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generating ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Zap size={16} />
+              )}
+              Generate Insights
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
