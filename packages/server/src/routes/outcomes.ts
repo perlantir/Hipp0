@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { requireUUID, logAudit } from './validation.js';
+import { getMetrics, recordCounter } from '../telemetry.js';
 import { randomUUID } from 'node:crypto';
 import {
   recordBatchFeedback,
@@ -174,8 +175,22 @@ export function registerOutcomeRoutes(app: Hono): void {
             outcome_type: (body as any).outcome_type ?? (body.task_completed ? 'success' : 'unknown'),
             outcome_score: (body as any).outcome_score ?? 0.5,
           });
+          try {
+            const __m = getMetrics();
+            recordCounter(__m.outcomesRecorded, 1, {
+              project_id: projectId,
+              success: true,
+            });
+          } catch { /* ignore */ }
           return c.json({ id: outcome.id, status: 'recorded_to_decision_outcomes' }, 201);
         } catch (err) {
+          try {
+            const __m = getMetrics();
+            recordCounter(__m.outcomesRecorded, 1, {
+              project_id: projectId,
+              success: false,
+            });
+          } catch { /* ignore */ }
           return c.json({ error: { code: 'INTERNAL_ERROR', message: (err as Error).message } }, 500);
         }
       }
@@ -332,6 +347,14 @@ export function registerOutcomeRoutes(app: Hono): void {
       decisions_ignored: alignment.decisions_ignored,
       decisions_attributed: decisionsAttributed,
     });
+
+    try {
+      const __m = getMetrics();
+      recordCounter(__m.outcomesRecorded, 1, {
+        project_id: projectId,
+        success: Boolean(taskCompleted),
+      });
+    } catch { /* ignore */ }
 
     return c.json({
       id: outcomeId,

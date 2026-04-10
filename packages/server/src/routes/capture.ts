@@ -10,6 +10,7 @@ import type { Hono } from 'hono';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
 import { getDb } from '@hipp0/core/db/index.js';
 import { distill } from '@hipp0/core/distillery/index.js';
+import { withSpan, getMetrics, recordHistogram } from '../telemetry.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { runCaptureDedup } from '@hipp0/core/intelligence/capture-dedup.js';
 import { defaultProvenance, computeTrust } from '@hipp0/core/intelligence/trust-scorer.js';
@@ -214,10 +215,16 @@ async function runCaptureExtraction(
   source: string,
 ): Promise<void> {
   const db = getDb();
+  const __captureStart = Date.now();
+  let __captureSuccess = true;
 
   try {
-    // Run the distillery pipeline
-    const result = await distill(projectId, conversation, agentName, sessionId ?? undefined);
+    // Run the distillery pipeline — traced under the distill_conversation span.
+    const result = await withSpan('distill_conversation', {
+      project_id: projectId,
+      agent_name: agentName,
+      source,
+    }, async () => distill(projectId, conversation, agentName, sessionId ?? undefined));
 
     // Mark extracted decisions with appropriate source and flag for review
     // SQLite's original CHECK constraint only allows 'manual', 'auto_distilled', 'imported'
@@ -280,6 +287,7 @@ async function runCaptureExtraction(
     }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
 
   } catch (err) {
+    __captureSuccess = false;
     const errorMsg = (err as Error).message ?? 'Unknown extraction error';
     console.error(`[hipp0:capture] Extraction failed for capture ${captureId}:`, errorMsg);
 
@@ -295,5 +303,15 @@ async function runCaptureExtraction(
       capture_id: captureId,
       error: errorMsg,
     });
+  } finally {
+    try {
+      const __m = getMetrics();
+      recordHistogram(__m.captureDuration, Date.now() - __captureStart, {
+        project_id: projectId,
+        agent_name: agentName,
+        source,
+        success: __captureSuccess,
+      });
+    } catch { /* ignore */ }
   }
 }

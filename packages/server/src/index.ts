@@ -1,3 +1,9 @@
+// OpenTelemetry must be initialised before any instrumented modules load.
+// initTelemetry() is a no-op unless HIPP0_TELEMETRY_ENABLED=true, so this
+// has zero cost when telemetry is disabled.
+import { initTelemetry, shutdown as shutdownTelemetry } from './telemetry.js';
+await initTelemetry();
+
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createApp } from './app.js';
@@ -328,6 +334,13 @@ async function main() {
         console.warn('[hipp0] Database closed');
       } catch (err) {
         console.error('[hipp0] Error closing database:', (err as Error).message);
+      }
+
+      // Flush any pending OTel spans/metrics
+      try {
+        await shutdownTelemetry();
+      } catch (err) {
+        console.warn('[hipp0] Telemetry shutdown failed:', (err as Error).message);
       }
 
       console.warn('[hipp0] Shutdown complete');

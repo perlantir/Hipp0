@@ -11,6 +11,7 @@ import { detectContradictions } from './contradiction.js';
 import { integrateDecisions } from './graph-integrator.js';
 import { createSessionSummary } from './summarizer.js';
 import { dispatchWebhooks } from '../webhooks/index.js';
+import { withCoreSpan } from '../telemetry.js';
 
 // Re-export everything for consumers
 export { extractDecisions, scrubSecrets, INJECTION_GUARD, callLLM } from './extractor.js';
@@ -26,6 +27,10 @@ export async function distill(
   agentName: string = 'unknown',
   sessionId?: string,
 ): Promise<DistilleryResult> {
+  return withCoreSpan('distill_conversation', {
+    project_id: projectId,
+    agent_name: agentName,
+  }, async (__span) => {
   if (!conversationText.trim()) {
     console.warn('[hipp0:distillery] Empty conversation text; pipeline skipped.');
     return {
@@ -99,10 +104,17 @@ export async function distill(
     }).catch((err) => console.warn('[hipp0:webhook]', (err as Error).message));
   }
 
+  try {
+    __span.setAttribute('hipp0.decisions_extracted', extracted.length);
+    __span.setAttribute('hipp0.decisions_created', createdDecisions.length);
+    __span.setAttribute('hipp0.contradictions_found', contradictions.length);
+  } catch { /* ignore */ }
+
   return {
     decisions_extracted: extracted.length,
     contradictions_found: contradictions.length,
     decisions: createdDecisions,
     session_summary: sessionSummary,
   };
+  });
 }

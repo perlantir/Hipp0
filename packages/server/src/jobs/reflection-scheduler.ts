@@ -23,6 +23,13 @@ import {
   runWeeklyReflection,
 } from '@hipp0/core/intelligence/reflection-engine.js';
 import type { ReflectionType } from '@hipp0/core/intelligence/reflection-engine.js';
+import { generateWeeklyDigest } from '@hipp0/core/intelligence/memory-analytics.js';
+import { deliverDigest } from '@hipp0/core/intelligence/digest-delivery.js';
+import type {
+  DeliveryConfig,
+  DeliveryResult,
+  SmtpConfig,
+} from '@hipp0/core/intelligence/digest-delivery.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -176,6 +183,15 @@ async function runReflectionSafely(
         break;
       case 'weekly':
         await runWeeklyReflection(projectId);
+        // After the weekly reflection completes, trigger digest delivery
+        // for every configured channel. Fire-and-forget so a slow SMTP
+        // server or unreachable webhook never blocks the scheduler tick.
+        void deliverWeeklyDigestForProject(projectId).catch((err) => {
+          console.warn(
+            `[scheduler] weekly digest delivery failed for ${shortId}:`,
+            (err as Error).message,
+          );
+        });
         break;
     }
     const durationMs = Date.now() - start;
@@ -190,6 +206,234 @@ async function runReflectionSafely(
       `[scheduler] Failed ${type} reflection for project ${shortId}:`,
       (err as Error).message,
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Weekly digest delivery (wired into the weekly reflection branch)
+// ---------------------------------------------------------------------------
+
+function safeParseJson(raw: string): Record<string, unknown> | null {
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === 'object' ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadProjectName(projectId: string): Promise<string> {
+  const db = getDb();
+  try {
+    const result = await db.query<Record<string, unknown>>(
+      'SELECT name FROM projects WHERE id = ?',
+      [projectId],
+    );
+    const row = result.rows[0];
+    if (row && typeof row.name === 'string') return row.name;
+  } catch {
+    /* ignore */
+  }
+  return 'Hipp0 Project';
+}
+
+function buildSmtpFromEnv(
+  raw: unknown,
+  projectName: string,
+): SmtpConfig | null {
+  const envHost = process.env.HIPP0_SMTP_HOST;
+  const envPort = process.env.HIPP0_SMTP_PORT;
+  const envUser = process.env.HIPP0_SMTP_USER;
+  const envPass = process.env.HIPP0_SMTP_PASS;
+  const envFrom = process.env.HIPP0_SMTP_FROM;
+
+  const cfg = (raw && typeof raw === 'object' ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+
+  const host =
+    typeof cfg.host === 'string' && cfg.host.length > 0 ? cfg.host : envHost;
+  if (!host) return null;
+
+  const portValue = cfg.port ?? envPort ?? 587;
+  const port =
+    typeof portValue === 'number'
+      ? portValue
+      : parseInt(String(portValue), 10) || 587;
+
+  const user =
+    typeof cfg.user === 'string' ? cfg.user : envUser ?? undefined;
+  const pass =
+    typeof cfg.pass === 'string' ? cfg.pass : envPass ?? undefined;
+  const from =
+    typeof cfg.from === 'string' && cfg.from.length > 0
+      ? cfg.from
+      : envFrom ?? 'noreply@hipp0.ai';
+
+  return { host, port, user, pass, from, project_name: projectName };
+}
+
+function buildDispatchConfig(
+  deliveryType: string,
+  rawConfig: unknown,
+  projectName: string,
+): DeliveryConfig | null {
+  const cfg =
+    typeof rawConfig === 'string'
+      ? safeParseJson(rawConfig)
+      : (rawConfig as Record<string, unknown> | null);
+  if (!cfg || typeof cfg !== 'object') return null;
+
+  if (deliveryType === 'email') {
+    const recipients = Array.isArray((cfg as { recipients?: unknown }).recipients)
+      ? ((cfg as { recipients: unknown[] }).recipients.filter(
+          (r) => typeof r === 'string' && r.includes('@'),
+        ) as string[])
+      : [];
+    const smtp = buildSmtpFromEnv(
+      (cfg as { smtp?: unknown }).smtp,
+      projectName,
+    );
+    if (!smtp || recipients.length === 0) return null;
+    return { email: { recipients, smtp } };
+  }
+
+  if (deliveryType === 'slack') {
+    const url = (cfg as { webhook_url?: unknown }).webhook_url;
+    if (typeof url !== 'string' || url.length === 0) return null;
+    return { slack: { webhook_url: url, project_name: projectName } };
+  }
+
+  if (deliveryType === 'webhook') {
+    const url = (cfg as { url?: unknown }).url;
+    if (typeof url !== 'string' || url.length === 0) return null;
+    const secret = (cfg as { secret?: unknown }).secret;
+    return {
+      webhook: {
+        url,
+        secret: typeof secret === 'string' ? secret : undefined,
+      },
+    };
+  }
+
+  return null;
+}
+
+async function recordDeliveryOutcome(
+  configId: string,
+  success: boolean,
+  error?: string,
+): Promise<void> {
+  const db = getDb();
+  try {
+    const nowExpr = db.dialect === 'sqlite' ? "datetime('now')" : 'NOW()';
+    await db.query(
+      `UPDATE digest_delivery_config
+         SET last_sent_at = ${nowExpr},
+             last_status = ?,
+             last_error = ?
+       WHERE id = ?`,
+      [success ? 'success' : 'error', error ?? null, configId],
+    );
+  } catch (err) {
+    console.warn(
+      '[scheduler] Failed to update delivery outcome:',
+      (err as Error).message,
+    );
+  }
+}
+
+/**
+ * Hook invoked after a weekly reflection completes. Generates a fresh
+ * weekly digest, loads every `digest_delivery_config` row for the project,
+ * and dispatches to each enabled channel via `deliverDigest`. Updates
+ * `last_sent_at`, `last_status`, and `last_error` on each row. Fire-and-
+ * forget semantics — all failures are logged and swallowed so the
+ * scheduler is never blocked by a failed delivery.
+ */
+export async function deliverWeeklyDigestForProject(
+  projectId: string,
+): Promise<void> {
+  // 1. Generate a fresh weekly digest (also persisted to weekly_digests).
+  let digest;
+  try {
+    digest = await generateWeeklyDigest(projectId);
+  } catch (err) {
+    console.warn(
+      '[scheduler] weekly digest generation failed:',
+      (err as Error).message,
+    );
+    return;
+  }
+
+  // 2. Look up all delivery configs for the project.
+  const projectName = await loadProjectName(projectId);
+  const db = getDb();
+  let rows: Array<Record<string, unknown>> = [];
+  try {
+    const result = await db.query<Record<string, unknown>>(
+      `SELECT id, delivery_type, config, enabled
+       FROM digest_delivery_config
+       WHERE project_id = ?`,
+      [projectId],
+    );
+    rows = result.rows;
+  } catch (err) {
+    // Table may not exist in deployments that haven't run the 048 migration.
+    console.warn(
+      '[scheduler] digest_delivery_config query failed:',
+      (err as Error).message,
+    );
+    return;
+  }
+
+  // 3. Dispatch via every enabled channel, recording per-row outcome.
+  for (const row of rows) {
+    const enabled =
+      row.enabled === 1 || row.enabled === true || row.enabled === '1';
+    if (!enabled) continue;
+
+    const deliveryType = String(row.delivery_type ?? '');
+    const dispatchCfg = buildDispatchConfig(
+      deliveryType,
+      row.config,
+      projectName,
+    );
+    if (!dispatchCfg) {
+      await recordDeliveryOutcome(
+        String(row.id),
+        false,
+        `invalid or empty config for ${deliveryType}`,
+      );
+      continue;
+    }
+
+    try {
+      const dispatch = await deliverDigest(digest, dispatchCfg);
+      const channel: DeliveryResult =
+        dispatch.email ?? dispatch.slack ?? dispatch.webhook ?? {
+          success: false,
+          error: 'no channel attempted',
+        };
+      await recordDeliveryOutcome(
+        String(row.id),
+        channel.success,
+        channel.error,
+      );
+      if (!channel.success) {
+        console.warn(
+          `[scheduler] ${deliveryType} delivery failed for ${projectId.slice(0, 8)}:`,
+          channel.error,
+        );
+      }
+    } catch (err) {
+      await recordDeliveryOutcome(
+        String(row.id),
+        false,
+        (err as Error).message,
+      );
+    }
   }
 }
 

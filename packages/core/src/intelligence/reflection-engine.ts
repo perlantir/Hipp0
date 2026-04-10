@@ -18,6 +18,7 @@ import { runEvolutionScan } from './evolution-engine.js';
 import { computeAgentSkillProfile } from './skill-profiler.js';
 import { getOutcomeStats, recomputeOutcomeAggregates } from './outcome-memory.js';
 import { promoteToInsights } from './knowledge-pipeline.js';
+import { withCoreSpan } from '../telemetry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -126,6 +127,10 @@ async function completeReflectionRun(
 export async function runHourlyReflection(
   projectId: string,
 ): Promise<HourlyReflectionResult> {
+  return withCoreSpan('reflection_run', {
+    project_id: projectId,
+    reflection_type: 'hourly',
+  }, async () => {
   const start = Date.now();
   const runId = await beginReflectionRun(projectId, 'hourly');
   const db = getDb();
@@ -189,6 +194,7 @@ export async function runHourlyReflection(
 
   await completeReflectionRun(runId, result as unknown as Record<string, unknown>, durationMs);
   return result;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +208,10 @@ export async function runHourlyReflection(
 export async function runDailyReflection(
   projectId: string,
 ): Promise<DailyReflectionResult> {
+  return withCoreSpan('reflection_run', {
+    project_id: projectId,
+    reflection_type: 'daily',
+  }, async () => {
   const start = Date.now();
   const runId = await beginReflectionRun(projectId, 'daily');
   const db = getDb();

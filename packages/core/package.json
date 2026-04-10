@@ -210,6 +210,26 @@
     "./intelligence/team-procedures.js": {
       "import": "./dist/intelligence/team-procedures.js",
       "types": "./dist/intelligence/team-procedures.d.ts"
+    },
+    "./intelligence/comments.js": {
+      "import": "./dist/intelligence/comments.js",
+      "types": "./dist/intelligence/comments.d.ts"
+    },
+    "./intelligence/digest-delivery.js": {
+      "import": "./dist/intelligence/digest-delivery.js",
+      "types": "./dist/intelligence/digest-delivery.d.ts"
+    },
+    "./telemetry.js": {
+      "import": "./dist/telemetry.js",
+      "types": "./dist/telemetry.d.ts"
+    },
+    "./db/factory.js": {
+      "import": "./dist/db/factory.js",
+      "types": "./dist/db/factory.d.ts"
+    },
+    "./db/adapter.js": {
+      "import": "./dist/db/adapter.js",
+      "types": "./dist/db/adapter.d.ts"
     }
   },
   "scripts": {
@@ -221,8 +241,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.33.0",
+    "@opentelemetry/api": "^1.9.1",
     "better-sqlite3": "^12.8.0",
     "crypto-js": "^4.2.0",
+    "nodemailer": "^8.0.5",
     "openai": "^4.73.0",
     "pg": "^8.13.0",
     "pgvector": "^0.2.0",
@@ -231,6 +253,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/crypto-js": "^4.2.0",
+    "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.11.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"

@@ -374,3 +374,52 @@ export type {
   SkillChange,
   ComputeTeamHealthOptions,
 } from './intelligence/memory-analytics.js';
+
+// --- Collaboration (Comments, Approvals, Annotations) ---
+export {
+  addComment,
+  getComments,
+  updateComment,
+  deleteComment,
+  getRecentComments,
+  requestApproval,
+  approveDecision,
+  rejectDecision,
+  getPendingApprovals,
+  getApprovalHistory,
+  addAnnotation,
+  getAnnotations,
+  updateAnnotation,
+  deleteAnnotation,
+} from './intelligence/comments.js';
+export type {
+  DecisionComment,
+  AddCommentInput,
+  ApprovalStatus,
+  DecisionApproval,
+  RequestApprovalInput,
+  ApproveInput,
+  RejectInput,
+  TextRange,
+  DecisionAnnotation,
+  AddAnnotationInput,
+} from './intelligence/comments.js';
+
+// --- Digest Delivery (email, Slack, webhook) ---
+export {
+  sendDigestEmail,
+  sendDigestSlack,
+  sendDigestWebhook,
+  deliverDigest,
+  buildSlackBlocks,
+  markdownToSimpleHtml,
+} from './intelligence/digest-delivery.js';
+export type {
+  DeliveryResult,
+  SmtpConfig,
+  EmailDeliveryConfig,
+  SlackDeliveryConfig,
+  WebhookDeliveryConfig,
+  DeliveryConfig,
+  DeliveryDispatchResult,
+} from './intelligence/digest-delivery.js';

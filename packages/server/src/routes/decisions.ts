@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { parseDecision, parseEdge } from '@hipp0/core/db/parsers.js';
+import { withSpan, getMetrics, recordCounter } from '../telemetry.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import type { Decision, DecisionEdge, NotificationType } from '@hipp0/core/types.js';
 import { propagateChange } from '@hipp0/core/change-propagator/index.js';
@@ -75,6 +76,13 @@ export function registerDecisionRoutes(app: Hono): void {
           errors.push({ index: i, error: (err as Error).message });
         }
       }
+      try {
+        const __m = getMetrics();
+        recordCounter(__m.decisionsCreated, results.length, {
+          project_id: projectId,
+          source: 'bulk_import',
+        });
+      } catch { /* ignore */ }
       return c.json({ created: results.length, errors, decisions: results }, 201);
     }
 
@@ -130,6 +138,11 @@ export function registerDecisionRoutes(app: Hono): void {
         : 'permanent'
       : 'permanent';
 
+    return withSpan('decision_create', {
+      project_id: projectId,
+      agent_name: made_by as string,
+      source: (body.source as string) ?? 'manual',
+    }, async () => {
     try {
       const namespaceVal = body.namespace != null ? optionalString(body.namespace, 'namespace', 100) : null;
 
@@ -252,9 +265,21 @@ export function registerDecisionRoutes(app: Hono): void {
         tags: decision.tags,
       });
 
-      checkForContradictions(decision).catch((err) =>
-        console.error('[hipp0] Contradiction check failed:', (err as Error).message),
-      );
+      checkForContradictions(decision)
+        .then((found) => {
+          try {
+            const count = Array.isArray(found) ? found.length : 0;
+            if (count > 0) {
+              const __m = getMetrics();
+              recordCounter(__m.contradictionsDetected, count, {
+                project_id: projectId,
+              });
+            }
+          } catch { /* ignore */ }
+        })
+        .catch((err) =>
+          console.error('[hipp0] Contradiction check failed:', (err as Error).message),
+        );
 
       // Wing recalculation trigger: every 50 decisions
       maybeRecalculateWings(projectId).catch(() => {});
@@ -298,10 +323,20 @@ export function registerDecisionRoutes(app: Hono): void {
         }
       }
 
+      try {
+        const __m = getMetrics();
+        recordCounter(__m.decisionsCreated, 1, {
+          project_id: projectId,
+          agent_name: (made_by as string) ?? 'unknown',
+          source: (body.source as string) ?? 'manual',
+        });
+      } catch { /* ignore */ }
+
       return c.json(decision, 201);
     } catch (err) {
       mapDbError(err);
     }
+    });
   });
 
   app.get('/api/projects/:id/decisions', async (c) => {

@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { compileContext } from '@hipp0/core/context-compiler/index.js';
+import { withSpan, getMetrics, recordCounter, recordHistogram } from '../telemetry.js';
 import { condenseCompileResponse, computeCompressionMetrics, encodeH0C, encodeH0CPatterns, encodeH0CUltra, estimateTokens } from '@hipp0/core';
 import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
@@ -33,6 +34,16 @@ import type { KnowledgeInsight } from '@hipp0/core/intelligence/knowledge-pipeli
 
 export function registerCompileRoutes(app: Hono): void {
   app.post('/api/compile', async (c) => {
+    const __compileStart = Date.now();
+    const __metrics = getMetrics();
+    let __compileFormat: string = 'json';
+    let __compileAgent: string | undefined;
+    let __compileProject: string | undefined;
+    let __compileDecisionsIncluded = 0;
+    let __compileSuccess = true;
+
+    return withSpan('compile_context', undefined, async (__span) => {
+      try {
     const db = getDb();
     const body = await c.req.json<{
       agent_name?: unknown;
@@ -50,6 +61,12 @@ export function registerCompileRoutes(app: Hono): void {
 
     const agent_name = requireString(body.agent_name, 'agent_name', 200);
     const project_id = requireUUID(body.project_id, 'project_id');
+    __compileAgent = agent_name;
+    __compileProject = project_id;
+    try {
+      __span.setAttribute('hipp0.agent_name', agent_name);
+      __span.setAttribute('hipp0.project_id', project_id);
+    } catch { /* ignore */ }
     await requireProjectAccess(c, project_id);
     // Accept both `task` and `task_description` — prefer task_description when both provided
     const rawTaskDescription = body.task_description ?? body.task;
@@ -62,6 +79,8 @@ export function registerCompileRoutes(app: Hono): void {
     const expandedParam = c.req.query('expanded');
     const rawFormat = expandedParam === 'true' ? 'json' : (c.req.query('format') ?? (acceptsJson ? 'json' : 'h0c'));
     const format = rawFormat as 'full' | 'json' | 'condensed' | 'both' | 'h0c' | 'ultra' | 'markdown';
+    __compileFormat = format;
+    try { __span.setAttribute('hipp0.format', format); } catch { /* ignore */ }
       // Depth parameter: default | full (loads L2 background decisions)
     const depthParam = (c.req.query('depth') ?? 'default') as 'default' | 'full';
       // Threshold parameter: override the default minimum relevance score (0.5)
@@ -126,6 +145,11 @@ export function registerCompileRoutes(app: Hono): void {
     };
 
     const result = await compileContext(request);
+    __compileDecisionsIncluded = result.decisions_included ?? 0;
+    try {
+      __span.setAttribute('hipp0.decisions_included', __compileDecisionsIncluded);
+      __span.setAttribute('hipp0.decisions_considered', result.decisions_considered ?? 0);
+    } catch { /* ignore */ }
 
       // Cross-Project Pattern Sharing: when the project has opted in, include
       // the top community patterns so agents can benefit from network effects.
@@ -668,6 +692,22 @@ export function registerCompileRoutes(app: Hono): void {
       ...responsePayload,
       compression_metrics: compressionMetrics,
     });
-
+      } catch (err: unknown) {
+        __compileSuccess = false;
+        throw err;
+      } finally {
+        // Always record metrics — even on error — with low-cardinality dimensions.
+        const __duration = Date.now() - __compileStart;
+        const __dims: Record<string, string | boolean> = {
+          format: __compileFormat,
+          success: __compileSuccess,
+        };
+        if (__compileAgent) __dims.agent_name = __compileAgent;
+        if (__compileProject) __dims.project_id = __compileProject;
+        recordHistogram(__metrics.compileDuration, __duration, __dims);
+        recordHistogram(__metrics.compileDecisionsIncluded, __compileDecisionsIncluded, __dims);
+        recordCounter(__metrics.compileCount, 1, __dims);
+      }
+    });
   });
 }
