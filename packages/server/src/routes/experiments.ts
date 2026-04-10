@@ -17,6 +17,7 @@ import {
 import { requireUUID, requireString } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
 import { safeEmit } from '../events/event-stream.js';
+import { withSpan } from '../telemetry.js';
 
 export function registerExperimentRoutes(app: Hono): void {
   // Create experiment
@@ -106,22 +107,27 @@ export function registerExperimentRoutes(app: Hono): void {
       throw new ValidationError('winner must be one of: a, b, inconclusive');
     }
 
-    try {
-      const experiment = await resolveExperiment(experimentId, winner as 'a' | 'b' | 'inconclusive');
-      if (experiment.project_id !== projectId) {
-        throw new NotFoundError('Experiment', experimentId);
+    return withSpan('experiment_resolve', {
+      project_id: projectId,
+      winner,
+    }, async () => {
+      try {
+        const experiment = await resolveExperiment(experimentId, winner as 'a' | 'b' | 'inconclusive');
+        if (experiment.project_id !== projectId) {
+          throw new NotFoundError('Experiment', experimentId);
+        }
+        safeEmit('experiment.resolved', projectId, {
+          experiment_id: experimentId,
+          winner,
+          name: (experiment as unknown as Record<string, unknown>).name,
+        });
+        return c.json(experiment);
+      } catch (err) {
+        if ((err as Error).message.includes('not found')) {
+          throw new NotFoundError('Experiment', experimentId);
+        }
+        throw err;
       }
-      safeEmit('experiment.resolved', projectId, {
-        experiment_id: experimentId,
-        winner,
-        name: (experiment as unknown as Record<string, unknown>).name,
-      });
-      return c.json(experiment);
-    } catch (err) {
-      if ((err as Error).message.includes('not found')) {
-        throw new NotFoundError('Experiment', experimentId);
-      }
-      throw err;
-    }
+    });
   });
 }

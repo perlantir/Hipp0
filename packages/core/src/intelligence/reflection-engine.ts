@@ -336,6 +336,7 @@ export async function runDailyReflection(
 
   await completeReflectionRun(runId, result as unknown as Record<string, unknown>, durationMs);
   return result;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +349,10 @@ export async function runDailyReflection(
 export async function runWeeklyReflection(
   projectId: string,
 ): Promise<WeeklyReflectionResult> {
+  return withCoreSpan('reflection_run', {
+    project_id: projectId,
+    reflection_type: 'weekly',
+  }, async () => {
   const start = Date.now();
   const runId = await beginReflectionRun(projectId, 'weekly');
   const db = getDb();
@@ -513,6 +518,7 @@ export async function runWeeklyReflection(
 
   await completeReflectionRun(runId, result as unknown as Record<string, unknown>, durationMs);
   return result;
+  });
 }
 
 // ---------------------------------------------------------------------------

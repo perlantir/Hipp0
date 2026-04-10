@@ -32,6 +32,7 @@ import {
   getSchedulerStatus,
   runScheduledReflections,
 } from '../jobs/reflection-scheduler.js';
+import { getMetrics, recordCounter } from '../telemetry.js';
 
 const VALID_REFLECTION_TYPES: ReflectionType[] = ['hourly', 'daily', 'weekly'];
 const VALID_TRACE_TYPES: TraceType[] = [
@@ -84,6 +85,14 @@ export function registerReflectionRoutes(app: Hono): void {
           ? (results as Record<string, unknown>)
           : {},
     });
+
+    try {
+      const __m = getMetrics();
+      recordCounter(__m.reflectionsRun, 1, {
+        project_id: projectId,
+        reflection_type: type,
+      });
+    } catch { /* ignore */ }
 
     return c.json({ type, results }, 200);
   });
