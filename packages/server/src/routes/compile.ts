@@ -14,6 +14,7 @@ import type { CompileRequest } from '@hipp0/core/types.js';
 import { requireUUID, requireString, logAudit } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
 import { broadcast } from '../websocket.js';
+import { safeEmit } from '../events/event-stream.js';
 import { cache, compileKey, CACHE_TTL } from '../cache/redis.js';
 import { getSessionContext } from '@hipp0/core/memory/session-manager.js';
 import { generateRoleSignal, computeRecommendedAction } from '@hipp0/core/intelligence/role-signals.js';
@@ -21,6 +22,12 @@ import type { ActionSignal } from '@hipp0/core/intelligence/role-signals.js';
 import { computeAgentSkillProfile } from '@hipp0/core/intelligence/skill-profiler.js';
 import { generateContrastiveExplanation, generateTopContrastPairs } from '@hipp0/core/intelligence/contrastive-explainer.js';
 import type { ContrastiveExplanation } from '@hipp0/core/intelligence/contrastive-explainer.js';
+import {
+  getRelevantSharedPatterns,
+  isAutoShareEnabled,
+  toSuggestedPattern,
+} from '@hipp0/core/intelligence/cross-project-patterns.js';
+import type { SharedPatternRecord } from '@hipp0/core/intelligence/cross-project-patterns.js';
 import { getInsights } from '@hipp0/core/intelligence/knowledge-pipeline.js';
 import type { KnowledgeInsight } from '@hipp0/core/intelligence/knowledge-pipeline.js';
 
@@ -119,6 +126,53 @@ export function registerCompileRoutes(app: Hono): void {
     };
 
     const result = await compileContext(request);
+
+      // Cross-Project Pattern Sharing: when the project has opted in, include
+      // the top community patterns so agents can benefit from network effects.
+      // Opt-in signal = projects.share_anonymous_patterns OR HIPP0_SHARE_PATTERNS=true.
+      let communityPatterns: Array<Record<string, unknown>> | undefined;
+      if (includePatterns) {
+        try {
+          let optedIn = isAutoShareEnabled();
+          if (!optedIn) {
+            const projRow = await db.query<Record<string, unknown>>(
+              'SELECT share_anonymous_patterns FROM projects WHERE id = ? LIMIT 1',
+              [project_id],
+            );
+            if (projRow.rows.length > 0) {
+              const raw = (projRow.rows[0] as Record<string, unknown>).share_anonymous_patterns;
+              optedIn = raw === true || raw === 1 || raw === '1' || raw === 't';
+            }
+          }
+
+          if (optedIn) {
+            const taskTags = [...new Set((result.decisions ?? []).flatMap((d: any) => d.tags ?? []))] as string[];
+            const relevant: SharedPatternRecord[] = await getRelevantSharedPatterns(
+              project_id,
+              task_description,
+              taskTags,
+            );
+            // Only surface patterns with meaningful social proof or success.
+            const filtered = relevant.filter(
+              (p) => p.adoption_count >= 2 || p.success_rate >= 0.6,
+            );
+            if (filtered.length > 0) {
+              communityPatterns = filtered.slice(0, 3).map((p) => ({
+                ...toSuggestedPattern(p),
+                domain: p.domain,
+                tags: p.tags,
+                adoption_count: p.adoption_count,
+                success_rate: Math.round(p.success_rate * 100) / 100,
+              }));
+            }
+          }
+        } catch (err) {
+          console.warn(
+            '[hipp0:compile] Community pattern lookup failed:',
+            (err as Error).message,
+          );
+        }
+      }
 
       // Server-only concerns: audit + history
     const compileRequestId = crypto.randomUUID();
@@ -235,6 +289,14 @@ export function registerCompileRoutes(app: Hono): void {
       project_id,
       agent_name,
       decisions_included: result.decisions_included,
+    });
+
+    safeEmit('compile.completed', project_id, {
+      compile_request_id: compileRequestId,
+      agent_name,
+      decisions_included: result.decisions_included,
+      total_tokens: (result as unknown as Record<string, unknown>).total_tokens,
+      format,
     });
 
       // Governance: policy overlay
@@ -488,6 +550,9 @@ export function registerCompileRoutes(app: Hono): void {
       ...(debugInfo ? { debug: debugInfo } : {}),
       ...(contrastiveExplanations ? { contrastive_explanations: contrastiveExplanations } : {}),
       ...(teamInsights.length > 0 ? { team_insights: teamInsights } : {}),
+      ...(communityPatterns && communityPatterns.length > 0
+        ? { community_patterns: communityPatterns }
+        : {}),
     };
 
     if (!debugInfo) {

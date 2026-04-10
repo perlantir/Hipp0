@@ -56,10 +56,66 @@ import {
 export class Hipp0Client {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
+  private readonly defaultProjectId?: string;
 
   constructor(opts: Hipp0ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.apiKey = opts.apiKey;
+    this.defaultProjectId = opts.projectId;
+  }
+
+  /** Resolve a project id either from argument or constructor default. */
+  private resolveProjectId(override?: string): string {
+    const id = override ?? this.defaultProjectId;
+    if (!id) {
+      throw new Error(
+        'project_id is required — pass it to this method or set projectId on the client.',
+      );
+    }
+    return id;
+  }
+
+  /**
+   * Convenience wrapper around compileContext that uses the default project id
+   * configured on the client. Returns the raw response so callers can read
+   * formatted_markdown or decisions directly.
+   */
+  compile(input: {
+    agent_name: string;
+    task_description: string;
+    project_id?: string;
+    max_tokens?: number;
+    namespace?: string;
+    format?: 'json' | 'h0c' | 'markdown' | 'condensed' | 'both';
+  }): Promise<ContextPackage> {
+    return this.compileContext({
+      agent_name: input.agent_name,
+      task_description: input.task_description,
+      project_id: this.resolveProjectId(input.project_id),
+      max_tokens: input.max_tokens,
+      namespace: input.namespace,
+      format: input.format ?? 'markdown',
+    });
+  }
+
+  /**
+   * Convenience wrapper around /api/capture for fire-and-forget auto-capture
+   * of conversations or arbitrary content snippets.
+   */
+  capture(input: {
+    agent_name: string;
+    content: string;
+    project_id?: string;
+    session_id?: string;
+    source?: string;
+  }): Promise<CaptureResult> {
+    return this.post<CaptureResult>('/api/capture', {
+      agent_name: input.agent_name,
+      project_id: this.resolveProjectId(input.project_id),
+      content: input.content,
+      session_id: input.session_id,
+      source: input.source ?? 'auto',
+    });
   }
 
   private buildHeaders(extra: Record<string, string> = {}): Record<string, string> {

@@ -13,6 +13,7 @@ import { distill } from '@hipp0/core/distillery/index.js';
 import { dispatchWebhooks } from '@hipp0/core/webhooks/index.js';
 import { runCaptureDedup } from '@hipp0/core/intelligence/capture-dedup.js';
 import { defaultProvenance, computeTrust } from '@hipp0/core/intelligence/trust-scorer.js';
+import { safeEmit } from '../events/event-stream.js';
 
 export function registerCaptureRoutes(app: Hono): void {
     // POST /api/capture — Submit conversation for background extraction
@@ -95,6 +96,13 @@ export function registerCaptureRoutes(app: Hono): void {
     }
 
     logAudit('capture_started', project_id, {
+      capture_id: captureId,
+      agent_name,
+      source,
+      session_id,
+    });
+
+    safeEmit('capture.started', project_id, {
       capture_id: captureId,
       agent_name,
       source,
@@ -253,6 +261,14 @@ async function runCaptureExtraction(
       capture_id: captureId,
       decisions_extracted: decisionIds.length,
       agent_name: agentName,
+    });
+
+    safeEmit('capture.completed', projectId, {
+      capture_id: captureId,
+      decisions_extracted: decisionIds.length,
+      decision_ids: decisionIds,
+      agent_name: agentName,
+      source,
     });
 
     // Dispatch webhook

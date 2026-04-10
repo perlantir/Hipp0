@@ -48,6 +48,7 @@ import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { registerPolicyRoutes } from './routes/policies.js';
 import { registerDigestRoutes } from './routes/digests.js';
 import { registerPatternRoutes } from './routes/patterns.js';
+import { registerSharedPatternRoutes } from './routes/shared-patterns.js';
 import { registerEvolutionRoutes } from './routes/evolution.js';
 import { registerSimulationRoutes } from './routes/simulation.js';
 import { registerSessionRoutes } from './routes/sessions.js';
@@ -62,6 +63,8 @@ import { registerExperimentRoutes } from './routes/experiments.js';
 import { registerReflectionRoutes } from './routes/reflection.js';
 import { registerInsightRoutes } from './routes/insights.js';
 import { registerBranchRoutes } from './routes/branches.js';
+import { registerProcedureRoutes } from './routes/procedures.js';
+import { registerAnalyticsRoutes } from './routes/analytics.js';
 
 import { tierEnforcement } from './middleware/tierEnforcement.js';
 import { getDb } from '@hipp0/core/db/index.js';
@@ -269,6 +272,7 @@ export function createApp() {
   registerPolicyRoutes(app);
   registerDigestRoutes(app);
   registerPatternRoutes(app);
+  registerSharedPatternRoutes(app);
   registerEvolutionRoutes(app);
   registerSimulationRoutes(app);
   registerSessionRoutes(app);
@@ -283,6 +287,8 @@ export function createApp() {
   registerReflectionRoutes(app);
   registerInsightRoutes(app);
   registerBranchRoutes(app);
+  registerProcedureRoutes(app);
+  registerAnalyticsRoutes(app);
 
     // Billing + Stripe webhook
   registerBillingRoutes(app);

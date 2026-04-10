@@ -198,6 +198,18 @@
     "./intelligence/trace-collector.js": {
       "import": "./dist/intelligence/trace-collector.js",
       "types": "./dist/intelligence/trace-collector.d.ts"
+    },
+    "./intelligence/cross-project-patterns.js": {
+      "import": "./dist/intelligence/cross-project-patterns.js",
+      "types": "./dist/intelligence/cross-project-patterns.d.ts"
+    },
+    "./intelligence/memory-analytics.js": {
+      "import": "./dist/intelligence/memory-analytics.js",
+      "types": "./dist/intelligence/memory-analytics.d.ts"
+    },
+    "./intelligence/team-procedures.js": {
+      "import": "./dist/intelligence/team-procedures.js",
+      "types": "./dist/intelligence/team-procedures.d.ts"
     }
   },
   "scripts": {

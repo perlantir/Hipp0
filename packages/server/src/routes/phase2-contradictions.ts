@@ -8,6 +8,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { NotFoundError, ValidationError } from '@hipp0/core/types.js';
 import { requireUUID, optionalString } from './validation.js';
+import { safeEmit } from '../events/event-stream.js';
 
 export function registerPhase2ContradictionRoutes(app: Hono): void {
   // GET /api/projects/:id/intelligence/contradictions — list open contradictions
@@ -107,6 +108,14 @@ export function registerPhase2ContradictionRoutes(app: Hono): void {
         [contradiction.decision_a_id, projectId],
       );
     }
+
+    safeEmit('contradiction.resolved', projectId, {
+      contradiction_id: cid,
+      action,
+      resolved_by: resolvedBy,
+      decision_a_id: contradiction.decision_a_id,
+      decision_b_id: contradiction.decision_b_id,
+    });
 
     return c.json(result.rows[0]);
   });

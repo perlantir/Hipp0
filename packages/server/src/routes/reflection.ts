@@ -27,6 +27,7 @@ import type {
 import type { ReflectionType } from '@hipp0/core/intelligence/reflection-engine.js';
 import { requireUUID, requireString } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { safeEmit } from '../events/event-stream.js';
 
 const VALID_REFLECTION_TYPES: ReflectionType[] = ['hourly', 'daily', 'weekly'];
 const VALID_TRACE_TYPES: TraceType[] = [
@@ -71,6 +72,14 @@ export function registerReflectionRoutes(app: Hono): void {
         results = await runWeeklyReflection(projectId);
         break;
     }
+
+    safeEmit('reflection.completed', projectId, {
+      type,
+      summary:
+        typeof results === 'object' && results !== null
+          ? (results as Record<string, unknown>)
+          : {},
+    });
 
     return c.json({ type, results }, 200);
   });

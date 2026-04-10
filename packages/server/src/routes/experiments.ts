@@ -16,6 +16,7 @@ import {
 } from '@hipp0/core/intelligence/ab-testing.js';
 import { requireUUID, requireString } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { safeEmit } from '../events/event-stream.js';
 
 export function registerExperimentRoutes(app: Hono): void {
   // Create experiment
@@ -43,6 +44,15 @@ export function registerExperimentRoutes(app: Hono): void {
     }
 
     const experiment = await createExperiment(projectId, {
+      name,
+      decision_a_id: decisionAId,
+      decision_b_id: decisionBId,
+      traffic_split: trafficSplit,
+      duration_days: durationDays,
+    });
+
+    safeEmit('experiment.started', projectId, {
+      experiment_id: (experiment as unknown as Record<string, unknown>).id,
       name,
       decision_a_id: decisionAId,
       decision_b_id: decisionBId,
@@ -101,6 +111,11 @@ export function registerExperimentRoutes(app: Hono): void {
       if (experiment.project_id !== projectId) {
         throw new NotFoundError('Experiment', experimentId);
       }
+      safeEmit('experiment.resolved', projectId, {
+        experiment_id: experimentId,
+        winner,
+        name: (experiment as unknown as Record<string, unknown>).name,
+      });
       return c.json(experiment);
     } catch (err) {
       if ((err as Error).message.includes('not found')) {

@@ -244,6 +244,25 @@ export type {
   ExperimentResults,
 } from './intelligence/ab-testing.js';
 
+// --- Cross-Project Pattern Sharing ---
+export {
+  extractSharedPattern,
+  getRelevantSharedPatterns,
+  recordPatternAdoption,
+  getCommunityStats,
+  listSharedPatterns,
+  hashProjectId,
+  toSuggestedPattern,
+  isAutoShareEnabled,
+} from './intelligence/cross-project-patterns.js';
+export type {
+  AdoptionOutcome,
+  SharedPatternInput,
+  SharedPatternRecord,
+  ExtractSharedPatternResult,
+  CommunityStats,
+} from './intelligence/cross-project-patterns.js';
+
 // --- Three-Tier Knowledge Pipeline ---
 export {
   promoteToFacts,
@@ -333,3 +352,25 @@ export type {
   RollbackRisk,
   RollbackResult,
 } from './intelligence/whatif-simulator.js';
+
+// --- Memory Analytics & Weekly Digest ---
+export {
+  computeTeamHealth,
+  generateWeeklyDigest as generateMemoryWeeklyDigest,
+  getMemoryTrends,
+  exportDigestMarkdown,
+} from './intelligence/memory-analytics.js';
+export type {
+  TeamHealth,
+  WeeklyDigest as MemoryWeeklyDigest,
+  MemoryTrends,
+  DailyCount,
+  DailyOutcomeCount,
+  DailyContradictionCount,
+  TopAgent,
+  WeakestDomain,
+  TopDecisionRef,
+  EmergingPattern,
+  SkillChange,
+  ComputeTeamHealthOptions,
+} from './intelligence/memory-analytics.js';

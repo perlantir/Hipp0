@@ -9,6 +9,7 @@ import {
 } from '@hipp0/core/relevance-learner/index.js';
 import { processWingOutcome } from '@hipp0/core';
 import { invalidateDecisionCaches } from '../cache/redis.js';
+import { safeEmit } from '../events/event-stream.js';
 
 // ---------------------------------------------------------------------------
 // Alignment analysis (keyword-based v1)
@@ -166,6 +167,13 @@ export function registerOutcomeRoutes(app: Hono): void {
             outcome_score: (body as any).outcome_score ?? 0.5,
             notes: body.error_message ?? undefined,
           });
+          safeEmit('outcome.recorded', projectId, {
+            outcome_id: outcome.id,
+            decision_id: decisionId,
+            agent_id: body.agent_id ? String(body.agent_id) : null,
+            outcome_type: (body as any).outcome_type ?? (body.task_completed ? 'success' : 'unknown'),
+            outcome_score: (body as any).outcome_score ?? 0.5,
+          });
           return c.json({ id: outcome.id, status: 'recorded_to_decision_outcomes' }, 201);
         } catch (err) {
           return c.json({ error: { code: 'INTERNAL_ERROR', message: (err as Error).message } }, 500);
@@ -285,6 +293,13 @@ export function registerOutcomeRoutes(app: Hono): void {
     if (taskCompleted) {
       processWingOutcome(agentId, compileRequestId)
         .then(() => invalidateDecisionCaches(projectId))
+        .then(() => {
+          safeEmit('skill.updated', projectId, {
+            agent_id: agentId,
+            trigger: 'wing_outcome',
+            compile_request_id: compileRequestId,
+          });
+        })
         .catch(() => {});
     }
 
@@ -305,6 +320,18 @@ export function registerOutcomeRoutes(app: Hono): void {
         .then(() => invalidateDecisionCaches(projectId))
         .catch(() => {});
     }
+
+    safeEmit('outcome.recorded', projectId, {
+      outcome_id: outcomeId,
+      compile_request_id: compileRequestId,
+      agent_id: agentId,
+      task_completed: taskCompleted,
+      alignment_score: alignment.alignment_score,
+      decisions_compiled: totalDecisions,
+      decisions_referenced: alignment.decisions_referenced,
+      decisions_ignored: alignment.decisions_ignored,
+      decisions_attributed: decisionsAttributed,
+    });
 
     return c.json({
       id: outcomeId,

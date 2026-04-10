@@ -1,6 +1,8 @@
 export { Hipp0Client } from './client.js';
 export { Hipp0 } from './facade.js';
 export type { Hipp0Config, CompileOptions, AddDecisionOptions, SearchOptions } from './facade.js';
+export { auto, autoDisable } from './auto.js';
+export type { AutoOptions } from './auto.js';
 
 export type {
   // Client options

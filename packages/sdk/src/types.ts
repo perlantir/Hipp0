@@ -588,6 +588,8 @@ export interface AcceptSuggestionResult {
 export interface Hipp0ClientOptions {
   baseUrl: string;
   apiKey?: string;
+  /** Default project id for auto-instrumentation / convenience methods. */
+  projectId?: string;
 }
 
 export interface Hipp0Error {
