@@ -204,11 +204,8 @@ type View =
 type NavGroup =
   | 'memory'
   | 'intelligence'
-  | 'experiments'
-  | 'analytics'
-  | 'governance'
-  | 'integrations'
-  | 'monitoring';
+  | 'operations'
+  | 'labs';
 
 interface NavItem {
   id: View;
@@ -355,11 +352,8 @@ function ThemeToggle() {
 const GROUP_ORDER: Array<{ key: NavGroup; label: string }> = [
   { key: 'memory', label: 'Memory' },
   { key: 'intelligence', label: 'Intelligence' },
-  { key: 'experiments', label: 'Experiments' },
-  { key: 'analytics', label: 'Analytics' },
-  { key: 'governance', label: 'Governance' },
-  { key: 'integrations', label: 'Integrations' },
-  { key: 'monitoring', label: 'Monitoring' },
+  { key: 'operations', label: 'Operations' },
+  { key: 'labs', label: 'Labs' },
 ];
 
 function SidebarContent({
@@ -463,71 +457,67 @@ export default function App() {
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  // Build nav items — 6 clean categories
+  // Labs group is gated: users who want to see every experimental / niche
+  // view can opt in via localStorage.setItem('hipp0_labs', 'true'). Default
+  // off so first-time users see a focused 13-item sidebar.
+  const labsEnabled = typeof window !== 'undefined'
+    && window.localStorage?.getItem('hipp0_labs') === 'true';
+
+  // Build nav items — 3 focused groups + optional Labs
   const navItems: NavItem[] = [
-    // ---- Memory ----------------------------------------------------
-    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'memory' },
+    // ---- Memory — what the team knows ------------------------------
     { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'memory' },
     { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'memory' },
-    { id: 'sessions', label: 'Sessions', icon: <History size={18} />, group: 'memory' },
-    { id: 'captures', label: 'Captures', icon: <Camera size={18} />, group: 'memory' },
-    { id: 'import', label: 'Import', icon: <Upload size={18} />, group: 'memory' },
-    { id: 'import-wizard', label: 'Import Wizard', icon: <Wand2 size={18} />, group: 'memory' },
     { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'memory' },
-    { id: 'traces', label: 'Traces', icon: <Waypoints size={18} />, group: 'memory' },
+    { id: 'context', label: 'Context Compare', icon: <Columns2 size={18} />, group: 'memory' },
 
-    // ---- Intelligence ----------------------------------------------
-    { id: 'agent-skills', label: 'Agent Skills', icon: <Sparkles size={18} />, group: 'intelligence' },
-    { id: 'insights', label: 'Knowledge Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
-    { id: 'procedures', label: 'Team Procedures', icon: <ClipboardList size={18} />, group: 'intelligence' },
+    // ---- Intelligence — what the memory reveals --------------------
     { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'intelligence' },
-    { id: 'evolution', label: 'Evolution', icon: <Zap size={18} />, group: 'intelligence' },
-    { id: 'community-insights', label: 'Community Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
-    { id: 'shared-patterns', label: 'Shared Patterns', icon: <Share2 size={18} />, group: 'intelligence' },
-    { id: 'context', label: 'Context Compare', icon: <Columns2 size={18} />, group: 'intelligence' },
+    { id: 'insights', label: 'Knowledge Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
+    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'intelligence' },
+    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'intelligence' },
 
-    // ---- Experiments ----------------------------------------------
-    { id: 'experiments', label: 'A/B Experiments', icon: <FlaskConical size={18} />, group: 'experiments' },
-    { id: 'impact-prediction', label: 'Impact Prediction', icon: <Gauge size={18} />, group: 'experiments' },
-    { id: 'whatif', label: 'What-If Simulator', icon: <Zap size={18} />, group: 'experiments' },
-    { id: 'branches', label: 'Knowledge Branches', icon: <GitBranch size={18} />, group: 'experiments' },
-    { id: 'impact', label: 'Impact Analysis', icon: <Zap size={18} />, group: 'experiments' },
-    { id: 'compile-tester', label: 'Compile Tester', icon: <ClipboardCheck size={18} />, group: 'experiments' },
+    // ---- Operations — how the team runs ----------------------------
+    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'operations' },
+    { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'operations' },
+    { id: 'import-wizard', label: 'Import', icon: <Upload size={18} />, group: 'operations' },
+    { id: 'live-events', label: 'Live Events', icon: <Radio size={18} />, group: 'operations' },
+    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'operations' },
 
-    // ---- Analytics ------------------------------------------------
-    { id: 'team-health', label: 'Team Health', icon: <HeartPulse size={18} />, group: 'analytics' },
-    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'analytics' },
-    { id: 'trends', label: 'Trends', icon: <TrendingUp size={18} />, group: 'analytics' },
-    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'analytics' },
-    { id: 'live-events', label: 'Live Events', icon: <Radio size={18} />, group: 'analytics' },
-    { id: 'live-tasks', label: 'Live Sessions', icon: <Activity size={18} />, group: 'analytics' },
-    { id: 'token-usage', label: 'Token Usage', icon: <BarChart3 size={18} />, group: 'analytics' },
-    { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'analytics' },
-
-    // ---- Governance ------------------------------------------------
-    { id: 'review-queue', label: 'Review Queue', icon: <ClipboardList size={18} />, badge: reviewCount, group: 'governance' },
-    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'governance' },
-    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'governance' },
-    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'governance' },
-    { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'governance' },
-
-    // ---- Integrations ---------------------------------------------
-    { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'integrations' },
-    { id: 'webhooks', label: 'Webhooks', icon: <Radio size={18} />, group: 'integrations' },
-    { id: 'team-score', label: 'Team Score', icon: <Users size={18} />, group: 'integrations' },
-    { id: 'wings', label: 'Wings', icon: <Users size={18} />, group: 'integrations' },
-    { id: 'collab-room', label: 'Collab Room', icon: <Radio size={18} />, group: 'integrations' },
-    { id: 'timetravel', label: 'Time Travel', icon: <Clock size={18} />, group: 'integrations' },
-
-    // ---- Monitoring ------------------------------------------------
-    { id: 'notifications', label: 'Alerts', icon: <Bell size={18} />, group: 'monitoring' },
-    { id: 'stats', label: 'Health', icon: <BarChart3 size={18} />, group: 'monitoring' },
-    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'monitoring' },
-    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'monitoring' },
-    { id: 'policies', label: 'Policies', icon: <ClipboardCheck size={18} />, group: 'monitoring' },
-    { id: 'violations', label: 'Violations', icon: <AlertTriangle size={18} />, group: 'monitoring' },
-
-    // Pricing and Billing removed — not needed for open source
+    // ---- Labs — experimental + niche, gated behind localStorage ----
+    //      enable with: localStorage.setItem('hipp0_labs', 'true')
+    ...(labsEnabled ? [
+      { id: 'agent-skills' as View,       label: 'Agent Skills',        icon: <Sparkles size={18} />,      group: 'labs' as NavGroup },
+      { id: 'procedures' as View,         label: 'Team Procedures',     icon: <ClipboardList size={18} />, group: 'labs' as NavGroup },
+      { id: 'evolution' as View,          label: 'Evolution',           icon: <Zap size={18} />,           group: 'labs' as NavGroup },
+      { id: 'community-insights' as View, label: 'Community Insights',  icon: <Lightbulb size={18} />,     group: 'labs' as NavGroup },
+      { id: 'shared-patterns' as View,    label: 'Shared Patterns',     icon: <Share2 size={18} />,        group: 'labs' as NavGroup },
+      { id: 'wings' as View,              label: 'Wings',               icon: <Users size={18} />,         group: 'labs' as NavGroup },
+      { id: 'team-score' as View,         label: 'Team Score',          icon: <Users size={18} />,         group: 'labs' as NavGroup },
+      { id: 'team-health' as View,        label: 'Team Health',         icon: <HeartPulse size={18} />,    group: 'labs' as NavGroup },
+      { id: 'experiments' as View,        label: 'A/B Experiments',     icon: <FlaskConical size={18} />,  group: 'labs' as NavGroup },
+      { id: 'whatif' as View,             label: 'What-If Simulator',   icon: <Zap size={18} />,           group: 'labs' as NavGroup },
+      { id: 'branches' as View,           label: 'Knowledge Branches',  icon: <GitBranch size={18} />,     group: 'labs' as NavGroup },
+      { id: 'impact-prediction' as View,  label: 'Impact Prediction',   icon: <Gauge size={18} />,         group: 'labs' as NavGroup },
+      { id: 'impact' as View,             label: 'Impact Analysis',     icon: <Zap size={18} />,           group: 'labs' as NavGroup },
+      { id: 'traces' as View,             label: 'Traces',              icon: <Waypoints size={18} />,     group: 'labs' as NavGroup },
+      { id: 'timetravel' as View,         label: 'Time Travel',         icon: <Clock size={18} />,         group: 'labs' as NavGroup },
+      { id: 'trends' as View,             label: 'Trends',              icon: <TrendingUp size={18} />,    group: 'labs' as NavGroup },
+      { id: 'token-usage' as View,        label: 'Token Usage',         icon: <BarChart3 size={18} />,     group: 'labs' as NavGroup },
+      { id: 'stats' as View,              label: 'Health',              icon: <BarChart3 size={18} />,     group: 'labs' as NavGroup },
+      { id: 'live-tasks' as View,         label: 'Live Sessions',       icon: <Activity size={18} />,      group: 'labs' as NavGroup },
+      { id: 'sessions' as View,           label: 'Sessions',            icon: <History size={18} />,       group: 'labs' as NavGroup },
+      { id: 'captures' as View,           label: 'Captures',            icon: <Camera size={18} />,        group: 'labs' as NavGroup },
+      { id: 'compile-tester' as View,     label: 'Compile Tester',      icon: <ClipboardCheck size={18} />,group: 'labs' as NavGroup },
+      { id: 'webhooks' as View,           label: 'Webhooks',            icon: <Radio size={18} />,         group: 'labs' as NavGroup },
+      { id: 'collab-room' as View,        label: 'Collab Room',         icon: <Radio size={18} />,         group: 'labs' as NavGroup },
+      // Governance — enterprise pattern, surfaces in Labs until a paid tier exists
+      { id: 'review-queue' as View,       label: 'Review Queue',        icon: <ClipboardList size={18} />, badge: reviewCount, group: 'labs' as NavGroup },
+      { id: 'policies' as View,           label: 'Policies',            icon: <ClipboardCheck size={18} />,group: 'labs' as NavGroup },
+      { id: 'violations' as View,         label: 'Violations',          icon: <AlertTriangle size={18} />, group: 'labs' as NavGroup },
+      { id: 'notifications' as View,      label: 'Alerts',              icon: <Bell size={18} />,          group: 'labs' as NavGroup },
+      { id: 'import' as View,             label: 'Import (legacy)',     icon: <Upload size={18} />,        group: 'labs' as NavGroup },
+    ] : []),
   ];
 
   // Command palette items
