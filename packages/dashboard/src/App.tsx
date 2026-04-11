@@ -106,6 +106,7 @@ import { ToastProvider } from './components/Toast';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { OutcomeHistory } from './components/OutcomeHistory';
 import { HermesAgents } from './components/HermesAgents';
+import { HermesSetup } from './components/HermesSetup';
 import { Pulse } from './components/Pulse';
 
 import { EvolutionProposals } from './components/EvolutionProposals';
@@ -160,6 +161,7 @@ type View =
   | 'pulse'
   | 'graph'
   | 'hermes-agents'
+  | 'hermes-setup'
   | 'timeline'
   | 'contradictions'
   | 'context'
@@ -228,7 +230,7 @@ function isPlaygroundRoute(): boolean {
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
   const all: View[] = [
-    'pulse','graph','hermes-agents','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes',
+    'pulse','graph','hermes-agents','hermes-setup','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes',
     'import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing',
     'playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score',
     'import-wizard','collab-room','wings',
@@ -255,6 +257,7 @@ function ViewContent({ view }: { view: View }) {
     case 'pulse': return <Pulse />;
     case 'graph': return <DecisionGraph />;
     case 'hermes-agents': return <HermesAgents />;
+    case 'hermes-setup': return <HermesSetup />;
     case 'timeline': return <Timeline />;
     case 'contradictions': return <Contradictions />;
     case 'context': return <ContextComparison />;
@@ -480,6 +483,7 @@ export default function App() {
     { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'intelligence' },
 
     // ---- Operations — how the team runs ----------------------------
+    { id: 'hermes-setup', label: 'Hermes Setup', icon: <Settings size={18} />, group: 'operations' },
     { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'operations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'operations' },
     { id: 'import-wizard', label: 'Import', icon: <Upload size={18} />, group: 'operations' },
