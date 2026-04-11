@@ -83,6 +83,24 @@ export async function bootstrapApiKeys(): Promise<void> {
     );
 
     const masked = key.slice(0, 16) + '...';
-    console.warn(`[hipp0] API key generated for project "${projectName}": ${masked} (retrieve via GET /api/api-keys)`);
+    console.warn(`[hipp0] API key generated for project "${projectName}": ${masked}`);
+
+    // One-shot full-key emission for deploy / capture flows. The plaintext
+    // is only ever held in memory once — only its SHA-256 hash hits the
+    // database — so this is the *only* opportunity to record the key.
+    // Tagged so deploy scripts can grep journalctl reliably:
+    //
+    //   journalctl -u hipp0 | grep -oP '\[hipp0:BOOTSTRAP_API_KEY\].*' \
+    //     | tail -1
+    //
+    // This line only fires when bootstrap actually generates a key (i.e.
+    // the project had zero active keys), so it is one-shot per project.
+    // The journal is root + systemd-journal readable, not world-readable;
+    // the deploy script captures it to /etc/team-hippo/api-key.txt (mode
+    // 600) immediately after first boot. Subsequent boots skip this
+    // function entirely because the project now has an active key.
+    console.warn(
+      `[hipp0:BOOTSTRAP_API_KEY] project_id=${projectId} project_name="${projectName}" key=${key}`,
+    );
   }
 }

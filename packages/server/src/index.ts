@@ -115,15 +115,20 @@ async function main() {
     }
   } catch { /* table may not exist yet */ }
 
-    // Bootstrap API keys for keyless projects
-  await bootstrapApiKeys();
-
-    // Seed demo project for public playground
+    // Seed demo project for public playground.
+    // MUST run before bootstrapApiKeys so the demo project (created on
+    // first boot) gets an API key emitted to the journal in the same
+    // bootstrap cycle. Otherwise the demo project would only get a key
+    // on the *second* boot, breaking single-shot deploy capture flows.
   try {
     await seedDemoProject();
   } catch (err) {
     console.warn('[hipp0] Demo seed failed (non-fatal):', (err as Error).message);
   }
+
+    // Bootstrap API keys for keyless projects (runs after seed-demo so
+    // the just-seeded project gets a key on its very first boot).
+  await bootstrapApiKeys();
 
   logLLMConfig(resolveLLMConfig());
 

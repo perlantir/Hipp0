@@ -52,7 +52,14 @@ export function registerProjectRoutes(app: Hono): void {
         apiKey = key;
 
         const masked = key.slice(0, 16) + '...';
-        console.warn(`[hipp0] API key generated for project "${name}": ${masked} (retrieve via GET /api/api-keys)`);
+        console.warn(`[hipp0] API key generated for project "${name}": ${masked}`);
+        // Tagged full-key emission for audit + deploy capture parity with
+        // bootstrap-keys.ts. The HTTP response already returns the key to
+        // the caller, so this is purely for journal-grep flows; the line
+        // shape matches BOOTSTRAP_API_KEY for the deploy script's regex.
+        console.warn(
+          `[hipp0:BOOTSTRAP_API_KEY] project_id=${project.id} project_name="${name}" key=${key}`,
+        );
       } catch {
         // api_keys table may not exist yet — project still created successfully
       }
