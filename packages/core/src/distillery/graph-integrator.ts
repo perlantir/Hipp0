@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { ExtractedDecision, Decision, NotificationType } from '../types.js';
 import { getDb } from '../db/index.js';
 import { parseDecision } from '../db/parsers.js';
@@ -78,22 +79,33 @@ export async function integrateDecisions(
         confidence: ext.confidence,
       });
 
+      // Always client-generate the decision id. Postgres used to rely on
+      // ``uuid_generate_v4()`` / ``gen_random_uuid()`` defaults on
+      // decisions.id, but the SQLite schema (migration 001) declares
+      // ``id TEXT NOT NULL PRIMARY KEY`` with no default, so INSERTs that
+      // omit the column fail with ``NOT NULL constraint failed:
+      // decisions.id``. Providing the id from JS works on both dialects
+      // (Postgres's default only fires when the column is missing from
+      // the INSERT list), so we share a single code path.
+      const decisionId = crypto.randomUUID();
+
       const decision = await db.transaction(async (txQuery) => {
         const insertResult = await txQuery(
           `INSERT INTO decisions
-             (project_id, title, description, reasoning, made_by, source,
+             (id, project_id, title, description, reasoning, made_by, source,
               source_session_id, confidence, status, supersedes_id,
               alternatives_considered, affects, tags, assumptions,
               open_questions, dependencies, confidence_decay_rate, metadata,
               embedding, review_status, domain, category, priority_level)
            VALUES
-             (?, ?, ?, ?, ?, 'auto_distilled',
+             (?, ?, ?, ?, ?, ?, 'auto_distilled',
               ?, ?, ?, ?,
               ?, ?, ?, ?,
               ?, ?, 0, '{}',
               ?, ?, ?, ?, ?)
            RETURNING *`,
           [
+            decisionId,
             projectId,
             ext.title,
             ext.description,

@@ -72,9 +72,31 @@ export const INJECTION_GUARD =
  * This is the low-level primitive; most callers should use `callLLM()` which
  * returns just the text for backward compatibility.
  */
+export interface CallLLMOptions {
+  /**
+   * Optional strict-JSON hint. When set, we append a terse trailing
+   * instruction to the user message telling the model to respond with
+   * only a JSON array (``[``) or object (``{``) — no prose, no markdown
+   * fences, no prefix, no suffix. Without this hint, Claude tends to
+   * respond conversationally to extraction and summarisation prompts,
+   * which the caller's JSON parser can't recover from.
+   *
+   * Claude Opus 4.6 (and other modern Claude models) reject the
+   * assistant-prefill shortcut with a 400 — "This model does not
+   * support assistant message prefill" — so we inline the hint at the
+   * end of the user message instead, which is universally supported
+   * across every model the distillery is likely to see.
+   *
+   * Ignored on OpenAI-compatible paths (they emit JSON reliably without
+   * needing the hint).
+   */
+  jsonShape?: '[' | '{';
+}
+
 export async function callLLMWithUsage(
   systemPrompt: string,
   userMessage: string,
+  options: CallLLMOptions = {},
 ): Promise<LLMCallResult> {
   const endpoint = resolveLLMConfig().distillery;
 
@@ -100,6 +122,18 @@ export async function callLLMWithUsage(
   const isAnthropic = endpoint.url === '__anthropic_sdk__';
   const breaker = isAnthropic ? distilleryBreakerAnthropic : distilleryBreakerOpenAI;
 
+  // Build an effective user message. When the caller asks for a strict
+  // JSON shape, append an instruction at the end so Claude doesn't drift
+  // into prose. OpenAI-compatible providers also benefit from this for
+  // stability but don't require it.
+  const jsonInstruction =
+    options.jsonShape === '['
+      ? '\n\n---\n\nRespond with ONLY a JSON array. Your entire response must start with `[` and end with `]`. No prose, no markdown code fences, no explanation before or after. If there are no items, respond with `[]`.'
+      : options.jsonShape === '{'
+        ? '\n\n---\n\nRespond with ONLY a JSON object. Your entire response must start with `{` and end with `}`. No prose, no markdown code fences, no explanation before or after.'
+        : '';
+  const effectiveUserMessage = userMessage + jsonInstruction;
+
   const doCall = async (): Promise<LLMCallResult> => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
@@ -115,7 +149,7 @@ export async function callLLMWithUsage(
             model: endpoint.model,
             max_tokens: 4096,
             system: systemPrompt,
-            messages: [{ role: 'user', content: userMessage }],
+            messages: [{ role: 'user', content: effectiveUserMessage }],
           },
           { signal: controller.signal },
         );
@@ -125,7 +159,7 @@ export async function callLLMWithUsage(
         const usage = response.usage as { input_tokens?: number; output_tokens?: number } | undefined;
         return {
           text,
-          input_tokens: usage?.input_tokens ?? estimateTokens(systemPrompt + userMessage),
+          input_tokens: usage?.input_tokens ?? estimateTokens(systemPrompt + effectiveUserMessage),
           output_tokens: usage?.output_tokens ?? estimateTokens(text),
           provider: 'anthropic',
           model: endpoint.model,
@@ -139,7 +173,7 @@ export async function callLLMWithUsage(
           model: endpoint.model,
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
+            { role: 'user', content: effectiveUserMessage },
           ],
           max_tokens: 4096,
         },
@@ -157,7 +191,7 @@ export async function callLLMWithUsage(
           : endpoint.provider;
       return {
         text,
-        input_tokens: usage?.prompt_tokens ?? estimateTokens(systemPrompt + userMessage),
+        input_tokens: usage?.prompt_tokens ?? estimateTokens(systemPrompt + effectiveUserMessage),
         output_tokens: usage?.completion_tokens ?? estimateTokens(text),
         provider: normalizedProvider,
         model: endpoint.model,
@@ -210,8 +244,12 @@ export async function callLLMWithUsage(
  * Backward-compatible wrapper: returns just the text. New code should prefer
  * `callLLMWithUsage()` so it can record cost information.
  */
-export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
-  const result = await callLLMWithUsage(systemPrompt, userMessage);
+export async function callLLM(
+  systemPrompt: string,
+  userMessage: string,
+  options: CallLLMOptions = {},
+): Promise<string> {
+  const result = await callLLMWithUsage(systemPrompt, userMessage, options);
   return result.text;
 }
 
@@ -363,7 +401,11 @@ export async function extractDecisions(
 
   let rawResponse: string;
   try {
-    const result = await callLLMWithUsage(EXTRACTION_SYSTEM_PROMPT, INJECTION_GUARD + safeText);
+    const result = await callLLMWithUsage(
+      EXTRACTION_SYSTEM_PROMPT,
+      INJECTION_GUARD + safeText,
+      { jsonShape: '[' },
+    );
     rawResponse = result.text;
 
     // Record cost after the call succeeds. Best-effort; never let a
@@ -385,7 +427,10 @@ export async function extractDecisions(
       }
     }
   } catch (err) {
-    console.error('[hipp0:distillery] extractDecisions LLM call failed');
+    console.error(
+      '[hipp0:distillery] extractDecisions LLM call failed:',
+      (err as Error).message ?? err,
+    );
     return [];
   }
 
@@ -394,6 +439,13 @@ export async function extractDecisions(
     console.warn(
       '[hipp0:distillery] extractDecisions: LLM returned non-array JSON; treating as empty.',
     );
+    // Log a truncated preview of the raw response. Without this the
+    // circuit-breaker + silent-empty fallback makes it very hard to
+    // tell a benign "no decisions here" from a contract bug in the LLM
+    // adapter (see H6 Tier 3 diagnostics, April 2026, which discovered
+    // Claude 4.6 rejecting assistant prefill because of this warning).
+    const preview = (rawResponse ?? '').slice(0, 500).replace(/\s+/g, ' ');
+    console.warn(`[hipp0:distillery]   raw response preview: ${preview}`);
     return [];
   }
 

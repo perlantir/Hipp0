@@ -54,7 +54,15 @@ export async function createSessionSummary(
   };
 
   try {
-    const rawResponse = await callLLM(SESSION_SUMMARY_SYSTEM_PROMPT, INJECTION_GUARD + userMessage);
+    // Summarizer expects a JSON object; the ``jsonShape: '{'`` option
+    // appends a strict-JSON hint to the user message so Claude stays
+    // structured instead of drifting into prose (see callLLMWithUsage
+    // for the rationale; modern Claude models reject assistant prefill).
+    const rawResponse = await callLLM(
+      SESSION_SUMMARY_SYSTEM_PROMPT,
+      INJECTION_GUARD + userMessage,
+      { jsonShape: '{' },
+    );
     const parsed = parseJsonSafe<LLMSessionSummary>(rawResponse);
 
     if (
@@ -119,13 +127,23 @@ export async function createSessionSummary(
   const model = getModelIdentifier();
 
   try {
+    // Always client-generate the id. Postgres used to rely on
+    // ``uuid_generate_v4()`` defaults on session_summaries.id, but the
+    // SQLite schema
+    // (``packages/core/src/db/migrations/sqlite/001_initial_schema.sql``)
+    // declares ``id TEXT NOT NULL PRIMARY KEY`` with no default, so
+    // INSERTs that omit the column fail with ``NOT NULL constraint
+    // failed: session_summaries.id``. Providing the id from JS works on
+    // both dialects (Postgres's default only fires when the column is
+    // missing from the INSERT list), so we share a single code path.
+    const summaryId = crypto.randomUUID();
     const baseColumns =
-      'project_id, agent_name, session_date, topic, summary, ' +
+      'id, project_id, agent_name, session_date, topic, summary, ' +
       'decision_ids, artifact_ids, assumptions, open_questions, ' +
       'lessons_learned, raw_conversation_hash, extraction_model, ' +
       'extraction_confidence';
     const basePlaceholders =
-      '?, ?, CURRENT_DATE, ?, ?, ' +
+      '?, ?, ?, CURRENT_DATE, ?, ?, ' +
       "?, '{}', ?, ?, " +
       '?, ?, ?, ' +
       '?';
@@ -134,6 +152,7 @@ export async function createSessionSummary(
       : `INSERT INTO session_summaries (${baseColumns}, embedding) VALUES (${basePlaceholders}, ?) RETURNING *`;
 
     const params: unknown[] = [
+      summaryId,
       projectId,
       agentName,
       topic,
