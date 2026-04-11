@@ -105,6 +105,7 @@ import { MonitoringCards } from './components/MonitoringCards';
 import { ToastProvider } from './components/Toast';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { OutcomeHistory } from './components/OutcomeHistory';
+import { HermesAgents } from './components/HermesAgents';
 
 import { EvolutionProposals } from './components/EvolutionProposals';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
@@ -156,6 +157,7 @@ export function useProject() {
 
 type View =
   | 'graph'
+  | 'hermes-agents'
   | 'timeline'
   | 'contradictions'
   | 'context'
@@ -224,7 +226,7 @@ function isPlaygroundRoute(): boolean {
 function getViewFromHash(): View {
   const hash = window.location.hash.replace('#', '') as View;
   const all: View[] = [
-    'graph','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes',
+    'graph','hermes-agents','timeline','contradictions','context','search','impact','sessions','notifications','stats','outcomes',
     'import','connectors','webhooks','timetravel','compile-tester','ask-anything','token-usage','pricing','billing',
     'playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score',
     'import-wizard','collab-room','wings',
@@ -249,6 +251,7 @@ function PlaygroundWrapper() {
 function ViewContent({ view }: { view: View }) {
   switch (view) {
     case 'graph': return <DecisionGraph />;
+    case 'hermes-agents': return <HermesAgents />;
     case 'timeline': return <Timeline />;
     case 'contradictions': return <Contradictions />;
     case 'context': return <ContextComparison />;
@@ -460,6 +463,7 @@ export default function App() {
   // Build nav items — 3 focused groups + optional Labs
   const navItems: NavItem[] = [
     // ---- Memory — what the team knows ------------------------------
+    { id: 'hermes-agents', label: 'Agents', icon: <Users size={18} />, group: 'memory' },
     { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'memory' },
     { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'memory' },
     { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'memory' },
