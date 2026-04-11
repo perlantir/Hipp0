@@ -807,3 +807,106 @@ describe('GET /api/hermes/user-facts', () => {
     expect(res.headers.get('ETag')).toBe('v-abc-123');
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/hermes/outcomes
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/outcomes', () => {
+  const SNIP_A = '11111111-1111-4111-8111-111111111111';
+  const SNIP_B = '22222222-2222-4222-8222-222222222222';
+
+  it('records a positive outcome and returns 201 with id + timestamp', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // INSERT hermes_outcomes
+
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      session_id: SESSION_ID,
+      outcome: 'positive',
+      snippet_ids: [SNIP_A, SNIP_B],
+      signal_source: 'telegram_reaction',
+      note: '👍 reaction on last turn',
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { outcome_id: string; recorded_at: string };
+    expect(body.outcome_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.recorded_at).toBeTruthy();
+
+    // Verify the INSERT was called with the JSON-serialized snippet list
+    // and the expected column order.
+    const insertCall = mockQuery.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('INSERT INTO hermes_outcomes'),
+    );
+    expect(insertCall).toBeDefined();
+    const params = insertCall![1] as unknown[];
+    expect(params[1]).toBe(PROJECT_ID);
+    expect(params[2]).toBe(SESSION_ID);
+    expect(params[3]).toBe('positive');
+    expect(params[4]).toBe(JSON.stringify([SNIP_A, SNIP_B]));
+    expect(params[5]).toBe('telegram_reaction');
+    expect(params[6]).toBe('👍 reaction on last turn');
+  });
+
+  it('accepts an empty snippet_ids array', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // INSERT
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      session_id: SESSION_ID,
+      outcome: 'neutral',
+      snippet_ids: [],
+      signal_source: 'auto_detect',
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects a missing session_id with 500 (validation error bubbles)', async () => {
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      outcome: 'positive',
+      snippet_ids: [SNIP_A],
+      signal_source: 'telegram_reaction',
+    });
+    // requireUUID throws → app.onError wraps as 500 with the error shape
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it('rejects an invalid outcome enum with 400', async () => {
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      session_id: SESSION_ID,
+      outcome: 'maybe',
+      snippet_ids: [SNIP_A],
+      signal_source: 'telegram_reaction',
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toContain('outcome must be one of');
+  });
+
+  it('rejects a non-array snippet_ids with 400', async () => {
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      session_id: SESSION_ID,
+      outcome: 'positive',
+      snippet_ids: 'not-an-array',
+      signal_source: 'telegram_reaction',
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toContain('snippet_ids must be an array');
+  });
+
+  it('rejects a non-UUID snippet_ids entry', async () => {
+    const res = await request(app, 'POST', '/api/hermes/outcomes', {
+      project_id: PROJECT_ID,
+      session_id: SESSION_ID,
+      outcome: 'positive',
+      snippet_ids: ['not-a-uuid'],
+      signal_source: 'telegram_reaction',
+    });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});

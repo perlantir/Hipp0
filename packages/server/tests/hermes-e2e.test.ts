@@ -385,4 +385,61 @@ describe('Hermes E2E (real SQLite, real HTTP round-trip)', () => {
     expect(r.key).toBe('preferred_contact');
     expect(r.value).toBe('email');
   });
+
+  // ---------------------------------------------------------------------
+  // /api/hermes/outcomes (added in response to HIPP0_REQUESTS.md §6)
+  // ---------------------------------------------------------------------
+  //
+  // Snippet-level reinforcement signal. Written against the same session
+  // that was closed in step 11 — session_id is opaque on this endpoint.
+
+  it('16. POST /api/hermes/outcomes records a positive reinforcement signal', async () => {
+    const SNIP_A = '11111111-1111-4111-8111-11111111aaaa';
+    const SNIP_B = '22222222-2222-4222-8222-22222222bbbb';
+    const res = await req('POST', '/api/hermes/outcomes', {
+      project_id: projectId,
+      session_id: sessionId,
+      outcome: 'positive',
+      snippet_ids: [SNIP_A, SNIP_B],
+      signal_source: 'telegram_reaction',
+      note: 'user 👍',
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { outcome_id: string; recorded_at: string };
+    expect(body.outcome_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.recorded_at).toBeTruthy();
+  });
+
+  it('17. POST /api/hermes/outcomes rejects an invalid outcome enum with 400', async () => {
+    const res = await req('POST', '/api/hermes/outcomes', {
+      project_id: projectId,
+      session_id: sessionId,
+      outcome: 'maybe',
+      snippet_ids: [],
+      signal_source: 'manual',
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('18. Real DB state — hermes_outcomes row landed for our session', async () => {
+    const result = await db.query(
+      `SELECT session_id, outcome, snippet_ids_json, signal_source, note
+         FROM hermes_outcomes
+        WHERE project_id = ?
+        ORDER BY created_at DESC`,
+      [projectId],
+    );
+    expect(result.rows.length).toBe(1);
+    const r = result.rows[0] as Record<string, unknown>;
+    expect(r.session_id).toBe(sessionId);
+    expect(r.outcome).toBe('positive');
+    expect(r.signal_source).toBe('telegram_reaction');
+    expect(r.note).toBe('user 👍');
+    // snippet_ids_json is stored as a JSON string on SQLite; parse + compare.
+    const snippetIds = JSON.parse(r.snippet_ids_json as string);
+    expect(snippetIds).toHaveLength(2);
+    expect(snippetIds[0]).toBe('11111111-1111-4111-8111-11111111aaaa');
+  });
 });

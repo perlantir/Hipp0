@@ -13,10 +13,13 @@
  *   POST   /api/hermes/session/end      — close session + optional outcome
  *   POST   /api/hermes/user-facts       — upsert facts (If-Match optimistic lock)
  *   GET    /api/hermes/user-facts       — read current facts for a user
+ *   POST   /api/hermes/outcomes         — per-turn snippet reinforcement signal
  *
- * Capture / compile / outcomes are intentionally NOT duplicated here — the
- * Hermes provider calls the existing /api/capture, /api/compile and
- * /api/outcomes routes with `source: "hermes"`.
+ * Capture / compile are intentionally NOT duplicated here — the Hermes
+ * provider calls the existing /api/capture and /api/compile with
+ * `source: "hermes"`. The sibling /api/outcomes path is the compile-request
+ * / alignment-analysis flow and is a different concern from
+ * /api/hermes/outcomes (the snippet-level per-turn signal from the brief).
  */
 
 import crypto from 'node:crypto';
@@ -778,5 +781,105 @@ export function registerHermesRoutes(app: Hono): void {
     // body.version or HTTP If-None-Match / If-Match semantics.
     c.header('ETag', version);
     return c.json({ external_user_id, version, facts });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /api/hermes/outcomes — snippet-level reinforcement signal
+  // -----------------------------------------------------------------------
+  //
+  // The per-turn outcome signal from the Hermes persistent-agents brief.
+  // Distinct from POST /api/outcomes, which is the compile-request /
+  // alignment-analysis flow (see routes/outcomes.ts). Added in response to
+  // HIPP0_REQUESTS.md §6 during the H6 Tier 2 live-smoke run — the Python
+  // Hipp0MemoryProvider.record_outcome() targets this path.
+  //
+  // Schema lives in migration 037 (SQLite) / 055 (Postgres).
+  app.post('/api/hermes/outcomes', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+
+    const project_id = requireUUID(body.project_id, 'project_id');
+    await requireProjectAccess(c, project_id);
+    // session_id is opaque TEXT in the DB but must still be a UUID on the
+    // wire — the Python provider gets one from /api/hermes/session/start.
+    const session_id = requireUUID(body.session_id, 'session_id');
+
+    const outcome_raw = requireString(body.outcome, 'outcome', 50);
+    const VALID_OUTCOMES = ['positive', 'neutral', 'negative'] as const;
+    if (!(VALID_OUTCOMES as readonly string[]).includes(outcome_raw)) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: `outcome must be one of: ${VALID_OUTCOMES.join(', ')}`,
+          },
+        },
+        400,
+      );
+    }
+    const outcome = outcome_raw as (typeof VALID_OUTCOMES)[number];
+
+    const signal_source = requireString(body.signal_source, 'signal_source', 200);
+    const note = optionalString(body.note, 'note', 10_000) ?? null;
+
+    if (!Array.isArray(body.snippet_ids)) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'snippet_ids must be an array' } },
+        400,
+      );
+    }
+    if (body.snippet_ids.length > 100) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'snippet_ids must contain at most 100 entries' } },
+        400,
+      );
+    }
+    const snippet_ids: string[] = body.snippet_ids.map((v, i) =>
+      requireUUID(v, `snippet_ids[${i}]`),
+    );
+
+    const db = getDb();
+    const outcome_id = crypto.randomUUID();
+    const recorded_at = new Date().toISOString();
+
+    try {
+      await db.query(
+        `INSERT INTO hermes_outcomes
+           (id, project_id, session_id, outcome, snippet_ids_json,
+            signal_source, note, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          outcome_id,
+          project_id,
+          session_id,
+          outcome,
+          JSON.stringify(snippet_ids),
+          signal_source,
+          note,
+          recorded_at,
+        ],
+      );
+    } catch (err) {
+      mapDbError(err);
+      return; // unreachable — mapDbError always throws
+    }
+
+    logAudit('hermes_outcome_recorded', project_id, {
+      outcome_id,
+      session_id,
+      outcome,
+      snippet_count: snippet_ids.length,
+      signal_source,
+    });
+
+    broadcast('hermes.outcome.recorded', {
+      project_id,
+      outcome_id,
+      session_id,
+      outcome,
+      signal_source,
+      recorded_at,
+    });
+
+    return c.json({ outcome_id, recorded_at }, 201);
   });
 }
