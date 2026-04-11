@@ -59,13 +59,29 @@ function parseArray(val: unknown): string[] {
   return [];
 }
 
+/**
+ * Normalize a timestamp column to an ISO-8601 string regardless of which
+ * driver materialized it. Postgres (node-postgres) returns ``Date``
+ * instances, SQLite returns the stored text verbatim, and a fresh INSERT
+ * RETURNING inside the same connection can return either depending on
+ * adapter version. The parsers used to hard-cast ``(row.x as Date)`` and
+ * crash with ``toISOString is not a function`` on SQLite — this helper
+ * handles all three cases.
+ */
+function toIsoString(val: unknown): string {
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return new Date(val).toISOString();
+  return new Date().toISOString();
+}
+
 export function parseProject(row: Record<string, unknown>): Project {
   return {
     id: row.id as string,
     name: row.name as string,
     description: row.description as string | undefined,
-    created_at: (row.created_at as Date).toISOString(),
-    updated_at: (row.updated_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
+    updated_at: toIsoString(row.updated_at),
     metadata: parseJsonb(row.metadata, {}),
   };
 }
@@ -92,8 +108,8 @@ export function parseAgent(row: Record<string, unknown>): Agent {
       };
     })(),
     primary_domain: (row.primary_domain as string | null) ?? null,
-    created_at: (row.created_at as Date).toISOString(),
-    updated_at: (row.updated_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
+    updated_at: toIsoString(row.updated_at),
   };
 }
 
@@ -116,11 +132,11 @@ export function parseDecision(row: Record<string, unknown>): Decision {
     assumptions: parseJsonb(row.assumptions, []),
     open_questions: parseJsonb(row.open_questions, []),
     dependencies: parseJsonb(row.dependencies, []),
-    validated_at: row.validated_at ? (row.validated_at as Date).toISOString() : undefined,
+    validated_at: row.validated_at ? toIsoString(row.validated_at) : undefined,
     validation_source: row.validation_source as string | undefined,
     confidence_decay_rate: (row.confidence_decay_rate as number) ?? 0,
-    created_at: (row.created_at as Date).toISOString(),
-    updated_at: (row.updated_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
+    updated_at: toIsoString(row.updated_at),
     metadata: parseJsonb(row.metadata, {}),
     embedding: parseEmbedding(row.embedding),
     domain: (row.domain as DecisionDomain | null) ?? null,
@@ -153,7 +169,7 @@ export function parseDecisionOutcome(row: Record<string, unknown>): DecisionOutc
     reversal: Boolean(row.reversal),
     reversal_reason: row.reversal_reason as string | undefined,
     notes: row.notes as string | undefined,
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
     metadata: parseJsonb(row.metadata, {}),
   };
 }
@@ -166,7 +182,7 @@ export function parseEdge(row: Record<string, unknown>): DecisionEdge {
     relationship: row.relationship as DecisionEdge['relationship'],
     description: row.description as string | undefined,
     strength: (row.strength as number) ?? 1.0,
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
   };
 }
 
@@ -182,8 +198,8 @@ export function parseArtifact(row: Record<string, unknown>): Artifact {
     content_hash: row.content_hash as string | undefined,
     produced_by: row.produced_by as string,
     related_decision_ids: parseArray(row.related_decision_ids),
-    created_at: (row.created_at as Date).toISOString(),
-    updated_at: (row.updated_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
+    updated_at: toIsoString(row.updated_at),
     metadata: parseJsonb(row.metadata, {}),
     embedding: parseEmbedding(row.embedding),
   };
@@ -205,7 +221,7 @@ export function parseSession(row: Record<string, unknown>): SessionSummary {
     raw_conversation_hash: row.raw_conversation_hash as string | undefined,
     extraction_model: row.extraction_model as string | undefined,
     extraction_confidence: row.extraction_confidence as number | undefined,
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
     embedding: parseEmbedding(row.embedding),
   };
 }
@@ -217,7 +233,7 @@ export function parseSubscription(row: Record<string, unknown>): Subscription {
     topic: row.topic as string,
     notify_on: parseArray(row.notify_on) as Subscription['notify_on'],
     priority: row.priority as Subscription['priority'],
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
   };
 }
 
@@ -230,8 +246,8 @@ export function parseNotification(row: Record<string, unknown>): Notification {
     message: row.message as string,
     role_context: row.role_context as string | undefined,
     urgency: row.urgency as Notification['urgency'],
-    read_at: row.read_at ? (row.read_at as Date).toISOString() : undefined,
-    created_at: (row.created_at as Date).toISOString(),
+    read_at: row.read_at ? toIsoString(row.read_at) : undefined,
+    created_at: toIsoString(row.created_at),
   };
 }
 
@@ -246,8 +262,8 @@ export function parseContradiction(row: Record<string, unknown>): Contradiction 
     status: row.status as Contradiction['status'],
     resolved_by: row.resolved_by as string | undefined,
     resolution: row.resolution as string | undefined,
-    detected_at: (row.detected_at as Date).toISOString(),
-    resolved_at: row.resolved_at ? (row.resolved_at as Date).toISOString() : undefined,
+    detected_at: toIsoString(row.detected_at),
+    resolved_at: row.resolved_at ? toIsoString(row.resolved_at) : undefined,
   };
 }
 
@@ -259,7 +275,7 @@ export function parseFeedback(row: Record<string, unknown>): RelevanceFeedback {
     compile_request_id: row.compile_request_id as string | undefined,
     was_useful: row.was_useful as boolean,
     usage_signal: row.usage_signal as RelevanceFeedback['usage_signal'],
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
   };
 }
 
@@ -271,7 +287,7 @@ export function parseAuditEntry(row: Record<string, unknown>): AuditEntry {
     project_id: row.project_id as string | undefined,
     decision_id: row.decision_id as string | undefined,
     details: parseJsonb(row.details, {}),
-    created_at: (row.created_at as Date).toISOString(),
+    created_at: toIsoString(row.created_at),
   };
 }
 
@@ -282,8 +298,8 @@ export function parseApiKey(row: Record<string, unknown>): ApiKey {
     project_id: row.project_id as string,
     name: row.name as string,
     scopes: parseArray(row.scopes),
-    last_used_at: row.last_used_at ? (row.last_used_at as Date).toISOString() : undefined,
-    created_at: (row.created_at as Date).toISOString(),
-    revoked_at: row.revoked_at ? (row.revoked_at as Date).toISOString() : undefined,
+    last_used_at: row.last_used_at ? toIsoString(row.last_used_at) : undefined,
+    created_at: toIsoString(row.created_at),
+    revoked_at: row.revoked_at ? toIsoString(row.revoked_at) : undefined,
   };
 }

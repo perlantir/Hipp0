@@ -17,6 +17,16 @@ export function generateApiKey(): { key: string; prefix: string; hash: string } 
 }
 
 export async function bootstrapApiKeys(): Promise<void> {
+  // When auth is disabled (dev / local smoke tests), there is no point
+  // seeding API keys — the middleware bypasses every request anyway, and
+  // the INSERT path below collides with the SQLite-only api_keys.id NOT
+  // NULL constraint. Skip entirely in that mode so fresh SQLite boots
+  // succeed without having to reach into the bootstrap SQL.
+  if (process.env.HIPP0_AUTH_REQUIRED === 'false') {
+    console.warn('[hipp0] HIPP0_AUTH_REQUIRED=false — skipping API key bootstrap');
+    return;
+  }
+
   const db = getDb();
 
   // Check if api_keys table exists
