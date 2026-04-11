@@ -79,12 +79,28 @@ export async function createSessionSummary(
   const rawHash = crypto.createHash('sha256').update(conversationText).digest('hex');
   const decisionIds = decisions.map((d) => d.id);
 
-  const summaryEmbedding = await generateEmbedding(`${topic}\n${summaryData.summary}`).catch(
-    (err: unknown) => {
-      console.warn('[hipp0:distillery] Session summary embedding failed:', err);
-      return null;
-    },
-  );
+  const db = getDb();
+  // session_summaries has an ``embedding vector(1536)`` column only on the
+  // Postgres side (see ``supabase/migrations/001_initial_schema.sql``). The
+  // SQLite schema at
+  // ``packages/core/src/db/migrations/sqlite/001_initial_schema.sql``
+  // explicitly omits the column with the comment:
+  //   ``-- embedding column omitted; stored in session_embeddings table``
+  // so embeddings on SQLite live in a separate table. Skip embedding
+  // generation and the embedding INSERT column entirely on that dialect to
+  // save the LLM round trip and avoid the ``table session_summaries has no
+  // column named embedding`` crash that used to break the distillery pipeline
+  // in SQLite smoke runs.
+  const isSqlite = db.dialect === 'sqlite';
+
+  const summaryEmbedding = isSqlite
+    ? null
+    : await generateEmbedding(`${topic}\n${summaryData.summary}`).catch(
+        (err: unknown) => {
+          console.warn('[hipp0:distillery] Session summary embedding failed:', err);
+          return null;
+        },
+      );
 
   const vectorLiteral =
     summaryEmbedding && !summaryEmbedding.every((v) => v === 0)
@@ -103,34 +119,38 @@ export async function createSessionSummary(
   const model = getModelIdentifier();
 
   try {
-    const db = getDb();
-    const insertResult = await db.query<Record<string, unknown>>(
-      `INSERT INTO session_summaries
-         (project_id, agent_name, session_date, topic, summary,
-          decision_ids, artifact_ids, assumptions, open_questions,
-          lessons_learned, raw_conversation_hash, extraction_model,
-          extraction_confidence, embedding)
-       VALUES
-         (?, ?, CURRENT_DATE, ?, ?,
-          ?, '{}', ?, ?,
-          ?, ?, ?,
-          ?, ?)
-       RETURNING *`,
-      [
-        projectId,
-        agentName,
-        topic,
-        summaryData.summary,
-        db.arrayParam(decisionIds),
-        db.arrayParam(uniqueAssumptions),
-        db.arrayParam(uniqueOpenQuestions),
-        db.arrayParam(summaryData.lessons_learned),
-        rawHash,
-        model,
-        decisions.length > 0 ? 0.8 : 0.5,
-        vectorLiteral,
-      ],
-    );
+    const baseColumns =
+      'project_id, agent_name, session_date, topic, summary, ' +
+      'decision_ids, artifact_ids, assumptions, open_questions, ' +
+      'lessons_learned, raw_conversation_hash, extraction_model, ' +
+      'extraction_confidence';
+    const basePlaceholders =
+      '?, ?, CURRENT_DATE, ?, ?, ' +
+      "?, '{}', ?, ?, " +
+      '?, ?, ?, ' +
+      '?';
+    const sql = isSqlite
+      ? `INSERT INTO session_summaries (${baseColumns}) VALUES (${basePlaceholders}) RETURNING *`
+      : `INSERT INTO session_summaries (${baseColumns}, embedding) VALUES (${basePlaceholders}, ?) RETURNING *`;
+
+    const params: unknown[] = [
+      projectId,
+      agentName,
+      topic,
+      summaryData.summary,
+      db.arrayParam(decisionIds),
+      db.arrayParam(uniqueAssumptions),
+      db.arrayParam(uniqueOpenQuestions),
+      db.arrayParam(summaryData.lessons_learned),
+      rawHash,
+      model,
+      decisions.length > 0 ? 0.8 : 0.5,
+    ];
+    if (!isSqlite) {
+      params.push(vectorLiteral);
+    }
+
+    const insertResult = await db.query<Record<string, unknown>>(sql, params);
 
     const row = insertResult.rows[0];
     if (!row) throw new Error('session_summaries insert returned no rows');
