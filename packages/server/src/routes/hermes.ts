@@ -188,6 +188,131 @@ export function registerHermesRoutes(app: Hono): void {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/hermes/agents/:name/conversations — list recent sessions for
+  // a named agent. Paginated, newest first. Defaults to the last 50.
+  // -----------------------------------------------------------------------
+  app.get('/api/hermes/agents/:name/conversations', async (c) => {
+    const project_id = requireUUID(c.req.query('project_id'), 'project_id');
+    await requireProjectAccess(c, project_id);
+    const agent_name = requireAgentName(c.req.param('name'));
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10) || 50, 200);
+    const offset = parseInt(c.req.query('offset') ?? '0', 10) || 0;
+
+    const db = getDb();
+
+    // Resolve agent_id from name (so path + query stay stable even if we
+    // expose agent_id in the future).
+    const agentResult = await db.query(
+      'SELECT id FROM hermes_agents WHERE project_id = ? AND agent_name = ?',
+      [project_id, agent_name],
+    );
+    if (agentResult.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Agent not found' } }, 404);
+    }
+    const agent_id = (agentResult.rows[0] as Record<string, unknown>).id as string;
+
+    const result = await db.query(
+      `SELECT id, session_id, platform, external_user_id, external_chat_id,
+              started_at, ended_at, summary_md
+         FROM hermes_conversations
+        WHERE agent_id = ?
+        ORDER BY started_at DESC
+        LIMIT ? OFFSET ?`,
+      [agent_id, limit, offset],
+    );
+
+    const conversations = result.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        conversation_id: r.id as string,
+        session_id: r.session_id as string,
+        platform: r.platform as string,
+        external_user_id: (r.external_user_id as string | null) ?? null,
+        external_chat_id: (r.external_chat_id as string | null) ?? null,
+        started_at: r.started_at as string,
+        ended_at: (r.ended_at as string | null) ?? null,
+        summary: (r.summary_md as string | null) ?? null,
+      };
+    });
+
+    return c.json(conversations);
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/hermes/conversations/:session_id/messages — message log for a
+  // specific session. The web Chat view paginates over this; Phase 2 uses
+  // it for the agent-detail conversation drill-down.
+  // -----------------------------------------------------------------------
+  app.get('/api/hermes/conversations/:session_id/messages', async (c) => {
+    const session_id = requireUUID(c.req.param('session_id'), 'session_id');
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '200', 10) || 200, 1000);
+    const offset = parseInt(c.req.query('offset') ?? '0', 10) || 0;
+
+    const db = getDb();
+
+    // Resolve conversation_id + project_id from session_id
+    const convResult = await db.query(
+      `SELECT id, project_id, agent_id, platform, started_at, ended_at
+         FROM hermes_conversations
+        WHERE session_id = ?`,
+      [session_id],
+    );
+    if (convResult.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }, 404);
+    }
+    const convRow = convResult.rows[0] as Record<string, unknown>;
+    const project_id = convRow.project_id as string;
+    await requireProjectAccess(c, project_id);
+
+    const conversation_id = convRow.id as string;
+
+    const msgResult = await db.query(
+      `SELECT id, role, content, tool_calls_json, tool_results_json,
+              tokens_in, tokens_out, created_at
+         FROM hermes_messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC
+        LIMIT ? OFFSET ?`,
+      [conversation_id, limit, offset],
+    );
+
+    const messages = msgResult.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      let tool_calls: unknown = null;
+      let tool_results: unknown = null;
+      if (typeof r.tool_calls_json === 'string') {
+        try { tool_calls = JSON.parse(r.tool_calls_json); } catch { /* keep null */ }
+      } else if (r.tool_calls_json) {
+        tool_calls = r.tool_calls_json;
+      }
+      if (typeof r.tool_results_json === 'string') {
+        try { tool_results = JSON.parse(r.tool_results_json); } catch { /* keep null */ }
+      } else if (r.tool_results_json) {
+        tool_results = r.tool_results_json;
+      }
+      return {
+        id: r.id as string,
+        role: r.role as string,
+        content: r.content as string,
+        tool_calls,
+        tool_results,
+        tokens_in: (r.tokens_in as number | null) ?? null,
+        tokens_out: (r.tokens_out as number | null) ?? null,
+        created_at: r.created_at as string,
+      };
+    });
+
+    return c.json({
+      session_id,
+      conversation_id,
+      started_at: convRow.started_at as string,
+      ended_at: (convRow.ended_at as string | null) ?? null,
+      platform: convRow.platform as string,
+      messages,
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // POST /api/hermes/session/start — create a hermes_conversations row
   // -----------------------------------------------------------------------
   app.post('/api/hermes/session/start', async (c) => {

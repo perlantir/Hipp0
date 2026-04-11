@@ -241,6 +241,198 @@ describe('GET /api/hermes/agents/:name', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/hermes/agents/:name/conversations
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/agents/:name/conversations', () => {
+  it('returns 404 when agent does not exist', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // SELECT agent
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/agents/alice/conversations?project_id=${PROJECT_ID}`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns conversation list with parsed fields', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }])) // SELECT agent
+      .mockResolvedValueOnce(
+        rowsResult([
+          {
+            id: CONVERSATION_ID,
+            session_id: SESSION_ID,
+            platform: 'telegram',
+            external_user_id: '12345',
+            external_chat_id: '-100200',
+            started_at: '2026-04-11T12:00:00Z',
+            ended_at: '2026-04-11T12:30:00Z',
+            summary_md: null,
+          },
+        ]),
+      );
+
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/agents/alice/conversations?project_id=${PROJECT_ID}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{
+      conversation_id: string;
+      session_id: string;
+      platform: string;
+      started_at: string;
+      ended_at: string | null;
+    }>;
+    expect(body).toHaveLength(1);
+    expect(body[0].session_id).toBe(SESSION_ID);
+    expect(body[0].platform).toBe('telegram');
+    expect(body[0].ended_at).toBe('2026-04-11T12:30:00Z');
+  });
+
+  it('returns empty list when agent exists but has no sessions', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }]))
+      .mockResolvedValueOnce(emptyResult());
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/agents/alice/conversations?project_id=${PROJECT_ID}`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as unknown[];
+    expect(body).toEqual([]);
+  });
+
+  it('honors limit query parameter', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }]))
+      .mockResolvedValueOnce(emptyResult());
+    await request(
+      app,
+      'GET',
+      `/api/hermes/agents/alice/conversations?project_id=${PROJECT_ID}&limit=10`,
+    );
+    // Third call is the conversations SELECT; assert LIMIT = 10 was used
+    const call = mockQuery.mock.calls.find((args) =>
+      typeof args[0] === 'string' && (args[0] as string).includes('FROM hermes_conversations'),
+    );
+    expect(call).toBeTruthy();
+    // params: [agent_id, limit, offset]
+    expect((call as unknown[])[1]).toEqual([AGENT_ID, 10, 0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/hermes/conversations/:session_id/messages
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/conversations/:session_id/messages', () => {
+  it('returns 404 when the session does not exist', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // SELECT conversation
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns messages for a session', async () => {
+    mockQuery
+      .mockResolvedValueOnce(
+        rowsResult([
+          {
+            id: CONVERSATION_ID,
+            project_id: PROJECT_ID,
+            agent_id: AGENT_ID,
+            platform: 'telegram',
+            started_at: '2026-04-11T12:00:00Z',
+            ended_at: null,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        rowsResult([
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Hi alice',
+            tool_calls_json: null,
+            tool_results_json: null,
+            tokens_in: 2,
+            tokens_out: 0,
+            created_at: '2026-04-11T12:00:01Z',
+          },
+          {
+            id: 'msg-2',
+            role: 'assistant',
+            content: 'Hello — how can I help?',
+            tool_calls_json: '[{"name":"lookup_memory","args":{}}]',
+            tool_results_json: '[{"result":"none"}]',
+            tokens_in: 8,
+            tokens_out: 12,
+            created_at: '2026-04-11T12:00:03Z',
+          },
+        ]),
+      );
+
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      session_id: string;
+      platform: string;
+      messages: Array<{
+        id: string;
+        role: string;
+        content: string;
+        tool_calls: unknown;
+        tool_results: unknown;
+      }>;
+    };
+    expect(body.session_id).toBe(SESSION_ID);
+    expect(body.platform).toBe('telegram');
+    expect(body.messages).toHaveLength(2);
+    expect(body.messages[0].role).toBe('user');
+    expect(body.messages[0].content).toBe('Hi alice');
+    expect(body.messages[1].role).toBe('assistant');
+    expect(body.messages[1].tool_calls).toEqual([{ name: 'lookup_memory', args: {} }]);
+    expect(body.messages[1].tool_results).toEqual([{ result: 'none' }]);
+  });
+
+  it('returns empty messages array when session has no messages', async () => {
+    mockQuery
+      .mockResolvedValueOnce(
+        rowsResult([
+          {
+            id: CONVERSATION_ID,
+            project_id: PROJECT_ID,
+            agent_id: AGENT_ID,
+            platform: 'telegram',
+            started_at: '2026-04-11T12:00:00Z',
+            ended_at: null,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(emptyResult());
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { messages: unknown[] };
+    expect(body.messages).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/hermes/session/start
 // ---------------------------------------------------------------------------
 
