@@ -360,8 +360,8 @@ function ThemeToggle() {
 
 const GROUP_ORDER: Array<{ key: NavGroup; label: string }> = [
   { key: 'memory', label: 'Memory' },
-  { key: 'intelligence', label: 'Intelligence' },
-  { key: 'operations', label: 'Operations' },
+  { key: 'intelligence', label: 'Explore' },
+  { key: 'operations', label: 'Setup' },
   { key: 'labs', label: 'Labs' },
 ];
 
@@ -462,37 +462,52 @@ export default function App() {
 
   // Labs group is gated: users who want to see every experimental / niche
   // view can opt in via localStorage.setItem('hipp0_labs', 'true'). Default
-  // off so first-time users see a focused 13-item sidebar.
+  // off so first-time users see a focused 10-item sidebar centered on the
+  // persistent-multi-agent story (Pulse → Agents → Decisions).
   const labsEnabled = typeof window !== 'undefined'
     && window.localStorage?.getItem('hipp0_labs') === 'true';
 
-  // Build nav items — 3 focused groups + optional Labs
+  // Build nav items — 3 focused primary groups + optional Labs (gated).
+  //
+  // Primary nav is deliberately tight: one item per distinct job-to-be-done,
+  // no duplicates, no observability / reporting clutter. Everything that
+  // answers "what's happening right now", "which agents exist", "what do they
+  // know" goes here. Niche / reporting / governance views live in Labs.
   const navItems: NavItem[] = [
-    // ---- Memory — what the team knows ------------------------------
+    // ---- Memory — what the team and agents know --------------------
     { id: 'pulse', label: 'Pulse', icon: <Activity size={18} />, group: 'memory' },
     { id: 'hermes-agents', label: 'Agents', icon: <Users size={18} />, group: 'memory' },
-    { id: 'graph', label: 'Decision Graph', icon: <GitBranch size={18} />, group: 'memory' },
+    { id: 'graph', label: 'Decisions', icon: <GitBranch size={18} />, group: 'memory' },
     { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'memory' },
     { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'memory' },
-    { id: 'context', label: 'Context Compare', icon: <Columns2 size={18} />, group: 'memory' },
 
-    // ---- Intelligence — what the memory reveals --------------------
+    // ---- Explore — what the memory reveals -------------------------
     { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'intelligence' },
-    { id: 'insights', label: 'Knowledge Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
-    { id: 'outcomes', label: 'Outcomes', icon: <Target size={18} />, group: 'intelligence' },
-    { id: 'ask-anything', label: 'Ask Anything', icon: <Activity size={18} />, group: 'intelligence' },
+    { id: 'insights', label: 'Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
 
-    // ---- Operations — how the team runs ----------------------------
+    // ---- Setup — how the team runs ---------------------------------
     { id: 'hermes-setup', label: 'Hermes Setup', icon: <Settings size={18} />, group: 'operations' },
-    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'operations' },
     { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'operations' },
-    { id: 'import-wizard', label: 'Import', icon: <Upload size={18} />, group: 'operations' },
-    { id: 'live-events', label: 'Live Events', icon: <Radio size={18} />, group: 'operations' },
-    { id: 'digest', label: 'Weekly Digest', icon: <BarChart3 size={18} />, group: 'operations' },
+    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'operations' },
 
     // ---- Labs — experimental + niche, gated behind localStorage ----
     //      enable with: localStorage.setItem('hipp0_labs', 'true')
+    //
+    // Six previously-primary items now live here so the focused nav stays
+    // under 10: Context Compare, Outcomes, Ask Anything, Import,
+    // Live Events, Weekly Digest. All still reachable via hash URL or
+    // command palette, no views deleted.
     ...(labsEnabled ? [
+      // Moved from Memory
+      { id: 'context' as View,            label: 'Context Compare',     icon: <Columns2 size={18} />,      group: 'labs' as NavGroup },
+      // Moved from Intelligence / Explore
+      { id: 'outcomes' as View,           label: 'Outcomes',            icon: <Target size={18} />,        group: 'labs' as NavGroup },
+      { id: 'ask-anything' as View,       label: 'Ask Anything',        icon: <Activity size={18} />,      group: 'labs' as NavGroup },
+      // Moved from Operations / Setup
+      { id: 'import-wizard' as View,      label: 'Import',              icon: <Upload size={18} />,        group: 'labs' as NavGroup },
+      { id: 'live-events' as View,        label: 'Live Events',         icon: <Radio size={18} />,         group: 'labs' as NavGroup },
+      { id: 'digest' as View,             label: 'Weekly Digest',       icon: <BarChart3 size={18} />,     group: 'labs' as NavGroup },
+      // Pre-existing Labs items
       { id: 'agent-skills' as View,       label: 'Agent Skills',        icon: <Sparkles size={18} />,      group: 'labs' as NavGroup },
       { id: 'procedures' as View,         label: 'Team Procedures',     icon: <ClipboardList size={18} />, group: 'labs' as NavGroup },
       { id: 'evolution' as View,          label: 'Evolution',           icon: <Zap size={18} />,           group: 'labs' as NavGroup },
