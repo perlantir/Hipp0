@@ -733,6 +733,9 @@ describe('POST /api/hermes/user-facts', () => {
     expect(body.version).toMatch(/^[0-9a-f-]{36}$/);
     expect(body.facts).toHaveLength(1);
     expect(body.facts[0].key).toBe('preferred_contact');
+    // ETag header mirrors body.version so clients can use either location
+    // for optimistic locking via the If-Match header on subsequent writes.
+    expect(res.headers.get('ETag')).toBe(body.version);
   });
 
   it('rejects on ETag mismatch with 409', async () => {
@@ -800,5 +803,7 @@ describe('GET /api/hermes/user-facts', () => {
     const body = (await res.json()) as { version: string; facts: Array<{ key: string; value: string }> };
     expect(body.version).toBe('v-abc-123');
     expect(body.facts[0].value).toBe('phone');
+    // ETag header mirrors body.version on the GET side too.
+    expect(res.headers.get('ETag')).toBe('v-abc-123');
   });
 });

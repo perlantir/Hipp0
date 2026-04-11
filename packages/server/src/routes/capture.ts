@@ -110,7 +110,15 @@ export function registerCaptureRoutes(app: Hono): void {
       session_id,
     });
 
-    // Return immediately — extraction runs in the background
+    // Return immediately — extraction runs in the background.
+    //
+    // Retry-After signals the recommended initial poll cadence for the
+    // status endpoint (GET /api/capture/:id). The distillery pipeline
+    // typically finishes in 1-10 seconds; clients should poll at this
+    // interval with exponential backoff (cap ~5s) until status is
+    // 'completed' or 'failed'. Documented here instead of in a separate
+    // doc so the contract travels with the response.
+    c.header('Retry-After', '1');
     const response = c.json({ capture_id: captureId, status: 'processing' }, 202);
 
     // Fire-and-forget background extraction

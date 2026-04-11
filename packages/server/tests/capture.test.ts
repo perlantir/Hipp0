@@ -194,6 +194,9 @@ describe('Passive Decision Capture', () => {
       );
 
       expect(res.status).toBe(202);
+      // Retry-After signals the recommended initial poll cadence for the
+      // Hermes provider (and any other client) polling GET /api/capture/:id.
+      expect(res.headers.get('Retry-After')).toBe('1');
       const body = await res.json();
       expect(body.capture_id).toBe(CAPTURE_ID);
       expect(body.status).toBe('processing');

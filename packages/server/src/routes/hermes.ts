@@ -731,6 +731,11 @@ export function registerHermesRoutes(app: Hono): void {
       version: newVersion,
     });
 
+    // Publish the new version in BOTH locations so clients can use whichever
+    // they prefer: body.version (the canonical field) and the ETag header
+    // (standard HTTP optimistic-lock convention). Clients should send it back
+    // in the If-Match header on subsequent POSTs.
+    c.header('ETag', newVersion);
     return c.json({
       external_user_id,
       version: newVersion,
@@ -769,6 +774,9 @@ export function registerHermesRoutes(app: Hono): void {
       };
     });
 
+    // Mirror the version in the ETag header so clients can use either
+    // body.version or HTTP If-None-Match / If-Match semantics.
+    c.header('ETag', version);
     return c.json({ external_user_id, version, facts });
   });
 }
