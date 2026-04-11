@@ -1,0 +1,425 @@
+// Hermes Route Integration Tests (Hono test client — mocked DB)
+//
+// Covers:
+//   POST /api/hermes/register        — create + update
+//   GET  /api/hermes/agents          — list
+//   GET  /api/hermes/agents/:name    — fetch single
+//   POST /api/hermes/session/start   — 404 on missing agent, 201 on success
+//   POST /api/hermes/session/end     — normal + idempotent double-close
+//   POST /api/hermes/user-facts      — upsert + ETag mismatch (409)
+//   GET  /api/hermes/user-facts      — read back
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createApp } from '../src/app.js';
+
+// ---------------------------------------------------------------------------
+// DB mock — hoisted so vi.mock factories can reach it
+// ---------------------------------------------------------------------------
+
+const { mockQuery } = vi.hoisted(() => {
+  const mockQuery = vi.fn();
+  return { mockQuery };
+});
+
+vi.mock('@hipp0/core/db/index.js', () => ({
+  getDb: () => ({
+    query: mockQuery,
+    transaction: vi.fn().mockImplementation(async (fn: Function) => fn(mockQuery)),
+    arrayParam: (v: unknown[]) => JSON.stringify(v),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    dialect: 'sqlite' as const,
+  }),
+  initDb: vi.fn().mockResolvedValue({}),
+  closeDb: vi.fn().mockResolvedValue(undefined),
+  withDbOverride: vi.fn().mockImplementation(async (_adapter: unknown, fn: () => unknown) => fn()),
+}));
+
+vi.mock('@hipp0/core/db/pool.js', () => ({
+  query: mockQuery,
+  getPool: vi.fn(),
+  closePool: vi.fn(),
+  healthCheck: vi.fn().mockResolvedValue(true),
+  transaction: vi.fn().mockImplementation(async (fn: Function) => fn({ query: mockQuery })),
+}));
+
+vi.mock('@hipp0/core/db/parsers.js', () => ({
+  parseProject: vi.fn((row: Record<string, unknown>) => row),
+  parseAgent: vi.fn((row: Record<string, unknown>) => row),
+  parseDecision: vi.fn((row: Record<string, unknown>) => row),
+  parseEdge: vi.fn((row: Record<string, unknown>) => row),
+  parseArtifact: vi.fn((row: Record<string, unknown>) => row),
+  parseSession: vi.fn((row: Record<string, unknown>) => row),
+  parseSubscription: vi.fn((row: Record<string, unknown>) => row),
+  parseNotification: vi.fn((row: Record<string, unknown>) => row),
+  parseContradiction: vi.fn((row: Record<string, unknown>) => row),
+  parseFeedback: vi.fn((row: Record<string, unknown>) => row),
+  parseAuditEntry: vi.fn((row: Record<string, unknown>) => row),
+}));
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function request(
+  app: ReturnType<typeof createApp>,
+  method: string,
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  const url = `http://localhost${path}`;
+  const init: RequestInit = { method };
+  const allHeaders: Record<string, string> = {};
+  if (body !== undefined) {
+    allHeaders['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body);
+  }
+  if (headers) Object.assign(allHeaders, headers);
+  if (Object.keys(allHeaders).length > 0) init.headers = allHeaders;
+  return app.fetch(new Request(url, init));
+}
+
+function emptyResult() {
+  return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
+}
+
+function rowsResult<T extends Record<string, unknown>>(rows: T[]) {
+  return { rows, rowCount: rows.length, command: '', oid: 0, fields: [] };
+}
+
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
+
+vi.stubEnv('NODE_ENV', 'development');
+vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
+
+const PROJECT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+const AGENT_ID = 'b1c2d3e4-f5a6-7890-bcde-f12345678901';
+const SESSION_ID = 'c1d2e3f4-a5b6-7890-cdef-123456789012';
+const CONVERSATION_ID = 'd1e2f3a4-b5c6-7890-def1-234567890123';
+
+let app: ReturnType<typeof createApp>;
+
+beforeEach(() => {
+  app = createApp();
+  vi.clearAllMocks();
+  mockQuery.mockResolvedValue(emptyResult());
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/hermes/register
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/register', () => {
+  it('creates a new agent on first register (201)', async () => {
+    // Sequence: SELECT (empty) → INSERT (empty) → INSERT audit_log (empty)
+    mockQuery
+      .mockResolvedValueOnce(emptyResult()) // SELECT existing
+      .mockResolvedValueOnce(emptyResult()); // INSERT agent
+
+    const res = await request(app, 'POST', '/api/hermes/register', {
+      project_id: PROJECT_ID,
+      agent_name: 'alice',
+      soul: '# Alice\nYou are alice, a sales agent.',
+      config: { model: 'anthropic/claude-sonnet-4-6', toolset: 'sales' },
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { agent_id: string; agent_name: string; created: boolean };
+    expect(body.agent_name).toBe('alice');
+    expect(body.created).toBe(true);
+    expect(body.agent_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('updates an existing agent on re-register (200)', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }])) // SELECT existing
+      .mockResolvedValueOnce(emptyResult()); // UPDATE agent
+
+    const res = await request(app, 'POST', '/api/hermes/register', {
+      project_id: PROJECT_ID,
+      agent_name: 'alice',
+      soul: '# Alice v2',
+      config: { model: 'anthropic/claude-opus-4-6' },
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { agent_id: string; created: boolean };
+    expect(body.agent_id).toBe(AGENT_ID);
+    expect(body.created).toBe(false);
+  });
+
+  it('rejects invalid agent_name with 500', async () => {
+    const res = await request(app, 'POST', '/api/hermes/register', {
+      project_id: PROJECT_ID,
+      agent_name: 'Alice With Spaces!',
+      soul: 'x',
+      config: { model: 'x' },
+    });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it('rejects missing project_id with 400', async () => {
+    const res = await request(app, 'POST', '/api/hermes/register', {
+      agent_name: 'alice',
+      soul: 'x',
+      config: { model: 'x' },
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/hermes/agents
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/agents', () => {
+  it('returns empty list when no agents registered', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult());
+    const res = await request(app, 'GET', `/api/hermes/agents?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as unknown[];
+    expect(body).toEqual([]);
+  });
+
+  it('returns registered agents with parsed config', async () => {
+    mockQuery.mockResolvedValueOnce(
+      rowsResult([
+        {
+          id: AGENT_ID,
+          agent_name: 'alice',
+          config_json: '{"model":"anthropic/claude-sonnet-4-6","toolset":"sales"}',
+          created_at: '2026-04-11T00:00:00Z',
+          updated_at: '2026-04-11T00:00:00Z',
+        },
+      ]),
+    );
+    const res = await request(app, 'GET', `/api/hermes/agents?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{ agent_id: string; agent_name: string; config: { model: string } }>;
+    expect(body).toHaveLength(1);
+    expect(body[0].agent_name).toBe('alice');
+    expect(body[0].config.model).toBe('anthropic/claude-sonnet-4-6');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/hermes/agents/:name
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/agents/:name', () => {
+  it('returns 404 for unknown agent', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult());
+    const res = await request(app, 'GET', `/api/hermes/agents/alice?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(404);
+  });
+
+  it('returns the agent with SOUL.md included', async () => {
+    mockQuery.mockResolvedValueOnce(
+      rowsResult([
+        {
+          id: AGENT_ID,
+          agent_name: 'alice',
+          soul_md: '# Alice persona',
+          config_json: '{"model":"anthropic/claude-sonnet-4-6"}',
+          created_at: '2026-04-11T00:00:00Z',
+          updated_at: '2026-04-11T00:00:00Z',
+        },
+      ]),
+    );
+    const res = await request(app, 'GET', `/api/hermes/agents/alice?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { soul: string; agent_name: string };
+    expect(body.soul).toBe('# Alice persona');
+    expect(body.agent_name).toBe('alice');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/hermes/session/start
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/session/start', () => {
+  it('returns 404 if agent is not registered', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // SELECT hermes_agents
+    const res = await request(app, 'POST', '/api/hermes/session/start', {
+      project_id: PROJECT_ID,
+      agent_name: 'ghost',
+      platform: 'telegram',
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('creates a new session and returns session_id', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }])) // SELECT agent
+      .mockResolvedValueOnce(emptyResult()); // INSERT conversation
+
+    const res = await request(app, 'POST', '/api/hermes/session/start', {
+      project_id: PROJECT_ID,
+      agent_name: 'alice',
+      platform: 'telegram',
+      external_user_id: '12345',
+      external_chat_id: '-100200',
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { session_id: string; conversation_id: string; started_at: string };
+    expect(body.session_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.conversation_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.started_at).toBeTruthy();
+  });
+
+  it('rejects invalid platform with 400', async () => {
+    mockQuery.mockResolvedValueOnce(rowsResult([{ id: AGENT_ID }]));
+    const res = await request(app, 'POST', '/api/hermes/session/start', {
+      project_id: PROJECT_ID,
+      agent_name: 'alice',
+      platform: 'smoke-signals',
+    });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/hermes/session/end
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/session/end', () => {
+  it('closes an open session', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ id: CONVERSATION_ID, project_id: PROJECT_ID, ended_at: null }]))
+      .mockResolvedValueOnce(emptyResult()); // UPDATE
+
+    const res = await request(app, 'POST', '/api/hermes/session/end', {
+      session_id: SESSION_ID,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { session_id: string; ended_at: string; summary_snippet_ids: string[] };
+    expect(body.session_id).toBe(SESSION_ID);
+    expect(body.ended_at).toBeTruthy();
+    expect(body.summary_snippet_ids).toEqual([]);
+  });
+
+  it('is idempotent on a double close', async () => {
+    mockQuery.mockResolvedValueOnce(
+      rowsResult([{ id: CONVERSATION_ID, project_id: PROJECT_ID, ended_at: '2026-04-11T12:00:00Z' }]),
+    );
+    const res = await request(app, 'POST', '/api/hermes/session/end', {
+      session_id: SESSION_ID,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ended_at: string };
+    expect(body.ended_at).toBe('2026-04-11T12:00:00Z');
+  });
+
+  it('returns 404 for unknown session', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult());
+    const res = await request(app, 'POST', '/api/hermes/session/end', {
+      session_id: SESSION_ID,
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/hermes/user-facts
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/user-facts', () => {
+  it('inserts new facts on first write', async () => {
+    mockQuery
+      .mockResolvedValueOnce(emptyResult()) // SELECT current version (none)
+      .mockResolvedValueOnce(emptyResult()) // SELECT existing for preferred_contact
+      .mockResolvedValueOnce(emptyResult()) // INSERT preferred_contact
+      .mockResolvedValueOnce(
+        rowsResult([
+          { key: 'preferred_contact', value: 'phone', source: 'alice', updated_at: '2026-04-11T00:00:00Z' },
+        ]),
+      ); // SELECT snapshot
+
+    const res = await request(app, 'POST', '/api/hermes/user-facts', {
+      project_id: PROJECT_ID,
+      external_user_id: 'tg:12345',
+      facts: [{ key: 'preferred_contact', value: 'phone', source: 'alice' }],
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { version: string; facts: Array<{ key: string; value: string }> };
+    expect(body.version).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.facts).toHaveLength(1);
+    expect(body.facts[0].key).toBe('preferred_contact');
+  });
+
+  it('rejects on ETag mismatch with 409', async () => {
+    mockQuery.mockResolvedValueOnce(rowsResult([{ version: 'current-version-abc' }]));
+    const res = await request(
+      app,
+      'POST',
+      '/api/hermes/user-facts',
+      {
+        project_id: PROJECT_ID,
+        external_user_id: 'tg:12345',
+        facts: [{ key: 'x', value: 'y' }],
+      },
+      { 'If-Match': 'stale-version' },
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it('rejects empty facts array with 400', async () => {
+    const res = await request(app, 'POST', '/api/hermes/user-facts', {
+      project_id: PROJECT_ID,
+      external_user_id: 'tg:12345',
+      facts: [],
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/hermes/user-facts
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/user-facts', () => {
+  it('returns empty facts when none exist', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult());
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/user-facts?project_id=${PROJECT_ID}&external_user_id=tg:12345`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { version: string | null; facts: unknown[] };
+    expect(body.version).toBeNull();
+    expect(body.facts).toEqual([]);
+  });
+
+  it('returns current facts with version', async () => {
+    mockQuery.mockResolvedValueOnce(
+      rowsResult([
+        {
+          key: 'preferred_contact',
+          value: 'phone',
+          source: 'alice',
+          version: 'v-abc-123',
+          updated_at: '2026-04-11T00:00:00Z',
+        },
+      ]),
+    );
+    const res = await request(
+      app,
+      'GET',
+      `/api/hermes/user-facts?project_id=${PROJECT_ID}&external_user_id=tg:12345`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { version: string; facts: Array<{ key: string; value: string }> };
+    expect(body.version).toBe('v-abc-123');
+    expect(body.facts[0].value).toBe('phone');
+  });
+});

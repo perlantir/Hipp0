@@ -60,6 +60,7 @@ import { registerCollabRoomRoutes } from './routes/collab-room.js';
 import { registerHierarchyRoutes } from './routes/hierarchy.js';
 import { registerWingRoutes } from './routes/wings.js';
 import { registerCaptureRoutes } from './routes/capture.js';
+import { registerHermesRoutes } from './routes/hermes.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerExecutionRoutes } from './routes/execution.js';
 import { registerSkillRoutes } from './routes/skills.js';
@@ -321,6 +322,7 @@ export function createApp() {
   registerHierarchyRoutes(app);
   registerWingRoutes(app);
   registerCaptureRoutes(app);
+  registerHermesRoutes(app);
   if (process.env.HIPP0_PLAYGROUND_ENABLED === "true") {
     registerPlaygroundRoutes(app);
   }

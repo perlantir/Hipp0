@@ -42,7 +42,7 @@ export function registerCaptureRoutes(app: Hono): void {
     const source_event_id = optionalString(body.source_event_id, 'source_event_id', 500) ?? null;
     const source_channel = optionalString(body.source_channel, 'source_channel', 200) ?? null;
 
-    const validSources = ['openclaw', 'telegram', 'slack', 'discord', 'github', 'api', 'cli', 'web', 'vscode', 'jetbrains', 'test', 'manual'];
+    const validSources = ['openclaw', 'telegram', 'slack', 'discord', 'github', 'api', 'cli', 'web', 'vscode', 'jetbrains', 'test', 'manual', 'hermes'];
     if (!validSources.includes(source)) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: `source must be one of: ${validSources.join(', ')}` } }, 400);
     }

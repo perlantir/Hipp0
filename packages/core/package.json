@@ -31,6 +31,10 @@
       "import": "./dist/types.js",
       "types": "./dist/types.d.ts"
     },
+    "./types/hermes-contract.js": {
+      "import": "./dist/types/hermes-contract.js",
+      "types": "./dist/types/hermes-contract.d.ts"
+    },
     "./roles.js": {
       "import": "./dist/roles.js",
       "types": "./dist/roles.d.ts"
