@@ -269,7 +269,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').cpSync('src/db/migrations', 'dist/db/migrations', {recursive: true, force: true})\"",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

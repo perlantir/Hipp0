@@ -11,12 +11,11 @@
 // serialises wrong" — which is the only thing left for a real H6 manual run.
 //
 // Setup notes:
-//  - Uses createAdapter() directly instead of initDb() because initDb()
-//    resolves the SQLite migrations directory relative to the compiled
-//    dist/ tree, but migrations only exist in src/ — a latent packaging
-//    gap that only matters for in-process SQLite tests like this one.
-//    The existing packages/core/tests/sqlite-integration.test.ts handles
-//    the same situation the same way.
+//  - Uses the full initDb() entry point (not a hand-rolled createAdapter
+//    call) so this test ALSO validates the dist/ packaging path that
+//    `pnpm start` uses in production. The Phase 10 fix in
+//    packages/core/package.json copies src/db/migrations → dist/db/migrations
+//    as part of `pnpm build`; if that copy regresses, this test catches it.
 //  - Uses withDbOverride() to bind the real adapter to every getDb() call
 //    inside the route handlers via AsyncLocalStorage. This is the sanctioned
 //    injection point for per-request / per-test DB overrides.
@@ -42,8 +41,6 @@
 // -----------------------------------------------------------------------------
 
 import crypto from 'node:crypto';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock ONLY the distillery pipeline (LLM-bound). Everything else — DB, HTTP,
@@ -67,8 +64,7 @@ vi.stubEnv('NODE_ENV', 'development');
 vi.stubEnv('HIPP0_AUTH_REQUIRED', 'false');
 vi.stubEnv('DATABASE_URL', '');
 
-import { createAdapter } from '@hipp0/core/db/factory.js';
-import { withDbOverride } from '@hipp0/core/db/index.js';
+import { initDb, closeDb, getDb } from '@hipp0/core/db/index.js';
 import type { DatabaseAdapter } from '@hipp0/core/db/adapter.js';
 import { createApp } from '../src/app.js';
 
@@ -89,19 +85,10 @@ let sessionId: string;
 // -----------------------------------------------------------------------------
 
 beforeAll(async () => {
-  db = await createAdapter({ dialect: 'sqlite', sqlitePath: ':memory:' });
-  await db.connect();
-
-  // Resolve migrations from the source tree (see "Setup notes" at top).
-  // __filename is this test file; walk up to monorepo root, then into core/src.
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const migrationsDir = path.resolve(
-    __dirname,
-    '..', '..', 'core', 'src', 'db', 'migrations', 'sqlite',
-  );
-  await db.runMigrations(migrationsDir);
-
+  // Full initDb() flow — validates the Phase 10 dist-packaging fix
+  // (src/db/migrations is copied to dist/db/migrations on build so the
+  // production SQLite path actually works, not just the test fixture path).
+  db = await initDb({ dialect: 'sqlite', sqlitePath: ':memory:' });
   app = createApp();
 
   // Create the test project directly on the adapter — /api/projects has its
@@ -114,7 +101,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db?.close();
+  await closeDb();
 });
 
 // -----------------------------------------------------------------------------
@@ -122,8 +109,8 @@ afterAll(async () => {
 // -----------------------------------------------------------------------------
 
 /**
- * Issue an HTTP request against the app, with `getDb()` inside route handlers
- * bound to our per-test SQLite adapter via AsyncLocalStorage.
+ * Issue an HTTP request against the app. `getDb()` inside the route handlers
+ * returns the singleton set by `initDb()` in beforeAll — no override needed.
  */
 async function req(
   method: string,
@@ -131,17 +118,15 @@ async function req(
   body?: unknown,
   headers?: Record<string, string>,
 ): Promise<Response> {
-  return withDbOverride(db, async () => {
-    const init: RequestInit = { method };
-    const h: Record<string, string> = {};
-    if (body !== undefined) {
-      h['Content-Type'] = 'application/json';
-      init.body = JSON.stringify(body);
-    }
-    if (headers) Object.assign(h, headers);
-    if (Object.keys(h).length > 0) init.headers = h;
-    return app.fetch(new Request(`http://localhost${pathStr}`, init));
-  });
+  const init: RequestInit = { method };
+  const h: Record<string, string> = {};
+  if (body !== undefined) {
+    h['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body);
+  }
+  if (headers) Object.assign(h, headers);
+  if (Object.keys(h).length > 0) init.headers = h;
+  return app.fetch(new Request(`http://localhost${pathStr}`, init));
 }
 
 // -----------------------------------------------------------------------------
