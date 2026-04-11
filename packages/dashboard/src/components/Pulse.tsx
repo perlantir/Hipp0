@@ -25,6 +25,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
+import { useWebSocket } from '../hooks/useWebSocket';
 import { useProject } from '../App';
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +109,7 @@ function StatCard({
 
 export function Pulse() {
   const { get } = useApi();
+  const { subscribe } = useWebSocket();
   const { projectId } = useProject();
 
   const [data, setData] = useState<HermesPulseResponse | null>(null);
@@ -161,6 +163,34 @@ export function Pulse() {
       intervalRef.current = null;
     };
   }, [load, isValidProject]);
+
+  // Live WebSocket updates: refetch on Hermes lifecycle events.
+  //
+  // These events are broadcast from the hermes routes on register,
+  // session/start, and session/end. On any of them, we re-pull the
+  // pulse aggregate so the UI stays in sync with zero polling delay.
+  // Events carry project_id; we filter to only our project.
+  useEffect(() => {
+    if (!isValidProject) return;
+    const handler = (payload: unknown) => {
+      if (
+        typeof payload === 'object' &&
+        payload !== null &&
+        'project_id' in payload &&
+        (payload as { project_id: unknown }).project_id === projectId
+      ) {
+        load(true);
+      }
+    };
+    const unsub1 = subscribe('hermes.agent.registered', handler);
+    const unsub2 = subscribe('hermes.session.started', handler);
+    const unsub3 = subscribe('hermes.session.ended', handler);
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
+  }, [subscribe, load, isValidProject, projectId]);
 
   /* ---- Empty: no project ------------------------------------------ */
   if (!isValidProject) {

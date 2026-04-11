@@ -20,6 +20,23 @@ const mockState = {
   projectId: 'not-a-uuid',
 };
 
+// Registry of WS subscriptions so tests can trigger events.
+// Keyed by event name → set of callbacks.
+const wsSubscribers = new Map<string, Set<(data: unknown) => void>>();
+const mockSubscribe = vi.fn((event: string, cb: (data: unknown) => void) => {
+  if (!wsSubscribers.has(event)) wsSubscribers.set(event, new Set());
+  wsSubscribers.get(event)!.add(cb);
+  return () => {
+    wsSubscribers.get(event)?.delete(cb);
+  };
+});
+
+function triggerWsEvent(event: string, data: unknown) {
+  const subs = wsSubscribers.get(event);
+  if (!subs) return;
+  for (const cb of subs) cb(data);
+}
+
 vi.mock('../src/hooks/useApi', () => ({
   useApi: () => ({
     get: mockGet,
@@ -27,6 +44,14 @@ vi.mock('../src/hooks/useApi', () => ({
     patch: mockPatch,
     del: mockDel,
     baseUrl: 'http://localhost:3100',
+  }),
+}));
+
+vi.mock('../src/hooks/useWebSocket', () => ({
+  useWebSocket: () => ({
+    connected: 'connected',
+    lastEvent: null,
+    subscribe: mockSubscribe,
   }),
 }));
 
@@ -39,6 +64,8 @@ function resetMocks() {
   mockPost.mockReset();
   mockPatch.mockReset();
   mockDel.mockReset();
+  mockSubscribe.mockClear();
+  wsSubscribers.clear();
   mockGet.mockResolvedValue({ agent_count: 0, active_session_count: 0, recent_sessions: [] });
   mockState.projectId = 'not-a-uuid';
 }
@@ -149,6 +176,77 @@ describe('Pulse', () => {
       expect(screen.getByText(/pulse boom/i)).toBeTruthy();
       expect(screen.getByText(/Retry/i)).toBeTruthy();
     });
+  });
+
+  it('subscribes to hermes.* WebSocket events on mount', async () => {
+    mockState.projectId = VALID_UUID;
+    const { Pulse } = await import('../src/components/Pulse');
+    await act(async () => {
+      render(<Pulse />);
+    });
+    await waitFor(() => {
+      const subscribed = mockSubscribe.mock.calls.map((c) => c[0]);
+      expect(subscribed).toContain('hermes.agent.registered');
+      expect(subscribed).toContain('hermes.session.started');
+      expect(subscribed).toContain('hermes.session.ended');
+    });
+  });
+
+  it('refetches pulse when a matching-project WebSocket event fires', async () => {
+    mockState.projectId = VALID_UUID;
+    mockGet.mockResolvedValue({
+      agent_count: 1,
+      active_session_count: 0,
+      recent_sessions: [],
+    });
+    const { Pulse } = await import('../src/components/Pulse');
+    await act(async () => {
+      render(<Pulse />);
+    });
+    // Initial fetch
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
+
+    // Fire a session.started event for this project
+    await act(async () => {
+      triggerWsEvent('hermes.session.started', {
+        project_id: VALID_UUID,
+        session_id: 's1',
+        agent_name: 'alice',
+        platform: 'telegram',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('ignores WebSocket events for a different project', async () => {
+    mockState.projectId = VALID_UUID;
+    const OTHER_PROJECT = 'b2c3d4e5-f6a7-8901-bcde-f23456789012';
+    mockGet.mockResolvedValue({
+      agent_count: 1,
+      active_session_count: 0,
+      recent_sessions: [],
+    });
+    const { Pulse } = await import('../src/components/Pulse');
+    await act(async () => {
+      render(<Pulse />);
+    });
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      triggerWsEvent('hermes.session.started', {
+        project_id: OTHER_PROJECT,
+        session_id: 's1',
+        agent_name: 'alice',
+        platform: 'telegram',
+      });
+    });
+
+    // Give any spurious refetch time to land — it should not
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   it('distinguishes active vs ended sessions', async () => {

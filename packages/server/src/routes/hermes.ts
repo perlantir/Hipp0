@@ -24,6 +24,7 @@ import type { Hono } from 'hono';
 import { getDb } from '@hipp0/core/db/index.js';
 import { requireUUID, requireString, optionalString, logAudit, mapDbError } from './validation.js';
 import { requireProjectAccess } from './_helpers.js';
+import { broadcast } from '../websocket.js';
 import {
   HERMES_AGENT_NAME_RE,
   type HermesPlatform,
@@ -112,6 +113,13 @@ export function registerHermesRoutes(app: Hono): void {
     }
 
     logAudit('hermes_agent_registered', project_id, {
+      agent_id,
+      agent_name,
+      created,
+    });
+
+    broadcast('hermes.agent.registered', {
+      project_id,
       agent_id,
       agent_name,
       created,
@@ -433,6 +441,16 @@ export function registerHermesRoutes(app: Hono): void {
       platform,
     });
 
+    broadcast('hermes.session.started', {
+      project_id,
+      session_id,
+      conversation_id,
+      agent_name,
+      platform,
+      external_chat_id,
+      started_at,
+    });
+
     return c.json({ session_id, conversation_id, started_at }, 201);
   });
 
@@ -484,6 +502,12 @@ export function registerHermesRoutes(app: Hono): void {
     }
 
     logAudit('hermes_session_end', project_id, { session_id });
+
+    broadcast('hermes.session.ended', {
+      project_id,
+      session_id,
+      ended_at,
+    });
 
     // Rolling summary is a later-phase feature — return empty list for now.
     return c.json({
