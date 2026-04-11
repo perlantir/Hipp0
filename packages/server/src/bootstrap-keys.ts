@@ -70,10 +70,16 @@ export async function bootstrapApiKeys(): Promise<void> {
     // Generate a new key
     const { key, prefix, hash } = generateApiKey();
 
+    // Client-generate the id so the INSERT works on SQLite. The Postgres
+    // schema has DEFAULT uuid_generate_v4() on api_keys.id; SQLite doesn't.
+    // Without this, bootstrap silently crashed on every prod-auth boot
+    // against SQLite. The dev-mode guard above already short-circuits
+    // HIPP0_AUTH_REQUIRED=false, so this only matters when auth is real.
+    const id = crypto.randomUUID();
     await db.query(
-      `INSERT INTO api_keys (tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [DEFAULT_TENANT_ID, projectId, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
+      `INSERT INTO api_keys (id, tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, DEFAULT_TENANT_ID, projectId, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
     );
 
     const masked = key.slice(0, 16) + '...';

@@ -216,9 +216,9 @@ export async function seedDemoProject(): Promise<void> {
     if (sourceTitle && targetTitle) {
       try {
         await db.query(
-          `INSERT INTO decision_edges (source_id, target_id, relationship)
-           VALUES (?, ?, ?)`,
-          [decisionIds[sourceTitle], decisionIds[targetTitle], edge.rel],
+          `INSERT INTO decision_edges (id, source_id, target_id, relationship)
+           VALUES (?, ?, ?, ?)`,
+          [randomUUID(), decisionIds[sourceTitle], decisionIds[targetTitle], edge.rel],
         );
         edgesCreated++;
       } catch { /* Edge table might not exist or constraint violation */ }

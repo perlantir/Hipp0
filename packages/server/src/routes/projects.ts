@@ -1,4 +1,5 @@
 import type { Hono } from 'hono';
+import { randomUUID } from 'node:crypto';
 import { getDb } from '@hipp0/core/db/index.js';
 import { parseProject } from '@hipp0/core/db/parsers.js';
 import { NotFoundError } from '@hipp0/core/types.js';
@@ -22,11 +23,18 @@ export function registerProjectRoutes(app: Hono): void {
     const tenantId = isAuthRequired() ? getTenantId(c) : 'a0000000-0000-4000-8000-000000000001';
 
     try {
+      // Client-generate the project id so the INSERT works on SQLite. The
+      // Postgres schema has DEFAULT uuid_generate_v4() on projects.id, but
+      // the SQLite schema has no default — omitting id crashed with
+      // `NOT NULL constraint failed: projects.id` on every dashboard
+      // "create project" call on SQLite. See 1a46f21 for the same pattern
+      // applied to decisions.id and session_summaries.id.
+      const projectId = randomUUID();
       const result = await db.query(
-        `INSERT INTO projects (name, description, metadata, tenant_id)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO projects (id, name, description, metadata, tenant_id)
+         VALUES (?, ?, ?, ?, ?)
          RETURNING *`,
-        [name, description ?? null, JSON.stringify(body.metadata ?? {}), tenantId],
+        [projectId, name, description ?? null, JSON.stringify(body.metadata ?? {}), tenantId],
       );
       const project = parseProject(result.rows[0] as Record<string, unknown>);
 
@@ -34,10 +42,12 @@ export function registerProjectRoutes(app: Hono): void {
       let apiKey: string | undefined;
       try {
         const { key, prefix, hash } = generateApiKey();
+        // Same pattern: api_keys.id has no default on SQLite.
+        const apiKeyId = randomUUID();
         await db.query(
-          `INSERT INTO api_keys (tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [DEFAULT_TENANT_ID, project.id, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
+          `INSERT INTO api_keys (id, tenant_id, project_id, name, key_hash, key_prefix, permissions, rate_limit, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [apiKeyId, DEFAULT_TENANT_ID, project.id, 'Default (auto-generated)', hash, prefix, 'admin', 1000, DEFAULT_USER_ID],
         );
         apiKey = key;
 

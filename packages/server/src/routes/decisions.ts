@@ -595,10 +595,12 @@ export function registerDecisionRoutes(app: Hono): void {
       );
 
       await txQuery(
-        `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
-         VALUES (?, ?, 'supersedes', 1.0)
+        // SQLite's decision_edges schema has id NOT NULL with no DEFAULT,
+        // unlike Postgres. Client-generate so the INSERT works on both.
+        `INSERT INTO decision_edges (id, source_id, target_id, relationship, strength)
+         VALUES (?, ?, ?, 'supersedes', 1.0)
          ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
-        [newId, oldId],
+        [randomUUID(), newId, oldId],
       );
 
       return {
@@ -735,10 +737,10 @@ export function registerDecisionRoutes(app: Hono): void {
         [newId, oldId],
       );
       await txQuery(
-        `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
-         VALUES (?, ?, 'supersedes', 1.0)
+        `INSERT INTO decision_edges (id, source_id, target_id, relationship, strength)
+         VALUES (?, ?, ?, 'supersedes', 1.0)
          ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
-        [newId, oldId],
+        [randomUUID(), newId, oldId],
       );
     });
 
@@ -971,10 +973,11 @@ export function registerDecisionRoutes(app: Hono): void {
 
     try {
       const result = await db.query(
-        `INSERT INTO decision_edges (source_id, target_id, relationship, description, strength)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO decision_edges (id, source_id, target_id, relationship, description, strength)
+         VALUES (?, ?, ?, ?, ?, ?)
          RETURNING *`,
         [
+          randomUUID(),
           sourceId,
           target_id,
           relationship,
@@ -1117,10 +1120,10 @@ export function registerDecisionRoutes(app: Hono): void {
 
     // Create a supersedes edge in the Phase 1 decision_edges table
     await db.query(
-      `INSERT INTO decision_edges (source_id, target_id, relationship, strength)
-       VALUES (?, ?, 'supersedes', 1.0)
+      `INSERT INTO decision_edges (id, source_id, target_id, relationship, strength)
+       VALUES (?, ?, ?, 'supersedes', 1.0)
        ON CONFLICT (source_id, target_id, relationship) DO NOTHING`,
-      [dec.potential_duplicate_of, decisionId],
+      [randomUUID(), dec.potential_duplicate_of, decisionId],
     );
 
     // Clear the duplicate flag
