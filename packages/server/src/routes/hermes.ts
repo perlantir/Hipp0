@@ -313,6 +313,77 @@ export function registerHermesRoutes(app: Hono): void {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/hermes/pulse — single-call dashboard home aggregate
+  //
+  // Returns counts + the most recent sessions across ALL agents in a
+  // project, so the Pulse view can hydrate a home page with one request.
+  // -----------------------------------------------------------------------
+  app.get('/api/hermes/pulse', async (c) => {
+    const project_id = requireUUID(c.req.query('project_id'), 'project_id');
+    await requireProjectAccess(c, project_id);
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10) || 20, 100);
+
+    const db = getDb();
+
+    // 1. Agent count
+    const agentCountResult = await db.query(
+      'SELECT COUNT(*) AS count FROM hermes_agents WHERE project_id = ?',
+      [project_id],
+    );
+    const agentCount = Number(
+      ((agentCountResult.rows[0] ?? {}) as Record<string, unknown>).count ?? 0,
+    );
+
+    // 2. Active session count (ended_at IS NULL)
+    const activeCountResult = await db.query(
+      `SELECT COUNT(*) AS count FROM hermes_conversations
+        WHERE project_id = ? AND ended_at IS NULL`,
+      [project_id],
+    );
+    const activeSessionCount = Number(
+      ((activeCountResult.rows[0] ?? {}) as Record<string, unknown>).count ?? 0,
+    );
+
+    // 3. Recent sessions (joined to agent_name)
+    const recentResult = await db.query(
+      `SELECT c.id              AS conversation_id,
+              c.session_id,
+              c.platform,
+              c.external_user_id,
+              c.external_chat_id,
+              c.started_at,
+              c.ended_at,
+              a.agent_name
+         FROM hermes_conversations c
+         JOIN hermes_agents a ON a.id = c.agent_id
+        WHERE c.project_id = ?
+        ORDER BY c.started_at DESC
+        LIMIT ?`,
+      [project_id, limit],
+    );
+
+    const recent_sessions = recentResult.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        conversation_id: r.conversation_id as string,
+        session_id: r.session_id as string,
+        agent_name: r.agent_name as string,
+        platform: r.platform as string,
+        external_user_id: (r.external_user_id as string | null) ?? null,
+        external_chat_id: (r.external_chat_id as string | null) ?? null,
+        started_at: r.started_at as string,
+        ended_at: (r.ended_at as string | null) ?? null,
+      };
+    });
+
+    return c.json({
+      agent_count: agentCount,
+      active_session_count: activeSessionCount,
+      recent_sessions,
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // POST /api/hermes/session/start — create a hermes_conversations row
   // -----------------------------------------------------------------------
   app.post('/api/hermes/session/start', async (c) => {

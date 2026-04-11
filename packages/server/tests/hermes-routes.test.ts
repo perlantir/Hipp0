@@ -433,6 +433,93 @@ describe('GET /api/hermes/conversations/:session_id/messages', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/hermes/pulse
+// ---------------------------------------------------------------------------
+
+describe('GET /api/hermes/pulse', () => {
+  it('returns empty counts + empty sessions when project has no data', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ count: 0 }])) // agent count
+      .mockResolvedValueOnce(rowsResult([{ count: 0 }])) // active count
+      .mockResolvedValueOnce(emptyResult()); // recent sessions
+
+    const res = await request(app, 'GET', `/api/hermes/pulse?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      agent_count: number;
+      active_session_count: number;
+      recent_sessions: unknown[];
+    };
+    expect(body.agent_count).toBe(0);
+    expect(body.active_session_count).toBe(0);
+    expect(body.recent_sessions).toEqual([]);
+  });
+
+  it('returns populated aggregate with recent sessions joined to agent names', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ count: 3 }])) // agents
+      .mockResolvedValueOnce(rowsResult([{ count: 2 }])) // active
+      .mockResolvedValueOnce(
+        rowsResult([
+          {
+            conversation_id: CONVERSATION_ID,
+            session_id: SESSION_ID,
+            platform: 'telegram',
+            external_user_id: '12345',
+            external_chat_id: '-100200',
+            started_at: '2026-04-11T12:00:00Z',
+            ended_at: null,
+            agent_name: 'alice',
+          },
+          {
+            conversation_id: 'd2e3f4a5-b6c7-8901-ef12-345678901234',
+            session_id: 'e3f4a5b6-c7d8-9012-f123-456789012345',
+            platform: 'web',
+            external_user_id: null,
+            external_chat_id: null,
+            started_at: '2026-04-11T11:00:00Z',
+            ended_at: '2026-04-11T11:15:00Z',
+            agent_name: 'bob',
+          },
+        ]),
+      );
+
+    const res = await request(app, 'GET', `/api/hermes/pulse?project_id=${PROJECT_ID}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      agent_count: number;
+      active_session_count: number;
+      recent_sessions: Array<{ agent_name: string; platform: string; ended_at: string | null }>;
+    };
+    expect(body.agent_count).toBe(3);
+    expect(body.active_session_count).toBe(2);
+    expect(body.recent_sessions).toHaveLength(2);
+    expect(body.recent_sessions[0].agent_name).toBe('alice');
+    expect(body.recent_sessions[0].ended_at).toBeNull();
+    expect(body.recent_sessions[1].agent_name).toBe('bob');
+  });
+
+  it('rejects missing project_id with 400', async () => {
+    const res = await request(app, 'GET', '/api/hermes/pulse');
+    expect(res.status).toBe(400);
+  });
+
+  it('honors the limit query parameter', async () => {
+    mockQuery
+      .mockResolvedValueOnce(rowsResult([{ count: 0 }]))
+      .mockResolvedValueOnce(rowsResult([{ count: 0 }]))
+      .mockResolvedValueOnce(emptyResult());
+
+    await request(app, 'GET', `/api/hermes/pulse?project_id=${PROJECT_ID}&limit=5`);
+    // Last call should be recent sessions query with limit=5 as 2nd param
+    const lastCall = mockQuery.mock.calls[mockQuery.mock.calls.length - 1];
+    const params = lastCall[1] as unknown[];
+    expect(params[0]).toBe(PROJECT_ID);
+    expect(params[1]).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/hermes/session/start
 // ---------------------------------------------------------------------------
 
