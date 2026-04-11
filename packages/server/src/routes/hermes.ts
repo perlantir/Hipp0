@@ -247,6 +247,106 @@ export function registerHermesRoutes(app: Hono): void {
   });
 
   // -----------------------------------------------------------------------
+  // POST /api/hermes/conversations/:session_id/messages — append a message
+  //
+  // The Hermes runtime calls this once per message (user / assistant / tool)
+  // during a live session so the dashboard's message log stays current.
+  // Separate from POST /api/capture, which is bulk / retrospective and goes
+  // through async distillation.
+  // -----------------------------------------------------------------------
+  app.post('/api/hermes/conversations/:session_id/messages', async (c) => {
+    const session_id = requireUUID(c.req.param('session_id'), 'session_id');
+    const body = await c.req.json<Record<string, unknown>>();
+
+    // Validate role — matches the CHECK constraint on hermes_messages.role
+    const role = requireString(body.role, 'role', 32);
+    const validRoles = ['user', 'assistant', 'system', 'tool'];
+    if (!validRoles.includes(role)) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: `role must be one of: ${validRoles.join(', ')}` } },
+        400,
+      );
+    }
+
+    const content = requireString(body.content, 'content', 500_000);
+    const tool_calls_json = body.tool_calls !== undefined && body.tool_calls !== null
+      ? JSON.stringify(body.tool_calls)
+      : null;
+    const tool_results_json = body.tool_results !== undefined && body.tool_results !== null
+      ? JSON.stringify(body.tool_results)
+      : null;
+    const tokens_in = typeof body.tokens_in === 'number' ? Math.max(0, Math.floor(body.tokens_in)) : null;
+    const tokens_out = typeof body.tokens_out === 'number' ? Math.max(0, Math.floor(body.tokens_out)) : null;
+
+    const db = getDb();
+
+    // Resolve conversation_id + project_id from session_id
+    const convResult = await db.query(
+      'SELECT id, project_id FROM hermes_conversations WHERE session_id = ?',
+      [session_id],
+    );
+    if (convResult.rows.length === 0) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }, 404);
+    }
+    const convRow = convResult.rows[0] as Record<string, unknown>;
+    const project_id = convRow.project_id as string;
+    await requireProjectAccess(c, project_id);
+    const conversation_id = convRow.id as string;
+
+    const message_id = crypto.randomUUID();
+    const created_at = new Date().toISOString();
+
+    try {
+      await db.query(
+        `INSERT INTO hermes_messages
+           (id, conversation_id, role, content, tool_calls_json, tool_results_json, tokens_in, tokens_out, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message_id,
+          conversation_id,
+          role,
+          content,
+          tool_calls_json,
+          tool_results_json,
+          tokens_in,
+          tokens_out,
+          created_at,
+        ],
+      );
+    } catch (err) {
+      mapDbError(err);
+      return;
+    }
+
+    logAudit('hermes_message_appended', project_id, {
+      message_id,
+      session_id,
+      role,
+      tokens_in,
+      tokens_out,
+    });
+
+    broadcast('hermes.message.added', {
+      project_id,
+      session_id,
+      conversation_id,
+      message_id,
+      role,
+      created_at,
+    });
+
+    return c.json(
+      {
+        message_id,
+        session_id,
+        conversation_id,
+        created_at,
+      },
+      201,
+    );
+  });
+
+  // -----------------------------------------------------------------------
   // GET /api/hermes/conversations/:session_id/messages — message log for a
   // specific session. The web Chat view paginates over this; Phase 2 uses
   // it for the agent-detail conversation drill-down.

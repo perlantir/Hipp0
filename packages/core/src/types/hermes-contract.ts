@@ -223,6 +223,32 @@ export interface HermesCompiledDecision {
   created_at?: string;
 }
 
+// ---------------------------------------------------------------------------
+// POST /api/hermes/conversations/:session_id/messages
+//
+// Append a single message to a session's log. The Hermes runtime calls this
+// once per turn (user + assistant + tool calls) while a session is live, so
+// the web Chat view and the HermesAgents drill-down see messages in real time.
+// ---------------------------------------------------------------------------
+
+export type HermesMessageRole = 'user' | 'assistant' | 'system' | 'tool';
+
+export interface HermesMessageAppendRequest {
+  role: HermesMessageRole;
+  content: string;                       // required, max 500_000
+  tool_calls?: unknown;                  // JSON-serializable, optional
+  tool_results?: unknown;                // JSON-serializable, optional
+  tokens_in?: number;
+  tokens_out?: number;
+}
+
+export interface HermesMessageAppendResponse {
+  message_id: string;
+  session_id: string;
+  conversation_id: string;
+  created_at: string;
+}
+
 /** POST /api/outcomes — see routes/outcomes.ts (truth). */
 export interface HermesOutcomeRequest {
   project_id: string;

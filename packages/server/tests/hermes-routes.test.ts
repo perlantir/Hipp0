@@ -326,6 +326,106 @@ describe('GET /api/hermes/agents/:name/conversations', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/hermes/conversations/:session_id/messages — append message
+// ---------------------------------------------------------------------------
+
+describe('POST /api/hermes/conversations/:session_id/messages', () => {
+  it('returns 404 when session does not exist', async () => {
+    mockQuery.mockResolvedValueOnce(emptyResult()); // SELECT conversation
+    const res = await request(
+      app,
+      'POST',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+      { role: 'user', content: 'hello' },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects invalid role with 400', async () => {
+    const res = await request(
+      app,
+      'POST',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+      { role: 'narrator', content: 'hello' },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('inserts a user message and returns 201 with the generated id', async () => {
+    mockQuery
+      .mockResolvedValueOnce(
+        rowsResult([{ id: CONVERSATION_ID, project_id: PROJECT_ID }]),
+      ) // SELECT conversation
+      .mockResolvedValueOnce(emptyResult()); // INSERT message
+
+    const res = await request(
+      app,
+      'POST',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+      { role: 'user', content: 'hi alice', tokens_in: 2 },
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as {
+      message_id: string;
+      session_id: string;
+      conversation_id: string;
+      created_at: string;
+    };
+    expect(body.message_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.session_id).toBe(SESSION_ID);
+    expect(body.conversation_id).toBe(CONVERSATION_ID);
+    expect(body.created_at).toBeTruthy();
+  });
+
+  it('persists tool_calls and tool_results as JSON in the assistant message', async () => {
+    mockQuery
+      .mockResolvedValueOnce(
+        rowsResult([{ id: CONVERSATION_ID, project_id: PROJECT_ID }]),
+      )
+      .mockResolvedValueOnce(emptyResult());
+
+    const res = await request(
+      app,
+      'POST',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+      {
+        role: 'assistant',
+        content: 'calling lookup_memory',
+        tool_calls: [{ name: 'lookup_memory', args: { q: 'prefs' } }],
+        tool_results: [{ result: 'found 3' }],
+        tokens_in: 12,
+        tokens_out: 8,
+      },
+    );
+    expect(res.status).toBe(201);
+
+    // Find the INSERT call and inspect its parameters
+    const insertCall = mockQuery.mock.calls.find(
+      (args) => typeof args[0] === 'string' && (args[0] as string).includes('INSERT INTO hermes_messages'),
+    );
+    expect(insertCall).toBeTruthy();
+    const params = (insertCall as unknown[])[1] as unknown[];
+    // [id, conversation_id, role, content, tool_calls_json, tool_results_json, tokens_in, tokens_out, created_at]
+    expect(params[2]).toBe('assistant');
+    expect(params[3]).toBe('calling lookup_memory');
+    expect(params[4]).toBe(JSON.stringify([{ name: 'lookup_memory', args: { q: 'prefs' } }]));
+    expect(params[5]).toBe(JSON.stringify([{ result: 'found 3' }]));
+    expect(params[6]).toBe(12);
+    expect(params[7]).toBe(8);
+  });
+
+  it('rejects empty content with 400', async () => {
+    const res = await request(
+      app,
+      'POST',
+      `/api/hermes/conversations/${SESSION_ID}/messages`,
+      { role: 'user', content: '' },
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/hermes/conversations/:session_id/messages
 // ---------------------------------------------------------------------------
 
