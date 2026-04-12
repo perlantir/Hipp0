@@ -141,8 +141,9 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-export function AgentAvatar({ name, size = 32 }: { name: string; size?: number }) {
+export function AgentAvatar({ name: rawName, size = 32 }: { name: string; size?: number }) {
   // Deterministic color from name hash
+  const name = rawName || '?';
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const colors = ['#4b6fff', '#ff5eab', '#22c55e', '#eab308', '#ef4444', '#818cf8', '#14b8a6'];
   const bg = colors[hash % colors.length];

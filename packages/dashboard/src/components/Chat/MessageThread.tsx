@@ -1,19 +1,29 @@
 import { useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
-import type { ChatMessage } from './types';
+import { ProcessingIndicator } from './ProcessingIndicator';
+import type { ChatMessage, ProcessingStatus, ActiveToolCall, Hipp0Activity } from './types';
 
 interface MessageThreadProps {
   messages: ChatMessage[];
   isStreaming: boolean;
+  processingStatus: ProcessingStatus;
+  activeToolCalls: ActiveToolCall[];
+  hipp0Activity: Hipp0Activity | null;
 }
 
-export function MessageThread({ messages, isStreaming }: MessageThreadProps) {
+export function MessageThread({
+  messages,
+  isStreaming,
+  processingStatus,
+  activeToolCalls,
+  hipp0Activity,
+}: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages or streaming content
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, messages.length > 0 ? messages[messages.length - 1]?.content : '']);
+  }, [messages, messages.length > 0 ? messages[messages.length - 1]?.content : '', processingStatus, activeToolCalls.length]);
 
   if (messages.length === 0) {
     return (
@@ -72,6 +82,12 @@ export function MessageThread({ messages, isStreaming }: MessageThreadProps) {
           </span>
         </div>
       )}
+
+      <ProcessingIndicator
+        status={processingStatus}
+        activeToolCalls={activeToolCalls}
+        hipp0Activity={hipp0Activity}
+      />
 
       <div ref={bottomRef} />
     </div>

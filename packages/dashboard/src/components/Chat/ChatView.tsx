@@ -2,7 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageThread } from './MessageThread';
 import { ChatInput } from './ChatInput';
 import { AgentAvatar } from './MessageBubble';
-import type { ChatMessage, ConnectionStatus, AgentInfo, WsServerMessage, ToolCallInfo } from './types';
+import type {
+  ChatMessage,
+  ConnectionStatus,
+  AgentInfo,
+  WsServerMessage,
+  ToolCallInfo,
+  ProcessingStatus,
+  ActiveToolCall,
+  Hipp0Activity,
+} from './types';
+
+const MAX_QUEUE_SIZE = 10;
+const HIPP0_ACTIVITY_TIMEOUT_MS = 10_000;
 
 function getWsUrl(): string {
   const loc = window.location;
@@ -28,10 +40,63 @@ export function ChatView() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // New state for Phase 2
+  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
+  const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
+  const [hipp0Activity, setHipp0Activity] = useState<Hipp0Activity | null>(null);
+  const [messageQueue, setMessageQueue] = useState<string[]>([]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const streamingMsgIdRef = useRef<string | null>(null);
+  const hipp0TimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const messageQueueRef = useRef<string[]>([]);
+  const selectedAgentRef = useRef(selectedAgent);
+
+  // Keep refs in sync
+  messageQueueRef.current = messageQueue;
+  selectedAgentRef.current = selectedAgent;
+
+  // Auto-hide HIPP0 activity after timeout
+  const showHipp0Activity = useCallback((message: string) => {
+    clearTimeout(hipp0TimerRef.current);
+    setHipp0Activity({ message, timestamp: Date.now() });
+    hipp0TimerRef.current = setTimeout(() => {
+      setHipp0Activity(null);
+    }, HIPP0_ACTIVITY_TIMEOUT_MS);
+  }, []);
+
+  // Send a message directly over WebSocket
+  const sendMessage = useCallback((content: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const userMsg: ChatMessage = {
+      id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      role: 'user',
+      content,
+      timestamp: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    ws.send(
+      JSON.stringify({
+        type: 'message',
+        agent_name: selectedAgentRef.current,
+        content,
+      }),
+    );
+  }, []);
+
+  // Drain next queued message
+  const drainQueue = useCallback(() => {
+    const queue = messageQueueRef.current;
+    if (queue.length === 0) return;
+    const next = queue[0];
+    setMessageQueue((prev) => prev.slice(1));
+    sendMessage(next);
+  }, [sendMessage]);
 
   // Fetch agent list from HIPP0 API
   useEffect(() => {
@@ -46,12 +111,19 @@ export function ChatView() {
 
     fetch(`${baseUrl}/api/hermes/agents?project_id=${projectId}`, { headers })
       .then((r) => r.ok ? r.json() : [])
-      .then((data: AgentInfo[] | { agents: AgentInfo[] }) => {
-        const list = Array.isArray(data) ? data : (data.agents || []);
+      .then((data: unknown) => {
+        const raw = Array.isArray(data) ? data : ((data as Record<string, unknown>)?.agents as unknown[] || []);
+        const list: AgentInfo[] = raw.map((item: unknown) => {
+          const a = item as Record<string, unknown>;
+          return {
+            name: (a.name || a.agent_name || 'unknown') as string,
+            agent_id: a.agent_id as string | undefined,
+            status: a.status as string | undefined,
+          };
+        }).filter((a) => a.name !== 'unknown');
         if (list.length > 0) {
           setAgents(list);
         } else {
-          // Fallback: at least show alice
           setAgents([{ name: 'alice' }]);
         }
       })
@@ -59,6 +131,141 @@ export function ChatView() {
         setAgents([{ name: 'alice' }]);
       });
   }, []);
+
+  // Handle incoming WebSocket messages
+  const handleWsMessage = useCallback((msg: WsServerMessage) => {
+    switch (msg.type) {
+      case 'stream_start': {
+        const newMsg: ChatMessage = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          role: 'assistant',
+          content: '',
+          agent_name: msg.agent_name,
+          timestamp: Date.now(),
+          tool_calls: [],
+          isStreaming: true,
+        };
+        streamingMsgIdRef.current = newMsg.id;
+        setMessages((prev) => [...prev, newMsg]);
+        setIsStreaming(true);
+        break;
+      }
+
+      case 'stream_delta': {
+        const sid = streamingMsgIdRef.current;
+        if (!sid) break;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === sid ? { ...m, content: m.content + msg.content } : m,
+          ),
+        );
+        break;
+      }
+
+      case 'tool_call': {
+        const sid = streamingMsgIdRef.current;
+        if (sid) {
+          // Update tool_calls on the streaming message
+          const toolInfo: ToolCallInfo = {
+            tool_name: msg.tool_name,
+            tool_emoji: msg.tool_emoji,
+            args_preview: msg.args_preview,
+            result_preview: msg.result_preview,
+            status: msg.status,
+          };
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== sid) return m;
+              const existing = m.tool_calls || [];
+              const idx = existing.findIndex((t) => t.tool_name === toolInfo.tool_name && t.status === 'started');
+              if (idx >= 0 && toolInfo.status !== 'started') {
+                const updated = [...existing];
+                updated[idx] = toolInfo;
+                return { ...m, tool_calls: updated };
+              }
+              return { ...m, tool_calls: [...existing, toolInfo] };
+            }),
+          );
+        }
+
+        // Update active tool calls for the processing indicator
+        if (msg.status === 'started') {
+          const newTool: ActiveToolCall = {
+            tool_name: msg.tool_name,
+            tool_emoji: msg.tool_emoji,
+            args_preview: msg.args_preview,
+            status: 'started',
+            started_at: Date.now(),
+          };
+          setActiveToolCalls((prev) => [...prev, newTool]);
+        } else {
+          setActiveToolCalls((prev) => {
+            const idx = prev.findIndex(
+              (t) => t.tool_name === msg.tool_name && t.status === 'started',
+            );
+            if (idx < 0) return prev;
+            const updated = [...prev];
+            updated[idx] = {
+              ...updated[idx],
+              status: msg.status,
+              result_preview: msg.result_preview,
+              completed_at: Date.now(),
+            };
+            return updated;
+          });
+        }
+        break;
+      }
+
+      case 'stream_end': {
+        const sid = streamingMsgIdRef.current;
+        if (sid) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === sid ? { ...m, isStreaming: false } : m)),
+          );
+        }
+        streamingMsgIdRef.current = null;
+        setIsStreaming(false);
+        setProcessingStatus('idle');
+        setActiveToolCalls([]);
+
+        // Drain queue: auto-send next queued message
+        // Use setTimeout to let state settle first
+        setTimeout(() => {
+          drainQueue();
+        }, 100);
+        break;
+      }
+
+      case 'error': {
+        const errorMsg: ChatMessage = {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: `**Error:** ${msg.message}`,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+        if (!msg.recoverable) {
+          setIsStreaming(false);
+          setProcessingStatus('idle');
+          setActiveToolCalls([]);
+          streamingMsgIdRef.current = null;
+        }
+        break;
+      }
+
+      case 'status': {
+        setProcessingStatus(msg.status);
+        break;
+      }
+
+      case 'hipp0_event': {
+        const durationStr = msg.duration_ms != null ? ` in ${msg.duration_ms}ms` : '';
+        showHipp0Activity(`HIPP0: ${msg.detail}${durationStr}`);
+        break;
+      }
+    }
+  }, [drainQueue, showHipp0Activity]);
 
   // WebSocket connection with reconnection
   const connect = useCallback(() => {
@@ -93,128 +300,23 @@ export function ChatView() {
     ws.onerror = () => {
       ws.close();
     };
-  }, []);
+  }, [handleWsMessage]);
 
   useEffect(() => {
     connect();
     return () => {
       clearTimeout(retryTimerRef.current);
+      clearTimeout(hipp0TimerRef.current);
       wsRef.current?.close();
     };
   }, [connect]);
 
-  // Handle incoming WebSocket messages
-  const handleWsMessage = useCallback((msg: WsServerMessage) => {
-    switch (msg.type) {
-      case 'stream_start': {
-        const newMsg: ChatMessage = {
-          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'assistant',
-          content: '',
-          agent_name: msg.agent_name,
-          timestamp: Date.now(),
-          tool_calls: [],
-          isStreaming: true,
-        };
-        streamingMsgIdRef.current = newMsg.id;
-        setMessages((prev) => [...prev, newMsg]);
-        setIsStreaming(true);
-        break;
-      }
-
-      case 'stream_delta': {
-        const sid = streamingMsgIdRef.current;
-        if (!sid) break;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === sid ? { ...m, content: m.content + msg.content } : m,
-          ),
-        );
-        break;
-      }
-
-      case 'tool_call': {
-        const sid = streamingMsgIdRef.current;
-        if (!sid) break;
-        const toolInfo: ToolCallInfo = {
-          tool_name: msg.tool_name,
-          tool_emoji: msg.tool_emoji,
-          args_preview: msg.args_preview,
-          result_preview: msg.result_preview,
-          status: msg.status,
-        };
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (m.id !== sid) return m;
-            const existing = m.tool_calls || [];
-            // Update existing tool call or add new one
-            const idx = existing.findIndex((t) => t.tool_name === toolInfo.tool_name && t.status === 'started');
-            if (idx >= 0 && toolInfo.status !== 'started') {
-              const updated = [...existing];
-              updated[idx] = toolInfo;
-              return { ...m, tool_calls: updated };
-            }
-            return { ...m, tool_calls: [...existing, toolInfo] };
-          }),
-        );
-        break;
-      }
-
-      case 'stream_end': {
-        const sid = streamingMsgIdRef.current;
-        if (sid) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === sid ? { ...m, isStreaming: false } : m)),
-          );
-        }
-        streamingMsgIdRef.current = null;
-        setIsStreaming(false);
-        break;
-      }
-
-      case 'error': {
-        // Show error as a system message
-        const errorMsg: ChatMessage = {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: `**Error:** ${msg.message}`,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
-        if (!msg.recoverable) {
-          setIsStreaming(false);
-          streamingMsgIdRef.current = null;
-        }
-        break;
-      }
-    }
+  // Queue a message
+  const handleQueue = useCallback((content: string): boolean => {
+    if (messageQueueRef.current.length >= MAX_QUEUE_SIZE) return false;
+    setMessageQueue((prev) => [...prev, content]);
+    return true;
   }, []);
-
-  // Send message
-  const handleSend = useCallback(
-    (content: string) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-      // Add user message to thread
-      const userMsg: ChatMessage = {
-        id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        role: 'user',
-        content,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-
-      // Send over WebSocket
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'message',
-          agent_name: selectedAgent,
-          content,
-        }),
-      );
-    },
-    [selectedAgent],
-  );
 
   // New conversation
   const handleNewChat = useCallback(() => {
@@ -225,6 +327,10 @@ export function ChatView() {
     }
     setMessages([]);
     setIsStreaming(false);
+    setProcessingStatus('idle');
+    setActiveToolCalls([]);
+    setHipp0Activity(null);
+    setMessageQueue([]);
     streamingMsgIdRef.current = null;
   }, [selectedAgent]);
 
@@ -235,6 +341,10 @@ export function ChatView() {
       setSelectedAgent(name);
       setMessages([]);
       setIsStreaming(false);
+      setProcessingStatus('idle');
+      setActiveToolCalls([]);
+      setHipp0Activity(null);
+      setMessageQueue([]);
       streamingMsgIdRef.current = null;
       setSidebarOpen(false);
     },
@@ -437,10 +547,19 @@ export function ChatView() {
           )}
         </div>
 
-        <MessageThread messages={messages} isStreaming={isStreaming} />
+        <MessageThread
+          messages={messages}
+          isStreaming={isStreaming}
+          processingStatus={processingStatus}
+          activeToolCalls={activeToolCalls}
+          hipp0Activity={hipp0Activity}
+        />
         <ChatInput
-          onSend={handleSend}
-          disabled={isStreaming || connectionStatus !== 'connected'}
+          onSend={sendMessage}
+          onQueue={handleQueue}
+          isProcessing={isStreaming}
+          isConnected={connectionStatus === 'connected'}
+          queueCount={messageQueue.length}
           agentName={selectedAgent}
         />
       </div>

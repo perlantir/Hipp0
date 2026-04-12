@@ -53,7 +53,43 @@ export interface WsError {
   recoverable: boolean;
 }
 
-export type WsServerMessage = WsStreamStart | WsStreamDelta | WsToolCall | WsStreamEnd | WsError;
+export type ProcessingStatus = 'idle' | 'compiling' | 'thinking' | 'capturing';
+
+export interface WsStatusMessage {
+  type: 'status';
+  status: ProcessingStatus;
+}
+
+export interface WsHipp0Event {
+  type: 'hipp0_event';
+  event: 'compile' | 'capture' | 'recall' | 'prune';
+  detail: string;
+  duration_ms?: number;
+}
+
+export interface ActiveToolCall {
+  tool_name: string;
+  tool_emoji?: string;
+  args_preview?: string;
+  result_preview?: string;
+  status: 'started' | 'completed' | 'error';
+  started_at: number;
+  completed_at?: number;
+}
+
+export interface Hipp0Activity {
+  message: string;
+  timestamp: number;
+}
+
+export type WsServerMessage =
+  | WsStreamStart
+  | WsStreamDelta
+  | WsToolCall
+  | WsStreamEnd
+  | WsError
+  | WsStatusMessage
+  | WsHipp0Event;
 
 // Agent info from HIPP0 API
 export interface AgentInfo {
