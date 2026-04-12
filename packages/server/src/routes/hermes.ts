@@ -784,6 +784,53 @@ export function registerHermesRoutes(app: Hono): void {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/hermes/captures — recent captures with conversation_text
+  //
+  // Used by the Hermes REPL to inject raw conversation transcripts into
+  // the system prompt as a cross-session memory fallback when the
+  // distillery / compile pipeline hasn't extracted structured facts yet.
+  // -----------------------------------------------------------------------
+  app.get('/api/hermes/captures', async (c) => {
+    const project_id = requireUUID(c.req.query('project_id'), 'project_id');
+    await requireProjectAccess(c, project_id);
+    const agent_name = optionalString(c.req.query('agent_name'), 'agent_name', 64) ?? null;
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10) || 10, 50);
+
+    const db = getDb();
+
+    let sql = `SELECT id, project_id, agent_name, session_id, source, conversation_text, status, created_at
+       FROM captures
+       WHERE project_id = ?`;
+    const params: unknown[] = [project_id];
+
+    if (agent_name) {
+      sql += ' AND agent_name = ?';
+      params.push(agent_name);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const result = await db.query(sql, params);
+
+    const captures = result.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        id: r.id as string,
+        project_id: r.project_id as string,
+        agent_name: r.agent_name as string,
+        session_id: (r.session_id as string | null) ?? null,
+        source: r.source as string,
+        conversation_text: r.conversation_text as string,
+        status: r.status as string,
+        created_at: r.created_at as string,
+      };
+    });
+
+    return c.json(captures);
+  });
+
+  // -----------------------------------------------------------------------
   // POST /api/hermes/outcomes — snippet-level reinforcement signal
   // -----------------------------------------------------------------------
   //
