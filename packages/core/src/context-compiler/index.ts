@@ -120,7 +120,7 @@ const SCORING_WEIGHTS = {
 };
 
 // Post-processing thresholds
-export const MIN_SCORE = 0.50;  // Raise to 0.72 once embeddings are live
+export const MIN_SCORE = parseFloat(process.env.HIPP0_COMPILE_MIN_SCORE ?? '0.15');
 export const MAX_RESULTS = 15;
 
   // Deduplication

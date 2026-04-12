@@ -461,3 +461,147 @@ export async function extractDecisions(
 
   return decisions;
 }
+
+// ---------------------------------------------------------------------------
+// Agent-aware extraction — extracts decisions + user_facts + observations
+// ---------------------------------------------------------------------------
+
+export interface AgentUserFact {
+  key: string;
+  value: string;
+  confidence: number;
+}
+
+export interface AgentObservation {
+  content: string;
+  tags: string[];
+  source_agent: string;
+}
+
+export interface AgentExtractionResult {
+  decisions: ExtractedDecision[];
+  user_facts: AgentUserFact[];
+  observations: AgentObservation[];
+}
+
+const AGENT_EXTRACTION_SYSTEM_PROMPT = `You are an expert information extraction engine for a cross-agent memory system called HIPP0.
+
+You will receive a raw conversation transcript between a user and an AI agent. Your job is to extract ALL meaningful information into three structured categories. Be thorough — if the user said it, it matters.
+
+## Category 1: DECISIONS
+Technical or architectural choices, tool selections, design patterns, deployment strategies, or any explicit "we will do X" / "let's go with Y" statements.
+Output format:
+{ "type": "decision", "title": "<concise title>", "description": "<full context>", "reasoning": "<why>", "confidence": "high"|"medium"|"low", "tags": ["<relevant>"], "affects": ["<agent_name>"] }
+
+## Category 2: USER_FACTS
+Anything the user reveals about themselves: name, preferred name/title, communication preferences, work style, role, timezone, tools they use, priorities, pet peeves, background.
+Output format:
+{ "type": "user_fact", "key": "<snake_case_key>", "value": "<the fact as stated>", "confidence": 1.0 }
+
+Common keys: preferred_name, communication_style, role, timezone, top_priority, tools_used, pet_peeves, background, company, team_size
+
+## Category 3: OBSERVATIONS
+Important context: project status, blockers, things tried and failed, constraints, deadlines, architecture context, environment details.
+Output format:
+{ "type": "observation", "content": "<the observation>", "tags": ["<relevant>"], "source_agent": "<agent_name>" }
+
+## Rules
+- Extract EVERYTHING worth remembering. Err on the side of over-extraction.
+- If the user states a preference ("call me Nick", "I hate verbose answers"), that is a USER_FACT.
+- If the user makes a technical choice ("let's use Postgres"), that is a DECISION.
+- If the user mentions context ("we're blocked on 3 bugs"), that is an OBSERVATION.
+- Return a JSON array of all extracted items.
+
+Extract all items as a JSON array:`;
+
+export async function extractAgentItems(
+  text: string,
+  agentName: string,
+  projectId?: string,
+): Promise<AgentExtractionResult> {
+  const empty: AgentExtractionResult = { decisions: [], user_facts: [], observations: [] };
+  if (!text.trim()) return empty;
+
+  if (projectId) {
+    try {
+      const budget = await checkBudget(projectId);
+      if (!budget.allowed) {
+        console.warn(
+          `[hipp0:distillery] Skipping agent extraction — budget exceeded for project ${projectId}: ${budget.reason ?? 'unknown'}`,
+        );
+        return empty;
+      }
+    } catch (err) {
+      console.warn('[hipp0:distillery] Budget check failed; proceeding:', (err as Error).message);
+    }
+  }
+
+  const safeText = scrubSecrets(text);
+
+  let rawResponse: string;
+  try {
+    const result = await callLLMWithUsage(
+      AGENT_EXTRACTION_SYSTEM_PROMPT,
+      INJECTION_GUARD + safeText,
+      { jsonShape: '[' },
+    );
+    rawResponse = result.text;
+
+    if (projectId) {
+      try {
+        await recordLLMCall(projectId, {
+          provider: result.provider,
+          model: result.model,
+          input_tokens: result.input_tokens,
+          output_tokens: result.output_tokens,
+          operation: 'distillery.extract_agent',
+        });
+      } catch (err) {
+        console.warn('[hipp0:distillery] Cost tracking failed:', (err as Error).message);
+      }
+    }
+  } catch (err) {
+    console.error('[hipp0:distillery] extractAgentItems LLM call failed:', (err as Error).message ?? err);
+    return empty;
+  }
+
+  const parsed = parseJsonSafe<unknown[]>(rawResponse);
+  if (!Array.isArray(parsed)) {
+    console.warn('[hipp0:distillery] extractAgentItems: LLM returned non-array JSON; treating as empty.');
+    const preview = (rawResponse ?? '').slice(0, 500).replace(/\s+/g, ' ');
+    console.warn(`[hipp0:distillery]   raw response preview: ${preview}`);
+    return empty;
+  }
+
+  const decisions: ExtractedDecision[] = [];
+  const user_facts: AgentUserFact[] = [];
+  const observations: AgentObservation[] = [];
+
+  for (const item of parsed) {
+    if (typeof item !== 'object' || item === null) continue;
+    const obj = item as Record<string, unknown>;
+    const itemType = String(obj.type ?? '').toLowerCase();
+
+    if (itemType === 'decision') {
+      try {
+        decisions.push(normaliseExtractedDecision(obj));
+      } catch (err) {
+        console.warn('[hipp0:distillery] Failed to normalise agent decision item:', err);
+      }
+    } else if (itemType === 'user_fact') {
+      user_facts.push({
+        key: String(obj.key ?? 'unknown'),
+        value: String(obj.value ?? ''),
+        confidence: typeof obj.confidence === 'number' ? obj.confidence : 1.0,
+      });
+    } else if (itemType === 'observation') {
+      observations.push({
+        content: String(obj.content ?? ''),
+        tags: Array.isArray(obj.tags) ? obj.tags.map(String) : [],
+        source_agent: String(obj.source_agent ?? agentName),
+      });
+    }
+  }
+
+  return { decisions, user_facts, observations };
+}

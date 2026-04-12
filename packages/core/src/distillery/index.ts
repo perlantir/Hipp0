@@ -5,7 +5,8 @@ import type {
   DistilleryResult,
 } from '../types.js';
 
-import { extractDecisions } from './extractor.js';
+import { extractDecisions, extractAgentItems } from './extractor.js';
+import type { AgentUserFact, AgentObservation } from './extractor.js';
 import { deduplicateDecisions } from './deduplicator.js';
 import { detectContradictions } from './contradiction.js';
 import { integrateDecisions } from './graph-integrator.js';
@@ -14,7 +15,8 @@ import { dispatchWebhooks } from '../webhooks/index.js';
 import { withCoreSpan } from '../telemetry.js';
 
 // Re-export everything for consumers
-export { extractDecisions, scrubSecrets, INJECTION_GUARD, callLLM } from './extractor.js';
+export { extractDecisions, scrubSecrets, INJECTION_GUARD, callLLM, extractAgentItems } from './extractor.js';
+export type { AgentUserFact, AgentObservation, AgentExtractionResult } from './extractor.js';
 export { deduplicateDecisions } from './deduplicator.js';
 export { detectContradictions } from './contradiction.js';
 export { integrateDecisions } from './graph-integrator.js';
@@ -26,6 +28,7 @@ export async function distill(
   conversationText: string,
   agentName: string = 'unknown',
   sessionId?: string,
+  source?: string,
 ): Promise<DistilleryResult> {
   return withCoreSpan('distill_conversation', {
     project_id: projectId,
@@ -42,9 +45,20 @@ export async function distill(
   }
 
   // Stage 1: Extract (pass projectId for cost tracking + budget enforcement)
+  // When source is "hermes", use agent-aware extraction that also pulls
+  // user_facts and observations from the conversation.
   let extracted: ExtractedDecision[];
+  let userFacts: AgentUserFact[] = [];
+  let agentObservations: AgentObservation[] = [];
   try {
-    extracted = await extractDecisions(conversationText, projectId);
+    if (source === 'hermes') {
+      const agentResult = await extractAgentItems(conversationText, agentName, projectId);
+      extracted = agentResult.decisions;
+      userFacts = agentResult.user_facts;
+      agentObservations = agentResult.observations;
+    } else {
+      extracted = await extractDecisions(conversationText, projectId);
+    }
   } catch (err) {
     console.error('[hipp0:distillery] Stage 1 (extraction) failed:', err);
     extracted = [];
@@ -115,6 +129,8 @@ export async function distill(
     contradictions_found: contradictions.length,
     decisions: createdDecisions,
     session_summary: sessionSummary,
+    user_facts: userFacts.length > 0 ? userFacts : undefined,
+    observations: agentObservations.length > 0 ? agentObservations : undefined,
   };
   });
 }

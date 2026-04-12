@@ -150,6 +150,25 @@ export function registerCompileRoutes(app: Hono): void {
     };
 
     const result = await compileContext(request);
+
+    // Fetch user_facts for this agent
+    let userFacts: Array<{ key: string; value: string; confidence: number }> = [];
+    try {
+      const ufResult = await db.query(
+        `SELECT fact_key, fact_value, confidence FROM user_facts
+         WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL)
+         ORDER BY updated_at DESC LIMIT 20`,
+        [project_id, agent_name],
+      );
+      userFacts = ufResult.rows.map((r: any) => ({
+        key: r.fact_key as string,
+        value: r.fact_value as string,
+        confidence: (r.confidence as number) ?? 1.0,
+      }));
+    } catch (err) {
+      console.warn('[hipp0/compile] user_facts query failed:', (err as Error).message);
+    }
+
     __compileDecisionsIncluded = result.decisions_included ?? 0;
     try {
       __span.setAttribute('hipp0.decisions_included', __compileDecisionsIncluded);
@@ -622,6 +641,7 @@ export function registerCompileRoutes(app: Hono): void {
       ...(communityPatterns && communityPatterns.length > 0
         ? { community_patterns: communityPatterns }
         : {}),
+      ...(userFacts.length > 0 ? { user_facts: userFacts } : {}),
     };
 
     if (!debugInfo) {

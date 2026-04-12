@@ -226,8 +226,8 @@ describe('scoreDecision — combined output', () => {
 });
 
 describe('Scoring constants', () => {
-  it('MIN_SCORE is 0.45', () => {
-    expect(MIN_SCORE).toBe(0.50);
+  it('MIN_SCORE defaults to 0.15', () => {
+    expect(MIN_SCORE).toBe(0.15);
   });
 
   it('MAX_RESULTS is 25', () => {

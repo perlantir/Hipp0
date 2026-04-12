@@ -232,7 +232,7 @@ async function runCaptureExtraction(
       project_id: projectId,
       agent_name: agentName,
       source,
-    }, async () => distill(projectId, conversation, agentName, sessionId ?? undefined));
+    }, async () => distill(projectId, conversation, agentName, sessionId ?? undefined, source));
 
     // Mark extracted decisions with appropriate source and flag for review
     // SQLite's original CHECK constraint only allows 'manual', 'auto_distilled', 'imported'
@@ -263,6 +263,35 @@ async function runCaptureExtraction(
         `UPDATE decisions SET provenance_chain = ?, trust_score = ? WHERE id = ? AND (provenance_chain IS NULL OR provenance_chain = '[]')`,
         [JSON.stringify(provenance), trust_score, id],
       ).catch(() => {});
+    }
+
+    // Insert extracted user_facts into the user_facts table
+    if (result.user_facts && result.user_facts.length > 0) {
+      for (const fact of result.user_facts) {
+        try {
+          // Upsert: update if same (project_id, agent_name, fact_key) exists
+          const existing = await db.query(
+            `SELECT id FROM user_facts WHERE project_id = ? AND agent_name = ? AND fact_key = ?`,
+            [projectId, agentName, fact.key],
+          );
+          if (existing.rows.length > 0) {
+            const factId = (existing.rows[0] as Record<string, unknown>).id as string;
+            await db.query(
+              `UPDATE user_facts SET fact_value = ?, confidence = ?, updated_at = ? WHERE id = ?`,
+              [fact.value, fact.confidence, new Date().toISOString(), factId],
+            );
+          } else {
+            await db.query(
+              `INSERT INTO user_facts (project_id, agent_name, user_id, fact_type, fact_key, fact_value, source, confidence)
+               VALUES (?, ?, 'owner', 'preference', ?, ?, 'conversation', ?)`,
+              [projectId, agentName, fact.key, fact.value, fact.confidence],
+            );
+          }
+        } catch (err) {
+          console.warn(`[hipp0:capture] Failed to upsert user_fact ${fact.key}:`, (err as Error).message);
+        }
+      }
+      console.log(`[hipp0:capture] Inserted/updated ${result.user_facts.length} user_facts for ${agentName}`);
     }
 
     // Update capture record
