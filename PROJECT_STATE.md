@@ -2,7 +2,7 @@
 
 **Read this file first if you are a new Claude Code instance opening this project.** It is the durable mirror of context that would otherwise be lost when a session ends.
 
-Last updated: 2026-04-11 (Phase 0d complete, Phase A' pending)
+Last updated: 2026-04-12 (Phase G memory fix complete, Phase H pending)
 
 ---
 
@@ -14,8 +14,8 @@ HIPP0 is a shared memory layer for AI agents. Hermes is the agent runtime. We ar
 - **Hermes** (`perlantir/hermes-agent`) — persistent multi-agent runtime (H1-H5 on `feat/persistent-agents-hipp0`)
 
 The deployment is organized as phases 0a → H. Active branches:
-- HIPP0: `claude/build-marketing-website-3HXL3` @ `142c724`
-- Hermes: `feat/persistent-agents-hipp0` @ `961480e4`
+- HIPP0: `claude/build-marketing-website-3HXL3` @ `a19ff87`
+- Hermes: `feat/persistent-agents-hipp0` @ `e08b3943`
 
 ## Product thesis
 
@@ -94,14 +94,20 @@ The era-1 feature branches will be hidden behind a Labs flag in the Phase 1 dash
 - **Phase 0c** — cleanup of failed Phase A attempt (`hipp0.service` removed, `/var/lib/hipp0/hipp0.db` removed).
 - **Phase 0d** — HIPP0_API_KEY + ANTHROPIC_API_KEY captured, pg_dump backup taken, auth verified against running docker image.
 
+### Phase G — Memory fix (2026-04-12)
+- **Phase G.1** — Created `user_facts` table in Postgres (project_id, agent_name, fact_key, fact_value, confidence, etc.)
+- **Phase G.2** — Added `GET /api/hermes/captures` endpoint returning conversation_text for cross-session memory fallback
+- **Phase G.3** — REPL (`hermes_cli/repl.py`) injects recent captures into system prompt as "Recent conversations" section
+- **Phase G.4** — Distillery is now agent-aware: when `source=hermes`, uses `extractAgentItems()` which extracts decisions + user_facts + observations (3 categories instead of just decisions)
+- **Phase G.5** — Capture pipeline auto-inserts extracted user_facts into `user_facts` table after distillery completes
+- **Phase G.6** — Compile `MIN_SCORE` lowered from 0.50 to 0.15, now configurable via `HIPP0_COMPILE_MIN_SCORE` env var
+- **Phase G.7** — Compile response includes `user_facts` array alongside decisions
+- **Phase G.8** — Added `GET /api/hermes/extracted-facts` lightweight endpoint for querying distillery-extracted user_facts
+- **Phase G.9** — REPL syncs user_facts from HIPP0 to `~/.hermes/agents/alice/USER.md` at startup with update-in-place markers
+- **Phase G.10** — End-to-end cross-session memory verified: Alice remembers Nick's name, preferences, and priorities across sessions
+- Current DB state: 114 decisions (111 original + 3 from test captures), 4 user_facts for alice, 15+ captures
+
 ### Pending
-- **Phase A'** (next) — docker rebuild of `hipp0-server` and `hipp0-dashboard` from marketing branch. First irreversible step. Preserves `hipp0-db` container and `nexus_nexus_pgdata` volume.
-- **Phase B** — Caddy Let's Encrypt TLS for both `api.hipp0.ai` and `app.hipp0.ai`.
-- **Phase C** — auth verification curls using `Authorization: Bearer`.
-- **Phase D** — systemd timers for daily pg_dump + liveness probe via `/api/health`.
-- **Phase E** — register Alice via `POST /api/hermes/register`. **Recommendation: dedicated project_id for Alice, not the shared demo project.** Keeps dogfood data isolated from Alice's production memory.
-- **Phase F** — Hermes worker systemd. Build `hermes_cli/repl.py` CLI REPL entrypoint that uses `PersistentAgentRouter`, commit + push to `feat/persistent-agents-hipp0`, wire systemd unit running as user `hipp0`, `EnvironmentFile=/etc/team-hippo/secrets.env`, `ExecStart=python -m hermes_cli.repl --agent alice` (or equivalent).
-- **Phase G** — phone-preference smoke test. User runs `talk-to-alice`, shares a personal preference, verifies Alice captures it to HIPP0, reopens a new session, verifies Alice remembers.
 - **Phase H** — dashboard handoff. User opens `https://app.hipp0.ai/` in browser, verifies Alice appears in Hermes Agents view, the session from Phase G appears in conversations, the captured fact appears in user-facts.
 
 ## Critical gotchas discovered during diagnostic
