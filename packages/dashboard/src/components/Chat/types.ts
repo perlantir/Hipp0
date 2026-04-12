@@ -4,6 +4,7 @@ export interface ToolCallInfo {
   args_preview?: string;
   result_preview?: string;
   status: 'started' | 'completed' | 'error';
+  duration_ms?: number;
 }
 
 export interface ChatMessage {
@@ -14,6 +15,59 @@ export interface ChatMessage {
   timestamp: number;
   tool_calls?: ToolCallInfo[];
   isStreaming?: boolean;
+  /** Process metadata for audit trail */
+  processData?: MessageProcessData;
+}
+
+/** Per-message process data for the audit trail */
+export interface MessageProcessData {
+  compile?: CompileAuditData;
+  toolCalls?: ToolCallInfo[];
+  capture?: CaptureAuditData;
+  streamEnd?: StreamEndData;
+  agentSetup?: AgentSetupData;
+}
+
+export interface CompileAuditData {
+  decisions_scanned: number;
+  decisions_passed: number;
+  user_facts_loaded: number;
+  top_decisions: Array<{
+    title: string;
+    score: number;
+    freshness: number;
+    tier: string;
+  }>;
+  user_facts: Array<{
+    key: string;
+    value: string;
+    category: string;
+  }>;
+  context_tokens: number;
+  context_budget: number;
+  duration_ms: number;
+}
+
+export interface CaptureAuditData {
+  transcript_tokens: number;
+  facts_extracted: number;
+  decisions_extracted: number;
+  distillery_status: string;
+  duration_ms: number;
+}
+
+export interface StreamEndData {
+  tokens: { input?: number; output?: number; chunks?: number };
+  duration_seconds: number;
+  cost_estimate_usd?: number;
+  model?: string;
+}
+
+export interface AgentSetupData {
+  agent_name: string;
+  model: string;
+  provider: string;
+  soul_md_tokens: number;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
@@ -38,6 +92,7 @@ export interface WsToolCall {
   args_preview?: string;
   status: 'started' | 'completed' | 'error';
   result_preview?: string;
+  duration_ms?: number;
 }
 
 export interface WsStreamEnd {
@@ -45,6 +100,8 @@ export interface WsStreamEnd {
   conversation_id: string;
   tokens: { input?: number; output?: number; chunks?: number };
   duration_seconds: number;
+  cost_estimate_usd?: number;
+  model?: string;
 }
 
 export interface WsError {
@@ -62,9 +119,32 @@ export interface WsStatusMessage {
 
 export interface WsHipp0Event {
   type: 'hipp0_event';
-  event: 'compile' | 'capture' | 'recall' | 'prune';
-  detail: string;
+  event: string;
+  // compile_done fields
+  decisions?: number;
+  decisions_scanned?: number;
+  decisions_passed?: number;
+  user_facts_loaded?: number;
+  top_decisions?: Array<{ title: string; score: number; freshness: number; tier: string }>;
+  user_facts?: Array<{ key: string; value: string; category: string }>;
+  context_tokens?: number;
+  context_budget?: number;
   duration_ms?: number;
+  // capture_done fields
+  transcript_tokens?: number;
+  facts_extracted?: number;
+  decisions_extracted?: number;
+  distillery_status?: string;
+  // legacy
+  detail?: string;
+}
+
+export interface WsAgentSetup {
+  type: 'agent_setup';
+  agent_name: string;
+  model: string;
+  provider: string;
+  soul_md_tokens: number;
 }
 
 export interface ActiveToolCall {
@@ -75,6 +155,7 @@ export interface ActiveToolCall {
   status: 'started' | 'completed' | 'error';
   started_at: number;
   completed_at?: number;
+  duration_ms?: number;
 }
 
 export interface Hipp0Activity {
@@ -89,7 +170,8 @@ export type WsServerMessage =
   | WsStreamEnd
   | WsError
   | WsStatusMessage
-  | WsHipp0Event;
+  | WsHipp0Event
+  | WsAgentSetup;
 
 // Agent info from HIPP0 API
 export interface AgentInfo {

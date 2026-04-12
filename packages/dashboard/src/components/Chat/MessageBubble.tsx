@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ChatMessage, ToolCallInfo } from './types';
+import { ProcessAuditTrail } from './ProcessAuditTrail';
 
 function ToolCallCard({ tool }: { tool: ToolCallInfo }) {
   const [expanded, setExpanded] = useState(false);
@@ -61,7 +62,7 @@ function renderMarkdown(text: string): string {
   return html;
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({ message, sessionCostUsd = 0 }: { message: ChatMessage; sessionCostUsd?: number }) {
   const isUser = message.role === 'user';
 
   return (
@@ -136,6 +137,11 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             <ToolCallCard key={i} tool={tool} />
           ))}
         </div>
+      )}
+
+      {/* Process audit trail (agent messages only) */}
+      {!isUser && message.processData && (
+        <ProcessAuditTrail data={message.processData} sessionCostUsd={sessionCostUsd} />
       )}
     </div>
   );

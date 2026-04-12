@@ -11,6 +11,10 @@ import type {
   ProcessingStatus,
   ActiveToolCall,
   Hipp0Activity,
+  MessageProcessData,
+  CompileAuditData,
+  CaptureAuditData,
+  StreamEndData,
 } from './types';
 
 const MAX_QUEUE_SIZE = 10;
@@ -45,6 +49,10 @@ export function ChatView() {
   const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
   const [hipp0Activity, setHipp0Activity] = useState<Hipp0Activity | null>(null);
   const [messageQueue, setMessageQueue] = useState<string[]>([]);
+  const [sessionCostUsd, setSessionCostUsd] = useState(0);
+
+  // Accumulate per-turn process data (reset on each stream_start)
+  const pendingProcessDataRef = useRef<MessageProcessData>({});
 
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef(0);
@@ -136,6 +144,8 @@ export function ChatView() {
   const handleWsMessage = useCallback((msg: WsServerMessage) => {
     switch (msg.type) {
       case 'stream_start': {
+        // Reset per-turn process data accumulator
+        pendingProcessDataRef.current = {};
         const newMsg: ChatMessage = {
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'assistant',
@@ -172,7 +182,23 @@ export function ChatView() {
             args_preview: msg.args_preview,
             result_preview: msg.result_preview,
             status: msg.status,
+            duration_ms: msg.duration_ms,
           };
+
+          // Accumulate for audit trail
+          const pending = pendingProcessDataRef.current;
+          if (!pending.toolCalls) pending.toolCalls = [];
+          if (msg.status !== 'started') {
+            // Update existing started entry
+            const existingIdx = pending.toolCalls.findIndex(t => t.tool_name === msg.tool_name && t.status === 'started');
+            if (existingIdx >= 0) {
+              pending.toolCalls[existingIdx] = toolInfo;
+            } else {
+              pending.toolCalls.push(toolInfo);
+            }
+          } else {
+            pending.toolCalls.push(toolInfo);
+          }
           setMessages((prev) =>
             prev.map((m) => {
               if (m.id !== sid) return m;
@@ -219,18 +245,35 @@ export function ChatView() {
 
       case 'stream_end': {
         const sid = streamingMsgIdRef.current;
+
+        // Build stream end data for audit trail
+        const streamEndData: StreamEndData = {
+          tokens: msg.tokens,
+          duration_seconds: msg.duration_seconds,
+          cost_estimate_usd: msg.cost_estimate_usd,
+          model: msg.model,
+        };
+        pendingProcessDataRef.current.streamEnd = streamEndData;
+
+        // Update session cost
+        if (msg.cost_estimate_usd) {
+          setSessionCostUsd((prev) => prev + msg.cost_estimate_usd!);
+        }
+
+        // Attach accumulated process data to the message
         if (sid) {
+          const processData = { ...pendingProcessDataRef.current };
           setMessages((prev) =>
-            prev.map((m) => (m.id === sid ? { ...m, isStreaming: false } : m)),
+            prev.map((m) => (m.id === sid ? { ...m, isStreaming: false, processData } : m)),
           );
         }
         streamingMsgIdRef.current = null;
         setIsStreaming(false);
         setProcessingStatus('idle');
         setActiveToolCalls([]);
+        pendingProcessDataRef.current = {};
 
         // Drain queue: auto-send next queued message
-        // Use setTimeout to let state settle first
         setTimeout(() => {
           drainQueue();
         }, 100);
@@ -260,8 +303,44 @@ export function ChatView() {
       }
 
       case 'hipp0_event': {
-        const durationStr = msg.duration_ms != null ? ` in ${msg.duration_ms}ms` : '';
-        showHipp0Activity(`HIPP0: ${msg.detail}${durationStr}`);
+        // Accumulate for audit trail
+        if (msg.event === 'compile_done') {
+          const compileData: CompileAuditData = {
+            decisions_scanned: msg.decisions_scanned ?? 0,
+            decisions_passed: msg.decisions_passed ?? msg.decisions ?? 0,
+            user_facts_loaded: msg.user_facts_loaded ?? 0,
+            top_decisions: msg.top_decisions ?? [],
+            user_facts: msg.user_facts ?? [],
+            context_tokens: msg.context_tokens ?? 0,
+            context_budget: msg.context_budget ?? 4000,
+            duration_ms: msg.duration_ms ?? 0,
+          };
+          pendingProcessDataRef.current.compile = compileData;
+          showHipp0Activity(`HIPP0: Compiled ${compileData.decisions_passed} decisions + ${compileData.user_facts_loaded} facts in ${compileData.duration_ms}ms`);
+        } else if (msg.event === 'capture_done') {
+          const captureData: CaptureAuditData = {
+            transcript_tokens: msg.transcript_tokens ?? 0,
+            facts_extracted: msg.facts_extracted ?? 0,
+            decisions_extracted: msg.decisions_extracted ?? 0,
+            distillery_status: msg.distillery_status ?? 'unknown',
+            duration_ms: msg.duration_ms ?? 0,
+          };
+          pendingProcessDataRef.current.capture = captureData;
+          showHipp0Activity(`HIPP0: Captured ${captureData.transcript_tokens} tokens in ${captureData.duration_ms}ms`);
+        } else {
+          const durationStr = msg.duration_ms != null ? ` in ${msg.duration_ms}ms` : '';
+          showHipp0Activity(`HIPP0: ${msg.event || msg.detail || ''}${durationStr}`);
+        }
+        break;
+      }
+
+      case 'agent_setup': {
+        pendingProcessDataRef.current.agentSetup = {
+          agent_name: msg.agent_name,
+          model: msg.model,
+          provider: msg.provider,
+          soul_md_tokens: msg.soul_md_tokens,
+        };
         break;
       }
     }
@@ -331,7 +410,9 @@ export function ChatView() {
     setActiveToolCalls([]);
     setHipp0Activity(null);
     setMessageQueue([]);
+    setSessionCostUsd(0);
     streamingMsgIdRef.current = null;
+    pendingProcessDataRef.current = {};
   }, [selectedAgent]);
 
   // Select agent
@@ -345,7 +426,9 @@ export function ChatView() {
       setActiveToolCalls([]);
       setHipp0Activity(null);
       setMessageQueue([]);
+      setSessionCostUsd(0);
       streamingMsgIdRef.current = null;
+      pendingProcessDataRef.current = {};
       setSidebarOpen(false);
     },
     [selectedAgent],
@@ -534,12 +617,24 @@ export function ChatView() {
           >
             {selectedAgent}
           </span>
+          {sessionCostUsd > 0 && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-tertiary)',
+                fontFamily: 'var(--font-mono, monospace)',
+                marginLeft: 'auto',
+              }}
+            >
+              Session: ${sessionCostUsd.toFixed(4)}
+            </span>
+          )}
           {connectionStatus !== 'connected' && (
             <span
               style={{
                 fontSize: 12,
                 color: connectionStatus === 'reconnecting' ? 'var(--accent-warning)' : 'var(--accent-danger)',
-                marginLeft: 'auto',
+                marginLeft: sessionCostUsd > 0 ? '8px' : 'auto',
               }}
             >
               {connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Disconnected'}
@@ -553,6 +648,7 @@ export function ChatView() {
           processingStatus={processingStatus}
           activeToolCalls={activeToolCalls}
           hipp0Activity={hipp0Activity}
+          sessionCostUsd={sessionCostUsd}
         />
         <ChatInput
           onSend={sendMessage}

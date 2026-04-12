@@ -9,6 +9,7 @@ interface MessageThreadProps {
   processingStatus: ProcessingStatus;
   activeToolCalls: ActiveToolCall[];
   hipp0Activity: Hipp0Activity | null;
+  sessionCostUsd: number;
 }
 
 export function MessageThread({
@@ -17,6 +18,7 @@ export function MessageThread({
   processingStatus,
   activeToolCalls,
   hipp0Activity,
+  sessionCostUsd,
 }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export function MessageThread({
       }}
     >
       {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <MessageBubble key={msg.id} message={msg} sessionCostUsd={sessionCostUsd} />
       ))}
 
       {/* Typing indicator */}
