@@ -831,6 +831,47 @@ export function registerHermesRoutes(app: Hono): void {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/hermes/extracted-facts — lightweight query for distillery-
+  // extracted user_facts (from the user_facts table, NOT hermes_user_facts).
+  // Used by the Hermes REPL for USER.md sync without pulling the full
+  // 1MB+ compile response.
+  // -----------------------------------------------------------------------
+  app.get('/api/hermes/extracted-facts', async (c) => {
+    const project_id = requireUUID(c.req.query('project_id'), 'project_id');
+    await requireProjectAccess(c, project_id);
+    const agent_name = optionalString(c.req.query('agent_name'), 'agent_name', 64) ?? null;
+
+    const db = getDb();
+
+    let sql = `SELECT fact_key, fact_value, confidence, source, created_at, updated_at
+       FROM user_facts WHERE project_id = ?`;
+    const params: unknown[] = [project_id];
+
+    if (agent_name) {
+      sql += ' AND (agent_name = ? OR agent_name IS NULL)';
+      params.push(agent_name);
+    }
+
+    sql += ' ORDER BY updated_at DESC LIMIT 50';
+
+    const result = await db.query(sql, params);
+
+    const facts = result.rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        key: r.fact_key as string,
+        value: r.fact_value as string,
+        confidence: (r.confidence as number) ?? 1.0,
+        source: (r.source as string | null) ?? null,
+        created_at: r.created_at as string,
+        updated_at: r.updated_at as string,
+      };
+    });
+
+    return c.json({ project_id, agent_name, facts });
+  });
+
+  // -----------------------------------------------------------------------
   // POST /api/hermes/outcomes — snippet-level reinforcement signal
   // -----------------------------------------------------------------------
   //
