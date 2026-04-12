@@ -94,7 +94,6 @@ import { AskAnything } from './components/AskAnything';
 import { TokenUsage } from './components/TokenUsage';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { CommandPalette } from './components/CommandPalette';
-import { OnboardingChecklist } from './components/OnboardingChecklist';
 import { Pricing } from './components/Pricing';
 import { BillingSettings } from './components/BillingSettings';
 import { Playground } from './components/Playground';
@@ -804,8 +803,6 @@ export default function App() {
               </kbd>
             </button>
           </div>
-
-          <OnboardingChecklist onNavigate={(v) => navigate(v as View)} viewKey={view} />
 
           {view === 'stats' && (
             <div className="max-w-5xl mx-auto px-6 pt-6">
