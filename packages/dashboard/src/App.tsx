@@ -111,7 +111,7 @@ import { HermesSetup } from './components/HermesSetup';
 import { Pulse } from './components/Pulse';
 import { Login } from './components/Login';
 import { SettingsView } from './components/Settings';
-import { ChatPlaceholder } from './components/ChatPlaceholder';
+import { ChatView } from './components/Chat/ChatView';
 
 import { EvolutionProposals } from './components/EvolutionProposals';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
@@ -308,9 +308,9 @@ function ViewContent({ view }: { view: View }) {
     case 'live-events': return <LiveEvents />;
     case 'traces': return <Traces />;
     case 'settings': return <SettingsView />;
-    case 'chat': return <ChatPlaceholder />;
+    case 'chat': return <ChatView />;
 
-    default: return <ChatPlaceholder />;
+    default: return <ChatView />;
   }
 }
 
