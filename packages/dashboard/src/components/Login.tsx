@@ -52,7 +52,7 @@ export function Login({ onLogin, error }: LoginProps) {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="h0_live_..."
+              placeholder="Enter your API key"
               autoFocus
               className="w-full px-4 py-3 rounded-xl text-sm"
               style={{
@@ -78,10 +78,7 @@ export function Login({ onLogin, error }: LoginProps) {
 
         <div className="mt-6 space-y-1 text-center">
           <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
-            Check your server logs for your API key.
-          </p>
-          <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
-            Run: docker logs hipp0-server | grep "h0_live_"
+            Your API key is on the server at /etc/team-hippo/api-key.txt
           </p>
         </div>
       </div>

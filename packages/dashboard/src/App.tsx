@@ -73,6 +73,7 @@ import {
   Waypoints,
   Camera,
   Wand2,
+  MessageSquare,
 } from 'lucide-react';
 import { DecisionGraph } from './components/DecisionGraph';
 import { Timeline } from './components/Timeline';
@@ -108,6 +109,9 @@ import { OutcomeHistory } from './components/OutcomeHistory';
 import { HermesAgents } from './components/HermesAgents';
 import { HermesSetup } from './components/HermesSetup';
 import { Pulse } from './components/Pulse';
+import { Login } from './components/Login';
+import { SettingsView } from './components/Settings';
+import { ChatPlaceholder } from './components/ChatPlaceholder';
 
 import { EvolutionProposals } from './components/EvolutionProposals';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
@@ -205,7 +209,9 @@ type View =
   | 'team-health'
   | 'trends'
   | 'live-events'
-  | 'traces';
+  | 'traces'
+  | 'settings'
+  | 'chat';
 
 type NavGroup =
   | 'memory'
@@ -235,11 +241,11 @@ function getViewFromHash(): View {
     'playground','review-queue','policies','violations','digest','evolution','whatif','live-tasks','team-score',
     'import-wizard','collab-room','wings',
     'captures','community-insights','agent-skills','insights','procedures','shared-patterns','experiments',
-    'impact-prediction','branches','team-health','trends','live-events','traces',
+    'impact-prediction','branches','team-health','trends','live-events','traces','settings','chat',
   ];
 
   if (all.includes(hash)) return hash;
-  return 'playground';
+  return 'chat';
 }
 
 /* ------------------------------------------------------------------ */
@@ -301,8 +307,10 @@ function ViewContent({ view }: { view: View }) {
     case 'trends': return <Trends />;
     case 'live-events': return <LiveEvents />;
     case 'traces': return <Traces />;
+    case 'settings': return <SettingsView />;
+    case 'chat': return <ChatPlaceholder />;
 
-    default: return <PlaygroundWrapper />;
+    default: return <ChatPlaceholder />;
   }
 }
 
@@ -359,9 +367,7 @@ function ThemeToggle() {
 /* ------------------------------------------------------------------ */
 
 const GROUP_ORDER: Array<{ key: NavGroup; label: string }> = [
-  { key: 'memory', label: 'Memory' },
-  { key: 'intelligence', label: 'Explore' },
-  { key: 'operations', label: 'Setup' },
+  { key: 'memory', label: '' },
   { key: 'labs', label: 'Labs' },
 ];
 
@@ -399,7 +405,7 @@ function SidebarContent({
           return (
             <div key={group.key}>
               {gi > 0 && <div className="nav-divider" />}
-              {!collapsed && (
+              {!collapsed && group.label && (
                 <div
                   className="px-3 pt-3 pb-1.5 text-2xs font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--text-sidebar)', opacity: 0.6 }}
@@ -460,6 +466,30 @@ export default function App() {
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
 
+  // Auth gating — if no API key in localStorage, show Login screen
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try { return !!localStorage.getItem('hipp0_api_key'); } catch { return false; }
+  });
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  async function handleLogin(apiKey: string) {
+    setLoginError(null);
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/health`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (res.ok) {
+        localStorage.setItem('hipp0_api_key', apiKey);
+        setIsAuthenticated(true);
+      } else {
+        setLoginError('Invalid API key — check your key and try again');
+      }
+    } catch {
+      setLoginError('Invalid API key — check your key and try again');
+    }
+  }
+
   // Labs group is gated: users who want to see every experimental / niche
   // view can opt in via localStorage.setItem('hipp0_labs', 'true'). Default
   // off so first-time users see a focused 10-item sidebar centered on the
@@ -467,47 +497,31 @@ export default function App() {
   const labsEnabled = typeof window !== 'undefined'
     && window.localStorage?.getItem('hipp0_labs') === 'true';
 
-  // Build nav items — 3 focused primary groups + optional Labs (gated).
-  //
-  // Primary nav is deliberately tight: one item per distinct job-to-be-done,
-  // no duplicates, no observability / reporting clutter. Everything that
-  // answers "what's happening right now", "which agents exist", "what do they
-  // know" goes here. Niche / reporting / governance views live in Labs.
+  // Build nav items — 5 focused primary items + optional Labs (gated).
   const navItems: NavItem[] = [
-    // ---- Memory — what the team and agents know --------------------
+    // ---- Primary (always visible) ---------------------------------
+    { id: 'chat', label: 'Chat', icon: <MessageSquare size={18} />, group: 'memory' },
     { id: 'pulse', label: 'Pulse', icon: <Activity size={18} />, group: 'memory' },
     { id: 'hermes-agents', label: 'Agents', icon: <Users size={18} />, group: 'memory' },
-    { id: 'graph', label: 'Decisions', icon: <GitBranch size={18} />, group: 'memory' },
-    { id: 'timeline', label: 'Timeline', icon: <Clock size={18} />, group: 'memory' },
-    { id: 'search', label: 'Search', icon: <SearchIcon size={18} />, group: 'memory' },
+    { id: 'compile-tester', label: 'Compile', icon: <ClipboardCheck size={18} />, group: 'memory' },
+    { id: 'settings', label: 'Settings', icon: <Settings size={18} />, group: 'memory' },
 
-    // ---- Explore — what the memory reveals -------------------------
-    { id: 'contradictions', label: 'Contradictions', icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'intelligence' },
-    { id: 'insights', label: 'Insights', icon: <Lightbulb size={18} />, group: 'intelligence' },
-
-    // ---- Setup — how the team runs ---------------------------------
-    { id: 'hermes-setup', label: 'Hermes Setup', icon: <Settings size={18} />, group: 'operations' },
-    { id: 'connectors', label: 'Connectors', icon: <Settings size={18} />, group: 'operations' },
-    { id: 'playground', label: 'Playground', icon: <Zap size={18} />, group: 'operations' },
-
-    // ---- Labs — experimental + niche, gated behind localStorage ----
-    //      enable with: localStorage.setItem('hipp0_labs', 'true')
-    //
-    // Six previously-primary items now live here so the focused nav stays
-    // under 10: Context Compare, Outcomes, Ask Anything, Import,
-    // Live Events, Weekly Digest. All still reachable via hash URL or
-    // command palette, no views deleted.
+    // ---- Labs — gated behind localStorage.setItem('hipp0_labs', 'true')
     ...(labsEnabled ? [
-      // Moved from Memory
+      { id: 'graph' as View,              label: 'Decisions Graph',     icon: <GitBranch size={18} />,     group: 'labs' as NavGroup },
+      { id: 'timeline' as View,           label: 'Timeline',            icon: <Clock size={18} />,         group: 'labs' as NavGroup },
+      { id: 'search' as View,             label: 'Search',              icon: <SearchIcon size={18} />,    group: 'labs' as NavGroup },
+      { id: 'contradictions' as View,     label: 'Contradictions',      icon: <AlertTriangle size={18} />, badge: unresolvedCount, group: 'labs' as NavGroup },
+      { id: 'insights' as View,           label: 'Insights',            icon: <Lightbulb size={18} />,     group: 'labs' as NavGroup },
+      { id: 'playground' as View,         label: 'Playground',          icon: <Zap size={18} />,           group: 'labs' as NavGroup },
+      { id: 'connectors' as View,         label: 'Connectors',          icon: <Settings size={18} />,      group: 'labs' as NavGroup },
+      { id: 'hermes-setup' as View,       label: 'Hermes Setup',        icon: <Settings size={18} />,      group: 'labs' as NavGroup },
       { id: 'context' as View,            label: 'Context Compare',     icon: <Columns2 size={18} />,      group: 'labs' as NavGroup },
-      // Moved from Intelligence / Explore
       { id: 'outcomes' as View,           label: 'Outcomes',            icon: <Target size={18} />,        group: 'labs' as NavGroup },
       { id: 'ask-anything' as View,       label: 'Ask Anything',        icon: <Activity size={18} />,      group: 'labs' as NavGroup },
-      // Moved from Operations / Setup
       { id: 'import-wizard' as View,      label: 'Import',              icon: <Upload size={18} />,        group: 'labs' as NavGroup },
       { id: 'live-events' as View,        label: 'Live Events',         icon: <Radio size={18} />,         group: 'labs' as NavGroup },
       { id: 'digest' as View,             label: 'Weekly Digest',       icon: <BarChart3 size={18} />,     group: 'labs' as NavGroup },
-      // Pre-existing Labs items
       { id: 'agent-skills' as View,       label: 'Agent Skills',        icon: <Sparkles size={18} />,      group: 'labs' as NavGroup },
       { id: 'procedures' as View,         label: 'Team Procedures',     icon: <ClipboardList size={18} />, group: 'labs' as NavGroup },
       { id: 'evolution' as View,          label: 'Evolution',           icon: <Zap size={18} />,           group: 'labs' as NavGroup },
@@ -529,10 +543,8 @@ export default function App() {
       { id: 'live-tasks' as View,         label: 'Live Sessions',       icon: <Activity size={18} />,      group: 'labs' as NavGroup },
       { id: 'sessions' as View,           label: 'Sessions',            icon: <History size={18} />,       group: 'labs' as NavGroup },
       { id: 'captures' as View,           label: 'Captures',            icon: <Camera size={18} />,        group: 'labs' as NavGroup },
-      { id: 'compile-tester' as View,     label: 'Compile Tester',      icon: <ClipboardCheck size={18} />,group: 'labs' as NavGroup },
       { id: 'webhooks' as View,           label: 'Webhooks',            icon: <Radio size={18} />,         group: 'labs' as NavGroup },
       { id: 'collab-room' as View,        label: 'Collab Room',         icon: <Radio size={18} />,         group: 'labs' as NavGroup },
-      // Governance — enterprise pattern, surfaces in Labs until a paid tier exists
       { id: 'review-queue' as View,       label: 'Review Queue',        icon: <ClipboardList size={18} />, badge: reviewCount, group: 'labs' as NavGroup },
       { id: 'policies' as View,           label: 'Policies',            icon: <ClipboardCheck size={18} />,group: 'labs' as NavGroup },
       { id: 'violations' as View,         label: 'Violations',          icon: <AlertTriangle size={18} />, group: 'labs' as NavGroup },
@@ -640,7 +652,7 @@ export default function App() {
     try { window.localStorage?.setItem('hipp0_wizard_completed', 'true'); } catch { /* non-fatal */ }
     setProjectId(newProjectId);
     setShowWizard(false);
-    navigate('graph');
+    navigate('chat');
   }
 
   /* ---- Wizard skip --------------------------------------------- */
@@ -665,6 +677,15 @@ export default function App() {
     return (
       <ThemeContext.Provider value={themeCtx}>
         <Playground />
+      </ThemeContext.Provider>
+    );
+  }
+
+  /* ---- Login gate ------------------------------------------------ */
+  if (!isAuthenticated) {
+    return (
+      <ThemeContext.Provider value={themeCtx}>
+        <Login onLogin={handleLogin} error={loginError} />
       </ThemeContext.Provider>
     );
   }
