@@ -309,6 +309,7 @@ export interface ScoringBreakdown {
   domain_boost?: number;
   trust_multiplier?: number;
   outcome_multiplier?: number;
+  staleness_multiplier?: number;
 }
 
 // --- Edges ---

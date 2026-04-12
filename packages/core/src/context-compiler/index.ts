@@ -111,12 +111,33 @@ function _getPersonaSafe(agentName: string): AgentPersona | undefined {
   }
 }
 
-// V3 scoring weights — directAffect reduced, personaMatch nearly doubled
+// V4 scoring weights — freshness added as 5th weighted signal
+// Env-configurable feature flags
+const FRESHNESS_ENABLED = process.env.HIPP0_FRESHNESS_ENABLED !== 'false';
+const FRESHNESS_FLOOR = parseFloat(process.env.HIPP0_FRESHNESS_FLOOR || '0.1');
+const STALENESS_ENABLED = process.env.HIPP0_STALENESS_ENABLED !== 'false';
+
 const SCORING_WEIGHTS = {
-  directAffect: 0.30,
-  tagMatch: 0.20,
-  personaMatch: 0.25,  // This is THE differentiator between agents
-  semanticSimilarity: 0.25,
+  directAffect: 0.25,
+  tagMatch: 0.15,
+  personaMatch: 0.20,  // This is THE differentiator between agents
+  semanticSimilarity: 0.20,
+  freshness: 0.20,
+};
+
+// Tier-aware decay lambdas for freshness calculation
+const TIER_DECAY_LAMBDA: Record<string, number> = {
+  permanent: 0.001,
+  sprint: 0.0077,
+  experiment: 0.099,
+  deprecated: 0.231,
+};
+
+// Staleness thresholds and max penalties by tier
+const STALENESS_CONFIG: Record<string, { threshold: number; maxPenalty: number }> = {
+  sprint: { threshold: 120, maxPenalty: 0.25 },
+  experiment: { threshold: 30, maxPenalty: 0.50 },
+  deprecated: { threshold: 14, maxPenalty: 0.75 },
 };
 
 // Post-processing thresholds
@@ -370,12 +391,24 @@ export function scoreDecision(
     // Made-by bonus
   const madeByBonus = (decision.made_by ?? '').toLowerCase() === agentNameLower ? 0.15 : 0;
 
-    // Weighted sum
+    // Signal E: Tier-aware freshness (exponential decay)
+  const ageInDays = (Date.now() - new Date(decision.created_at).getTime()) / 86400000;
+  const temporalTier = (decision as Decision & { temporal_tier?: string }).temporal_tier ?? 'permanent';
+  let freshnessScore: number;
+  if (!FRESHNESS_ENABLED) {
+    freshnessScore = 1.0; // Disabled — everything is fully fresh
+  } else {
+    const lambda = TIER_DECAY_LAMBDA[temporalTier] ?? TIER_DECAY_LAMBDA.permanent!;
+    freshnessScore = Math.max(FRESHNESS_FLOOR, Math.exp(-lambda * ageInDays));
+  }
+
+    // Weighted sum (5 signals)
   let finalScore =
     SCORING_WEIGHTS.directAffect * directAffectScore +
     SCORING_WEIGHTS.tagMatch * tagMatchScore +
     SCORING_WEIGHTS.personaMatch * personaMatchScore +
     SCORING_WEIGHTS.semanticSimilarity * semanticScore +
+    SCORING_WEIGHTS.freshness * freshnessScore +
     keywordScore +
     madeByBonus -
     excludePenalty;
@@ -389,15 +422,6 @@ export function scoreDecision(
     affectsLen <= 5 ? 0.85 :  // Broad
     0.70;                     // Generic — affects everyone
   finalScore *= specificityMultiplier;
-
-    // Freshness Multiplier
-  const ageInDays = (Date.now() - new Date(decision.created_at).getTime()) / 86400000;
-  const freshnessMultiplier =
-    ageInDays <= 7 ? 1.12 :   // Last week: strong boost
-    ageInDays <= 30 ? 1.05 :  // Last month: mild boost
-    ageInDays <= 90 ? 0.95 :  // 1-3 months: slight decay
-    0.88;                     // Older: gentle penalty
-  finalScore *= freshnessMultiplier;
 
     // Status Multiplier
   if (decision.status === 'superseded') finalScore *= 0.4;
@@ -438,6 +462,21 @@ export function scoreDecision(
   );
   finalScore *= outcomeMult;
 
+  // Staleness multiplier: tier-aware gradual ramp (permanent tier NEVER stale)
+  let stalenessMultiplier = 1.0;
+  if (STALENESS_ENABLED && temporalTier !== 'permanent') {
+    const lastReferenced = (decision as Decision & { last_referenced_at?: string | Date | null }).last_referenced_at;
+    const refDate = lastReferenced ? new Date(lastReferenced as string).getTime() : new Date(decision.created_at).getTime();
+    const daysUnreferenced = (Date.now() - refDate) / 86400000;
+    const stalenessConfig = STALENESS_CONFIG[temporalTier];
+    if (stalenessConfig && daysUnreferenced > stalenessConfig.threshold) {
+      const overage = daysUnreferenced - stalenessConfig.threshold;
+      const penalty = Math.min(stalenessConfig.maxPenalty, (overage / 30) * stalenessConfig.maxPenalty);
+      stalenessMultiplier = 1.0 - penalty;
+    }
+  }
+  finalScore *= stalenessMultiplier;
+
   // Normalize to [0, 1.0] — no score exceeds 1.0
   finalScore = Math.max(0, Math.min(1.0, finalScore));
 
@@ -454,7 +493,7 @@ export function scoreDecision(
       directAffect: directAffectScore,
       matchedTags: allMatchedTags,
       semanticScore,
-      freshnessMultiplier,
+      freshnessMultiplier: freshnessScore,
       keywordScore,
     },
     taskDescription,
@@ -468,14 +507,15 @@ export function scoreDecision(
     role_relevance: personaMatchScore,
     semantic_similarity: semanticScore,
     status_penalty: statusPenaltyVal,
-    freshness: freshnessMultiplier,
+    freshness: freshnessScore,
     combined: finalScore,
     // V4 extended signals
     keyword_score: keywordScore,
     made_by_bonus: madeByBonus,
     confidence_multiplier: confidenceMultiplier,
     specificity_multiplier: specificityMultiplier,
-    freshness_multiplier: freshnessMultiplier,
+    freshness_multiplier: freshnessScore,
+    staleness_multiplier: stalenessMultiplier,
     exclude_penalty: excludePenalty,
     domain_boost: domainBoost,
     wing_affinity_boost: wingAffinityBoost,
@@ -487,7 +527,7 @@ export function scoreDecision(
   return {
     ...decision,
     relevance_score: SCORING_WEIGHTS.directAffect * directAffectScore + SCORING_WEIGHTS.tagMatch * tagMatchScore + SCORING_WEIGHTS.personaMatch * personaMatchScore + SCORING_WEIGHTS.semanticSimilarity * semanticScore,
-    freshness_score: freshnessMultiplier,
+    freshness_score: freshnessScore,
     combined_score: finalScore,
     scoring_breakdown: breakdown,
   };
