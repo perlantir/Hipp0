@@ -151,12 +151,12 @@ export function registerCompileRoutes(app: Hono): void {
 
     const result = await compileContext(request);
 
-    // Fetch user_facts for this agent
+    // Fetch user_facts for this agent (only active, non-superseded)
     let userFacts: Array<{ key: string; value: string; confidence: number }> = [];
     try {
       const ufResult = await db.query(
         `SELECT fact_key, fact_value, confidence FROM user_facts
-         WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL)
+         WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL) AND is_active = true
          ORDER BY updated_at DESC LIMIT 20`,
         [project_id, agent_name],
       );
@@ -165,6 +165,14 @@ export function registerCompileRoutes(app: Hono): void {
         value: r.fact_value as string,
         confidence: (r.confidence as number) ?? 1.0,
       }));
+      // Update last_referenced_at for returned user_facts
+      if (userFacts.length > 0) {
+        await db.query(
+          `UPDATE user_facts SET last_referenced_at = NOW()
+           WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL) AND is_active = true`,
+          [project_id, agent_name],
+        ).catch(() => {});
+      }
     } catch (err) {
       console.warn('[hipp0/compile] user_facts query failed:', (err as Error).message);
     }

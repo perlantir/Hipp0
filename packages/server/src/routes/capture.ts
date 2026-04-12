@@ -265,40 +265,95 @@ async function runCaptureExtraction(
       ).catch(() => {});
     }
 
-    // Insert extracted user_facts into the user_facts table
+    // Insert extracted user_facts with confidence-gated supersession
+    const SUPERSESSION_ENABLED = process.env.HIPP0_SUPERSESSION_ENABLED !== 'false';
+    const SUPERSESSION_THRESHOLD = parseFloat(process.env.HIPP0_SUPERSESSION_CONFIDENCE_THRESHOLD || '0.85');
+
     if (result.user_facts && result.user_facts.length > 0) {
+      let addedCount = 0;
+      let supersededCount = 0;
+
       for (const fact of result.user_facts) {
         try {
-          // Upsert: update if same (project_id, agent_name, fact_key) exists
-          const existing = await db.query(
-            `SELECT id FROM user_facts WHERE project_id = ? AND agent_name = ? AND fact_key = ?`,
-            [projectId, agentName, fact.key],
-          );
-          if (existing.rows.length > 0) {
-            const factId = (existing.rows[0] as Record<string, unknown>).id as string;
-            await db.query(
-              `UPDATE user_facts SET fact_value = ?, confidence = ?, updated_at = ? WHERE id = ?`,
-              [fact.value, fact.confidence, new Date().toISOString(), factId],
+          // Determine effective action
+          let effectiveAction = fact.action ?? 'add';
+
+          // If supersession disabled globally, force all to "add"
+          if (!SUPERSESSION_ENABLED) {
+            effectiveAction = 'add';
+          }
+
+          // If action is "supersede" but confidence below threshold, downgrade to "add"
+          if (effectiveAction === 'supersede' && (fact.supersession_confidence ?? 0) < SUPERSESSION_THRESHOLD) {
+            console.warn(`[hipp0:capture] Supersession confidence ${fact.supersession_confidence} below threshold ${SUPERSESSION_THRESHOLD} for key "${fact.key}" — downgrading to add`);
+            effectiveAction = 'add';
+          }
+
+          if (effectiveAction === 'supersede') {
+            // Find matching active fact with same key AND same scope
+            const supersededKey = fact.supersedes_key ?? fact.key;
+            const existing = await db.query(
+              `SELECT id FROM user_facts WHERE project_id = ? AND agent_name = ? AND fact_key = ? AND scope = ? AND is_active = true`,
+              [projectId, agentName, supersededKey, fact.scope ?? 'global'],
             );
+
+            // Insert the new fact
+            const insertResult = await db.query(
+              `INSERT INTO user_facts (project_id, agent_name, user_id, fact_type, fact_key, fact_value, source, confidence, scope, category, is_active)
+               VALUES (?, ?, 'owner', 'preference', ?, ?, 'conversation', ?, ?, ?, true)
+               RETURNING id`,
+              [projectId, agentName, fact.key, fact.value, fact.confidence, fact.scope ?? 'global', fact.category ?? 'general'],
+            );
+            const newFactId = (insertResult.rows[0] as Record<string, unknown>).id as string;
+
+            // Supersede old facts if found
+            if (existing.rows.length > 0) {
+              for (const row of existing.rows) {
+                const oldId = (row as Record<string, unknown>).id as string;
+                await db.query(
+                  `UPDATE user_facts SET is_active = false, superseded_by = ?, superseded_at = ? WHERE id = ?`,
+                  [newFactId, new Date().toISOString(), oldId],
+                );
+              }
+              console.log(`[hipp0:capture] Superseded ${existing.rows.length} fact(s) for key "${supersededKey}" → new value: "${fact.value}"`);
+              supersededCount += existing.rows.length;
+            }
+            addedCount++;
           } else {
-            await db.query(
-              `INSERT INTO user_facts (project_id, agent_name, user_id, fact_type, fact_key, fact_value, source, confidence)
-               VALUES (?, ?, 'owner', 'preference', ?, ?, 'conversation', ?)`,
-              [projectId, agentName, fact.key, fact.value, fact.confidence],
+            // Action = "add" — check if exact same key already exists for this agent
+            const existing = await db.query(
+              `SELECT id FROM user_facts WHERE project_id = ? AND agent_name = ? AND fact_key = ? AND is_active = true`,
+              [projectId, agentName, fact.key],
             );
+            if (existing.rows.length > 0) {
+              // Update existing fact value
+              const factId = (existing.rows[0] as Record<string, unknown>).id as string;
+              await db.query(
+                `UPDATE user_facts SET fact_value = ?, confidence = ?, updated_at = ?, scope = ?, category = ? WHERE id = ?`,
+                [fact.value, fact.confidence, new Date().toISOString(), fact.scope ?? 'global', fact.category ?? 'general', factId],
+              );
+            } else {
+              // Insert new fact
+              await db.query(
+                `INSERT INTO user_facts (project_id, agent_name, user_id, fact_type, fact_key, fact_value, source, confidence, scope, category, is_active)
+                 VALUES (?, ?, 'owner', 'preference', ?, ?, 'conversation', ?, ?, ?, true)`,
+                [projectId, agentName, fact.key, fact.value, fact.confidence, fact.scope ?? 'global', fact.category ?? 'general'],
+              );
+            }
+            addedCount++;
           }
         } catch (err) {
           console.warn(`[hipp0:capture] Failed to upsert user_fact ${fact.key}:`, (err as Error).message);
         }
       }
-      console.log(`[hipp0:capture] Inserted/updated ${result.user_facts.length} user_facts for ${agentName}`);
+      console.log(`[hipp0:capture] Processed ${result.user_facts.length} user_facts for ${agentName}: ${addedCount} added/updated, ${supersededCount} superseded`);
     }
 
     // Update capture record
     await db.query(
-      `UPDATE captures SET status = 'completed', extracted_decision_ids = ?, completed_at = ?
+      `UPDATE captures SET status = 'completed', extracted_decision_ids = ?, completed_at = ?, decisions_extracted = ?, facts_extracted = ?
        WHERE id = ?`,
-      [db.arrayParam(decisionIds), new Date().toISOString(), captureId],
+      [db.arrayParam(decisionIds), new Date().toISOString(), decisionIds.length, (result.user_facts ?? []).length, captureId],
     );
 
     logAudit('capture_completed', projectId, {

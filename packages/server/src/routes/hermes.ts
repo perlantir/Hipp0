@@ -844,7 +844,7 @@ export function registerHermesRoutes(app: Hono): void {
     const db = getDb();
 
     let sql = `SELECT fact_key, fact_value, confidence, source, created_at, updated_at
-       FROM user_facts WHERE project_id = ?`;
+       FROM user_facts WHERE project_id = ? AND is_active = true`;
     const params: unknown[] = [project_id];
 
     if (agent_name) {

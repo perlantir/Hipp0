@@ -470,6 +470,12 @@ export interface AgentUserFact {
   key: string;
   value: string;
   confidence: number;
+  category: string;
+  scope: string;
+  action: 'add' | 'supersede';
+  supersession_confidence: number;
+  supersedes_key?: string;
+  reason?: string;
 }
 
 export interface AgentObservation {
@@ -494,11 +500,31 @@ Output format:
 { "type": "decision", "title": "<concise title>", "description": "<full context>", "reasoning": "<why>", "confidence": "high"|"medium"|"low", "tags": ["<relevant>"], "affects": ["<agent_name>"] }
 
 ## Category 2: USER_FACTS
-Anything the user reveals about themselves: name, preferred name/title, communication preferences, work style, role, timezone, tools they use, priorities, pet peeves, background.
+Anything the user reveals about themselves: name, preferred name/title, communication preferences, work style, role, timezone, tools they use, priorities, pet peeves, background, interests, projects.
 Output format:
-{ "type": "user_fact", "key": "<snake_case_key>", "value": "<the fact as stated>", "confidence": 1.0 }
+{ "type": "user_fact", "key": "<key>", "value": "<the fact as stated>", "confidence": 1.0, "category": "<category>", "scope": "global", "action": "add"|"supersede", "supersession_confidence": 0.0, "reason": "<why this action>" }
 
-Common keys: preferred_name, communication_style, role, timezone, top_priority, tools_used, pet_peeves, background, company, team_size
+For "supersede" actions, also include: "supersedes_key": "<key_of_fact_being_replaced>"
+
+### KEY FORMAT rules:
+- Singular facts (only one value at a time): "preferred_name", "communication_style", "top_priority", "role", "timezone", "company"
+- Additive facts (multiple can coexist): "interest:<specifier>", "project:<specifier>", "tool:<specifier>", "skill:<specifier>"
+- Additive keys with different specifiers NEVER conflict with each other
+
+### ACTION rules:
+- "supersede" ONLY for DIRECT CONTRADICTIONS of the same key:
+  - "Call me Nick" then "Call me Nicholas" = supersede (explicit name correction, supersedes_key="preferred_name")
+  - "Top priority is HIPP0" then "Top priority is now Bouts" = supersede (can only have one top priority)
+- "add" for EVERYTHING ELSE:
+  - New interests alongside old ones ("loves cheese" AND "loves monkeys" — both stay as separate keys interest:cheese, interest:monkeys)
+  - New projects alongside old ones (project:coffee_shop AND project:automotive — both stay)
+  - New tools alongside old ones (tool:react AND tool:vue — both stay)
+  - Any fact where the user is ADDING, not REPLACING
+
+### CATEGORIES: identity, interests, projects, tools, communication, work_style, background, general
+
+Common singular keys: preferred_name, communication_style, role, timezone, top_priority, company, team_size
+Common additive keys: interest:<topic>, project:<name>, tool:<name>, skill:<name>, pet_peeve:<topic>
 
 ## Category 3: OBSERVATIONS
 Important context: project status, blockers, things tried and failed, constraints, deadlines, architecture context, environment details.
@@ -589,10 +615,17 @@ export async function extractAgentItems(
         console.warn('[hipp0:distillery] Failed to normalise agent decision item:', err);
       }
     } else if (itemType === 'user_fact') {
+      const action = String(obj.action ?? 'add').toLowerCase();
       user_facts.push({
         key: String(obj.key ?? 'unknown'),
         value: String(obj.value ?? ''),
         confidence: typeof obj.confidence === 'number' ? obj.confidence : 1.0,
+        category: String(obj.category ?? 'general'),
+        scope: String(obj.scope ?? 'global'),
+        action: action === 'supersede' ? 'supersede' : 'add',
+        supersession_confidence: typeof obj.supersession_confidence === 'number' ? obj.supersession_confidence : 0.0,
+        supersedes_key: obj.supersedes_key ? String(obj.supersedes_key) : undefined,
+        reason: obj.reason ? String(obj.reason) : undefined,
       });
     } else if (itemType === 'observation') {
       observations.push({

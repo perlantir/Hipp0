@@ -598,7 +598,7 @@ export interface DistilleryResult {
   contradictions_found: number;
   decisions: Decision[];
   session_summary?: SessionSummary;
-  user_facts?: Array<{ key: string; value: string; confidence: number }>;
+  user_facts?: Array<{ key: string; value: string; confidence: number; category: string; scope: string; action: 'add' | 'supersede'; supersession_confidence: number; supersedes_key?: string; reason?: string }>;
   observations?: Array<{ content: string; tags: string[]; source_agent: string }>;
 }
 
