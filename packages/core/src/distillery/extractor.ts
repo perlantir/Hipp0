@@ -500,31 +500,59 @@ Output format:
 { "type": "decision", "title": "<concise title>", "description": "<full context>", "reasoning": "<why>", "confidence": "high"|"medium"|"low", "tags": ["<relevant>"], "affects": ["<agent_name>"] }
 
 ## Category 2: USER_FACTS
-Anything the user reveals about themselves: name, preferred name/title, communication preferences, work style, role, timezone, tools they use, priorities, pet peeves, background, interests, projects.
+Anything the user reveals about themselves OR how they want their work to feel — including casual, descriptive, "soft" context. Casual context is FIRST-CLASS: aesthetic preferences, work habits, project vibes, mood, music, lighting, colors, tone, voice.
+
 Output format:
-{ "type": "user_fact", "key": "<key>", "value": "<the fact as stated>", "confidence": 1.0, "category": "<category>", "scope": "global", "action": "add"|"supersede", "supersession_confidence": 0.0, "reason": "<why this action>" }
+{ "type": "user_fact", "key": "<key>", "value": "<the fact as stated>", "confidence": 0.9, "category": "<category>", "scope": "global", "action": "add"|"supersede", "supersession_confidence": 0.0, "reason": "<why this action>" }
 
 For "supersede" actions, also include: "supersedes_key": "<key_of_fact_being_replaced>"
 
+### When to extract a USER_FACT (be liberal — err on the side of MORE):
+- Hard facts: name, role, timezone, tools they use, team size, company.
+- Communication style: "I prefer terse answers", "explain things step by step".
+- Work habits: "I work best in the late afternoons", "I focus with lo-fi music", "I prefer dark mode".
+- Aesthetic / design preferences: "I love warm copper accents and soft gradients", "minimalist", "playful illustrations".
+- Project vibe / direction: "make it feel fun and energetic", "mobile-first", "premium and quiet".
+- Any "I want / I like / I love / I hate / I prefer / I avoid" statement, even when it sounds casual or descriptive.
+
+If you are unsure whether a casual statement is worth keeping, EXTRACT IT. Soft preferences are exactly the kind of context other agents need.
+
 ### KEY FORMAT rules:
-- Singular facts (only one value at a time): "preferred_name", "communication_style", "top_priority", "role", "timezone", "company"
-- Additive facts (multiple can coexist): "interest:<specifier>", "project:<specifier>", "tool:<specifier>", "skill:<specifier>"
-- Additive keys with different specifiers NEVER conflict with each other
+- Singular facts (only one value at a time): "preferred_name", "communication_style", "top_priority", "role", "timezone", "company".
+- Additive facts (multiple can coexist), use a colon-prefixed namespace:
+  - "interest:<topic>", "project:<name>", "tool:<name>", "skill:<name>", "pet_peeve:<topic>"
+  - "preference:<area>:<specifier>"  e.g. preference:ui:dark_mode, preference:design:color_palette, preference:tone:writing
+  - "habit:<context>"                 e.g. habit:focus_music, habit:brainstorm_time, habit:standup_style
+  - "vibe:<scope>"                    e.g. vibe:dashboard, vibe:landing_page, vibe:bouts_brand
+- Additive keys with different specifiers NEVER conflict with each other — emit each one separately.
 
 ### ACTION rules:
 - "supersede" ONLY for DIRECT CONTRADICTIONS of the same key:
-  - "Call me Nick" then "Call me Nicholas" = supersede (explicit name correction, supersedes_key="preferred_name")
-  - "Top priority is HIPP0" then "Top priority is now Bouts" = supersede (can only have one top priority)
-- "add" for EVERYTHING ELSE:
-  - New interests alongside old ones ("loves cheese" AND "loves monkeys" — both stay as separate keys interest:cheese, interest:monkeys)
-  - New projects alongside old ones (project:coffee_shop AND project:automotive — both stay)
-  - New tools alongside old ones (tool:react AND tool:vue — both stay)
-  - Any fact where the user is ADDING, not REPLACING
+  - "Call me Nick" then "Call me Nicholas" = supersede (supersedes_key="preferred_name")
+  - "Top priority is HIPP0" then "Top priority is now Bouts" = supersede (only one top priority).
+- "add" for EVERYTHING ELSE — including new casual preferences, habits, and vibes.
+  - Casual context is almost always additive. A new aesthetic preference does NOT replace an old one unless the user explicitly says "actually, I changed my mind about X".
+  - New interests, projects, tools, vibes alongside old ones — all coexist as separate keys.
 
-### CATEGORIES: identity, interests, projects, tools, communication, work_style, background, general
+### CATEGORIES: identity, interests, projects, tools, communication, work_style, background, preferences, habits, project_vibe, general
+- Use "preferences" for aesthetic / UI / design / tone choices.
+- Use "habits" for how/when/where the user works best.
+- Use "project_vibe" for the feel/direction of a specific project.
+
+### Examples of casual context that MUST be extracted:
+- "I love warm copper accents and soft gradients for the dashboard"
+  → { type: user_fact, key: "preference:design:color_palette", value: "warm copper accents and soft gradients", category: "preferences", scope: "global", action: "add", confidence: 0.9 }
+- "I work best with lo-fi music in the background"
+  → { type: user_fact, key: "habit:focus_music", value: "lo-fi music in the background", category: "habits", scope: "global", action: "add", confidence: 0.9 }
+- "I prefer brainstorming in the late afternoons"
+  → { type: user_fact, key: "habit:brainstorm_time", value: "late afternoons", category: "habits", scope: "global", action: "add", confidence: 0.9 }
+- "Make the Bouts landing fun and energetic with bright colors and playful illustrations"
+  → { type: user_fact, key: "vibe:bouts_landing", value: "fun and energetic, bright colors, playful illustrations", category: "project_vibe", scope: "global", action: "add", confidence: 0.9 }
+- "I prefer dark mode"
+  → { type: user_fact, key: "preference:ui:dark_mode", value: "user prefers dark mode", category: "preferences", scope: "global", action: "add", confidence: 0.9 }
 
 Common singular keys: preferred_name, communication_style, role, timezone, top_priority, company, team_size
-Common additive keys: interest:<topic>, project:<name>, tool:<name>, skill:<name>, pet_peeve:<topic>
+Common additive keys: interest:<topic>, project:<name>, tool:<name>, skill:<name>, pet_peeve:<topic>, preference:<area>:<spec>, habit:<context>, vibe:<scope>
 
 ## Category 3: OBSERVATIONS
 Important context: project status, blockers, things tried and failed, constraints, deadlines, architecture context, environment details.
@@ -533,7 +561,10 @@ Output format:
 
 ## Rules
 - Extract EVERYTHING worth remembering. Err on the side of over-extraction.
-- If the user states a preference ("call me Nick", "I hate verbose answers"), that is a USER_FACT.
+- Casual / soft / descriptive context (preferences, habits, project vibes) is just as important as hard facts. Do NOT skip it because it sounds vague.
+- If the user states a preference ("call me Nick", "I hate verbose answers", "I love warm copper accents"), that is a USER_FACT.
+- If the user describes how they work or what helps them focus, that is a USER_FACT (category=habits).
+- If the user describes the desired feel of a project or surface, that is a USER_FACT (category=project_vibe, key=vibe:<scope>).
 - If the user makes a technical choice ("let's use Postgres"), that is a DECISION.
 - If the user mentions context ("we're blocked on 3 bugs"), that is an OBSERVATION.
 - Return a JSON array of all extracted items.
