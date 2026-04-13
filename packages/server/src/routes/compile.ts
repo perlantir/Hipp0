@@ -151,26 +151,30 @@ export function registerCompileRoutes(app: Hono): void {
 
     const result = await compileContext(request);
 
-    // Fetch user_facts for this agent (only active, non-superseded)
+    // Fetch user_facts for the whole project. user_facts are about the
+    // *user* (preferences, habits, vibes, identity) — they apply across
+    // every agent in the project, regardless of which agent originally
+    // captured them. Filtering by agent_name would break the core
+    // cross-agent memory thesis (e.g. Pixel learns the user's color
+    // palette, Chain should be able to recall it).
     let userFacts: Array<{ key: string; value: string; confidence: number }> = [];
     try {
       const ufResult = await db.query(
         `SELECT fact_key, fact_value, confidence FROM user_facts
-         WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL) AND is_active = true
+         WHERE project_id = ? AND is_active = true
          ORDER BY updated_at DESC LIMIT 20`,
-        [project_id, agent_name],
+        [project_id],
       );
       userFacts = ufResult.rows.map((r: any) => ({
         key: r.fact_key as string,
         value: r.fact_value as string,
         confidence: (r.confidence as number) ?? 1.0,
       }));
-      // Update last_referenced_at for returned user_facts
       if (userFacts.length > 0) {
         await db.query(
           `UPDATE user_facts SET last_referenced_at = NOW()
-           WHERE project_id = ? AND (agent_name = ? OR agent_name IS NULL) AND is_active = true`,
-          [project_id, agent_name],
+           WHERE project_id = ? AND is_active = true`,
+          [project_id],
         ).catch(() => {});
       }
     } catch (err) {
