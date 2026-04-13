@@ -592,9 +592,20 @@ export function registerCompileRoutes(app: Hono): void {
       insightsMarkdown = `## Team Insights (${teamInsights.length})\n${lines.join('\n')}\n\n---\n\n`;
     }
 
+    // Render user_facts as a markdown section so the agent actually sees
+    // them. They were already in the JSON payload but absent from the
+    // formatted_markdown the LLM reads as its prompt — which meant the
+    // cross-agent preferences/habits/vibes never reached the model.
+    let userFactsMarkdown = '';
+    if (userFacts.length > 0) {
+      const lines = userFacts.map(f => `- **${f.key}**: ${f.value}`);
+      userFactsMarkdown = `## 👤 User Facts (${userFacts.length})\n${lines.join('\n')}\n\n---\n\n`;
+    }
+
     // Prepend policy markdown to formatted output
     const formattedMarkdown = abstentionMarkdown + checkpointMarkdown + sessionMarkdown
       + (policyMarkdown ? policyMarkdown : '')
+      + userFactsMarkdown
       + insightsMarkdown
       + (result.formatted_markdown ?? '');
 
